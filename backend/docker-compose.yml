@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: adminlprds
+      POSTGRES_PASSWORD: lprds
+      POSTGRES_DB: lprds_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - lprds_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adminlprds -d lprds_database"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Toujours les noms de service Docker, quoi que dise le .env local (qui
+      # pointe vers "localhost" pour un usage hors-Docker) — évite le piège
+      # classique "ça marche en local mais pas en conteneur".
+      DATABASE_URL: postgresql+asyncpg://adminlprds:lprds@db:5432/lprds_database
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - lprds_media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  lprds_postgres_data:
+  lprds_media:

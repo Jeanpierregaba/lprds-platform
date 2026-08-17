@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system — Les Petits Rayons de Soleil
+ * Source : DESIGN.md (palette, typographie, rayons d'angle, boutons, ombres).
+ * Toutes les couleurs sont stockées en triplet HSL brut (sans hsl())
+ * pour rester composables (opacité via /NN, ex. bg-primary/10).
+ */
+
+@theme inline {
+  --color-background:         hsl(var(--background));
+  --color-foreground:         hsl(var(--foreground));
+  --color-card:                hsl(var(--card));
+  --color-card-foreground:     hsl(var(--card-foreground));
+  --color-popover:             hsl(var(--popover));
+  --color-popover-foreground:  hsl(var(--popover-foreground));
+  --color-primary:             hsl(var(--primary));
+  --color-primary-foreground:  hsl(var(--primary-foreground));
+  --color-secondary:           hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted:                hsl(var(--muted));
+  --color-muted-foreground:     hsl(var(--muted-foreground));
+  --color-accent:               hsl(var(--accent));
+  --color-accent-foreground:    hsl(var(--accent-foreground));
+  --color-destructive:          hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border:                hsl(var(--border));
+  --color-input:                 hsl(var(--input));
+  --color-ring:                  hsl(var(--ring));
+
+  /* Statuts — utiles pour présences (présent/retard/absent), rapports, etc. */
+  --color-success:            hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning:            hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-warning-soft:            hsl(var(--warning-soft));
+  --color-warning-soft-foreground: hsl(var(--warning-soft-foreground));
+
+  /* Charte DESIGN.md § 2 — couches inférieures des boutons (§ 4.3 / 4.4) */
+  --color-primary-layer:     hsl(var(--primary-layer));
+  --color-secondary-layer:   hsl(var(--secondary-layer));
+
+  /* Accents décoratifs de la charte (badges, tags, moments ludiques) */
+  --color-teal:              hsl(var(--teal));
+  --color-teal-foreground:   hsl(var(--teal-foreground));
+  --color-mint:              hsl(var(--mint));
+  --color-mint-foreground:   hsl(var(--mint-foreground));
+  --color-pale-green:            hsl(var(--pale-green));
+  --color-pale-green-foreground: hsl(var(--pale-green-foreground));
+  --color-orange:            hsl(var(--orange));
+  --color-orange-foreground: hsl(var(--orange-foreground));
+  --color-pink:              hsl(var(--pink));
+  --color-pink-foreground:   hsl(var(--pink-foreground));
+  --color-sky:               hsl(var(--sky));
+  --color-sky-foreground:    hsl(var(--sky-foreground));
+  --color-navy:              hsl(var(--navy));
+  --color-navy-foreground:   hsl(var(--navy-foreground));
+  --color-cream:              hsl(var(--cream));
+  --color-cream-foreground:   hsl(var(--cream-foreground));
+  --color-divider:            hsl(var(--divider));
+
+  /* Rayons — DESIGN.md § 6 : cartes 16–24px, boutons 9999px (rounded-full).
+     Base 16px → rounded-xl (cartes) = 24px, rounded-2xl = 32px. */
+  --radius-sm:  calc(var(--radius) - 4px);
+  --radius-md:  calc(var(--radius) - 2px);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 16px);
+
+  /* Ombre douce des cartes — DESIGN.md § 6 */
+  --shadow-soft: 0 8px 24px rgba(40, 51, 126, 0.08);
+
+  /* Polices — cf. DESIGN.md § 3 (chargées via next/font dans layout.tsx) */
+  --font-sans:    var(--font-work-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1rem; /* 16px — base (cartes 16–24px via rounded-lg/xl) */
+
+  /* Neutres & surfaces — DESIGN.md § 2 */
+  --background:         0 0% 100%;   /* Blanc Nuage #FFFFFF */
+  --foreground:          220 14% 29%; /* Gris Bleuté #3F4654 — texte courant */
+  --card:                 0 0% 100%;
+  --card-foreground:      220 14% 29%;
+  --popover:              0 0% 100%;
+  --popover-foreground:   220 14% 29%;
+  --border:               220 14% 90%; /* Bordures légères bleutées */
+  --input:                220 14% 90%;
+  --divider:              220 14% 82%;
+  --cream:                42 100% 95%; /* Crème Soleil #FFF8E8 */
+  --cream-foreground:     220 14% 29%;
+  --muted:                175 45% 94%; /* Bleu Très Clair #EAF7F6 — fonds de sections */
+  --muted-foreground:     220 14% 45%; /* Texte secondaire (dérivé du Gris Bleuté) */
+
+  /* Marque — DESIGN.md § 2 / § 4 */
+  --primary:              37 91% 57%;  /* Jaune Soleil #F5AA2D — CTA principal */
+  --primary-foreground:   0 0% 100%;
+  --primary-layer:        37 82% 47%;  /* #D88D16 — couche inférieure bouton principal */
+  --secondary:            170 35% 46%; /* Turquoise #4D9F92 — boutons secondaires */
+  --secondary-foreground: 0 0% 100%;
+  --secondary-layer:      172 43% 34%; /* #327D73 — couche inférieure bouton secondaire */
+  --accent:               42 100% 95%; /* Crème Soleil — survol/emphase douce */
+  --accent-foreground:    232 52% 33%; /* Bleu Profond */
+  --ring:                 170 35% 46%; /* Turquoise — focus/éléments interactifs */
+
+  /* Statuts */
+  --destructive:            0 100% 50%; /* Error Red #FF0000 */
+  --destructive-foreground: 0 0% 100%;
+  --success:                142 76% 36%; /* #16A34A */
+  --success-foreground:     0 0% 100%;
+  --warning:                38 89% 56%;  /* Warning Gold #F3A92B */
+  --warning-foreground:     0 0% 20%;
+  --warning-soft:           43 96% 56%;  /* Secondary Warning #FBBF24 */
+  --warning-soft-foreground: 0 0% 20%;
+
+  /* Accents décoratifs de la charte */
+  --teal:              170 35% 46%;  /* Turquoise #4D9F92 */
+  --teal-foreground:   0 0% 100%;
+  --mint:              175 45% 94%;  /* Bleu Très Clair #EAF7F6 */
+  --mint-foreground:   220 14% 29%;
+  --pale-green:            106 34% 52%; /* Vert Nature #6FAE5B */
+  --pale-green-foreground: 0 0% 100%;
+  --orange:            45 92% 58%;   /* Orange Doux #F6C434 */
+  --orange-foreground: 232 52% 33%;  /* Texte Bleu Profond sur fond clair */
+  --pink:              328 87% 48%;  /* Rose Framboise #E3107F */
+  --pink-foreground:   0 0% 100%;
+  --sky:               211 65% 36%;  /* Bleu Ciel #205996 — liens */
+  --sky-foreground:    0 0% 100%;
+  --navy:              232 52% 33%;  /* Bleu Profond #28337E — titres/navigation */
+  --navy-foreground:   0 0% 100%;
+}
+
+/*
+ * Mode sombre — non spécifié dans DESIGN.md (charte pensée pour un fond
+ * clair). Palette dérivée en conservant les teintes de marque, ajustées en
+ * luminosité pour rester lisibles et confortables sur fond sombre.
+ */
+.dark {
+  --background:         232 30% 8%;
+  --foreground:          0 0% 96%;
+  --card:                 232 25% 11%;
+  --card-foreground:      0 0% 96%;
+  --popover:              232 25% 11%;
+  --popover-foreground:   0 0% 96%;
+  --border:               232 15% 18%;
+  --input:                232 15% 18%;
+  --divider:              232 15% 22%;
+  --cream:                42 25% 14%;
+  --cream-foreground:     0 0% 92%;
+  --muted:                232 20% 14%;
+  --muted-foreground:     0 0% 65%;
+
+  --primary:              37 90% 60%;
+  --primary-foreground:   0 0% 100%;
+  --primary-layer:        37 60% 45%;
+  --secondary:            170 40% 55%;
+  --secondary-foreground: 0 0% 100%;
+  --secondary-layer:      172 40% 40%;
+  --accent:               42 25% 15%;
+  --accent-foreground:    42 60% 90%;
+  --ring:                 170 45% 60%;
+
+  --destructive:            0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --success:                142 60% 45%;
+  --success-foreground:     0 0% 100%;
+  --warning:                38 80% 55%;
+  --warning-foreground:     0 0% 12%;
+  --warning-soft:           43 85% 55%;
+  --warning-soft-foreground: 0 0% 12%;
+
+  --teal:              170 45% 55%;
+  --teal-foreground:   0 0% 100%;
+  --mint:              175 25% 16%;
+  --mint-foreground:   175 40% 88%;
+  --pale-green:            106 35% 45%;
+  --pale-green-foreground: 0 0% 100%;
+  --orange:            45 85% 60%;
+  --orange-foreground: 0 0% 12%;
+  --pink:              328 80% 60%;
+  --pink-foreground:   0 0% 100%;
+  --sky:               211 70% 60%;
+  --sky-foreground:    0 0% 100%;
+  --navy:              232 50% 70%;
+  --navy-foreground:   232 40% 12%;
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+  }
+
+  /* Hiérarchie de titres — DESIGN.md § 3. Fredoka One pour H1→H4.
+     Les classes Tailwind explicites (text-2xl, etc.) restent prioritaires
+     grâce aux cascade layers. */
+  h1 {
+    font-family: var(--font-display);
+    font-size: 3.75rem;   /* 60px — plage 48–64px */
+    font-weight: 600;
+    line-height: 1;       /* 60px */
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-size: 3rem;      /* 48px — plage 36–48px */
+    font-weight: 400;
+    line-height: 1;       /* 48px */
+  }
+  h3 {
+    font-family: var(--font-display);
+    font-size: 1.875rem;  /* 30px — plage 28–32px */
+    font-weight: 400;
+    line-height: 1.2;     /* 36px */
+  }
+  h4 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;    /* 24px — plage 22–26px */
+    font-weight: 400;
+    line-height: 1.25;    /* 30px */
+  }
+}
+
+@layer utilities {
+  /* Rôles typographiques nommés de DESIGN.md § 3 — à utiliser explicitement
+     sur le site vitrine / contenus longs (le dashboard garde ses tailles
+     Tailwind compactes habituelles, ex. text-sm). */
+  .text-body {
+    font-family: var(--font-sans);
+    font-size: 1.0625rem; /* 17px — plage 16–18px */
+    font-weight: 400;
+    line-height: 1.6;     /* 27px */
+  }
+  .text-emphasis {
+    font-family: var(--font-sans);
+    font-size: 1rem;      /* 16px */
+    font-weight: 500;
+    line-height: 1.5;     /* 24px */
+  }
+  .text-link {
+    font-family: var(--font-sans);
+    font-size: 1rem;      /* 16px */
+    font-weight: 400;
+    line-height: 1.5;     /* 24px */
+  }
+  .text-button-label {
+    font-family: var(--font-sans);
+    font-size: 0.875rem;  /* 14px */
+    font-weight: 600;
+    line-height: 1.429;   /* 20px */
+  }
+  .text-caption {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem; /* 13px — plage 12–13px */
+    font-weight: 400;
+    line-height: 1.538;   /* 20px */
+  }
+}

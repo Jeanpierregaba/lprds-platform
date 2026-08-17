@@ -1,0 +1,598 @@
+'use client'
+
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { motion } from 'framer-motion'
+import { toast } from 'sonner'
+import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { organizationApi } from '@/lib/api/organization.api'
+import { childrenApi } from '@/lib/api/children.api'
+import { getApiErrorMessage } from '@/lib/utils/api-error'
+import type { Child } from '@/types/children'
+
+const infoSchema = z.object({
+  last_name: z.string().min(1, 'Nom requis').max(100),
+  first_names: z.string().min(1, 'Prénoms requis').max(200),
+  birth_date: z.string().min(1, 'Date de naissance requise'),
+  admission_date: z.string().min(1, "Date d'admission requise"),
+  residence_address: z.string().min(1, 'Adresse requise').max(500),
+  department_id: z.string(),
+  section_id: z.string(),
+})
+type InfoForm = z.infer<typeof infoSchema>
+
+const behaviorSchema = z.object({
+  behavioral_notes: z.string().max(2000).optional().or(z.literal('')),
+  preferences: z.string().max(2000).optional().or(z.literal('')),
+})
+type BehaviorForm = z.infer<typeof behaviorSchema>
+
+const medicalSchema = z.object({
+  medical_notes: z.string().max(2000).optional().or(z.literal('')),
+  dietary_restrictions: z.string().max(2000).optional().or(z.literal('')),
+  medications: z.string().max(2000).optional().or(z.literal('')),
+  doctor_name: z.string().max(150).optional().or(z.literal('')),
+  doctor_phone: z.string().max(20).optional().or(z.literal('')),
+})
+type MedicalForm = z.infer<typeof medicalSchema>
+
+const guardianSchema = z.object({
+  last_name: z.string().min(1, 'Nom requis').max(100),
+  first_names: z.string().min(1, 'Prénoms requis').max(200),
+  phone: z.string().min(1, 'Téléphone requis').max(20),
+  email: z.string().email('Email invalide').optional().or(z.literal('')),
+})
+const authorizedPersonSchema = z.object({
+  last_name: z.string().min(1, 'Nom requis').max(100),
+  first_names: z.string().min(1, 'Prénoms requis').max(200),
+  phone: z.string().min(1, 'Téléphone requis').max(20),
+})
+const contactsSchema = z.object({
+  guardians: z.array(guardianSchema).min(1, 'Au moins un tuteur est requis'),
+  authorized_persons: z.array(authorizedPersonSchema),
+})
+type ContactsForm = z.infer<typeof contactsSchema>
+
+export default function ChildDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const queryClient = useQueryClient()
+
+  const { data: child, isLoading } = useQuery({
+    queryKey: ['child', id],
+    queryFn: () => childrenApi.get(id).then((r) => r.data),
+  })
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['child', id] })
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: () => childrenApi.setStatus(id, !child?.is_active),
+    onSuccess: () => {
+      toast.success(child?.is_active ? 'Fiche désactivée.' : 'Fiche réactivée.')
+      invalidate()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (!child) {
+    return <p className="text-muted-foreground">Fiche enfant introuvable.</p>
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="max-w-3xl space-y-4"
+    >
+      <Link
+        href="/dashboard/admin/children"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Retour à la liste
+      </Link>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{child.first_names} {child.last_name}</h1>
+            <Badge variant={child.is_active ? 'default' : 'outline'}>
+              {child.is_active ? 'Actif' : 'Inactif'}
+            </Badge>
+          </div>
+          <p className="font-mono text-sm text-muted-foreground">{child.matricule}</p>
+        </div>
+
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant={child.is_active ? 'destructive' : 'outline'} />}>
+            {child.is_active ? 'Désactiver' : 'Réactiver'}
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {child.is_active ? 'Désactiver cette fiche ?' : 'Réactiver cette fiche ?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {child.is_active
+                  ? 'La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment jamais.'
+                  : 'La fiche redeviendra active.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={() => toggleActiveMutation.mutate()}>
+                Confirmer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      <Tabs defaultValue="infos">
+        <TabsList>
+          <TabsTrigger value="infos">Infos</TabsTrigger>
+          <TabsTrigger value="behavior">Comportement</TabsTrigger>
+          <TabsTrigger value="medical">Médical</TabsTrigger>
+          <TabsTrigger value="contacts">Tuteurs ({child.guardians.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="infos">
+          <InfoTab childId={id} child={child} onSaved={invalidate} />
+        </TabsContent>
+        <TabsContent value="behavior">
+          <BehaviorTab childId={id} child={child} onSaved={invalidate} />
+        </TabsContent>
+        <TabsContent value="medical">
+          <MedicalTab childId={id} child={child} onSaved={invalidate} />
+        </TabsContent>
+        <TabsContent value="contacts">
+          <ContactsTab childId={id} child={child} onSaved={invalidate} />
+        </TabsContent>
+      </Tabs>
+    </motion.div>
+  )
+}
+
+type TabProps = { childId: string; child: Child; onSaved: () => void }
+
+function InfoTab({ childId, child, onSaved }: TabProps) {
+  const { data: departments } = useQuery({
+    queryKey: ['departments', { includeInactive: false }],
+    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
+  })
+
+  const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm<InfoForm>({
+    resolver: zodResolver(infoSchema),
+    defaultValues: {
+      last_name: child.last_name,
+      first_names: child.first_names,
+      birth_date: child.birth_date,
+      admission_date: child.admission_date,
+      residence_address: child.residence_address,
+      department_id: child.department?.id ?? '',
+      section_id: child.section?.id ?? '',
+    },
+  })
+
+  const departmentId = watch('department_id')
+
+  const { data: sections } = useQuery({
+    queryKey: ['sections', { departmentId: departmentId || '__all__', includeInactive: false }],
+    queryFn: () =>
+      organizationApi
+        .listSections({ department_id: departmentId || undefined, include_inactive: false })
+        .then((r) => r.data),
+  })
+
+  const onSubmit = async (values: InfoForm) => {
+    try {
+      await childrenApi.update(childId, {
+        last_name: values.last_name,
+        first_names: values.first_names,
+        birth_date: values.birth_date,
+        admission_date: values.admission_date,
+        residence_address: values.residence_address,
+        department_id: values.department_id || null,
+        section_id: values.section_id || null,
+      })
+      toast.success('Fiche mise à jour.')
+      onSaved()
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Nom</Label>
+              <Input id="last_name" {...register('last_name')} aria-invalid={!!errors.last_name} />
+              {errors.last_name && <p className="text-sm text-destructive">{errors.last_name.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="first_names">Prénoms</Label>
+              <Input id="first_names" {...register('first_names')} aria-invalid={!!errors.first_names} />
+              {errors.first_names && <p className="text-sm text-destructive">{errors.first_names.message}</p>}
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="birth_date">Date de naissance</Label>
+              <Input id="birth_date" type="date" {...register('birth_date')} aria-invalid={!!errors.birth_date} />
+              {errors.birth_date && <p className="text-sm text-destructive">{errors.birth_date.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admission_date">Date d&apos;admission</Label>
+              <Input id="admission_date" type="date" {...register('admission_date')} aria-invalid={!!errors.admission_date} />
+              {errors.admission_date && <p className="text-sm text-destructive">{errors.admission_date.message}</p>}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="residence_address">Adresse de résidence</Label>
+            <Input id="residence_address" {...register('residence_address')} aria-invalid={!!errors.residence_address} />
+            {errors.residence_address && <p className="text-sm text-destructive">{errors.residence_address.message}</p>}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="department_id">Département</Label>
+              <Controller
+                control={control}
+                name="department_id"
+                render={({ field }) => (
+                  <Select
+                    items={Object.fromEntries((departments ?? []).map((d) => [d.id, d.name]))}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger id="department_id" className="w-full">
+                      <SelectValue placeholder="Aucun" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments?.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="section_id">Section</Label>
+              <Controller
+                control={control}
+                name="section_id"
+                render={({ field }) => (
+                  <Select
+                    items={Object.fromEntries((sections ?? []).map((s) => [s.id, s.name]))}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger id="section_id" className="w-full">
+                      <SelectValue placeholder="Aucune" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sections?.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function BehaviorTab({ childId, child, onSaved }: TabProps) {
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<BehaviorForm>({
+    resolver: zodResolver(behaviorSchema),
+    defaultValues: {
+      behavioral_notes: child.behavioral_notes ?? '',
+      preferences: child.preferences ?? '',
+    },
+  })
+
+  const onSubmit = async (values: BehaviorForm) => {
+    try {
+      await childrenApi.update(childId, {
+        behavioral_notes: values.behavioral_notes || null,
+        preferences: values.preferences || null,
+      })
+      toast.success('Fiche mise à jour.')
+      onSaved()
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div className="space-y-2">
+            <Label htmlFor="behavioral_notes">Notes comportementales</Label>
+            <Textarea id="behavioral_notes" rows={4} {...register('behavioral_notes')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="preferences">Préférences</Label>
+            <Textarea id="preferences" rows={4} {...register('preferences')} />
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function MedicalTab({ childId, child, onSaved }: TabProps) {
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<MedicalForm>({
+    resolver: zodResolver(medicalSchema),
+    defaultValues: {
+      medical_notes: child.medical_notes ?? '',
+      dietary_restrictions: child.dietary_restrictions ?? '',
+      medications: child.medications ?? '',
+      doctor_name: child.doctor_name ?? '',
+      doctor_phone: child.doctor_phone ?? '',
+    },
+  })
+
+  const onSubmit = async (values: MedicalForm) => {
+    try {
+      await childrenApi.update(childId, {
+        medical_notes: values.medical_notes || null,
+        dietary_restrictions: values.dietary_restrictions || null,
+        medications: values.medications || null,
+        doctor_name: values.doctor_name || null,
+        doctor_phone: values.doctor_phone || null,
+      })
+      toast.success('Fiche mise à jour.')
+      onSaved()
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div className="space-y-2">
+            <Label htmlFor="medical_notes">Notes médicales</Label>
+            <Textarea id="medical_notes" rows={3} {...register('medical_notes')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dietary_restrictions">Restrictions alimentaires</Label>
+            <Textarea id="dietary_restrictions" rows={3} {...register('dietary_restrictions')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="medications">Médicaments</Label>
+            <Textarea id="medications" rows={3} {...register('medications')} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="doctor_name">Médecin traitant</Label>
+              <Input id="doctor_name" {...register('doctor_name')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="doctor_phone">Téléphone du médecin</Label>
+              <Input id="doctor_phone" {...register('doctor_phone')} />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ContactsTab({ childId, child, onSaved }: TabProps) {
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<ContactsForm>({
+    resolver: zodResolver(contactsSchema),
+    defaultValues: {
+      guardians: child.guardians.map((g) => ({ ...g, email: g.email ?? '' })),
+      authorized_persons: child.authorized_persons,
+    },
+  })
+
+  const guardianFields = useFieldArray({ control, name: 'guardians' })
+  const authorizedFields = useFieldArray({ control, name: 'authorized_persons' })
+
+  const onSubmit = async (values: ContactsForm) => {
+    try {
+      await childrenApi.update(childId, {
+        guardians: values.guardians.map((g) => ({ ...g, email: g.email || undefined })),
+        authorized_persons: values.authorized_persons,
+      })
+      toast.success('Contacts mis à jour.')
+      onSaved()
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-6 pt-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Tuteurs</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => guardianFields.append({ last_name: '', first_names: '', phone: '', email: '' })}
+              >
+                <Plus className="mr-1.5 size-4" />
+                Ajouter un tuteur
+              </Button>
+            </div>
+            {errors.guardians?.message && (
+              <p className="text-sm text-destructive">{errors.guardians.message}</p>
+            )}
+            <div className="space-y-4">
+              {guardianFields.fields.map((field, index) => (
+                <div key={field.id} className="space-y-3 rounded-md border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">Tuteur {index + 1}</p>
+                    {guardianFields.fields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => guardianFields.remove(index)}
+                        aria-label={`Retirer le tuteur ${index + 1}`}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`guardians.${index}.last_name`}>Nom</Label>
+                      <Input id={`guardians.${index}.last_name`} {...register(`guardians.${index}.last_name`)} />
+                      {errors.guardians?.[index]?.last_name && (
+                        <p className="text-sm text-destructive">{errors.guardians[index]?.last_name?.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`guardians.${index}.first_names`}>Prénoms</Label>
+                      <Input id={`guardians.${index}.first_names`} {...register(`guardians.${index}.first_names`)} />
+                      {errors.guardians?.[index]?.first_names && (
+                        <p className="text-sm text-destructive">{errors.guardians[index]?.first_names?.message}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`guardians.${index}.phone`}>Téléphone</Label>
+                      <Input id={`guardians.${index}.phone`} {...register(`guardians.${index}.phone`)} />
+                      {errors.guardians?.[index]?.phone && (
+                        <p className="text-sm text-destructive">{errors.guardians[index]?.phone?.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`guardians.${index}.email`}>Email (optionnel)</Label>
+                      <Input id={`guardians.${index}.email`} type="email" {...register(`guardians.${index}.email`)} />
+                      {errors.guardians?.[index]?.email && (
+                        <p className="text-sm text-destructive">{errors.guardians[index]?.email?.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Personnes autorisées</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => authorizedFields.append({ last_name: '', first_names: '', phone: '' })}
+              >
+                <Plus className="mr-1.5 size-4" />
+                Ajouter
+              </Button>
+            </div>
+            <div className="space-y-4">
+              {authorizedFields.fields.map((field, index) => (
+                <div key={field.id} className="space-y-3 rounded-md border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">Personne {index + 1}</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => authorizedFields.remove(index)}
+                      aria-label={`Retirer la personne ${index + 1}`}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`authorized_persons.${index}.last_name`}>Nom</Label>
+                      <Input id={`authorized_persons.${index}.last_name`} {...register(`authorized_persons.${index}.last_name`)} />
+                      {errors.authorized_persons?.[index]?.last_name && (
+                        <p className="text-sm text-destructive">{errors.authorized_persons[index]?.last_name?.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`authorized_persons.${index}.first_names`}>Prénoms</Label>
+                      <Input id={`authorized_persons.${index}.first_names`} {...register(`authorized_persons.${index}.first_names`)} />
+                      {errors.authorized_persons?.[index]?.first_names && (
+                        <p className="text-sm text-destructive">{errors.authorized_persons[index]?.first_names?.message}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`authorized_persons.${index}.phone`}>Téléphone</Label>
+                    <Input id={`authorized_persons.${index}.phone`} {...register(`authorized_persons.${index}.phone`)} />
+                    {errors.authorized_persons?.[index]?.phone && (
+                      <p className="text-sm text-destructive">{errors.authorized_persons[index]?.phone?.message}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}

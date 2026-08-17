@@ -1,0 +1,58 @@
+// Rôles identiques au backend
+export type UserRole = 'superadmin' | 'admin' | 'staff' | 'parent'
+
+export interface User {
+  id:               string
+  email:            string
+  first_name:       string
+  last_name:        string
+  phone:            string | null
+  role:             UserRole
+  establishment_id: string | null
+  is_active:        boolean
+  must_change_pwd:  boolean
+  created_at:       string
+  last_login_at:    string | null
+}
+
+export interface TokenResponse {
+    access_token:    string
+    refresh_token:   string
+    token_type:      string
+    must_change_pwd: boolean
+}
+  
+export interface LoginPayload {
+    email:    string
+    password: string
+}
+
+export interface PasswordResetPayload {
+    email: string
+}
+  
+export interface PasswordResetConfirmPayload {
+    token:        string
+    new_password: string
+}
+  
+export interface PasswordChangePayload {
+    current_password: string
+    new_password:     string
+}
+
+// Mapping rôle → libellé affiché
+export const ROLE_LABELS: Record<UserRole, string> = {
+    superadmin: 'Super Administrateur',
+    admin:      'Administrateur',
+    staff:      'Personnel',
+    parent:     'Parent',
+}
+  
+// Redirection par rôle après login
+  export const ROLE_HOME: Record<UserRole, string> = {
+    superadmin: '/dashboard/super',
+    admin:      '/dashboard/admin',
+    staff:      '/dashboard/staff',
+    parent:     '/dashboard/parent',
+}

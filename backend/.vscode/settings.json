@@ -1,0 +1,15 @@
+{
+    "python.defaultInterpreterPath": ".venv/bin/python",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "explicit",
+        "source.organizeImports.ruff": "explicit"
+      }
+    },
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "editor.rulers": [88]
+  }

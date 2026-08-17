@@ -1,0 +1,77 @@
+export interface UserBrief {
+  id:         string
+  first_name: string
+  last_name:  string
+  nickname?:  string | null
+}
+
+export interface DayMenu {
+  collation: string | null
+  dejeuner:  string | null
+  dessert:   string | null
+  gouter:    string | null
+}
+
+export const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as const
+export type Weekday = (typeof WEEKDAYS)[number]
+
+export const WEEKDAY_LABELS: Record<Weekday, string> = {
+  monday: 'Lundi',
+  tuesday: 'Mardi',
+  wednesday: 'Mercredi',
+  thursday: 'Jeudi',
+  friday: 'Vendredi',
+}
+
+export const MEAL_SLOTS = ['collation', 'dejeuner', 'dessert', 'gouter'] as const
+export type MealSlot = (typeof MEAL_SLOTS)[number]
+
+export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
+  collation: 'Collation',
+  dejeuner: 'Déjeuner',
+  dessert: 'Dessert',
+  gouter: 'Goûter',
+}
+
+export type WeekContent = Record<Weekday, DayMenu>
+
+export interface Menu extends WeekContent {
+  id:               string
+  establishment_id: string
+  week_start:       string
+  week_end:         string
+  created_by:       UserBrief
+  updated_by:       UserBrief | null
+  created_at:       string
+  updated_at:       string
+}
+
+export interface MenuListItem {
+  id:         string
+  week_start: string
+  week_end:   string
+  updated_at: string
+}
+
+export interface MenuListResponse {
+  total: number
+  items: MenuListItem[]
+}
+
+export type MenuWritePayload = WeekContent
+
+export interface MenuCreatePayload extends WeekContent {
+  week_start: string
+}
+
+export const EMPTY_DAY_MENU: DayMenu = { collation: null, dejeuner: null, dessert: null, gouter: null }
+
+export function emptyWeek(): WeekContent {
+  return {
+    monday: { ...EMPTY_DAY_MENU },
+    tuesday: { ...EMPTY_DAY_MENU },
+    wednesday: { ...EMPTY_DAY_MENU },
+    thursday: { ...EMPTY_DAY_MENU },
+    friday: { ...EMPTY_DAY_MENU },
+  }
+}

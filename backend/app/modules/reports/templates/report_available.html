@@ -1,0 +1,14 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#2563eb">Nouveau rapport disponible</h2>
+  <p>Bonjour {{ parent_first_name }},</p>
+  <p>Un rapport <strong>{{ report_type_label }}</strong> ({{ period_label }}) concernant
+     <strong>{{ child_name }}</strong> vient d'être validé et est désormais consultable
+     sur votre espace parent {{ platform_name }}.</p>
+  <a href="{{ portal_url }}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px">
+    Consulter le rapport
+  </a>
+</body>
+</html>

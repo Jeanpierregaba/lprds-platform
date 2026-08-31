@@ -1,0 +1,7 @@
+
+# Médias uploadés (ne doivent jamais être versionnés)
+backend/media/
+
+# Dump Redis
+dump.rdb
+*.rdb

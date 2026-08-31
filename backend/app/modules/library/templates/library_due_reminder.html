@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family: Arial, sans-serif; color: #18181b; background: #f4f4f5; margin: 0; padding: 24px;">
+  <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px;">
+    <h2 style="color: #18181b; margin-top: 0;">Rappel : livres à rendre</h2>
+    <p>Bonjour {{ parent_first_name }},</p>
+    {% if items|length == 1 %}
+    <p>Le livre ci-dessous emprunté à la bibliothèque de l'établissement doit bientôt être rendu :</p>
+    {% else %}
+    <p>Les livres ci-dessous empruntés à la bibliothèque de l'établissement doivent bientôt être rendus :</p>
+    {% endif %}
+    <ul>
+      {% for item in items %}
+      <li>
+        <strong>{{ item.book_title }}</strong>
+        — {{ item.child_name }}
+        <br>Retour prévu : le {{ item.due_date }}
+        {% if item.status == 'overdue' %}
+        <br><span style="color: #dc2626;">Retard de {{ item.overdue_days }} jour(s)</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p>Merci de ramener {{ 'ce livre' if items|length == 1 else 'ces livres' }} dans les meilleurs délais.</p>
+    <p>
+      <a href="{{ library_url }}" style="background:#18181b;color:#ffffff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">
+        Voir mes emprunts
+      </a>
+    </p>
+    <p style="color:#71717a;font-size:12px;margin-top:24px;">{{ platform_name }}</p>
+  </div>
+</body>
+</html>

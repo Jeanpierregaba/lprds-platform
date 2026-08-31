@@ -1,7 +1,7 @@
 import uuid
 from datetime import date as date_
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,11 +15,15 @@ from app.modules.attendance.schemas import (
     AttendanceSettingsRequest,
     ChildDailyStatusListResponse,
     DepartmentAttendanceSettingsResponse,
+    ExportFileFormat,
+    ExportPersonType,
     QRCodeResponse,
     ScanRequest,
     StaffDailyStatusListResponse,
     StaffExemptionRequest,
     StaffExemptionResponse,
+    StaffScheduleRequest,
+    StaffScheduleResponse,
 )
 from app.modules.attendance.dependencies import get_staff
 from app.modules.auth.models import User
@@ -169,6 +173,76 @@ async def set_general_settings(
 ) -> AttendanceGeneralSettingsResponse:
     """Crée ou remplace le fuseau horaire et les horaires normaux du personnel."""
     return await service.upsert_general_settings(payload, user.establishment_id, db)
+
+
+# ── Horaires personnalisés (staff) ───────────────────────────────
+# Un staff sans ligne ici suit l'horaire général de l'établissement
+# (/settings/general) ; dès qu'une ligne est posée, elle le surcharge.
+@router.get("/settings/staff/{staff_id}", response_model=StaffScheduleResponse)
+async def get_staff_schedule(
+    staff_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> StaffScheduleResponse:
+    return await service.get_staff_schedule(staff_id, user.establishment_id, db)
+
+
+@router.put("/settings/staff/{staff_id}", response_model=StaffScheduleResponse)
+async def set_staff_schedule(
+    staff_id: uuid.UUID,
+    payload: StaffScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> StaffScheduleResponse:
+    """Pose (ou remplace) l'horaire personnalisé d'un membre du personnel."""
+    return await service.upsert_staff_schedule(
+        staff_id, payload, user.establishment_id, db
+    )
+
+
+@router.delete(
+    "/settings/staff/{staff_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_staff_schedule(
+    staff_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> None:
+    """Supprime l'horaire personnalisé → le staff retombe sur l'horaire général."""
+    await service.delete_staff_schedule(staff_id, user.establishment_id, db)
+
+
+# ── Export des présences ─────────────────────────────────────────
+@router.get("/export")
+async def export_attendance(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_read),
+    file_format: ExportFileFormat = Query(alias="format", default=ExportFileFormat.PDF),
+    person_type: ExportPersonType = Query(default=ExportPersonType.BOTH),
+    date_from: date_ = Query(...),
+    date_to: date_ = Query(...),
+    department_id: uuid.UUID | None = Query(default=None),
+    section_id: uuid.UUID | None = Query(default=None),
+) -> Response:
+    """Export agrégé des présences (statut par personne × jour), en PDF ou Excel.
+
+    Périmètre enfants et/ou personnel ; filtres département/section pour les
+    enfants. Limité à 366 jours par appel."""
+    content, filename = await service.get_attendance_export(
+        user.establishment_id, file_format, person_type, date_from, date_to, db,
+        department_id=department_id, section_id=section_id,
+    )
+    media_type = (
+        "application/pdf"
+        if file_format == ExportFileFormat.PDF
+        else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Exemptions ──────────────────────────────────────────────────

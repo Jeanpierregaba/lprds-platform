@@ -71,6 +71,50 @@ async def ensure_educatrice_baseline_role(
     return role
 
 
+# ── Rôle socle bibliothécaire ───────────────────────────────────
+# Même pattern que le rôle socle éducatrice : attribué automatiquement à tout
+# staff staff_type=bibliothecaire. Porte l'intégralité du module Bibliothèque
+# (catalogue + prêts/retours + rappels) — le bibliothécaire est le seul poste
+# à qui l'établissement délègue tout le volet lecture/écriture de ce module
+# par défaut. Reste un vrai rôle RBAC, visible/révocable depuis l'écran Rôles.
+BASELINE_BIBLIOTHECAIRE_ROLE_NAME = "Bibliothécaire (socle)"
+BASELINE_BIBLIOTHECAIRE_PERMISSIONS = [
+    PermissionCode.LIBRARY_READ,
+    PermissionCode.LIBRARY_WRITE,
+    PermissionCode.LIBRARY_LEND,
+]
+
+
+async def ensure_bibliothecaire_baseline_role(
+    establishment_id: uuid.UUID, db: AsyncSession
+) -> Role:
+    result = await db.execute(
+        select(Role).where(
+            Role.establishment_id == establishment_id,
+            Role.name == BASELINE_BIBLIOTHECAIRE_ROLE_NAME,
+        )
+    )
+    role = result.scalar_one_or_none()
+    if role is None:
+        role = Role(
+            establishment_id=establishment_id,
+            name=BASELINE_BIBLIOTHECAIRE_ROLE_NAME,
+            description=(
+                "Socle automatique de tout bibliothécaire : gestion du catalogue, "
+                "des prêts/retours et des rappels de la bibliothèque."
+            ),
+        )
+        role.permissions = await _resolve_permissions(
+            BASELINE_BIBLIOTHECAIRE_PERMISSIONS, db
+        )
+        db.add(role)
+        await db.flush()
+    elif not role.is_active:
+        role.is_active = True
+        await db.flush()
+    return role
+
+
 # ── Rôles (scopés à l'établissement de l'admin) ─────────────────
 async def create_role(
     payload: RoleCreateRequest,

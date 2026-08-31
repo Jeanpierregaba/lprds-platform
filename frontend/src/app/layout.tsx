@@ -10,7 +10,7 @@ import { Toaster } from '@/components/ui/sonner'
 // sur Google Fonts ; on ne charge que le poids 400 utilisé par la spec.
 const fredoka = Fredoka({
   subsets: ['latin'],
-  weight: '400',
+  weight: ['400', '700'],
   variable: '--font-fredoka',
   display: 'swap',
 })

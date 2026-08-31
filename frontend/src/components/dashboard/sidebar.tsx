@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { toast } from 'sonner'
@@ -28,6 +29,16 @@ export function Sidebar() {
     items = [STAFF_DASHBOARD_ITEM, ...STAFF_BASELINE_ITEMS, ...modules, STAFF_SETTINGS_ITEM]
   }
 
+  const activeHref = (() => {
+    const matches = items.filter(
+      (i) => pathname === i.href || pathname.startsWith(`${i.href}/`),
+    )
+    return matches.reduce<string | null>(
+      (longest, i) => (longest === null || i.href.length > longest.length ? i.href : longest),
+      null,
+    )
+  })()
+
   const handleLogout = async () => {
     try {
       if (refreshToken) await authApi.logout(refreshToken)
@@ -40,15 +51,19 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-border bg-background md:flex md:flex-col">
+    <aside className="hidden w-64 shrink-0 border-r border-border bg-accent md:flex md:flex-col">
       <div className="flex h-14 items-center border-b border-border px-4">
-        <span className="text-sm font-semibold">
-          {process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS'}
-        </span>
+        <Image
+          src="/images/marketing/logo.png"
+          alt="Les Petits Rayons de Soleil"
+          width={148}
+          height={90}
+          className="h-9 w-auto"
+        />
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {items.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+          const isActive = item.href === activeHref
           const Icon = item.icon
           return (
             <Link
@@ -57,7 +72,7 @@ export function Sidebar() {
               className={cn(
                 'flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)] hover:translate-y-1 hover:shadow-none'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >

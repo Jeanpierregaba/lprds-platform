@@ -44,6 +44,7 @@ Les deux projets sont dans des dossiers séparés au même niveau (`~/`).
 | cryptography | 49.0.0 | Chiffrement Fernet des QR codes (présences) |
 | qrcode + Pillow | 8.2 / 12.3.0 | Génération d'image PNG des QR codes |
 | reportlab | 5.0.0 | Génération PDF du bulletin annuel (module Rapports) |
+| openpyxl | 3.1.5 | Génération Excel de l'export présences (module Présences) |
 
 ### Frontend
 | Outil | Version | Rôle |
@@ -121,9 +122,10 @@ app/
 │   │   ├── service.py             # Logique métier personnel
 │   │   └── router.py              # Endpoints HTTP /staff/*
 │   ├── attendance/
-│   │   ├── models.py              # AttendanceEvent, *AttendanceSettings (dept/staff)
-│   │   ├── schemas.py             # Pydantic v2 I/O schemas
-│   │   ├── service.py             # Scan, calcul présence/retard/absence à la volée
+│   │   ├── models.py              # AttendanceEvent, *AttendanceSettings, StaffAttendanceSchedule
+│   │   ├── schemas.py             # Pydantic v2 I/O schemas (horaires staff + export)
+│   │   ├── service.py             # Scan, calcul présence/retard/absence à la volée, export agrégé
+│   │   ├── export.py              # Rendu PDF (reportlab) + Excel (openpyxl) de l'export présence
 │   │   └── router.py              # Endpoints HTTP /attendance/*
 │   ├── messaging/                 # ⚠️ HORS RBAC — admin/parent uniquement
 │   │   ├── models.py              # Announcement, AnnouncementRead, Conversation, Message, Attachment
@@ -241,6 +243,7 @@ postgresql+asyncpg://adminlprds:lprds@localhost:5432/lprds_database
 - `parent_children` — association compte parent ↔ enfants (M2M)
 - `attendance_events` — journal append-only des scans QR (présence)
 - `department_attendance_settings` / `attendance_settings` — horaires + fuseau
+- `staff_attendance_schedules` — horaires personnalisés par membre du personnel (surcharge l'horaire général)
 - `announcements` / `announcement_reads` — diffusions admin → parents + accusés de lecture
 - `conversations` / `messages` — messagerie privée admin ↔ parent (1 conv/parent)
 - `attachments` — pièces jointes (messages OU diffusions, jamais les deux)
@@ -836,6 +839,9 @@ GET  /PUT /api/v1/attendance/settings/departments/{department_id}   # attendance
 GET  /PUT /api/v1/attendance/settings/general                        # fuseau + horaires staff
 GET  /api/v1/attendance/settings/exempt-staff                        # ?exempt_only=
 PATCH /api/v1/attendance/settings/exempt-staff/{staff_id}
+GET  /PUT /DELETE /api/v1/attendance/settings/staff/{staff_id}       # horaire personnalisé staff
+GET  /api/v1/attendance/export                      # ?format=&person_type=&date_from=&date_to=
+                                                    #  &department_id=&section_id=
 ```
 
 ### Permissions — trois, pas deux
@@ -910,6 +916,49 @@ par département).
 **Exemption** (`users.attendance_exempt`, colonne sur `User`, défaut `False`) :
 un staff exempté n'est jamais compté `absent` par défaut, géré via
 `/attendance/settings/exempt-staff`.
+
+### Horaires personnalisés par membre du personnel (table dédiée)
+
+Au-delà de l'horaire général unique, chaque membre du personnel peut recevoir un
+**horaire personnalisé** (`staff_attendance_schedules`, table dédiée — 1 ligne
+par staff) qui **surcharge** l'horaire général pour le calcul de ses retards :
+
+- `GET /attendance/settings/staff/{staff_id}` → **404 si aucun horaire
+  personnalisé** (pas une erreur : c'est le signal « horaire général »).
+- `PUT /attendance/settings/staff/{staff_id}` → **upsert** (crée ou remplace la
+  ligne). `expected_departure_time` doit être **postérieur** à
+  `expected_arrival_time` (422 sinon). Un staff d'un autre établissement → 404.
+- `DELETE /attendance/settings/staff/{staff_id}` → supprime la ligne, le membre
+  retombe sur l'horaire général. Idempotent : pas d'horaire personnalisé → 204
+  quand même.
+
+Priorité dans `get_staff_daily_status` et l'export : **horaire personnalisé
+d'abord, sinon horaire général** (`staff_expected_arrival_time`). Même
+mécanisme de repli pour les jours sans horaire personnalisé.
+
+### Export agrégé PDF / Excel (`GET /attendance/export`)
+
+Téléchargement d'un état des présences sur une période (`attendance:read`) —
+une ligne **par personne et par jour**, statut calculé à la volée avec les
+mêmes règles que les dashboards journaliers (labels FR : Présent / Retard /
+Absent / Non attendu / Exempté) :
+
+- Query params : `format` (`pdf`|`excel` — la valeur enum est `excel`, pas
+  `xlsx`), `person_type` (`children`|`staff`|`both`), `date_from`/`date_to`
+  (ISO, **obligatoires**), `department_id`/`section_id` optionnels (filtrant
+  les enfants uniquement — le staff n'est rattaché à aucun département).
+- Période inversée (`date_from > date_to`) → 422. Écart > 366 jours → 422.
+- **Périmètre complet** : les enfants **inactifs** du département sélectionné
+  sont inclus s'ils ont un scan dans la période ; les actifs sans scan
+  apparaissent `absent`/`not_expected`. Le personnel suit la même logique.
+- Rendu : PDF paysage A4 via **reportlab** (tableau en-têtes Type / Nom /
+  Matricule / Date / Statut / Arrivée / Départ / Retard / Cantine) ou classeur
+  XLSX via **openpyxl** (dépendance ajoutée, `freeze_panes` + filtre auto).
+  Générés via `asyncio.to_thread` (pattern `reports/pdf.py`).
+- Réponse : `Content-Disposition: attachment` + nom de fichier
+  `{presences|enfants|personnel}_{date_from}_{date_to}.{pdf|excel}`.
+- Le module n'a **aucune UI** : l'export est consommé côté frontend, qui
+  télécharge le blob et déclenche le téléchargement navigateur.
 
 ### Isolation
 Toutes les opérations (scan, QR, dashboards, réglages) sont bornées à

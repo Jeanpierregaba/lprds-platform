@@ -112,6 +112,50 @@ class AttendanceEvent(Base):
         return f"<AttendanceEvent {self.person_type}:{self.event_type} @ {self.scanned_at}>"
 
 
+class StaffAttendanceSchedule(Base):
+    """
+    Horaire personnalisé d'un membre du personnel.
+
+    Par défaut, tout le personnel partage l'horaire général de l'établissement
+    (AttendanceSettings.staff_expected_arrival_time / departure_time). Dès
+    qu'une ligne existe ici pour un staff, elle SURCHARGE ce défaut pour le
+    calcul de retard/absence de ce membre. Supprimer la ligne = revenir à
+    l'horaire général.
+    """
+
+    __tablename__ = "staff_attendance_schedules"
+    __table_args__ = (
+        UniqueConstraint("staff_id", name="uq_staff_attendance_schedule"),
+    )
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    establishment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("establishments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    staff_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    expected_arrival_time: Mapped[time] = mapped_column(Time, nullable=False)
+    expected_departure_time: Mapped[time] = mapped_column(Time, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    staff: Mapped["User"] = relationship(lazy="selectin")
+
+
 class DepartmentAttendanceSettings(Base):
     """Horaires normaux d'un département — utilisés pour le retard des enfants."""
 

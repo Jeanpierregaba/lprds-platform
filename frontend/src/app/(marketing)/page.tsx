@@ -27,19 +27,21 @@ export default function HomePage() {
 
   return (
     <>
-      {/* Hero — DESIGN.md § 9 : titre + CTA à gauche, illustration de la crèche à droite. */}
-      <section className="relative overflow-hidden bg-cream">
-        {/* Décorations organiques discrètes — rayons et halo, sans surcharger. */}
-        <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-primary/15 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -right-20 top-1/3 size-64 rounded-full bg-mint/70 blur-3xl" />
+      {/* Hero + Bande de confiance — plein écran (100vh) */}
+      <div className="relative min-h-screen flex flex-col bg-cream">
+        {/* Hero — DESIGN.md § 9 : titre + CTA à gauche, illustration de la crèche à droite. */}
+        <section className="relative overflow-hidden flex-1 flex items-center">
+          {/* Décorations organiques discrètes — rayons et halo, sans surcharger. */}
+          <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-primary/15 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -right-20 top-1/3 size-64 rounded-full bg-mint/70 blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 py-16 sm:py-24 lg:grid-cols-2 lg:gap-16">
+          <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 w-full px-4 lg:grid-cols-2 lg:gap-12 lg:px-6">
           <div className="text-center lg:text-left">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-navy">
+            <span className="inline-flex items-center gap-2 rounded-full border border-tertiary/30 bg-tertiary/10 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-tertiary">
               Crèche · Garderie · Maternelle
             </span>
-            <h1 className="mt-6 font-display text-4xl leading-[1.05] text-navy drop-shadow-sm sm:text-5xl lg:text-6xl">
-              Où chaque enfant <span className="text-secondary">explore</span> et <span className="text-secondary">rayonne</span>
+            <h1 className="mt-6 font-display font-bold text-5xl leading-[1.05] text-navy drop-shadow-sm sm:text-6xl lg:text-6xl">
+              Où chaque enfant <span className="text-primary">explore</span>, <span className="text-primary"> </span> <br />et <span className="text-primary">rayonne</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg lg:mx-0">
               Votre enfant mérite un départ réussi : une structure où il grandit, apprend et s’épanouit en toute sécurité.
@@ -48,15 +50,15 @@ export default function HomePage() {
               <MarketingButton href="/contact" size="lg" variant="primary">
                 Réserver une visite
               </MarketingButton>
-              <MarketingButton href="/nos-sections" size="lg" variant="outline">
+              <MarketingButton href="/nos-sections" size="lg" variant="tertiary">
                 Découvrir nos sections
               </MarketingButton>
             </div>
           </div>
 
-          <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+          <div className="relative mx-auto w-full lg:max-w-none">
             <div aria-hidden className="absolute -inset-4 -z-10 rounded-[2.5rem] bg-mint/70" />
-            <div className="relative aspect-[16/9] overflow-hidden rounded-[2.5rem] shadow-soft ring-1 ring-border">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-[2.5rem] shadow-soft ring-1 ring-border">
               <Image
                 src={heroImg}
                 alt="Enfants épanouis dans la cour de la crèche"
@@ -71,16 +73,17 @@ export default function HomePage() {
       </section>
 
       {/* Bandeau de confiance — sous le hero, jamais dedans. */}
-      <section className="bg-primary py-10 text-primary-foreground">
+      <section className="bg-secondary py-10 text-secondary-foreground shrink-0">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 px-6 sm:grid-cols-4 lg:px-8">
           {STATS.map((s) => (
             <div key={s.label} className="text-center">
-              <div className="font-display text-3xl sm:text-4xl">{s.value}</div>
+              <div className="font-display font-bold text-3xl sm:text-4xl">{s.value}</div>
               <div className="mt-1 text-xs text-primary-foreground/70 sm:text-sm">{s.label}</div>
             </div>
           ))}
         </div>
       </section>
+    </div>
 
       {/* Pourquoi nous — grille asymétrique image + cartes, pas un simple split 50/50. */}
       <section className="px-6 py-20 sm:py-28 lg:px-8">

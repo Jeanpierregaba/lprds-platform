@@ -6,6 +6,7 @@ from app.modules.blog.router import router as blog_router
 from app.modules.children.router import router as children_router
 from app.modules.establishments.router import router as establishments_router
 from app.modules.gallery.router import router as gallery_router
+from app.modules.library.router import router as library_router
 from app.modules.menus.router import router as menus_router
 from app.modules.messaging.router import router as messaging_router
 from app.modules.organization.router import router as organization_router
@@ -29,3 +30,4 @@ api_router.include_router(gallery_router)
 api_router.include_router(menus_router)
 api_router.include_router(blog_router)
 api_router.include_router(blog_public_router)
+api_router.include_router(library_router)

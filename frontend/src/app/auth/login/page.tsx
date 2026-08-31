@@ -9,7 +9,9 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
+import heroImg from '@/assets/hero-img.png'
 import { Button }   from '@/components/ui/button'
 import { Input }    from '@/components/ui/input'
 import { Label }    from '@/components/ui/label'
@@ -51,25 +53,39 @@ const loginSchema = z.object({
         }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-            <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: 'easeOut' }}
-                className="w-full max-w-md"
-            >
-                <Card className="border shadow-sm">
-                    <CardHeader className="space-y-1 pb-6">
-                        <div className="flex justify-center mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-                            <span className="text-primary-foreground text-xl font-semibold">L</span>
-                        </div>
-                        </div>
-                        <CardTitle className="text-2xl text-center">Connexion</CardTitle>
-                        <CardDescription className="text-center">
-                        Accédez à votre espace LPRDS
-                        </CardDescription>
-                    </CardHeader>
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      <Image
+        src={heroImg}
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      <div aria-hidden className="absolute inset-0 bg-neutral-900/70" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="relative w-full max-w-md"
+      >
+        <Card className="border shadow-sm">
+          <CardHeader className="space-y-1 pb-6">
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/images/marketing/logo.png"
+                alt="Les Petits Rayons de Soleil"
+                width={148}
+                height={90}
+                className="h-16 w-auto"
+              />
+            </div>
+            <CardTitle className="text-2xl text-center">Connexion</CardTitle>
+            <CardDescription className="text-center">
+              Accédez à votre espace LPRDS
+            </CardDescription>
+          </CardHeader>
 
                     <CardContent>
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
@@ -131,11 +147,15 @@ const loginSchema = z.object({
                             )}
                         </div>
 
-                        <Button type="submit" className="w-full mt-2" disabled={isSubmitting}>
-                            {isSubmitting
-                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connexion...</>
-                            : 'Se connecter'}
-                        </Button>
+<Button
+                  type="submit"
+                  className="mt-2 w-full rounded-full bg-primary text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)] hover:translate-y-1 hover:bg-primary hover:shadow-none disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_0_var(--color-primary-layer)]"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connexion...</>
+                  : 'Se connecter'}
+                </Button>
                         </form>
                     </CardContent>
                 </Card>

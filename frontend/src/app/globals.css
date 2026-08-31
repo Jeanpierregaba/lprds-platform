@@ -21,6 +21,8 @@
   --color-primary-foreground:  hsl(var(--primary-foreground));
   --color-secondary:           hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-tertiary:            hsl(var(--tertiary));
+  --color-tertiary-foreground: hsl(var(--tertiary-foreground));
   --color-muted:                hsl(var(--muted));
   --color-muted-foreground:     hsl(var(--muted-foreground));
   --color-accent:               hsl(var(--accent));
@@ -42,6 +44,7 @@
   /* Charte DESIGN.md § 2 — couches inférieures des boutons (§ 4.3 / 4.4) */
   --color-primary-layer:     hsl(var(--primary-layer));
   --color-secondary-layer:   hsl(var(--secondary-layer));
+  --color-tertiary-layer:    hsl(var(--tertiary-layer));
 
   /* Accents décoratifs de la charte (badges, tags, moments ludiques) */
   --color-teal:              hsl(var(--teal));
@@ -100,11 +103,14 @@
   --primary:              37 91% 57%;  /* Jaune Soleil #F5AA2D — CTA principal */
   --primary-foreground:   0 0% 100%;
   --primary-layer:        37 82% 47%;  /* #D88D16 — couche inférieure bouton principal */
-  --secondary:            170 35% 46%; /* Turquoise #4D9F92 — boutons secondaires */
+  --secondary:            164 100% 17%; /* Vert Forêt #005840 — boutons secondaires */
   --secondary-foreground: 0 0% 100%;
-  --secondary-layer:      172 43% 34%; /* #327D73 — couche inférieure bouton secondaire */
+  --secondary-layer:      164 100% 12%; /* #00301F — couche inférieure bouton secondaire */
+  --tertiary:             170 35% 46%;  /* Turquoise #4D9F92 — accents fins / tertiaire */
+  --tertiary-foreground:  0 0% 100%;
+  --tertiary-layer:       172 43% 34%; /* #327D73 — couche inférieure bouton tertiaire */
   --accent:               42 100% 95%; /* Crème Soleil — survol/emphase douce */
-  --accent-foreground:    232 52% 33%; /* Bleu Profond */
+  --accent-foreground:    164 100% 17%; /* Vert Forêt */
   --ring:                 170 35% 46%; /* Turquoise — focus/éléments interactifs */
 
   /* Statuts */
@@ -125,12 +131,12 @@
   --pale-green:            106 34% 52%; /* Vert Nature #6FAE5B */
   --pale-green-foreground: 0 0% 100%;
   --orange:            45 92% 58%;   /* Orange Doux #F6C434 */
-  --orange-foreground: 232 52% 33%;  /* Texte Bleu Profond sur fond clair */
+  --orange-foreground: 164 100% 17%;  /* Texte Vert Forêt sur fond clair */
   --pink:              328 87% 48%;  /* Rose Framboise #E3107F */
   --pink-foreground:   0 0% 100%;
   --sky:               211 65% 36%;  /* Bleu Ciel #205996 — liens */
   --sky-foreground:    0 0% 100%;
-  --navy:              232 52% 33%;  /* Bleu Profond #28337E — titres/navigation */
+  --navy:              164 100% 17%; /* Vert Forêt #005840 — titres/navigation */
   --navy-foreground:   0 0% 100%;
 }
 
@@ -157,9 +163,12 @@
   --primary:              37 90% 60%;
   --primary-foreground:   0 0% 100%;
   --primary-layer:        37 60% 45%;
-  --secondary:            170 40% 55%;
+  --secondary:            164 55% 40%;
   --secondary-foreground: 0 0% 100%;
-  --secondary-layer:      172 40% 40%;
+  --secondary-layer:      164 50% 32%;
+  --tertiary:             170 45% 55%;
+  --tertiary-foreground:  0 0% 100%;
+  --tertiary-layer:       172 45% 42%;
   --accent:               42 25% 15%;
   --accent-foreground:    42 60% 90%;
   --ring:                 170 45% 60%;
@@ -185,8 +194,8 @@
   --pink-foreground:   0 0% 100%;
   --sky:               211 70% 60%;
   --sky-foreground:    0 0% 100%;
-  --navy:              232 50% 70%;
-  --navy-foreground:   232 40% 12%;
+  --navy:              164 60% 45%;
+  --navy-foreground:   164 50% 12%;
 }
 
 @layer base {
@@ -263,4 +272,35 @@
     font-weight: 400;
     line-height: 1.538;   /* 20px */
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Dashboard — zone de contenu au-dessus de l'image hero
+   Wrapper .dashboard-view posé dans app/dashboard/layout.tsx.
+   Règles en dehors de tout @layer : elles priment sur les utilities
+   Tailwind (text-2xl, text-muted-foreground, bg-transparent, ...).
+   ────────────────────────────────────────────────────────────────── */
+/* Cards / listes du dashboard : fond Crème au lieu du blanc (mode clair).
+   En mode sombre on laisse les tokens defaults du thème. */
+:root:not(.dark) .dashboard-view {
+  --card: 42 100% 95%;
+}
+
+/* Titre principal de chaque page : blanc, plus grand et plus lourd */
+.dashboard-view h1 {
+  color: hsl(0 0% 100%);
+  font-size: 2.25rem;   /* 36px */
+  line-height: 2.5rem;
+  font-weight: 800;
+}
+
+/* Sous-titre de page (le <p> juste sous le h1) : blanc, légèrement atténué */
+.dashboard-view h1 + p {
+  color: hsl(0 0% 100% / 0.85);
+}
+
+/* Zones de recherche / filtres : fond crème opaque (plus de transparence) */
+.dashboard-view [data-slot='input'],
+.dashboard-view [data-slot='select-trigger'] {
+  background-color: hsl(var(--accent));
 }

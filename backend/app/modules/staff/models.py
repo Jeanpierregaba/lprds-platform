@@ -21,3 +21,4 @@ class StaffType(StrEnum):
     REDACTEUR      = "redacteur"        # Rédaction/publication du blog (module Blog)
     SECRETAIRE     = "secretaire"
     RESTAURATEUR   = "restaurateur"
+    BIBLIOTHECAIRE = "bibliothecaire"   # Gestion du catalogue / prêts (module Bibliothèque)

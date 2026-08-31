@@ -1,5 +1,6 @@
 import uuid
 from datetime import date as date_, datetime, time
+from enum import StrEnum
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -154,6 +155,53 @@ class AttendanceGeneralSettingsResponse(BaseModel):
     timezone:                        str
     staff_expected_arrival_time:     time
     staff_expected_departure_time:   time
+
+
+# ── Horaires personnalisés (staff) ───────────────────────────────
+class StaffScheduleRequest(BaseModel):
+    """Horaire personnalisé d'un membre du personnel — surcharge l'horaire
+    général de l'établissement dès qu'il est posé."""
+
+    expected_arrival_time:   time
+    expected_departure_time: time
+
+    @model_validator(mode="after")
+    def check_order(self) -> "StaffScheduleRequest":
+        if self.expected_departure_time <= self.expected_arrival_time:
+            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+        return self
+
+
+class StaffScheduleResponse(BaseModel):
+    staff_id:                  uuid.UUID
+    expected_arrival_time:     time
+    expected_departure_time:   time
+
+
+# ── Export des présences ─────────────────────────────────────────
+class ExportFileFormat(StrEnum):
+    PDF   = "pdf"
+    EXCEL = "excel"
+
+
+class ExportPersonType(StrEnum):
+    CHILDREN = "children"
+    STAFF    = "staff"
+    BOTH     = "both"
+
+
+class AttendanceExportRow(BaseModel):
+    """Une ligne de l'export : statut agrégé d'une personne pour UN jour."""
+
+    person_type:    str            # libellé : "Enfant" / "Personnel"
+    name:           str
+    matricule:      str | None
+    date:           date_
+    status:         str            # libellé FR : Présent / Retard / Absent / Non attendu / Exempté
+    arrival_time:   datetime | None
+    departure_time: datetime | None
+    late_minutes:   int | None
+    meal_taken:     bool | None
 
 
 # ── Exemptions staff ─────────────────────────────────────────────

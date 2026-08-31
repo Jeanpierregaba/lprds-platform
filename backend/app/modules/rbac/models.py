@@ -48,6 +48,9 @@ class PermissionCode(StrEnum):
     MENUS_READ         = "menus:read"
     MENUS_WRITE        = "menus:write"
     BLOG_WRITE         = "blog:write"
+    LIBRARY_READ       = "library:read"
+    LIBRARY_WRITE      = "library:write"
+    LIBRARY_LEND       = "library:lend"
 
 
 # Libellés affichables — utilisés au seed du catalogue
@@ -71,6 +74,9 @@ PERMISSION_LABELS: dict[PermissionCode, str] = {
     PermissionCode.MENUS_READ: "Consulter le menu de la semaine et son historique",
     PermissionCode.MENUS_WRITE: "Créer et modifier les menus de la semaine, consulter l'historique",
     PermissionCode.BLOG_WRITE: "Rédiger, publier, modifier et supprimer les actualités du site vitrine",
+    PermissionCode.LIBRARY_READ: "Consulter le catalogue et le suivi des prêts de la bibliothèque",
+    PermissionCode.LIBRARY_WRITE: "Créer, modifier et supprimer les livres du catalogue",
+    PermissionCode.LIBRARY_LEND: "Enregistrer les prêts, retours et rappels de la bibliothèque",
 }
 
 

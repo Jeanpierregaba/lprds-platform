@@ -15,10 +15,12 @@ from app.modules.attendance.models import (
     AttendanceEvent,
     AttendanceSettings,
     DepartmentAttendanceSettings,
+    StaffAttendanceSchedule,
 )
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import AuthorizedPerson, Child, Guardian
 from app.modules.establishments.models import Establishment
+from app.modules.library.models import Book, BookLending, LibrarySettings, book_sections
 from app.modules.messaging.models import (
     Announcement,
     AnnouncementRead,
@@ -59,6 +61,7 @@ __all__ = [
     "AttendanceEvent",
     "DepartmentAttendanceSettings",
     "AttendanceSettings",
+    "StaffAttendanceSchedule",
     "Announcement",
     "AnnouncementRead",
     "Conversation",
@@ -72,4 +75,8 @@ __all__ = [
     "BlogTag",
     "Article",
     "ArticleAttachment",
+    "Book",
+    "BookLending",
+    "LibrarySettings",
+    "book_sections",
 ]

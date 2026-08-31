@@ -1,10 +1,11 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { LayoutDashboard, QrCode, ScanLine, ScrollText, Settings } from 'lucide-react'
+import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText, Settings } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DashboardTab } from './dashboard-tab'
+import { ExportTab } from './export-tab'
 import { JournalTab } from './journal-tab'
 import { QrCodesTab } from './qrcodes-tab'
 import { ScanTab } from './scan-tab'
@@ -43,6 +44,10 @@ export default function AttendancePage() {
             <ScanLine className="mr-1.5 size-4" />
             Scanner
           </TabsTrigger>
+          <TabsTrigger value="export">
+            <FileDown className="mr-1.5 size-4" />
+            Export
+          </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="mr-1.5 size-4" />
             Paramètres
@@ -60,6 +65,9 @@ export default function AttendancePage() {
         </TabsContent>
         <TabsContent value="scan">
           <ScanTab />
+        </TabsContent>
+        <TabsContent value="export">
+          <ExportTab />
         </TabsContent>
         <TabsContent value="settings">
           <SettingsTab />

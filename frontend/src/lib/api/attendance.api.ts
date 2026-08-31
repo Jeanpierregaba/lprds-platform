@@ -2,7 +2,8 @@ import { apiClient } from './client'
 import type {
   AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
   AttendanceSettingsPayload, ChildDailyStatusListResponse, DepartmentAttendanceSettings, EventType,
-  PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption,
+  PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
+  AttendanceExportParams,
 } from '@/types/attendance'
 
 export const attendanceApi = {
@@ -62,4 +63,20 @@ export const attendanceApi = {
 
   setExemption: (staffId: string, exempt: boolean) =>
     apiClient.patch<StaffExemption>(`/api/v1/attendance/settings/exempt-staff/${staffId}`, { exempt }),
+
+  // ── Horaires personnalisés (staff) ──
+  getStaffSchedule: (staffId: string) =>
+    apiClient.get<StaffSchedule>(`/api/v1/attendance/settings/staff/${staffId}`, {
+      validateStatus: (s) => s === 200 || s === 404,
+    }),
+
+  setStaffSchedule: (staffId: string, data: AttendanceSettingsPayload) =>
+    apiClient.put<StaffSchedule>(`/api/v1/attendance/settings/staff/${staffId}`, data),
+
+  deleteStaffSchedule: (staffId: string) =>
+    apiClient.delete(`/api/v1/attendance/settings/staff/${staffId}`),
+
+  // ── Export des présences (PDF / Excel) ──
+  exportAttendance: (params: AttendanceExportParams) =>
+    apiClient.get<Blob>('/api/v1/attendance/export', { params, responseType: 'blob' }),
 }

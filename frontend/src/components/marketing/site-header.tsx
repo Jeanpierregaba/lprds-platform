@@ -56,8 +56,8 @@ export function SiteHeader() {
                 href={item.href}
                 className={cn(
                   'relative text-sm font-medium transition-colors',
-                  solid ? 'text-foreground/80 hover:text-secondary' : 'text-green hover:text-secondary',
-                  active && (solid ? 'text-primary' : 'text-white')
+                  'text-secondary hover:text-primary',
+                  active && 'text-primary'
                 )}
               >
                 {item.name}
@@ -65,7 +65,7 @@ export function SiteHeader() {
                   <span
                     className={cn(
                       'absolute -bottom-1.5 left-0 h-0.5 w-full rounded-full',
-                      solid ? 'bg-primary' : 'bg-white'
+                      'bg-primary'
                     )}
                   />
                 )}
@@ -80,20 +80,16 @@ export function SiteHeader() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Discuter sur WhatsApp"
-            className={cn(
-              'hidden size-10 shrink-0 items-center justify-center rounded-full transition-colors sm:inline-flex',
-              solid ? 'bg-[#25D366]/10 text-[#1fb959] hover:bg-[#25D366]/20' : 'bg-white/15 text-white hover:bg-white/25'
-            )}
+            className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-tertiary text-tertiary-foreground transition-all hover:bg-tertiary/90 sm:inline-flex"
           >
             <MessageCircle className="size-5" />
           </a>
           <Link
             href="/auth/login"
             className={cn(
-              'hidden items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors sm:inline-flex',
-              solid
-                ? 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
-                : 'border-white/60 text-white hover:bg-white hover:text-primary'
+              'hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all sm:inline-flex',
+              'bg-primary text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)]',
+              'hover:translate-y-1 hover:shadow-none'
             )}
           >
             <User className="size-4" />
@@ -135,7 +131,7 @@ export function SiteHeader() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#25D366] text-sm font-medium text-white"
             >
               <MessageCircle className="size-4" />
-              Discuter sur WhatsApp
+              
             </a>
             <Link
               href="/auth/login"

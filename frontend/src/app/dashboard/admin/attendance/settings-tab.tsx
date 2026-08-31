@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Building, Globe, Loader2, Search, ShieldOff, UserRound } from 'lucide-react'
+import { Building, Clock, Globe, Loader2, Search, ShieldOff, Trash2, UserRound } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,8 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import type { Department } from '@/types/organization'
+import type { StaffListItem } from '@/types/staff'
+import type { AttendanceSettingsPayload } from '@/types/attendance'
 
 const toInputTime = (t: string) => t.slice(0, 5)
 const toApiTime = (t: string) => `${t}:00`
@@ -42,6 +44,10 @@ export function SettingsTab() {
             <Building className="mr-1.5 size-4" />
             Départements
           </TabsTrigger>
+          <TabsTrigger value="staff">
+            <Clock className="mr-1.5 size-4" />
+            Personnel
+          </TabsTrigger>
           <TabsTrigger value="exemptions">
             <ShieldOff className="mr-1.5 size-4" />
             Exemptions
@@ -52,6 +58,9 @@ export function SettingsTab() {
         </TabsContent>
         <TabsContent value="departments">
           <DepartmentSettings />
+        </TabsContent>
+        <TabsContent value="staff">
+          <StaffSchedulesSettings />
         </TabsContent>
         <TabsContent value="exemptions">
           <ExemptionsSettings />
@@ -303,6 +312,229 @@ function DepartmentSettings() {
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+const scheduleSchema = z.object({
+  expected_arrival_time: z.string().min(1, 'Heure requise'),
+  expected_departure_time: z.string().min(1, 'Heure requise'),
+})
+type ScheduleForm = z.infer<typeof scheduleSchema>
+
+function StaffSchedulesSettings() {
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [editing, setEditing] = useState<StaffListItem | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const { data: staffResults, isLoading } = useQuery({
+    queryKey: ['staff', { search: debouncedSearch, forSchedules: true }],
+    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 50 }).then((r) => r.data),
+  })
+
+  const staffItems = staffResults?.items ?? []
+
+  const scheduleQueries = useQueries({
+    queries: staffItems.map((s) => ({
+      queryKey: ['attendance', 'settings', 'staff', s.id],
+      queryFn: async () => {
+        const res = await attendanceApi.getStaffSchedule(s.id)
+        return res.status === 200 ? res.data : null
+      },
+    })),
+  })
+
+  const scheduleByStaff = new Map(
+    staffItems.map((s, i) => [s.id, scheduleQueries[i]?.data ?? null])
+  )
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ScheduleForm>({
+    resolver: zodResolver(scheduleSchema),
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: ({ staffId, data }: { staffId: string; data: AttendanceSettingsPayload }) =>
+      attendanceApi.setStaffSchedule(staffId, data),
+    onSuccess: (_data, vars) => {
+      toast.success('Horaire personnalisé enregistré.')
+      setDialogOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'staff', vars.staffId] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (staffId: string) => attendanceApi.deleteStaffSchedule(staffId),
+    onSuccess: (_data, staffId) => {
+      toast.success('Horaire général rétabli.')
+      setDialogOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'staff', staffId] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const openEdit = (s: StaffListItem) => {
+    setEditing(s)
+    const current = scheduleByStaff.get(s.id)
+    reset({
+      expected_arrival_time: current ? toInputTime(current.expected_arrival_time) : '',
+      expected_departure_time: current ? toInputTime(current.expected_departure_time) : '',
+    })
+    setDialogOpen(true)
+  }
+
+  const onSubmit = (values: ScheduleForm) => {
+    if (!editing) return
+    saveMutation.mutate({
+      staffId: editing.id,
+      data: {
+        expected_arrival_time: toApiTime(values.expected_arrival_time),
+        expected_departure_time: toApiTime(values.expected_departure_time),
+      },
+    })
+  }
+
+  return (
+    <div className="mt-2 space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Par défaut, tout le personnel suit l&apos;horaire général (cf. Général). Posez un horaire
+        personnalisé ici pour un membre — il surcharge l&apos;horaire général pour le calcul des retards.
+      </p>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher un membre du personnel..."
+          className="pl-8"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Personnel</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Horaire</TableHead>
+                <TableHead className="w-32">Arrivée</TableHead>
+                <TableHead className="w-32">Départ</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell />
+                  </TableRow>
+                ))
+              ) : staffItems.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="h-40 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                        <UserRound className="size-5" />
+                      </div>
+                      <p>{debouncedSearch ? 'Aucun résultat.' : 'Recherchez un membre du personnel.'}</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                staffItems.map((s) => {
+                  const current = scheduleByStaff.get(s.id)
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">
+                        {s.nickname || `${s.first_name} ${s.last_name}`}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{s.email}</TableCell>
+                      <TableCell>
+                        {current ? (
+                          <Badge variant="outline" className="font-normal">Personnalisé</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="font-normal">Horaire général</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {current ? toInputTime(current.expected_arrival_time) : '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {current ? toInputTime(current.expected_departure_time) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
+                          {current ? 'Modifier' : 'Personnaliser'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Horaire — {editing ? (editing.nickname || `${editing.first_name} ${editing.last_name}`) : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Surcharge l&apos;horaire général pour ce membre du personnel. Rétablissez l&apos;horaire
+              général pour le faire retomber sur le défaut.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expected_arrival_time">Arrivée attendue</Label>
+                <Input id="expected_arrival_time" type="time" {...register('expected_arrival_time')} aria-invalid={!!errors.expected_arrival_time} />
+                {errors.expected_arrival_time && <p className="text-sm text-destructive">{errors.expected_arrival_time.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expected_departure_time">Départ attendu</Label>
+                <Input id="expected_departure_time" type="time" {...register('expected_departure_time')} aria-invalid={!!errors.expected_departure_time} />
+                {errors.expected_departure_time && <p className="text-sm text-destructive">{errors.expected_departure_time.message}</p>}
+              </div>
+            </div>
+            <DialogFooter className="justify-between">
+              {editing && scheduleByStaff.get(editing.id) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate(editing.id)}
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Rétablir l&apos;horaire général
+                </Button>
+              ) : <div />}
+              <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>
+                {(isSubmitting || saveMutation.isPending) ? (
+                  <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                ) : 'Enregistrer'}
               </Button>
             </DialogFooter>
           </form>

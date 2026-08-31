@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import date as date_, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -12,6 +13,7 @@ from app.modules.attendance.models import (
     DepartmentAttendanceSettings,
     EventType,
     PersonType,
+    StaffAttendanceSchedule,
 )
 from app.modules.attendance.qrcode_utils import (
     decrypt_qr_payload,
@@ -21,12 +23,15 @@ from app.modules.attendance.qrcode_utils import (
 from app.modules.attendance.schemas import (
     AttendanceEventListResponse,
     AttendanceEventResponse,
+    AttendanceExportRow,
     AttendanceGeneralSettingsRequest,
     AttendanceGeneralSettingsResponse,
     AttendanceSettingsRequest,
     ChildDailyStatus,
     ChildDailyStatusListResponse,
     DepartmentAttendanceSettingsResponse,
+    ExportFileFormat,
+    ExportPersonType,
     PersonBrief,
     QRCodeResponse,
     ScanRequest,
@@ -34,11 +39,15 @@ from app.modules.attendance.schemas import (
     StaffDailyStatus,
     StaffDailyStatusListResponse,
     StaffExemptionResponse,
+    StaffScheduleRequest,
+    StaffScheduleResponse,
 )
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
+from app.modules.establishments.models import Establishment
 from app.modules.organization import service as org_service
 from app.modules.organization.models import Department, Group
+from app.modules.attendance.export import render_attendance_pdf, render_attendance_xlsx
 
 # ── QR code ─────────────────────────────────────────────────────
 async def get_child_qrcode(
@@ -243,7 +252,7 @@ async def get_staff_daily_status(
     )
     general_settings = await _get_general_settings(establishment_id, db)
     tz = _tz_of(general_settings)
-    expected = general_settings.staff_expected_arrival_time if general_settings else None
+    schedule_map = await _staff_schedule_map(establishment_id, db)
     weekday = _is_weekday(target_date)
 
     items = []
@@ -252,6 +261,14 @@ async def get_staff_daily_status(
         arrival = _earliest(events, EventType.ARRIVAL)
         departure = _latest(events, EventType.DEPARTURE)
         meal_taken = any(e.event_type == str(EventType.MEAL) for e in events)
+
+        # Horaire personnalisé prioritaire ; repli sur l'horaire général.
+        schedule = schedule_map.get(member.id)
+        expected = (
+            schedule.expected_arrival_time
+            if schedule
+            else (general_settings.staff_expected_arrival_time if general_settings else None)
+        )
 
         if member.attendance_exempt and arrival is None:
             status_, late_minutes = "exempt", None
@@ -354,6 +371,264 @@ async def get_general_settings(
             detail="Aucun paramètre de présence configuré pour cet établissement",
         )
     return AttendanceGeneralSettingsResponse.model_validate(settings)
+
+
+# ── Horaires personnalisés (staff) ───────────────────────────────
+async def upsert_staff_schedule(
+    staff_id: uuid.UUID,
+    payload: StaffScheduleRequest,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> StaffScheduleResponse:
+    """Pose (ou remplace) l'horaire personnalisé d'un membre du personnel."""
+    staff = await _get_staff_or_404(staff_id, establishment_id, db)
+    schedule = await db.scalar(
+        select(StaffAttendanceSchedule).where(StaffAttendanceSchedule.staff_id == staff_id)
+    )
+    if schedule:
+        schedule.expected_arrival_time = payload.expected_arrival_time
+        schedule.expected_departure_time = payload.expected_departure_time
+    else:
+        schedule = StaffAttendanceSchedule(
+            establishment_id=establishment_id,
+            staff_id=staff.id,
+            expected_arrival_time=payload.expected_arrival_time,
+            expected_departure_time=payload.expected_departure_time,
+        )
+        db.add(schedule)
+    await db.flush()
+    return StaffScheduleResponse(
+        staff_id=staff.id,
+        expected_arrival_time=schedule.expected_arrival_time,
+        expected_departure_time=schedule.expected_departure_time,
+    )
+
+
+async def get_staff_schedule(
+    staff_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> StaffScheduleResponse:
+    staff = await _get_staff_or_404(staff_id, establishment_id, db)
+    schedule = await db.scalar(
+        select(StaffAttendanceSchedule).where(StaffAttendanceSchedule.staff_id == staff_id)
+    )
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucun horaire personnalisé configuré pour ce membre du personnel",
+        )
+    return StaffScheduleResponse(
+        staff_id=staff.id,
+        expected_arrival_time=schedule.expected_arrival_time,
+        expected_departure_time=schedule.expected_departure_time,
+    )
+
+
+async def delete_staff_schedule(
+    staff_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Supprime l'horaire personnalisé → le staff retombe sur l'horaire général."""
+    await _get_staff_or_404(staff_id, establishment_id, db)
+    schedule = await db.scalar(
+        select(StaffAttendanceSchedule).where(StaffAttendanceSchedule.staff_id == staff_id)
+    )
+    if schedule:
+        await db.delete(schedule)
+        await db.flush()
+
+
+# ── Export des présences ─────────────────────────────────────────
+_STATUS_LABELS = {
+    "present": "Présent",
+    "late": "Retard",
+    "absent": "Absent",
+    "not_expected": "Non attendu",
+    "exempt": "Exempté",
+}
+
+_FILENAME_SCOPE = {
+    ExportPersonType.CHILDREN: "enfants",
+    ExportPersonType.STAFF: "personnel",
+    ExportPersonType.BOTH: "presences",
+}
+
+
+async def get_attendance_export(
+    establishment_id: uuid.UUID,
+    file_format: ExportFileFormat,
+    export_scope: ExportPersonType,
+    date_from: date_,
+    date_to: date_,
+    db: AsyncSession,
+    *,
+    department_id: uuid.UUID | None = None,
+    section_id: uuid.UUID | None = None,
+) -> tuple[bytes, str]:
+    """Construit l'export agrégé (statut par personne × jour) et le rend dans
+    le format demandé. Retourne (octets du fichier, nom de fichier)."""
+    if date_to < date_from:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La date de fin doit être postérieure ou égale à la date de début",
+        )
+    if (date_to - date_from).days + 1 > 366:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La période d'export ne peut pas dépasser 366 jours",
+        )
+
+    establishment = await db.scalar(
+        select(Establishment).where(Establishment.id == establishment_id)
+    )
+    establishment_name = establishment.name if establishment else "Établissement"
+
+    rows = await _build_export_rows(
+        establishment_id, export_scope, date_from, date_to, db,
+        department_id=department_id, section_id=section_id,
+    )
+
+    filename = (
+        f"{_FILENAME_SCOPE[export_scope]}_{date_from.isoformat()}_{date_to.isoformat()}.{file_format.value}"
+    )
+    if file_format == ExportFileFormat.PDF:
+        content = await asyncio.to_thread(
+            render_attendance_pdf, establishment_name, date_from, date_to, rows
+        )
+    else:
+        content = await asyncio.to_thread(
+            render_attendance_xlsx, establishment_name, date_from, date_to, rows
+        )
+    return content, filename
+
+
+async def _build_export_rows(
+    establishment_id: uuid.UUID,
+    export_scope: ExportPersonType,
+    date_from: date_,
+    date_to: date_,
+    db: AsyncSession,
+    *,
+    department_id: uuid.UUID | None = None,
+    section_id: uuid.UUID | None = None,
+) -> list[AttendanceExportRow]:
+    want_children = export_scope in (ExportPersonType.CHILDREN, ExportPersonType.BOTH)
+    want_staff = export_scope in (ExportPersonType.STAFF, ExportPersonType.BOTH)
+
+    children: list[Child] = []
+    staff_members: list[User] = []
+    if want_children:
+        filters = [Child.establishment_id == establishment_id, Child.is_active.is_(True)]
+        if department_id:
+            filters.append(Child.department_id == department_id)
+        if section_id:
+            filters.append(Child.section_id == section_id)
+        children = (await db.execute(select(Child).where(*filters))).scalars().all()
+    if want_staff:
+        staff_members = (
+            await db.execute(
+                select(User).where(
+                    User.establishment_id == establishment_id,
+                    User.role == UserRole.STAFF,
+                    User.is_active.is_(True),
+                )
+            )
+        ).scalars().all()
+
+    if not children and not staff_members:
+        return []
+
+    general_settings = await _get_general_settings(establishment_id, db)
+    tz = _tz_of(general_settings)
+    dept_settings = await _department_settings_map(establishment_id, db)
+    schedule_map = await _staff_schedule_map(establishment_id, db)
+
+    events = await _events_for_range(establishment_id, export_scope, date_from, date_to, db)
+    by_person_day: dict[tuple[uuid.UUID, date_], list[AttendanceEvent]] = {}
+    for e in events:
+        person_id = e.child_id if e.person_type == str(PersonType.CHILD) else e.staff_id
+        by_person_day.setdefault((person_id, e.scanned_at.date()), []).append(e)
+
+    rows: list[AttendanceExportRow] = []
+    current = date_from
+    while current <= date_to:
+        weekday = _is_weekday(current)
+
+        if want_children:
+            for child in children:
+                dept = dept_settings.get(child.department_id) if child.department_id else None
+                expected = dept.expected_arrival_time if dept else None
+                day_events = by_person_day.get((child.id, current), [])
+                arrival = _earliest(day_events, EventType.ARRIVAL)
+                departure = _latest(day_events, EventType.DEPARTURE)
+                status_, late = _compute_status(arrival, weekday, expected, tz)
+                rows.append(AttendanceExportRow(
+                    person_type="Enfant",
+                    name=f"{child.first_names} {child.last_name}".strip(),
+                    matricule=child.matricule,
+                    date=current,
+                    status=_STATUS_LABELS.get(status_, status_),
+                    arrival_time=arrival,
+                    departure_time=departure,
+                    late_minutes=late,
+                    meal_taken=None,
+                ))
+
+        if want_staff:
+            for member in staff_members:
+                schedule = schedule_map.get(member.id)
+                expected = (
+                    schedule.expected_arrival_time
+                    if schedule
+                    else (general_settings.staff_expected_arrival_time if general_settings else None)
+                )
+                day_events = by_person_day.get((member.id, current), [])
+                arrival = _earliest(day_events, EventType.ARRIVAL)
+                departure = _latest(day_events, EventType.DEPARTURE)
+                meal_taken = any(e.event_type == str(EventType.MEAL) for e in day_events)
+                if member.attendance_exempt and arrival is None:
+                    status_, late = "exempt", None
+                else:
+                    status_, late = _compute_status(arrival, weekday, expected, tz)
+                name = member.nickname or f"{member.first_name} {member.last_name}".strip()
+                rows.append(AttendanceExportRow(
+                    person_type="Personnel",
+                    name=name,
+                    matricule=member.matricule,
+                    date=current,
+                    status=_STATUS_LABELS.get(status_, status_),
+                    arrival_time=arrival,
+                    departure_time=departure,
+                    late_minutes=late,
+                    meal_taken=meal_taken,
+                ))
+
+        current += timedelta(days=1)
+
+    rows.sort(key=lambda r: (r.person_type, r.name.lower(), r.date))
+    return rows
+
+
+async def _events_for_range(
+    establishment_id: uuid.UUID,
+    export_scope: ExportPersonType,
+    date_from: date_,
+    date_to: date_,
+    db: AsyncSession,
+) -> list[AttendanceEvent]:
+    filters = [
+        AttendanceEvent.establishment_id == establishment_id,
+        AttendanceEvent.scanned_at >= _day_start(date_from),
+        AttendanceEvent.scanned_at < _day_start(date_to) + timedelta(days=1),
+    ]
+    if export_scope == ExportPersonType.CHILDREN:
+        filters.append(AttendanceEvent.person_type == str(PersonType.CHILD))
+    elif export_scope == ExportPersonType.STAFF:
+        filters.append(AttendanceEvent.person_type == str(PersonType.STAFF))
+    result = await db.execute(select(AttendanceEvent).where(*filters))
+    return list(result.scalars().all())
 
 
 # ── Exemptions ──────────────────────────────────────────────────
@@ -536,6 +811,17 @@ async def _department_settings_map(
         )
     )
     return {s.department_id: s for s in result.scalars().all()}
+
+
+async def _staff_schedule_map(
+    establishment_id: uuid.UUID, db: AsyncSession
+) -> dict[uuid.UUID, StaffAttendanceSchedule]:
+    result = await db.execute(
+        select(StaffAttendanceSchedule).where(
+            StaffAttendanceSchedule.establishment_id == establishment_id
+        )
+    )
+    return {s.staff_id: s for s in result.scalars().all()}
 
 
 async def _get_general_settings(

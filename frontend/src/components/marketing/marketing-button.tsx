@@ -12,11 +12,12 @@ const marketingButtonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/25',
-        secondary: 'bg-secondary text-secondary-foreground shadow-md hover:bg-secondary/70',
+        primary: 'bg-primary text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)] hover:translate-y-1 hover:shadow-none',
+        secondary: 'bg-secondary text-secondary-foreground shadow-[0_4px_0_var(--color-secondary-layer)] hover:translate-y-1 hover:shadow-none',
+        tertiary: 'bg-tertiary text-tertiary-foreground shadow-[0_4px_0_var(--color-tertiary-layer)] hover:translate-y-1 hover:shadow-none',
         outline: 'border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground',
         ghost: 'text-primary-foreground hover:bg-primary-foreground/15',
-        whatsapp: 'bg-[#25D366] text-white shadow-lg shadow-[#25D366]/25 hover:bg-[#1fb959]',
+        whatsapp: 'bg-[#25D366] text-white shadow-[0_4px_0_#1fb959] hover:translate-y-1 hover:shadow-none',
       },
       size: {
         default: 'h-11 px-6 text-sm [&_svg:not([class*="size-"])]:size-4',

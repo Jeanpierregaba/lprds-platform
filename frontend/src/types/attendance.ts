@@ -100,3 +100,21 @@ export interface StaffExemption {
   staff_id: string
   exempt:   boolean
 }
+
+export interface StaffSchedule {
+  staff_id:                 string
+  expected_arrival_time:    string
+  expected_departure_time:  string
+}
+
+export type ExportFileFormat = 'pdf' | 'excel'
+export type ExportPersonType = 'children' | 'staff' | 'both'
+
+export interface AttendanceExportParams {
+  format:        ExportFileFormat
+  person_type:   ExportPersonType
+  date_from:     string
+  date_to:       string
+  department_id?: string
+  section_id?:    string
+}

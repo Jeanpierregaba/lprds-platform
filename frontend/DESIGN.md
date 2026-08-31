@@ -55,15 +55,14 @@ palette.
   Orange Doux             `#F6C434`               Accents chaleureux,
                                                   illustrations, hover
 
-  Turquoise               `#4D9F92`               Boutons secondaires,
-                                                  sections, éléments
-                                                  interactifs
+  Turquoise               `#4D9F92`               Accents fins (tertiaire),
+                                                  éléments interactifs
+
+  Vert Forêt              `#005840`               Boutons secondaires,
+                                                  titres, navigation
 
   Bleu Ciel               `#205996`               Liens, éléments
                                                   secondaires
-
-  Bleu Profond            `#28337E`               Titres, navigation,
-                                                  texte fort
 
   Rose Framboise          `#E3107F`               Accents, badges,
                                                   éléments ludiques
@@ -86,11 +85,14 @@ palette.
 CTA principaux, éléments importants, highlights et accents liés au
 soleil.
 
-**Secondaire :** `#4D9F92`\
+**Secondaire :** `#005840`\
 Boutons secondaires, navigation secondaire, sections et éléments
 interactifs.
 
-**Contraste :** `#28337E`\
+**Tertiaire :** `#4D9F92`\
+Accents fins, éléments interactifs.
+
+**Contraste :** `#005840`\
 Titres, navigation, textes importants et éléments nécessitant une forte
 lisibilité.
 
@@ -189,8 +191,8 @@ La couche inférieure doit être visible de quelques pixels.
 ## 4.4 Bouton secondaire
 
 ``` text
-Background : #4D9F92
-Layer      : #327D73
+Background : #005840
+Layer      : #00301F
 Text       : #FFFFFF
 ```
 
@@ -198,8 +200,8 @@ Text       : #FFFFFF
 
 ``` text
 Background : transparent
-Border     : #4D9F92 ou #28337E
-Text       : #28337E
+Border     : #4D9F92 ou #005840
+Text       : #005840
 ```
 
 ------------------------------------------------------------------------
@@ -406,7 +408,7 @@ La navigation doit être : - claire ; - légère ; - arrondie ; - moderne
 Texte principal :
 
 ``` text
-#28337E
+#005840
 ```
 
 CTA :
@@ -525,19 +527,20 @@ lisibilité.
 
 1.  Fredoka One pour les titres.
 2.  Work Sans pour les textes.
-3.  Bleu profond `#28337E` pour les titres et éléments forts.
+3.  Vert Forêt `#005840` pour les titres et éléments forts.
 4.  Jaune `#F5AA2D` pour les CTA principaux.
-5.  Turquoise `#4D9F92` pour les CTA secondaires.
-6.  Rose, vert et orange uniquement comme accents.
-7.  Coins arrondis sur les composants.
-8.  Boutons avec effet de couche inférieure.
-9.  Clic avec effet d'enfoncement.
-10. Animations courtes et naturelles.
-11. Illustrations cohérentes avec l'univers de la crèche.
-12. Ne jamais surcharger une section avec toutes les couleurs.
-13. Maintenir suffisamment d'espace blanc.
-14. Préserver une apparence professionnelle destinée aux parents.
-15. Design joyeux pour les enfants mais rassurant pour les parents.
+5.  Vert Forêt `#005840` pour les CTA secondaires.
+6.  Turquoise `#4D9F92` comme tertiaire / accents fins.
+7.  Rose, vert et orange uniquement comme accents.
+8.  Coins arrondis sur les composants.
+9.  Boutons avec effet de couche inférieure.
+10. Clic avec effet d'enfoncement.
+11. Animations courtes et naturelles.
+12. Illustrations cohérentes avec l'univers de la crèche.
+13. Ne jamais surcharger une section avec toutes les couleurs.
+14. Maintenir suffisamment d'espace blanc.
+15. Préserver une apparence professionnelle destinée aux parents.
+16. Design joyeux pour les enfants mais rassurant pour les parents.
 
 ------------------------------------------------------------------------
 

@@ -1,9 +1,11 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
+import Image from 'next/image'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 import { useIsAuthenticated, useIsHydrated } from '@/lib/stores/auth.store'
+import heroImg from '@/assets/hero-img.png'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isHydrated = useIsHydrated()
@@ -20,11 +22,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex min-h-screen w-full bg-accent">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="w-full flex-1 p-6">{children}</main>
+        <main className="relative w-full flex-1 overflow-hidden">
+          <Image
+            src={heroImg}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            aria-hidden
+          />
+          <div className="dashboard-view relative w-full h-full overflow-y-auto p-6">{children}</div>
+        </main>
       </div>
     </div>
   )

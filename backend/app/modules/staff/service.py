@@ -14,7 +14,10 @@ from app.modules.auth.models import User, UserRole
 from app.modules.auth.security import hash_password
 from app.modules.establishments.models import Establishment
 from app.modules.rbac.models import user_roles
-from app.modules.rbac.service import ensure_educatrice_baseline_role
+from app.modules.rbac.service import (
+    ensure_bibliothecaire_baseline_role,
+    ensure_educatrice_baseline_role,
+)
 from app.modules.staff.matricule import generate_unique_staff_matricule
 from app.modules.staff.models import StaffType
 from app.modules.staff.schemas import (
@@ -66,6 +69,10 @@ async def create_staff(
         # n'est pas hydratée — y toucher déclencherait un lazy-load
         # synchrone, incompatible avec le contexte async ici.
         role = await ensure_educatrice_baseline_role(establishment_id, db)
+        await db.execute(insert(user_roles).values(user_id=member.id, role_id=role.id))
+        await db.flush()
+    elif member.staff_type == str(StaffType.BIBLIOTHECAIRE):
+        role = await ensure_bibliothecaire_baseline_role(establishment_id, db)
         await db.execute(insert(user_roles).values(user_id=member.id, role_id=role.id))
         await db.flush()
 
@@ -159,6 +166,7 @@ async def update_staff(
     member = await _get_or_404(staff_id, establishment_id, db)
     changes = payload.model_dump(exclude_unset=True)
     was_educateur = member.staff_type == str(StaffType.EDUCATEUR)
+    was_bibliothecaire = member.staff_type == str(StaffType.BIBLIOTHECAIRE)
 
     if "email" in changes and changes["email"] != member.email:
         await _ensure_email_available(changes["email"], db)
@@ -176,6 +184,21 @@ async def update_staff(
         )
     elif was_educateur and not is_educateur:
         baseline = await ensure_educatrice_baseline_role(establishment_id, db)
+        await db.execute(
+            delete(user_roles).where(
+                user_roles.c.user_id == member.id,
+                user_roles.c.role_id == baseline.id,
+            )
+        )
+
+    is_bibliothecaire = member.staff_type == str(StaffType.BIBLIOTHECAIRE)
+    if is_bibliothecaire and not was_bibliothecaire:
+        role = await ensure_bibliothecaire_baseline_role(establishment_id, db)
+        await db.execute(
+            insert(user_roles).values(user_id=member.id, role_id=role.id)
+        )
+    elif was_bibliothecaire and not is_bibliothecaire:
+        baseline = await ensure_bibliothecaire_baseline_role(establishment_id, db)
         await db.execute(
             delete(user_roles).where(
                 user_roles.c.user_id == member.id,

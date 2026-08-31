@@ -220,8 +220,13 @@ def live_server(_migrated_test_schema):
 
 @pytest.fixture
 def client(live_server):
-    """Client scopé /api/v1 — utilisé par l'immense majorité des tests."""
-    with httpx.Client(base_url=f"{live_server}/api/v1", timeout=30) as c:
+    """Client scopé /api/v1 — utilisé par l'immense majorité des tests.
+
+Le timeout est volontairement généreux : les FileResponse (téléchargements de
+pièces jointes) ont montré des latences intermittentes sous Windows (scan AV,
+I/O disque) qui faisaient flaker des tests à 30s (cf. test_gallery). 60s reste
+assez court pour faire échouer un vrai blocage serveur."""
+    with httpx.Client(base_url=f"{live_server}/api/v1", timeout=60) as c:
         yield c
 
 

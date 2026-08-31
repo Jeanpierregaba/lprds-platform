@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Settings, Network, ShieldCheck, UserRound, Baby, Users, ClipboardCheck, MessageCircle, FileText, UtensilsCrossed, Images, Newspaper } from 'lucide-react'
+import { LayoutDashboard, Building2, Settings, Network, ShieldCheck, UserRound, Baby, Users, ClipboardCheck, MessageCircle, FileText, UtensilsCrossed, Images, Newspaper, BookOpen } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/types/auth'
 
@@ -29,6 +29,7 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: 'Messagerie', href: '/dashboard/admin/messaging', icon: MessageCircle },
     { label: 'Rapports', href: '/dashboard/admin/reports', icon: FileText },
     { label: 'Menus', href: '/dashboard/admin/menus', icon: UtensilsCrossed },
+    { label: 'Bibliothèque', href: '/dashboard/admin/library', icon: BookOpen },
     { label: 'Galerie', href: '/dashboard/admin/gallery', icon: Images },
     { label: 'Blog', href: '/dashboard/admin/blog', icon: Newspaper },
     { label: 'Organisation', href: '/dashboard/admin/organization', icon: Network },
@@ -45,6 +46,7 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: 'Messagerie', href: '/dashboard/parent/messaging', icon: MessageCircle },
     { label: 'Galerie', href: '/dashboard/parent/gallery', icon: Images },
     { label: 'Menus', href: '/dashboard/parent/menus', icon: UtensilsCrossed },
+    { label: 'Bibliothèque', href: '/dashboard/parent/library', icon: BookOpen },
     { label: 'Paramètres', href: '/dashboard/parent/settings', icon: Settings },
   ],
 }
@@ -61,6 +63,7 @@ export const STAFF_BASELINE_ITEMS: NavItem[] = [
   { label: 'Mon Groupe', href: '/dashboard/staff/my-group', icon: Baby },
   { label: 'Présence', href: '/dashboard/staff/attendance', icon: ClipboardCheck },
   { label: 'Mes médias', href: '/dashboard/staff/gallery', icon: Images },
+  { label: 'Bibliothèque', href: '/dashboard/staff/library', icon: BookOpen },
 ]
 
 /**
@@ -88,6 +91,10 @@ export const STAFF_MODULE_ITEMS: (NavItem & { permissions: string[] })[] = [
     permissions: ['menus:read', 'menus:write'],
   },
   { label: 'Galerie', href: '/dashboard/admin/gallery', icon: Images, permissions: ['gallery:read'] },
+  {
+    label: 'Bibliothèque', href: '/dashboard/admin/library', icon: BookOpen,
+    permissions: ['library:read', 'library:write', 'library:lend'],
+  },
   { label: 'Blog', href: '/dashboard/admin/blog', icon: Newspaper, permissions: ['blog:write'] },
   { label: 'Organisation', href: '/dashboard/admin/organization', icon: Network, permissions: ['organization:read'] },
 ]

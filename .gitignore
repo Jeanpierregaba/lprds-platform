@@ -5,3 +5,8 @@ backend/media/
 # Dump Redis
 dump.rdb
 *.rdb
+
+# Fichiers d'environnement (secrets) — jamais versionnés, où qu'ils soient
+.env
+.env.*
+!.env.example

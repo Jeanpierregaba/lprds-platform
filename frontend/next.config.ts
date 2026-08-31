@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   // Proxy les appels /api/* vers le backend FastAPI en dev
   async rewrites() {
     return [
@@ -11,9 +12,10 @@ const nextConfig: NextConfig = {
     ]
   },
   images: {
-    // Domaines autorisés pour next/image
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8000' },
+      { protocol: 'https', hostname: 'preprod.lespetitsrayonsdesoleil.net' },
+      { protocol: 'https', hostname: 'lespetitsrayonsdesoleil.net' },
     ],
   },
 }

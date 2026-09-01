@@ -17,5 +17,4 @@ jobs:
           script: |
             cd ~/apps/lprds-preprod
             git pull origin develop
-            docker compose down
             docker compose up -d --build

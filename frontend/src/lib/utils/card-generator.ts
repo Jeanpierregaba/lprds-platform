@@ -14,12 +14,12 @@ const QR_X = 155
 const QR_Y = 610
 const QR_SIZE = 300
 
-const NAME_FONT_SIZE = 56
+const NAME_FONT_SIZE = 45
 const NAME_X = 570
 const PRENOMS_Y = 855
 const NOM_Y = 655
 
-const SECTION_FONT_SIZE = 48
+const SECTION_FONT_SIZE = 45
 const SECTION_X = 570
 const SECTION_Y = 1060
 

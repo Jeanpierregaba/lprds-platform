@@ -186,7 +186,7 @@ export function GroupsTab() {
           </Select>
           <div className="flex items-center gap-2">
             <Switch id="grp-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="grp-include-inactive" className="text-sm">Inclure les groupes inactifs</Label>
+            <Label htmlFor="grp-include-inactive" className="text-sm text-white font-semibold">Inclure les groupes inactifs</Label>
           </div>
         </div>
 

@@ -36,6 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="object-cover"
             aria-hidden
           />
+          <div className="absolute inset-0 bg-neutral-900/40" aria-hidden="true" />
           <div className="dashboard-view relative w-full h-full overflow-y-auto p-6">{children}</div>
         </main>
       </div>

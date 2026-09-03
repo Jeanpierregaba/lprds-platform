@@ -74,8 +74,8 @@ export default function NewParentPage() {
         href="/dashboard/admin/parents"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
+        <ArrowLeft className="size-4 text-white" />
+        <span className="text-white font-semibold">Retour à la liste</span>
       </Link>
 
       <Card>

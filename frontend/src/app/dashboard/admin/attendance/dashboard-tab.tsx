@@ -33,7 +33,7 @@ export function DashboardTab() {
   return (
     <div className="space-y-4 pt-2">
       <div className="w-fit space-y-1.5">
-        <Label htmlFor="attendance-date">Date</Label>
+        <Label htmlFor="attendance-date" className="text-white font-semibold text-sm">Date</Label>
         <Input id="attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
       </div>
 

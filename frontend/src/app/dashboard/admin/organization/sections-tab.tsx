@@ -134,7 +134,7 @@ export function SectionsTab() {
           </Select>
           <div className="flex items-center gap-2">
             <Switch id="sec-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="sec-include-inactive" className="text-sm">Inclure les sections inactives</Label>
+            <Label htmlFor="sec-include-inactive" className="text-sm text-white font-semibold">Inclure les sections inactives</Label>
           </div>
         </div>
 

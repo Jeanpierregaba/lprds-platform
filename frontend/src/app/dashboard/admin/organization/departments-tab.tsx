@@ -93,7 +93,7 @@ export function DepartmentsTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Switch id="dept-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="dept-include-inactive" className="text-sm">Inclure les départements inactifs</Label>
+          <Label htmlFor="dept-include-inactive" className="text-sm text-white font-semibold">Inclure les départements inactifs</Label>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

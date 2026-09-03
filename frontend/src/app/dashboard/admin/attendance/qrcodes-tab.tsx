@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Baby, Download, QrCode, Search, UserRound } from 'lucide-react'
+import { Baby, Download, IdCard, QrCode, Search, UserRound } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,6 +13,7 @@ import { attendanceApi } from '@/lib/api/attendance.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { CardPreviewModal } from '@/components/card-preview-modal'
 
 export function QrCodesTab() {
   return (
@@ -43,6 +44,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [showCardModal, setShowCardModal] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -78,6 +80,23 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
   })
 
   const selected = results.find((r) => r.id === selectedId)
+
+  const { data: childDetail } = useQuery({
+    queryKey: ['children', selectedId],
+    queryFn: () => childrenApi.get(selectedId!).then((r) => r.data),
+    enabled: personType === 'child' && !!selectedId,
+  })
+
+  const cardData =
+    childDetail && qrcode
+      ? {
+          qrImage: qrcode.qr_image,
+          matricule: qrcode.matricule,
+          firstName: childDetail.first_names,
+          lastName: childDetail.last_name,
+          section: childDetail.section?.name ?? '',
+        }
+      : null
 
   return (
     <div className="grid gap-4 pt-2 lg:grid-cols-2">
@@ -159,10 +178,28 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                 <Download className="mr-1.5 size-4" />
                 Télécharger
               </Button>
+              {personType === 'child' && cardData && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setShowCardModal(true)}
+                >
+                  <IdCard className="mr-1.5 size-4" />
+                  Générer la carte scolaire
+                </Button>
+              )}
             </div>
           ) : null}
         </CardContent>
       </Card>
+
+      {cardData && (
+        <CardPreviewModal
+          open={showCardModal}
+          onOpenChange={setShowCardModal}
+          cardData={cardData}
+        />
+      )}
     </div>
   )
 }

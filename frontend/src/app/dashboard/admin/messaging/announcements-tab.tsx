@@ -117,7 +117,7 @@ export function AnnouncementsTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Switch id="announcement-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="announcement-include-inactive" className="text-sm">Inclure les diffusions désactivées</Label>
+          <Label htmlFor="announcement-include-inactive" className="text-sm text-white font-semibold">Inclure les diffusions désactivées</Label>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

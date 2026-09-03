@@ -99,7 +99,7 @@ export default function StaffListPage() {
         </Select>
         <div className="flex items-center gap-2">
           <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="include-inactive" className="text-sm">Inclure les comptes inactifs</Label>
+          <Label htmlFor="include-inactive" className="text-sm text-white font-semibold">Inclure les comptes inactifs</Label>
         </div>
       </div>
 

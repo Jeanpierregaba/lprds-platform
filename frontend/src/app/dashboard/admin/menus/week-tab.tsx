@@ -126,8 +126,8 @@ export function WeekTab({
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold">Semaine du {formatDate(weekStart)}</h2>
-          <p className="text-sm text-muted-foreground">au {formatDate(weekEnd)}</p>
+          <h2 className="text-xl font-bold text-white">Semaine du {formatDate(weekStart)} <br />Au {formatDate(weekEnd)}</h2>
+        
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon-sm" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), -7)))}>

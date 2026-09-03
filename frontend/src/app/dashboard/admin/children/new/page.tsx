@@ -183,10 +183,10 @@ export default function NewChildPage() {
     >
       <Link
         href="/dashboard/admin/children"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm text-white hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Retour à la liste
+        <span className="text-white font-semibold">Retour à la liste</span>
       </Link>
 
       {/* Indicateur d'étapes */}
@@ -200,13 +200,13 @@ export default function NewChildPage() {
                   i < step
                     ? 'bg-primary text-primary-foreground'
                     : i === step
-                      ? 'border-2 border-primary text-primary'
-                      : 'border border-border text-muted-foreground'
+                      ? 'bg-primary border-2 border-secondary text-accent'
+                      : 'border border-border text-accent'
                 )}
               >
                 {i < step ? <Check className="size-3.5" /> : i + 1}
               </div>
-              <span className={cn('hidden text-center text-xs sm:block', i === step ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+              <span className={cn('hidden text-center text-xs sm:block', i === step ? 'font-medium text-primary' : 'text-white')}>
                 {label}
               </span>
             </div>

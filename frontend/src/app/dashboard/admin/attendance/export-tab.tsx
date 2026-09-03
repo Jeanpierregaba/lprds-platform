@@ -118,7 +118,7 @@ export function ExportTab() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-white font-semibold">
         Export agrégé des présences (statut par personne et par jour) en PDF ou Excel,
         pour les enfants et/ou le personnel. Période limitée à 366 jours.
       </p>

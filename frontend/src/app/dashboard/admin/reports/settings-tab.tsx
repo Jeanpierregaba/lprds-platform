@@ -49,7 +49,7 @@ export function SettingsTab() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-white font-semibold">
         Un département peut avoir plusieurs types de rapport actifs simultanément.
       </p>
 

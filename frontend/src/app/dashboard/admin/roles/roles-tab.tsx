@@ -114,7 +114,7 @@ export function RolesTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Switch id="role-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="role-include-inactive" className="text-sm">Inclure les rôles inactifs</Label>
+          <Label htmlFor="role-include-inactive" className="text-sm text-white font-semibold">Inclure les rôles inactifs</Label>
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -233,7 +233,7 @@ function DepartmentSettings() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-white font-semibold">
         Horaires attendus pour les enfants — configurables par département (le personnel a un horaire unique, cf. Général).
       </p>
 
@@ -408,7 +408,7 @@ function StaffSchedulesSettings() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-white font-semibold">
         Par défaut, tout le personnel suit l&apos;horaire général (cf. Général). Posez un horaire
         personnalisé ici pour un membre — il surcharge l&apos;horaire général pour le calcul des retards.
       </p>
@@ -580,7 +580,7 @@ function ExemptionsSettings() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-white font-semibold">
         Un membre du personnel exempté n&apos;est jamais compté « absent » lorsqu&apos;il ne scanne pas.
       </p>
 

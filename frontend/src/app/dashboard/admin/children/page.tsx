@@ -142,13 +142,13 @@ export default function ChildrenListPage() {
         </Select>
         <div className="flex items-center gap-2">
           <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="include-inactive" className="text-sm">Inclure les fiches inactives</Label>
+          <Label htmlFor="include-inactive" className="text-sm text-white font-semibold">Inclure les fiches inactives</Label>
         </div>
 
-        <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
+        <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5 bg-accent">
           <Button
             type="button"
-            variant={view === 'table' ? 'secondary' : 'ghost'}
+            variant={view === 'table' ? 'default' : 'ghost'}
             size="icon-sm"
             aria-label="Vue en liste"
             aria-pressed={view === 'table'}
@@ -158,7 +158,7 @@ export default function ChildrenListPage() {
           </Button>
           <Button
             type="button"
-            variant={view === 'cards' ? 'secondary' : 'ghost'}
+            variant={view === 'cards' ? 'default' : 'ghost'}
             size="icon-sm"
             aria-label="Vue en cartes"
             aria-pressed={view === 'cards'}
@@ -255,7 +255,7 @@ export default function ChildrenListPage() {
                     </TableCell>
                     <TableCell className="p-0">
                       <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2">
-                        <Badge variant={child.is_active ? 'default' : 'outline'}>
+                        <Badge variant={child.is_active ? 'secondary' : 'outline'}>
                           {child.is_active ? 'Actif' : 'Inactif'}
                         </Badge>
                       </Link>

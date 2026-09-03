@@ -100,7 +100,7 @@ export function CatalogueTab() {
 
           <div className="flex items-center gap-2">
             <Switch id="include-inactive-books" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="include-inactive-books" className="text-sm text-muted-foreground">
+            <Label htmlFor="include-inactive-books" className="text-sm text-white font-semibold">
               Inclure les désactivés
             </Label>
           </div>

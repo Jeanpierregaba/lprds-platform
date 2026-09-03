@@ -9,7 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, KeyRound, Loader2 } from 'lucide-react'
+import { ArrowLeft, KeyRound, Loader2, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -149,8 +149,8 @@ export default function ParentDetailPage() {
         href="/dashboard/admin/parents"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
+        <ArrowLeft className="size-4 text-white" />
+        <span className="text-white font-semibold">Retour à la liste</span>
       </Link>
 
       <div className="flex items-center justify-between">
@@ -161,7 +161,7 @@ export default function ParentDetailPage() {
               {parent.is_active ? 'Actif' : 'Inactif'}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white">
             Dernière connexion : {formatDateTime(parent.last_login_at)}
           </p>
         </div>
@@ -196,6 +196,7 @@ export default function ParentDetailPage() {
 
           <AlertDialog>
             <AlertDialogTrigger render={<Button variant={parent.is_active ? 'destructive' : 'outline'} />}>
+              <Trash2 className="mr-1.5 size-4 text-white" />
               {parent.is_active ? 'Désactiver' : 'Réactiver'}
             </AlertDialogTrigger>
             <AlertDialogContent>

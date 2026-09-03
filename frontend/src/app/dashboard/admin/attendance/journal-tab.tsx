@@ -64,7 +64,7 @@ export function JournalTab() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1.5">
-          <Label>Type</Label>
+          <Label className="text-white font-semibold text-sm">Type</Label>
           <Select
             items={{ [ALL]: 'Tous', child: 'Enfants', staff: 'Personnel' }}
             value={personType}
@@ -81,11 +81,11 @@ export function JournalTab() {
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="date_from">Du</Label>
+          <Label htmlFor="date_from" className="text-white font-semibold text-sm">Du</Label>
           <Input id="date_from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-44" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="date_to">Au</Label>
+          <Label htmlFor="date_to" className="text-white font-semibold text-sm">Au</Label>
           <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-44" />
         </div>
       </div>

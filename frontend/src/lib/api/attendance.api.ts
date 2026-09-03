@@ -4,6 +4,7 @@ import type {
   AttendanceSettingsPayload, ChildDailyStatusListResponse, DepartmentAttendanceSettings, EventType,
   PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
   AttendanceExportParams,
+  VerifyQrResponse,
 } from '@/types/attendance'
 
 export const attendanceApi = {
@@ -19,6 +20,9 @@ export const attendanceApi = {
     companion_name?: string
     companion_phone?: string
   }) => apiClient.post<AttendanceEvent>('/api/v1/attendance/scan', data),
+
+  verifyScan: (qr_payload: string) =>
+    apiClient.post<VerifyQrResponse>('/api/v1/attendance/scan/verify', { qr_payload }),
 
   listEvents: (params?: {
     person_type?: PersonType

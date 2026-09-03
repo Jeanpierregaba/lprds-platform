@@ -4,6 +4,22 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * Animation « suggestion » du module Présences (scan) : le bouton du
+ * prochain événement logique (Arrivée / Cantine / Départ) clignote pour
+ * attirer l'œil du scanneur. On anime la bordure et la teinte de fond.
+ */
+@keyframes suggest-pulse {
+  0%, 100% {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 0 hsl(var(--ring) / 0.55);
+  }
+  50% {
+    border-color: hsl(var(--ring) / 0.25);
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0);
+  }
+}
+
+/*
  * Design system — Les Petits Rayons de Soleil
  * Source : DESIGN.md (palette, typographie, rayons d'angle, boutons, ombres).
  * Toutes les couleurs sont stockées en triplet HSL brut (sans hsl())
@@ -79,6 +95,9 @@
   /* Polices — cf. DESIGN.md § 3 (chargées via next/font dans layout.tsx) */
   --font-sans:    var(--font-work-sans), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-fredoka), ui-sans-serif, system-ui, sans-serif;
+
+  /* Animation de suggestion d'événement (module Présences / scan) */
+  --animate-suggest: suggest-pulse 1.4s ease-in-out infinite;
 }
 
 :root {

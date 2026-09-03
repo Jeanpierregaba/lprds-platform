@@ -39,6 +39,29 @@ class ScanRequest(BaseModel):
     companion_phone: str | None = Field(default=None, max_length=20)
 
 
+class VerifyQrRequest(BaseModel):
+    """Validation du QR au moment du scan — aucun événement créé ici.
+
+    Sert à confirmer que le code est valide et appartient bien à un membre de
+    l'établissement, tout en renseignant le frontend sur l'état du jour de la
+    personne (déjà arrivé ? déjà parti ? cantine prise ?) pour suggérer le bon
+    type d'événement avant toute écriture."""
+
+    qr_payload: str = Field(min_length=1, description="Jeton chiffré lu depuis le QR scanné")
+
+
+class VerifyQrResponse(BaseModel):
+    person_type: PersonType   # child | staff
+    matricule:   str | None
+    # Nom d'affichage (surnom pour le staff, sinon prénom(s) + nom)
+    display_name: str
+    # État du jour (calculé à la volée sur les événements du jour) — sert à
+    # allumer le bon voyant côté scanneur.
+    has_arrived:  bool   # un événement « arrival » existe déjà aujourd'hui
+    has_departed: bool   # un événement « departure » existe déjà aujourd'hui
+    has_meal:     bool   # staff uniquement : une cantine déjà prise aujourd'hui
+
+
 class PersonBrief(BaseModel):
     model_config = {"from_attributes": True}
 

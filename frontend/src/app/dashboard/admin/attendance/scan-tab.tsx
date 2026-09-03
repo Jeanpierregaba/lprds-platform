@@ -4,21 +4,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import jsQR from 'jsqr'
 import { toast } from 'sonner'
-import { AlertTriangle, Camera, CheckCircle2, Keyboard, Loader2, QrCode } from 'lucide-react'
+import { AlertTriangle, Camera, CheckCircle2, Keyboard, Loader2, QrCode, User, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import type { AttendanceEvent, EventType } from '@/types/attendance'
+import { cn } from '@/lib/utils/cn'
+import type { AttendanceEvent, EventType, VerifyQrResponse } from '@/types/attendance'
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
   arrival: 'Arrivée',
   departure: 'Départ',
-  meal: 'Cantine (personnel uniquement)',
+  meal: 'Cantine',
 }
 
 type CameraState = 'idle' | 'starting' | 'scanning' | 'denied' | 'unsupported'
@@ -29,15 +29,48 @@ function personLabel(event: AttendanceEvent) {
   return person.nickname || `${person.first_names ?? person.first_name ?? ''} ${person.last_name}`.trim()
 }
 
+interface EventOption {
+  type: EventType
+  label: string
+  suggested: boolean
+}
+
+function buildOptions(verified: VerifyQrResponse): EventOption[] {
+  const isChild = verified.person_type === 'child'
+  const options: EventOption[] = []
+
+  if (isChild) {
+    // Enfant : Arrivée puis Départ. Le voyant suggère Départ si arrivé mais pas parti.
+    const suggested = verified.has_arrived && !verified.has_departed
+    options.push({ type: 'arrival', label: EVENT_TYPE_LABELS.arrival, suggested: !suggested })
+    options.push({ type: 'departure', label: EVENT_TYPE_LABELS.departure, suggested })
+  } else {
+    // Personnel : Arrivée → Cantine → Départ. Priorité au prochain geste logique.
+    let suggestedType: EventType
+    if (!verified.has_arrived) suggestedType = 'arrival'
+    else if (!verified.has_meal) suggestedType = 'meal'
+    else if (!verified.has_departed) suggestedType = 'departure'
+    else suggestedType = 'arrival' // cycle complet : on repart sur une arrivée
+
+    options.push({ type: 'arrival', label: EVENT_TYPE_LABELS.arrival, suggested: suggestedType === 'arrival' })
+    options.push({ type: 'meal', label: EVENT_TYPE_LABELS.meal, suggested: suggestedType === 'meal' })
+    options.push({ type: 'departure', label: EVENT_TYPE_LABELS.departure, suggested: suggestedType === 'departure' })
+  }
+  return options
+}
+
 export function ScanTab() {
   const queryClient = useQueryClient()
 
   const [cameraState, setCameraState] = useState<CameraState>('idle')
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const [decodedPayload, setDecodedPayload] = useState<string | null>(null)
   const [manualPayload, setManualPayload] = useState('')
 
-  const [eventType, setEventType] = useState<EventType>('arrival')
+  const [decodedPayload, setDecodedPayload] = useState<string | null>(null)
+  const [verified, setVerified] = useState<VerifyQrResponse | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+
+  const [selectedType, setSelectedType] = useState<EventType | null>(null)
   const [companionName, setCompanionName] = useState('')
   const [companionPhone, setCompanionPhone] = useState('')
 
@@ -101,17 +134,44 @@ export function ScanTab() {
   useEffect(() => () => stopCamera(), [stopCamera])
 
   const resetToIdle = () => {
+    stopCamera()
     setDecodedPayload(null)
-    setEventType('arrival')
+    setVerified(null)
+    setScanError(null)
+    setSelectedType(null)
     setCompanionName('')
     setCompanionPhone('')
   }
 
+  // ── Étape 1 : validation du QR scanné (aucun événement créé) ──
+  const verifyMutation = useMutation({
+    mutationFn: (payload: string) => attendanceApi.verifyScan(payload).then((r) => r.data),
+    onSuccess: (v) => {
+      setVerified(v)
+      setScanError(null)
+      setSelectedType(null)
+      setCompanionName('')
+      setCompanionPhone('')
+    },
+    onError: (err) => {
+      const msg = getApiErrorMessage(err)
+      setScanError(msg)
+      setVerified(null)
+    },
+  })
+
+  useEffect(() => {
+    if (decodedPayload && !verified && !verifyMutation.isPending && !scanError) {
+      verifyMutation.mutate(decodedPayload)
+    }
+  }, [decodedPayload, verified, verifyMutation, scanError])
+
+  // ── Étape 2 : enregistrement du scan aprés choix de l'événement ──
   const scanMutation = useMutation({
     mutationFn: () =>
       attendanceApi.scan({
         qr_payload: decodedPayload!,
-        event_type: eventType,
+        event_type: selectedType!,
         companion_name: companionName || undefined,
         companion_phone: companionPhone || undefined,
       }).then((r) => r.data),
@@ -127,10 +187,16 @@ export function ScanTab() {
     if (!manualPayload.trim()) return
     stopCamera()
     setCameraState('idle')
+    setScanError(null)
+    setVerified(null)
     setDecodedPayload(manualPayload.trim())
     setManualPayload('')
   }
 
+  const isChild = verified?.person_type === 'child'
+  const eventOptions = verified ? buildOptions(verified) : []
+
+  // ── Rendu ─────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-md space-y-4 pt-2">
       <Card>
@@ -139,32 +205,44 @@ export function ScanTab() {
           <CardDescription>Activez la caméra et présentez le QR code.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {decodedPayload ? (
+          {decodedPayload && verified && eventOptions.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
-                <CheckCircle2 className="size-4 shrink-0 text-primary" />
-                <span>QR code scanné — complétez les informations pour valider.</span>
+              <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+                {isChild ? <Users className="size-4 shrink-0 text-primary" /> : <User className="size-4 shrink-0 text-primary" />}
+                <div className="text-sm">
+                  <p className="font-medium text-foreground">{verified.display_name}</p>
+                  <p className="text-muted-foreground">
+                    {isChild ? 'Enfant' : 'Personnel'}
+                    {verified.matricule ? ` · ${verified.matricule}` : ''}
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="event_type">Type d&apos;événement</Label>
-                <Select
-                  items={EVENT_TYPE_LABELS}
-                  value={eventType}
-                  onValueChange={(v) => v && setEventType(v as EventType)}
-                >
-                  <SelectTrigger id="event_type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(EVENT_TYPE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Choisissez l&apos;événement</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {eventOptions.map((opt) => (
+                    <Button
+                      key={opt.type}
+                      type="button"
+                      variant={selectedType === opt.type ? 'default' : 'outline'}
+                      size="lg"
+                      className={cn('justify-start', opt.suggested && selectedType !== opt.type && 'animate-suggest')}
+                      onClick={() => setSelectedType(opt.type)}
+                    >
+                      {opt.suggested && <span className="size-2 shrink-0 rounded-full bg-current animate-pulse" />}
+                      {opt.label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {eventOptions.some((o) => o.suggested)
+                    ? 'Le voyant clignotant indique l&apos;événement suggéré en fonction du pointage du jour.'
+                    : 'Aucune suggestion — pointez le geste souhaité.'}
+                </p>
               </div>
 
-              {eventType !== 'meal' && (
+              {isChild && selectedType && selectedType !== 'meal' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="companion_name">Accompagnateur (enfant, optionnel)</Label>
@@ -178,13 +256,38 @@ export function ScanTab() {
               )}
 
               <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={resetToIdle} disabled={scanMutation.isPending}>
+                <Button type="button" variant="outline" className="flex-1" onClick={resetToIdle} disabled={scanMutation.isPending || !selectedType}>
                   Annuler
                 </Button>
-                <Button type="button" className="flex-1" onClick={() => scanMutation.mutate()} disabled={scanMutation.isPending}>
-                  {scanMutation.isPending ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Validation...</> : 'Valider'}
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={() => selectedType && scanMutation.mutate()}
+                  disabled={!selectedType || scanMutation.isPending}
+                >
+                  {scanMutation.isPending ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Enregistrement...</> : 'Valider'}
                 </Button>
               </div>
+            </div>
+          ) : decodedPayload && verified === null ? (
+            <div className="space-y-4">
+              {scanError ? (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <div className="space-y-2">
+                    <p className="font-medium">QR code invalide</p>
+                    <p className="text-muted-foreground">{scanError}</p>
+                    <Button type="button" variant="outline" size="sm" onClick={resetToIdle}>
+                      Scanner un autre badge
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                  <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+                  <span><CheckCircle2 className="mr-1 inline size-4" /> Vérification du QR code...</span>
+                </div>
+              )}
             </div>
           ) : (
             <>

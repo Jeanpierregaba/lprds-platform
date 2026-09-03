@@ -24,6 +24,8 @@ from app.modules.attendance.schemas import (
     StaffExemptionResponse,
     StaffScheduleRequest,
     StaffScheduleResponse,
+    VerifyQrRequest,
+    VerifyQrResponse,
 )
 from app.modules.attendance.dependencies import get_staff
 from app.modules.auth.models import User
@@ -58,6 +60,18 @@ async def get_staff_qrcode(
 
 
 # ── Scan ────────────────────────────────────────────────────────
+@router.post("/scan/verify", response_model=VerifyQrResponse)
+async def verify_scan_qr(
+    payload: VerifyQrRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_scan),
+) -> VerifyQrResponse:
+    """Valide un QR scanné sans créer d'événement. Retourne le type de personne,
+    son nom d'affichage et l'état du jour (déjà arrivé/parti/cantine) pour
+    suggérer le bon type d'événement avant d'autoriser le pointage."""
+    return await service.verify_qr(payload, user.establishment_id, db)
+
+
 @router.post("/scan", response_model=AttendanceEventResponse, status_code=status.HTTP_201_CREATED)
 async def scan(
     payload: ScanRequest,

@@ -831,6 +831,7 @@ l'admin authentifié (impression lisible sur le badge à côté du QR), mais n'e
 ```
 GET  /api/v1/attendance/qrcode/child/{id}         # Jeton chiffré + image PNG (attendance:write)
 GET  /api/v1/attendance/qrcode/staff/{id}         # Jeton chiffré + image PNG (attendance:write)
+POST /api/v1/attendance/scan/verify               # Valide un QR + état du jour, sans écrire (attendance:scan)
 POST /api/v1/attendance/scan                      # Enregistre un scan (attendance:scan)
 GET  /api/v1/attendance/events                    # Journal (attendance:read)
 GET  /api/v1/attendance/daily/children            # ?date= &department_id= &section_id=
@@ -843,6 +844,32 @@ GET  /PUT /DELETE /api/v1/attendance/settings/staff/{staff_id}       # horaire p
 GET  /api/v1/attendance/export                      # ?format=&person_type=&date_from=&date_to=
                                                     #  &department_id=&section_id=
 ```
+
+### Scan en deux temps — `verify` puis `scan`
+
+Le flux de pointage gère **deux appels distincts**, pas un seul :
+1. `POST /scan/verify` — **valide le QR sans rien écrire** (préfixé avant
+   `/scan`, chemins différents sans ambiguïté de routage) : déchiffre le jeton,
+   vérifie que la personne (enfant OU staff) est un membre **actif** de
+   l'établissement courant (404 si inconnue ailleurs), et renvoie `person_type`,
+   `matricule`, `display_name` + l'**état du jour** (`has_arrived` /
+   `has_departed` / `has_meal` — `has_meal` toujours `false` pour un enfant).
+2. `POST /scan` — n'enregistre l'événement qu'une fois la personne affichée et
+   le type d'événement choisi côté UI.
+
+L'état du jour sert à **suggérer le prochain geste** (indicateur clignotant sur
+le bon bouton) :
+- **Enfant** : `has_arrived && !has_departed → departure`, sinon `arrival`.
+  Champs « accompagnateur » affichés uniquement après sélection d'un type.
+- **Staff** : `!has_arrived → arrival` ; sinon `!has_meal → meal` ; sinon
+  `!has_departed → departure` ; sinon `arrival`. Pas de champ accompagnateur.
+
+Le backend, lui, **impose** la cohérence pendant le scan réel : il rejette
+déjà 422 une cantine pour un enfant et un accompagnateur pour un staff. Le
+`verify` n'ajoute aucune contrainte côté serveur — il ne fait qu'aider l'UI à
+présenter le bon geste avant d'écrire. La vérification n'écrit **jamais**
+d'événement (append-only préservé).
+
 
 ### Permissions — trois, pas deux
 

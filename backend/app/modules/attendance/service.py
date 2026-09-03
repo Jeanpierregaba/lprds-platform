@@ -41,6 +41,8 @@ from app.modules.attendance.schemas import (
     StaffExemptionResponse,
     StaffScheduleRequest,
     StaffScheduleResponse,
+    VerifyQrRequest,
+    VerifyQrResponse,
 )
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
@@ -120,6 +122,53 @@ async def scan(
     await db.flush()
     await db.refresh(event)
     return await _to_event_response(event, db)
+
+
+# ── Vérification du QR (avant tout scan) ──────────────────────────
+async def verify_qr(
+    payload: VerifyQrRequest,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> VerifyQrResponse:
+    """Valide un QR scanné et renseigne l'état du jour de la personne, sans
+    créer d'événement. Le QR doit déchiffrer, exister et appartenir à un
+    membre ACTIF de l'établissement courant."""
+    person_type, person_id = decrypt_qr_payload(payload.qr_payload)
+
+    today = date_.today()
+    events_formatted: dict[uuid.UUID, list[AttendanceEvent]] = {}
+
+    if person_type == PersonType.CHILD:
+        child = await _get_active_child_or_404(person_id, establishment_id, db)
+        display_name = child.first_names
+        matricule = child.matricule
+        events_formatted = await _events_for_day(
+            establishment_id, PersonType.CHILD, today, db
+        )
+        day_events = events_formatted.get(child.id, [])
+        return VerifyQrResponse(
+            person_type=PersonType.CHILD,
+            matricule=matricule,
+            display_name=display_name,
+            has_arrived=any(e.event_type == str(EventType.ARRIVAL) for e in day_events),
+            has_departed=any(e.event_type == str(EventType.DEPARTURE) for e in day_events),
+            has_meal=False,
+        )
+
+    staff = await _get_active_staff_or_404(person_id, establishment_id, db)
+    display_name = staff.nickname or f"{staff.first_name} {staff.last_name}".strip()
+    events_formatted = await _events_for_day(
+        establishment_id, PersonType.STAFF, today, db
+    )
+    day_events = events_formatted.get(staff.id, [])
+    return VerifyQrResponse(
+        person_type=PersonType.STAFF,
+        matricule=staff.matricule,
+        display_name=display_name,
+        has_arrived=any(e.event_type == str(EventType.ARRIVAL) for e in day_events),
+        has_departed=any(e.event_type == str(EventType.DEPARTURE) for e in day_events),
+        has_meal=any(e.event_type == str(EventType.MEAL) for e in day_events),
+    )
 
 
 # ── Journal des événements ────────────────────────────────────────

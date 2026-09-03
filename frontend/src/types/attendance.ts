@@ -70,6 +70,15 @@ export interface QRCodeResponse {
   qr_image:    string
 }
 
+export interface VerifyQrResponse {
+  person_type:  PersonType
+  matricule:    string | null
+  display_name: string
+  has_arrived:  boolean
+  has_departed: boolean
+  has_meal:     boolean
+}
+
 export interface AttendanceSettingsPayload {
   expected_arrival_time:   string
   expected_departure_time: string

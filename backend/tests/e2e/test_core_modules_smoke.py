@@ -189,6 +189,66 @@ def test_attendance_qr_scan(client):
     ck("1 évènement de présence enregistré", events["total"], 1)
 
 
+def test_attendance_qr_verify(client):
+    """Le endpoint /attendance/scan/verify valide le QR sans créer d'événement et
+    renseigne l'état du jour (déjà arrivé/parti/cantine) pour suggérer le
+    bon type de scan côté frontend."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    dep = c.post("/departments", json={"name": "Maternelle"}, headers=adm).json()
+    sec = c.post("/sections", json={"department_id": dep["id"], "name": "PS"},
+                 headers=adm).json()
+    child = c.post("/children", json={
+        "last_name": "Beta", "first_names": "Lina", "birth_date": "2023-01-01",
+        "admission_date": "2025-01-01", "residence_address": "x",
+        "department_id": dep["id"], "section_id": sec["id"],
+        "guardians": [{"last_name": "Beta", "first_names": "P", "phone": "+229"}],
+    }, headers=adm).json()
+    staff = c.post("/staff", json={"first_name": "S", "last_name": "T",
+                   "nickname": "Tata Stella", "phone": "+229", "email": "stella@a.fr",
+                   "password": "Staff2026", "staff_type": "educateur"}, headers=adm).json()
+
+    qr_child = c.get(f"/attendance/qrcode/child/{child['id']}", headers=adm).json()
+    qr_staff = c.get(f"/attendance/qrcode/staff/{staff['id']}", headers=adm).json()
+
+    # Aucun scan du jour → état vierge.
+    v = c.post("/attendance/scan/verify", json={"qr_payload": qr_child["qr_payload"]}, headers=adm)
+    ck("Vérification enfant 200", v.status_code, 200)
+    vj = v.json()
+    ck("Type de personne enfant", vj["person_type"], "child")
+    ck("Nom affiché enfant (prénoms)", vj["display_name"], "Lina")
+    ck("Matricule enfant fourni", vj["matricule"], child["matricule"])
+    ck("Enfant pas encore arrivé", vj["has_arrived"], False)
+    ck("Enfant pas encore parti", vj["has_departed"], False)
+    ck("Enfant sans cantine", vj["has_meal"], False)
+
+    vs = c.post("/attendance/scan/verify", json={"qr_payload": qr_staff["qr_payload"]}, headers=adm)
+    ck("Vérification staff 200", vs.status_code, 200)
+    vsj = vs.json()
+    ck("Type de personne staff", vsj["person_type"], "staff")
+    ck("Nom affiché staff (surnom)", vsj["display_name"], "Tata Stella")
+
+    # Après une arrivée enfant, l'état bascule.
+    arrival = c.post("/attendance/scan",
+                     json={"qr_payload": qr_child["qr_payload"], "event_type": "arrival"},
+                     headers=adm)
+    ck("Scan d'arrivée enregistré", arrival.status_code, 201)
+    v2 = c.post("/attendance/scan/verify", json={"qr_payload": qr_child["qr_payload"]}, headers=adm).json()
+    ck("Enfant déjà arrivé après scan", v2["has_arrived"], True)
+    ck("Enfant pas encore parti", v2["has_departed"], False)
+
+    # La vérification ne crée AUCUN événement (append-only préservé).
+    events = c.get(f"/attendance/events?child_id={child['id']}", headers=adm).json()
+    ck("La vérification n'écrit rien (1 scan seulement)", events["total"], 1)
+
+    # QR invalide → 422 (token chiffré illisible), aucun événement créé.
+    bad = c.post("/attendance/scan/verify", json={"qr_payload": "invalid-token"}, headers=adm)
+    ck("QR invalide → 422", bad.status_code, 422)
+    events2 = c.get(f"/attendance/events?child_id={child['id']}", headers=adm).json()
+    ck("Vérification invalide n'écrit rien non plus", events2["total"], 1)
+
+
 def test_messaging_announcement_and_conversation(client):
     c = client
     su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)

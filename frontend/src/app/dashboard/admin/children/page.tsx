@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Baby, LayoutGrid, List, Plus, Search } from 'lucide-react'
+import { toast } from 'sonner'
+import { Baby, Download, FileSpreadsheet, FileUp, LayoutGrid, List, Loader2, Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,10 +17,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { childrenApi } from '@/lib/api/children.api'
 import { organizationApi } from '@/lib/api/organization.api'
+import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
-import type { ChildListItem } from '@/types/children'
+import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
 
 function initials(firstNames: string, lastName: string) {
   return `${firstNames[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
@@ -32,7 +37,21 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR')
 }
 
+function downloadBlob(blob: Blob, fallbackName: string, disposition?: string) {
+  const match = /filename="([^"]+)"/.exec(disposition ?? '')
+  const filename = match?.[1] ?? fallbackName
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export default function ChildrenListPage() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [departmentId, setDepartmentId] = useState<string>(ALL)
@@ -40,6 +59,12 @@ export default function ChildrenListPage() {
   const [includeInactive, setIncludeInactive] = useState(false)
   const [skip, setSkip] = useState(0)
   const [view, setView] = useState<'table' | 'cards'>('table')
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [loadingTemplate, setLoadingTemplate] = useState(false)
+  const [importReport, setImportReport] = useState<ChildImportReportResponse | null>(null)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -82,6 +107,45 @@ export default function ChildrenListPage() {
   const hasNext = skip + PAGE_SIZE < total
   const hasPrev = skip > 0
 
+  const downloadTemplate = async () => {
+    setLoadingTemplate(true)
+    try {
+      const res = await childrenApi.importTemplate('xlsx')
+      downloadBlob(res.data as Blob, 'modele_enfants.xlsx', res.headers['content-disposition'])
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    } finally {
+      setLoadingTemplate(false)
+    }
+  }
+
+  const exportChildren = async () => {
+    setExporting(true)
+    try {
+      const res = await childrenApi.export({ file_format: 'xlsx', include_inactive: includeInactive })
+      downloadBlob(res.data as Blob, 'enfants.xlsx', res.headers['content-disposition'])
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const onFileSelected = async (file: File | undefined) => {
+    if (!file) return
+    setImporting(true)
+    try {
+      const res = await childrenApi.import(file)
+      setImportReport(res.data)
+      queryClient.invalidateQueries({ queryKey: ['children'] })
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -94,10 +158,31 @@ export default function ChildrenListPage() {
           <h1 className="text-2xl font-bold">Enfants</h1>
           <p className="text-muted-foreground">Gérer les fiches des enfants de votre établissement.</p>
         </div>
-        <Button render={<Link href="/dashboard/admin/children/new" />}>
-          <Plus className="mr-1.5 size-4" />
-          Nouvelle fiche
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+            className="hidden"
+            onChange={(e) => onFileSelected(e.target.files?.[0])}
+          />
+          <Button type="button" variant="outline" onClick={downloadTemplate} disabled={loadingTemplate}>
+            {loadingTemplate ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileSpreadsheet className="mr-1.5 size-4" />}
+            Modèle
+          </Button>
+          <Button type="button" variant="outline" onClick={exportChildren} disabled={exporting}>
+            {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
+            Exporter
+          </Button>
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+            {importing ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
+            Importer
+          </Button>
+          <Button render={<Link href="/dashboard/admin/children/new" />}>
+            <Plus className="mr-1.5 size-4" />
+            Nouvelle fiche
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -282,6 +367,42 @@ export default function ChildrenListPage() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={!!importReport} onOpenChange={(open) => !open && setImportReport(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import des fiches enfants</DialogTitle>
+            <DialogDescription>
+              {importReport?.crees ?? 0} créée(s) · {importReport?.mis_a_jour ?? 0} mise(s) à jour ·{' '}
+              {importReport?.rejetees ?? 0} rejetée(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+            {importReport?.lignes.length ? (
+              importReport.lignes.map((row) => (
+                <div key={row.ligne} className="rounded-md border border-border p-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={row.statut === 'rejeté' ? 'destructive' : row.statut === 'créé' ? 'default' : 'secondary'}
+                      className="shrink-0"
+                    >
+                      {row.statut}
+                    </Badge>
+                    <span className="text-muted-foreground">Ligne {row.ligne}</span>
+                    {row.matricule && <span className="font-mono text-xs">{row.matricule}</span>}
+                  </div>
+                  {row.erreur && <p className="mt-1 text-destructive">{row.erreur}</p>}
+                  {row.avertissements.map((warning) => (
+                    <p key={warning} className="mt-1 text-muted-foreground">⚠ {warning}</p>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <p className="text-muted-foreground">Aucune ligne traitée.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

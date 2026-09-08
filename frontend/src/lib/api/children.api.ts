@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type {
-  Child, ChildCreatePayload, ChildDocument, ChildListResponse, ChildUpdatePayload,
+  Child, ChildCreatePayload, ChildDocument, ChildImportReportResponse, ChildListResponse,
+  ChildrenExportFormat, ChildUpdatePayload,
 } from '@/types/children'
 
 export const childrenApi = {
@@ -26,6 +27,19 @@ export const childrenApi = {
 
   setStatus: (id: string, isActive: boolean) =>
     apiClient.patch<Child>(`/api/v1/children/${id}/status`, { is_active: isActive }),
+
+  // ── Import / export (format plat XLSX / CSV, round-trip par matricule) ─
+  export: (params?: { file_format?: ChildrenExportFormat; include_inactive?: boolean }) =>
+    apiClient.get<Blob>('/api/v1/children/export', { params, responseType: 'blob' }),
+
+  importTemplate: (file_format: ChildrenExportFormat = 'xlsx') =>
+    apiClient.get<Blob>('/api/v1/children/import/template', { params: { file_format }, responseType: 'blob' }),
+
+  import: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return apiClient.post<ChildImportReportResponse>('/api/v1/children/import', form)
+  },
 
   // ── Documents du dossier d'inscription ──────────────────────
   uploadDocument: (childId: string, file: File) => {

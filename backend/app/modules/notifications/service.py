@@ -126,8 +126,6 @@ async def send_push_to_establishment_parents(
     data: Optional[dict] = None,
 ) -> int:
     """Envoie un push à tous les parents d'un établissement."""
-    from app.modules.auth.service import get_active_user  # éviter cycle import
-
     # Récupérer tous les users role=parent de l'établissement
     result = await db.execute(
         select(User).where(
@@ -164,8 +162,6 @@ async def send_push_to_establishment_admins(
     data: Optional[dict] = None,
 ) -> int:
     """Envoie un push à tous les admins d'un établissement."""
-    from app.modules.auth.service import get_active_user
-
     result = await db.execute(
         select(User).where(
             User.establishment_id == establishment_id,

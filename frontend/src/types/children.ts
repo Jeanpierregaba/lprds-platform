@@ -132,3 +132,22 @@ export interface ChildUpdatePayload {
   guardians?:          GuardianPayload[]
   authorized_persons?: AuthorizedPersonPayload[]
 }
+
+export const CHILDREN_EXPORT_FORMATS = ['xlsx', 'csv'] as const
+export type ChildrenExportFormat = (typeof CHILDREN_EXPORT_FORMATS)[number]
+
+export interface ChildImportRowResult {
+  ligne:         number
+  matricule:     string | null
+  /** "créé" | "mis à jour" | "rejeté" */
+  statut:        string
+  avertissements: string[]
+  erreur:         string | null
+}
+
+export interface ChildImportReportResponse {
+  crees:     number
+  mis_a_jour: number
+  rejetees:   number
+  lignes:     ChildImportRowResult[]
+}

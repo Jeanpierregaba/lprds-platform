@@ -1,7 +1,7 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -11,6 +11,7 @@ from app.modules.children.dependencies import get_staff
 from app.modules.children.schemas import (
     ChildAttachmentResponse,
     ChildCreateRequest,
+    ChildImportReportResponse,
     ChildListResponse,
     ChildResponse,
     ChildStatusRequest,
@@ -68,6 +69,59 @@ async def list_my_group_children(
     requise) : placé AVANT /{child_id}, segments différents, aucune
     ambiguïté de routage."""
     return await service.list_my_group_children(current_user.id, db)
+
+
+# ── Import / export (format plat XLSX / CSV) ────────────────────
+@router.get("/export")
+async def export_children(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.CHILDREN_READ)),
+    file_format: str = Query(default="xlsx", pattern="^(xlsx|csv)$"),
+    include_inactive: bool = Query(default=False),
+) -> Response:
+    """Téléchargement du format canonique réimportable (round-trip via le
+    matricule). Données RGPD — réservé aux porteurs de children:read."""
+    content, filename, media_type = await service.export_children(
+        current_user.establishment_id, db,
+        file_format=file_format, include_inactive=include_inactive,
+    )
+    return _attachment_response(content, filename, media_type)
+
+
+@router.get("/import/template")
+async def import_template(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.CHILDREN_WRITE)),
+    file_format: str = Query(default="xlsx", pattern="^(xlsx|csv)$"),
+) -> Response:
+    """Modèle vierge + ligne d'exemple (feuille 'Aide' en XLSX)."""
+    _ = db  # rendu sans DB
+    content, filename, media_type = await service.import_template(file_format)
+    return _attachment_response(content, filename, media_type)
+
+
+@router.post("/import", response_model=ChildImportReportResponse)
+async def import_children(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(
+        PermissionCode.CHILDREN_WRITE, PermissionCode.CHILDREN_ARCHIVE
+    )),
+) -> ChildImportReportResponse:
+    """Import XLSX/CSV au format canonique. Toujours 200 même partiel : le
+    rapport détaille chaque ligne (créée / mise à jour / rejetée)."""
+    content = await file.read()
+    return await service.import_children(
+        content, file.filename or "", current_user.establishment_id, db
+    )
+
+
+def _attachment_response(content: bytes, filename: str, media_type: str) -> Response:
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{child_id}", response_model=ChildResponse)

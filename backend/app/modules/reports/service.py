@@ -20,6 +20,7 @@ from app.modules.children.models import Child
 from app.modules.organization import service as org_service
 from app.modules.organization.models import Department, Group
 from app.modules.notifications.service import notify_parents_report_validated
+from app.modules.reports.email import send_report_available_email
 from app.modules.reports.models import (
     ACQUISITION_LEVEL_LABELS,
     BEHAVIOR_TAG_LABELS,
@@ -590,6 +591,7 @@ async def _send_report_push_notifications(report: Report, db) -> int:
     Envoie des notifications push aux parents lorsqu'un rapport est validé.
     Best-effort : l'échec ne bloque pas la consultation du rapport sur le portail.
     """
+    from app.modules.notifications.models import PushSubscription
     from app.modules.notifications.service import send_push_to_subscription
 
     child = report.child

@@ -40,6 +40,8 @@ export function AnnouncementsTab() {
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Announcement | null>(null)
+  const [attachFile, setAttachFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['messaging', 'announcements', { includeInactive }],
@@ -75,24 +77,33 @@ export function AnnouncementsTab() {
 
   const openCreate = () => {
     setEditing(null)
+    setAttachFile(null)
     reset({ title: '', body: '' })
     setDialogOpen(true)
   }
 
   const openEdit = (a: Announcement) => {
     setEditing(a)
+    setAttachFile(null)
     reset({ title: a.title, body: a.body })
     setDialogOpen(true)
   }
 
   const onSubmit = async (values: Form) => {
     try {
+      let announcement: Announcement
       if (editing) {
         await messagingApi.updateAnnouncement(editing.id, values)
+        announcement = editing
         toast.success('Diffusion mise à jour.')
       } else {
-        await messagingApi.createAnnouncement(values)
+        const created = await messagingApi.createAnnouncement(values)
+        announcement = created.data
         toast.success('Diffusion publiée.')
+      }
+      if (attachFile) {
+        await messagingApi.uploadAnnouncementAttachment(announcement.id, attachFile)
+        if (!editing) toast.success('Pièce jointe ajoutée.')
       }
       setDialogOpen(false)
       invalidate()
@@ -141,6 +152,46 @@ export function AnnouncementsTab() {
                 <Textarea id="body" rows={5} {...register('body')} aria-invalid={!!errors.body} />
                 {errors.body && <p className="text-sm text-destructive">{errors.body.message}</p>}
               </div>
+
+              {!editing && (
+                <div className="space-y-2">
+                  <Label>Pièce jointe (facultatif)</Label>
+                  {attachFile ? (
+                    <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                      <Paperclip className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate text-sm">{attachFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachFile(null)}
+                        className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Paperclip className="mr-1.5 size-3.5" />
+                      Joindre un fichier
+                    </Button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) setAttachFile(file)
+                      e.target.value = ''
+                    }}
+                  />
+                </div>
+              )}
+
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting

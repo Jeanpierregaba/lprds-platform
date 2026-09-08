@@ -88,6 +88,11 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icons|images|public).*)',
+    // `/api/*` est exclu : le rewrite next.config proximise vers le backend,
+    // qui applique SA propre authentification. Seul le blog public
+    // (/api/v1/public/blog/...) est volontairement sans token (cf. module Blog).
+    // Les ressources PWA (manifest, service worker, page /offline, icônes) sont
+    // aussi exclues : elles doivent rester accessibles sans session.
+    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|offline).*)',
   ],
 }

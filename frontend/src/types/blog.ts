@@ -17,6 +17,16 @@ export interface TagBrief {
   name: string
 }
 
+export type GalleryCategory = 'activities' | 'outdoor' | 'meals' | 'rest' | 'events'
+
+export const GALLERY_PHOTO_CATEGORIES: Record<GalleryCategory, string> = {
+  activities: 'Activités manuelles',
+  outdoor: 'Jeux extérieurs',
+  meals: 'Repas',
+  rest: 'Temps calme',
+  events: 'Fêtes & sorties',
+}
+
 export interface BlogTag {
   id: string
   name: string
@@ -35,6 +45,22 @@ export interface BlogAttachment {
   uploaded_by: BlogUserBrief
   created_at: string
   url: string
+}
+
+export interface GalleryPhoto {
+  id: string
+  category: GalleryCategory
+  filename: string
+  content_type: string
+  size_bytes: number
+  uploaded_by: BlogUserBrief
+  created_at: string
+  url: string
+}
+
+export interface GalleryPhotoListResponse {
+  total: number
+  items: GalleryPhoto[]
 }
 
 export interface ArticleListItem {

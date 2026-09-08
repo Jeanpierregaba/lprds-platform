@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,10 +12,11 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AuthMedia } from '@/components/media/auth-media'
+import { AttachmentLightbox } from '@/components/media/attachment-lightbox'
 import { reportsApi } from '@/lib/api/reports.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
-import { REPORT_TYPE_LABELS } from '@/types/reports'
+import { REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
 import { ContentView } from '@/app/dashboard/admin/reports/content-view'
 
 function formatDate(iso: string | null) {
@@ -25,6 +26,7 @@ function formatDate(iso: string | null) {
 export default function ParentReportDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
+  const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
 
   const { data: report, isLoading } = useQuery({
     queryKey: ['parent', 'report', id],
@@ -85,8 +87,8 @@ export default function ParentReportDetailPage() {
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <CardTitle>{report.child.first_names} {report.child.last_name}</CardTitle>
+            <div className="min-w-0">
+              <CardTitle className="truncate">{report.child.first_names} {report.child.last_name}</CardTitle>
               <CardDescription>
                 {REPORT_TYPE_LABELS[report.report_type]} · {report.period_label}
               </CardDescription>
@@ -140,14 +142,7 @@ export default function ParentReportDetailPage() {
                   <button
                     type="button"
                     className="size-full"
-                    onClick={async () => {
-                      try {
-                        const res = await reportsApi.downloadMineAttachment(id, att.id)
-                        downloadBlob(res.data, att.filename)
-                      } catch (err) {
-                        toast.error(getApiErrorMessage(err))
-                      }
-                    }}
+                    onClick={() => setSelectedAttachment(att)}
                   >
                     <AuthMedia
                       queryKey={['parent', 'report-attachment-thumb', att.id]}
@@ -165,6 +160,16 @@ export default function ParentReportDetailPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {selectedAttachment && (
+        <AttachmentLightbox
+          filename={selectedAttachment.filename}
+          contentType={selectedAttachment.content_type}
+          sizeBytes={selectedAttachment.size_bytes}
+          fetchBlob={() => reportsApi.downloadMineAttachment(id, selectedAttachment.id).then((r) => r.data)}
+          onOpenChange={(open) => !open && setSelectedAttachment(null)}
+        />
       )}
     </motion.div>
   )

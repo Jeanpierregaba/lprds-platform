@@ -9,7 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import storage
 from app.core.config import settings
 from app.modules.auth.models import User
-from app.modules.blog.models import Article, ArticleAttachment, ArticleStatus, BlogTag
+from app.modules.blog.models import (
+    Article,
+    ArticleAttachment,
+    ArticleStatus,
+    BlogGalleryPhoto,
+    BlogTag,
+    GalleryCategory,
+)
 from app.modules.blog.schemas import (
     ArticleCreateRequest,
     ArticleListItem,
@@ -17,9 +24,13 @@ from app.modules.blog.schemas import (
     ArticleResponse,
     ArticleUpdateRequest,
     AttachmentResponse,
+    GalleryPhotoListItem,
+    GalleryPhotoListResponse,
     PublicArticleDetail,
     PublicArticleListItem,
     PublicArticleListResponse,
+    PublicGalleryListResponse,
+    PublicGalleryPhoto,
     TagBrief,
     TagCreateRequest,
     TagListResponse,
@@ -31,6 +42,7 @@ from app.modules.establishments.models import Establishment
 
 _COVER_SUBFOLDER = "blog/covers"
 _MEDIA_SUBFOLDER = "blog/media"
+_GALLERY_SUBFOLDER = "blog/gallery"
 
 
 # ── Étiquettes (créées librement par l'admin/rédacteur) ───────────
@@ -326,6 +338,125 @@ async def get_article_attachment_for_staff(
     return await _get_attachment_or_404(article_id, attachment_id, db)
 
 
+# ── Galerie du site vitrine ──────────────────────────────────────
+async def create_gallery_photo(
+    establishment_id: uuid.UUID,
+    editor: User,
+    category: GalleryCategory,
+    file: UploadFile,
+    db: AsyncSession,
+) -> GalleryPhotoListItem:
+    """Upload = publication immédiate (pas de workflow). Catégorie filtrée à la
+    frontière de l'API via GalleryCategory (422 si inconnue)."""
+    content_bytes = await file.read()
+    content_type = file.content_type or ""
+    _validate_gallery_photo(content_bytes, content_type)
+
+    storage_key = await storage.save_file(_GALLERY_SUBFOLDER, file.filename or "photo", content_bytes)
+    photo = BlogGalleryPhoto(
+        establishment_id=establishment_id,
+        category=category.value,
+        filename=file.filename or "photo",
+        content_type=content_type,
+        size_bytes=len(content_bytes),
+        storage_key=storage_key,
+        uploaded_by_id=editor.id,
+    )
+    db.add(photo)
+    await db.flush()
+    await db.refresh(photo)
+    return _gallery_item(photo)
+
+
+async def list_gallery_photos(
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+    *,
+    category: GalleryCategory | None = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> GalleryPhotoListResponse:
+    filters = [BlogGalleryPhoto.establishment_id == establishment_id]
+    if category:
+        filters.append(BlogGalleryPhoto.category == category.value)
+
+    total = await db.scalar(select(func.count()).select_from(BlogGalleryPhoto).where(*filters))
+    result = await db.execute(
+        select(BlogGalleryPhoto)
+        .where(*filters)
+        .order_by(BlogGalleryPhoto.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    items = [_gallery_item(p) for p in result.scalars().all()]
+    return GalleryPhotoListResponse(total=total or 0, items=items)
+
+
+async def get_gallery_photo_for_staff(
+    photo_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> tuple[BlogGalleryPhoto, Path]:
+    photo = await _get_gallery_photo_or_404(photo_id, establishment_id, db)
+    return photo, storage.resolve_path(photo.storage_key)
+
+
+async def delete_gallery_photo(
+    photo_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> None:
+    """Suppression définitive — la photo disparaît du site public dès le DELETE
+    (rien à désactiver, contrairement aux articles soft-deleted)."""
+    photo = await _get_gallery_photo_or_404(photo_id, establishment_id, db)
+    await storage.delete_file(photo.storage_key)
+    await db.delete(photo)
+    await db.flush()
+
+
+async def list_public_gallery_photos(
+    establishment_code: str,
+    db: AsyncSession,
+    *,
+    category: GalleryCategory | None = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> PublicGalleryListResponse:
+    establishment = await get_public_establishment_or_404(establishment_code, db)
+    filters = [BlogGalleryPhoto.establishment_id == establishment.id]
+    if category:
+        filters.append(BlogGalleryPhoto.category == category.value)
+
+    total = await db.scalar(select(func.count()).select_from(BlogGalleryPhoto).where(*filters))
+    result = await db.execute(
+        select(BlogGalleryPhoto)
+        .where(*filters)
+        .order_by(BlogGalleryPhoto.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    items = [
+        PublicGalleryPhoto(
+            id=p.id, category=p.category, content_type=p.content_type,
+            size_bytes=p.size_bytes, created_at=p.created_at,
+            url=_public_gallery_url(establishment_code, p.id),
+        )
+        for p in result.scalars().all()
+    ]
+    return PublicGalleryListResponse(total=total or 0, items=items)
+
+
+async def get_public_gallery_photo(
+    establishment_code: str, photo_id: uuid.UUID, db: AsyncSession
+) -> tuple[BlogGalleryPhoto, Path]:
+    establishment = await get_public_establishment_or_404(establishment_code, db)
+    photo = await db.scalar(
+        select(BlogGalleryPhoto).where(
+            BlogGalleryPhoto.id == photo_id,
+            BlogGalleryPhoto.establishment_id == establishment.id,
+        )
+    )
+    if not photo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo introuvable")
+    return photo, storage.resolve_path(photo.storage_key)
+
+
 # ── Consultation publique (site vitrine, SANS authentification) ──
 async def get_public_establishment_or_404(
     establishment_code: str, db: AsyncSession
@@ -455,13 +586,41 @@ def _validate_attachment(content_bytes: bytes, content_type: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
         )
-    if content_type not in settings.blog_allowed_attachment_types_set:
+    if content_type not in settings.blog_allowed_attachment_types_set and not (
+        (content_type.startswith("image/") or content_type.startswith("video/"))
+        and content_type != "image/svg+xml"
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Autorisés : {', '.join(sorted(settings.blog_allowed_attachment_types_set))}"
+                f"Seules les images et vidéos sont acceptées."
             ),
+        )
+
+
+def _validate_gallery_photo(content_bytes: bytes, content_type: str) -> None:
+    """La galerie n'accepte que des images (pas de vidéo, contrairement aux
+    médias d'article) — plafond de taille = blog_max_attachment_mb, réutilisé."""
+    max_bytes = settings.blog_max_attachment_mb * 1024 * 1024
+    if len(content_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Fichier trop volumineux (max {settings.blog_max_attachment_mb} Mo)",
+        )
+    if not content_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
+        )
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"La galerie n'accepte que des images : {content_type or 'inconnu'}",
+        )
+    if content_type == "image/svg+xml":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Le format SVG n'est pas autorisé",
         )
 
 
@@ -498,6 +657,20 @@ async def _get_attachment_or_404(
     if not attachment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Média introuvable")
     return attachment, storage.resolve_path(attachment.storage_key)
+
+
+async def _get_gallery_photo_or_404(
+    photo_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> BlogGalleryPhoto:
+    photo = await db.scalar(
+        select(BlogGalleryPhoto).where(
+            BlogGalleryPhoto.id == photo_id,
+            BlogGalleryPhoto.establishment_id == establishment_id,
+        )
+    )
+    if not photo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo introuvable")
+    return photo
 
 
 async def _attachments_for_article(
@@ -546,6 +719,23 @@ def _public_cover_url(establishment_code: str, article: Article) -> str | None:
     if not article.cover_storage_key:
         return None
     return f"/api/v1/public/blog/{establishment_code}/articles/{article.id}/cover"
+
+
+def _internal_gallery_url(photo_id: uuid.UUID) -> str:
+    return f"/api/v1/blog/gallery/{photo_id}/image"
+
+
+def _public_gallery_url(establishment_code: str, photo_id: uuid.UUID) -> str:
+    return f"/api/v1/public/blog/{establishment_code}/gallery/{photo_id}/image"
+
+
+def _gallery_item(photo: BlogGalleryPhoto) -> GalleryPhotoListItem:
+    return GalleryPhotoListItem(
+        id=photo.id, category=photo.category, filename=photo.filename,
+        content_type=photo.content_type, size_bytes=photo.size_bytes,
+        uploaded_by=_user_brief(photo.uploaded_by), created_at=photo.created_at,
+        url=_internal_gallery_url(photo.id),
+    )
 
 
 def _to_list_item(article: Article) -> ArticleListItem:

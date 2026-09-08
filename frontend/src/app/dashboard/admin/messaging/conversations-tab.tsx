@@ -3,19 +3,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, MessagesSquare, Paperclip, Send } from 'lucide-react'
+import { Loader2, MessagesSquare, Paperclip, Plus, Send } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { messagingApi } from '@/lib/api/messaging.api'
+import { parentsApi } from '@/lib/api/parents.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { cn } from '@/lib/utils'
-import type { Conversation, Message, MessageListResponse } from '@/types/messaging'
+import type { Conversation, ConversationListResponse, Message, MessageListResponse } from '@/types/messaging'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -31,11 +35,42 @@ const messagesKey = (conversationId: string) => ['messaging', 'conversation-mess
 export function ConversationsTab() {
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [startDialogOpen, setStartDialogOpen] = useState(false)
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null)
+  const [firstBody, setFirstBody] = useState('')
   const markedReadRef = useRef<Set<string>>(new Set())
 
   const { data: conversations, isLoading: isLoadingConversations } = useQuery({
     queryKey: conversationsKey,
     queryFn: () => messagingApi.listConversations({ limit: 100 }).then((r) => r.data),
+  })
+
+  const { data: parentsData, isLoading: isLoadingParents } = useQuery({
+    queryKey: ['parents', 'list', { include_inactive: false }],
+    queryFn: () => parentsApi.list({ include_inactive: false, limit: 200 }).then((r) => r.data),
+    enabled: startDialogOpen,
+  })
+
+  const startMutation = useMutation({
+    mutationFn: () =>
+      messagingApi.startConversation({
+        parent_id: selectedParentId!,
+        body: firstBody.trim() || undefined,
+      }).then((r) => r.data),
+    onSuccess: (conversation) => {
+      queryClient.setQueryData<ConversationListResponse | undefined>(conversationsKey, (old) => {
+        const items = old?.items ?? []
+        const exists = items.some((c) => c.id === conversation.id)
+        const next = exists ? items : [conversation, ...items]
+        return { total: (old?.total ?? 0) + (exists ? 0 : 1), items: next }
+      })
+      setSelectedId(conversation.id)
+      setStartDialogOpen(false)
+      setSelectedParentId(null)
+      setFirstBody('')
+      toast.success('Conversation créée.')
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const { data: messagesData, isLoading: isLoadingMessages } = useQuery({
@@ -83,66 +118,165 @@ export function ConversationsTab() {
   const conversationItems = conversations?.items ?? []
   const selectedConversation = conversationItems.find((c) => c.id === selectedId) ?? null
 
+  const listCard = (
+    <Card className="lg:h-[600px]">
+      <CardContent className="flex h-full flex-col p-0">
+        <div className="flex items-center justify-between gap-2 border-b border-border p-3">
+          <p className="text-sm font-semibold text-primary">Conversations</p>
+          <Button variant="outline" size="sm" onClick={() => setStartDialogOpen(true)}>
+            <Plus className="mr-1.5 size-4" />
+            Nouvelle
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+        {isLoadingConversations ? (
+          <div className="space-y-2 p-3">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          </div>
+        ) : conversationItems.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+              <MessagesSquare className="size-5" />
+            </div>
+            <p className="text-sm">Aucune conversation pour le moment.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {conversationItems.map((conv) => (
+              <li key={conv.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(conv.id)}
+                  className={cn(
+                    'flex w-full items-start justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted',
+                    selectedId === conv.id && 'bg-muted'
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      {conv.parent.nickname || `${conv.parent.first_name} ${conv.parent.last_name}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {conv.last_message_at ? formatDateTime(conv.last_message_at) : 'Aucun message'}
+                    </p>
+                  </div>
+                  {conv.unread_count > 0 && (
+                    <Badge variant="default" className="shrink-0">{conv.unread_count}</Badge>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const threadCard = (
+    <Card className="lg:h-[600px]">
+      {!selectedId || !selectedConversation ? (
+        <CardContent className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+          <MessagesSquare className="size-8" />
+          <p className="text-sm">Sélectionnez une conversation.</p>
+        </CardContent>
+      ) : (
+        <ConversationThread
+          conversation={selectedConversation}
+          messages={messagesData?.items ?? []}
+          isLoading={isLoadingMessages}
+        />
+      )}
+    </Card>
+  )
+
   return (
-    <div className="grid gap-4 pt-2 lg:grid-cols-[320px_1fr]">
-      <Card className="lg:h-[600px]">
-        <CardContent className="h-full overflow-y-auto p-0">
-          {isLoadingConversations ? (
-            <div className="space-y-2 p-3">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
-            </div>
-          ) : conversationItems.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
-              <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                <MessagesSquare className="size-5" />
+    <div className="space-y-4 pt-2">
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[320px_1fr]">
+        {listCard}
+        {threadCard}
+      </div>
+
+      <div className="lg:hidden">
+        {selectedId && selectedConversation ? (
+          <div className="space-y-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>
+              ← Retour aux conversations
+            </Button>
+            <div className="h-[calc(100vh-16rem)]">{threadCard}</div>
+          </div>
+        ) : (
+          listCard
+        )}
+      </div>
+
+      <Dialog open={startDialogOpen} onOpenChange={setStartDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouvelle conversation</DialogTitle>
+            <DialogDescription>Sélectionnez un parent pour démarrer une discussion privée.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {isLoadingParents ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}
               </div>
-              <p className="text-sm">Aucune conversation pour le moment.</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {conversationItems.map((conv) => (
-                <li key={conv.id}>
+            ) : (
+              <div className="max-h-56 space-y-1 overflow-y-auto">
+                {(parentsData?.items ?? []).map((parent) => (
                   <button
+                    key={parent.id}
                     type="button"
-                    onClick={() => setSelectedId(conv.id)}
+                    onClick={() => setSelectedParentId(parent.id)}
                     className={cn(
-                      'flex w-full items-start justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted',
-                      selectedId === conv.id && 'bg-muted'
+                      'flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                      selectedParentId === parent.id
+                        ? 'border-primary bg-primary/10'
+                        : 'hover:bg-muted'
                     )}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">
-                        {conv.parent.nickname || `${conv.parent.first_name} ${conv.parent.last_name}`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {conv.last_message_at ? formatDateTime(conv.last_message_at) : 'Aucun message'}
-                      </p>
-                    </div>
-                    {conv.unread_count > 0 && (
-                      <Badge variant="default" className="shrink-0">{conv.unread_count}</Badge>
-                    )}
+                    <span className="truncate font-medium">
+                      {parent.nickname || `${parent.first_name} ${parent.last_name}`}
+                    </span>
+                    <Badge variant="outline" className="shrink-0 font-normal">
+                      {parent.children_count} enfant{parent.children_count === 1 ? '' : 's'}
+                    </Badge>
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+                {(parentsData?.items ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground">Aucun parent actif.</p>
+                )}
+              </div>
+            )}
 
-      <Card className="lg:h-[600px]">
-        {!selectedId || !selectedConversation ? (
-          <CardContent className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-            <MessagesSquare className="size-8" />
-            <p className="text-sm">Sélectionnez une conversation.</p>
-          </CardContent>
-        ) : (
-          <ConversationThread
-            conversation={selectedConversation}
-            messages={messagesData?.items ?? []}
-            isLoading={isLoadingMessages}
-          />
-        )}
-      </Card>
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Premier message (facultatif)..."
+                rows={3}
+                value={firstBody}
+                onChange={(e) => setFirstBody(e.target.value)}
+                className="resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" onClick={() => setStartDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                onClick={() => startMutation.mutate()}
+                disabled={!selectedParentId || startMutation.isPending}
+              >
+                {startMutation.isPending
+                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> Création...</>
+                  : <><Send className="mr-1.5 size-4" /> Démarrer</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -219,7 +353,7 @@ function ConversationThread({
                       key={att.id}
                       type="button"
                       className={cn(
-                        'mt-1.5 flex items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
+                        'mt-1.5 flex max-w-full items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
                         isAdmin ? 'border-primary-foreground/30' : 'border-border'
                       )}
                       onClick={async () => {
@@ -231,8 +365,8 @@ function ConversationThread({
                         }
                       }}
                     >
-                      <Paperclip className="size-3" />
-                      {att.filename}
+                      <Paperclip className="size-3 shrink-0" />
+                      <span className="truncate">{att.filename}</span>
                     </button>
                   ))}
                 </div>

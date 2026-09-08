@@ -1,7 +1,7 @@
 import { apiClient } from './client'
 import type {
   Announcement, AnnouncementCreatePayload, AnnouncementListResponse, AnnouncementUpdatePayload,
-  Attachment, Conversation, ConversationListResponse, Message, MessageListResponse,
+  Attachment, Conversation, ConversationListResponse, ConversationStartPayload, Message, MessageListResponse,
 } from '@/types/messaging'
 
 export const messagingApi = {
@@ -24,6 +24,9 @@ export const messagingApi = {
   // ── Conversations (admin) ───────────────────────────────────
   listConversations: (params?: { skip?: number; limit?: number }) =>
     apiClient.get<ConversationListResponse>('/api/v1/messaging/conversations', { params }),
+
+  startConversation: (data: ConversationStartPayload) =>
+    apiClient.post<Conversation>('/api/v1/messaging/conversations', data),
 
   listConversationMessages: (conversationId: string, params?: { skip?: number; limit?: number }) =>
     apiClient.get<MessageListResponse>(`/api/v1/messaging/conversations/${conversationId}/messages`, { params }),

@@ -45,66 +45,112 @@ export default function StaffAttendancePage() {
       </div>
 
       <div className="w-fit space-y-1.5">
-        <Label htmlFor="staff-attendance-date">Date</Label>
+        <Label htmlFor="staff-attendance-date" className="text-white font-semibold text-sm">Date</Label>
         <Input id="staff-attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
       </div>
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Enfant</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Arrivée</TableHead>
-                <TableHead>Départ</TableHead>
-                <TableHead>Retard</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="h-56 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <ClipboardCheck className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucune donnée pour cette date.</p>
-                      <p className="max-w-sm text-sm">
-                        Aucun enfant n&apos;est rattaché à votre groupe, ou aucun événement de présence n&apos;a été enregistré.
-                      </p>
-                    </div>
-                  </TableCell>
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Enfant</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Arrivée</TableHead>
+                  <TableHead>Départ</TableHead>
+                  <TableHead>Retard</TableHead>
                 </TableRow>
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.child.id}>
-                    <TableCell className="font-medium">
-                      {item.child.first_names} {item.child.last_name}
-                    </TableCell>
-                    <TableCell><StatusBadge status={item.status} /></TableCell>
-                    <TableCell className="text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : items.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={5} className="h-56 text-center">
+                      <EmptyState />
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  items.map((item) => (
+                    <TableRow key={item.child.id}>
+                      <TableCell className="font-medium">
+                        {item.child.first_names} {item.child.last_name}
+                      </TableCell>
+                      <TableCell><StatusBadge status={item.status} /></TableCell>
+                      <TableCell className="text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="divide-y divide-border sm:hidden">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="space-y-2 px-4 py-3">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              ))
+            ) : items.length === 0 ? (
+              <div className="h-56"><EmptyState /></div>
+            ) : (
+              items.map((item) => (
+                <div key={item.child.id} className="space-y-2 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate font-medium">
+                      {item.child.first_names} {item.child.last_name}
+                    </p>
+                    <StatusBadge status={item.status} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Arrivée</p>
+                      <p>{formatTime(item.arrival_time)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Départ</p>
+                      <p>{formatTime(item.departure_time)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Retard</p>
+                      <p>{item.late_minutes != null ? `${item.late_minutes} min` : '—'}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+        <ClipboardCheck className="size-5" />
+      </div>
+      <p className="font-medium text-foreground">Aucune donnée pour cette date.</p>
+      <p className="max-w-sm text-sm text-center">
+        Aucun enfant n&apos;est rattaché à votre groupe, ou aucun événement de présence n&apos;a été enregistré.
+      </p>
+    </div>
   )
 }

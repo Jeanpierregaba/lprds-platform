@@ -38,6 +38,19 @@ class AuthorizedPersonResponse(BaseModel):
     phone:       str
 
 
+# ── Documents du dossier d'inscription ─────────────────────────
+class ChildAttachmentResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id:           uuid.UUID
+    filename:     str
+    content_type: str
+    size_bytes:   int
+    created_at:   datetime
+    # Chemin de téléchargement authentifié — jamais servi en statique.
+    url:          str
+
+
 # ── Enfant ──────────────────────────────────────────────────────
 class ChildCreateRequest(BaseModel):
     # Informations de base
@@ -138,6 +151,7 @@ class ChildResponse(BaseModel):
 
     guardians:          list[GuardianResponse]
     authorized_persons: list[AuthorizedPersonResponse]
+    documents:          list[ChildAttachmentResponse] = []
 
 
 class ChildListItem(BaseModel):

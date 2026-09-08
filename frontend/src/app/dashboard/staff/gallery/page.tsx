@@ -4,21 +4,20 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { FileVideo, Images } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AuthMedia } from '@/components/media/auth-media'
 import { galleryApi } from '@/lib/api/gallery.api'
-import { isVideo } from '@/types/gallery'
-import { downloadBlob } from '@/lib/utils/download'
-import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { MediaLightbox } from '@/app/dashboard/admin/gallery/media-lightbox'
 
 const PAGE_SIZE = 30
 
 export default function StaffGalleryPage() {
   const [skip, setSkip] = useState(0)
+  const [selected, setSelected] = useState<GalleryMediaItem | null>(null)
 
   useEffect(() => setSkip(0), [])
 
@@ -53,8 +52,8 @@ export default function StaffGalleryPage() {
           <div className="flex size-12 items-center justify-center rounded-full bg-muted">
             <Images className="size-5" />
           </div>
-          <p className="font-medium text-foreground">Aucun média envoyé pour le moment.</p>
-          <p className="text-sm">Les photos/vidéos jointes à vos rapports apparaîtront ici.</p>
+          <p className="font-medium text-white">Aucun média envoyé pour le moment.</p>
+          <p className="text-sm text-white">Les photos/vidéos jointes à vos rapports apparaîtront ici.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -62,14 +61,7 @@ export default function StaffGalleryPage() {
             <button
               key={item.id}
               type="button"
-              onClick={async () => {
-                try {
-                  const res = await galleryApi.download(item.url)
-                  downloadBlob(res.data, item.filename)
-                } catch (err) {
-                  toast.error(getApiErrorMessage(err))
-                }
-              }}
+              onClick={() => setSelected(item)}
               className="group relative aspect-square overflow-hidden rounded-md ring-1 ring-border transition hover:ring-primary"
             >
               <AuthMedia
@@ -103,6 +95,8 @@ export default function StaffGalleryPage() {
           </div>
         </div>
       )}
+
+      <MediaLightbox item={selected} onOpenChange={(open) => !open && setSelected(null)} />
     </motion.div>
   )
 }

@@ -17,9 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.modules.blog import service
+from app.modules.blog.models import GalleryCategory
 from app.modules.blog.schemas import (
     PublicArticleDetail,
     PublicArticleListResponse,
+    PublicGalleryListResponse,
     TagListResponse,
 )
 
@@ -76,3 +78,30 @@ async def download_public_attachment(
         establishment_code, article_id, attachment_id, db
     )
     return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+
+
+# ── Galerie (site vitrine, SANS authentification) ────────────────
+@router.get("/{establishment_code}/gallery", response_model=PublicGalleryListResponse)
+async def list_public_gallery(
+    establishment_code: str,
+    db: AsyncSession = Depends(get_db),
+    category: GalleryCategory | None = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> PublicGalleryListResponse:
+    """Toutes les photos de l'établissement — la galerie étant « publication
+    immédiate », tout ce qui est uploadé est visible (pas de statut à filtrer)."""
+    return await service.list_public_gallery_photos(
+        establishment_code, db, category=category, skip=skip, limit=limit
+    )
+
+
+@router.get("/{establishment_code}/gallery/{photo_id}/image")
+async def download_public_gallery_photo(
+    establishment_code: str,
+    photo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    """Contenu binaire — lisibilité publique tant que la photo existe."""
+    photo, path = await service.get_public_gallery_photo(establishment_code, photo_id, db)
+    return FileResponse(path, filename=photo.filename, media_type=photo.content_type)

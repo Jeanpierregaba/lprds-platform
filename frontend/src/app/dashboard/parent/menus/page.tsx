@@ -72,8 +72,10 @@ export default function ParentMenusPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Semaine du {formatDate(weekStart)}</h2>
-          <p className="text-sm text-muted-foreground">au {formatDate(weekEnd)}</p>
+          <h2 className="text-lg font-semibold text-white">
+            Semaine du {formatDate(weekStart)} <br />
+            Au {formatDate(weekEnd)}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -107,43 +109,74 @@ export default function ParentMenusPage() {
               <p className="font-medium text-foreground">Aucun menu publié pour cette semaine.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-40">Repas</TableHead>
-                  {WEEKDAYS.map((day) => {
-                    const isToday = dayDates[day] === today
-                    return (
-                      <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
-                        <div>{WEEKDAY_LABELS[day]}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
-                        {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
-                      </TableHead>
-                    )
-                  })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-40">Repas</TableHead>
+                      {WEEKDAYS.map((day) => {
+                        const isToday = dayDates[day] === today
+                        return (
+                          <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
+                            <div>{WEEKDAY_LABELS[day]}</div>
+                            <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
+                            {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
+                          </TableHead>
+                        )
+                      })}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {MEAL_SLOTS.map((slot) => {
+                      const Icon = MEAL_SLOT_ICONS[slot]
+                      return (
+                        <TableRow key={slot}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <Icon className="size-4" />
+                              <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
+                            </div>
+                          </TableCell>
+                          {WEEKDAYS.map((day) => (
+                            <TableCell key={day} className="text-center text-sm">
+                              {menu[day][slot] ?? <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="divide-y divide-border sm:hidden">
                 {MEAL_SLOTS.map((slot) => {
                   const Icon = MEAL_SLOT_ICONS[slot]
                   return (
-                    <TableRow key={slot}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Icon className="size-4" />
-                          <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
-                        </div>
-                      </TableCell>
-                      {WEEKDAYS.map((day) => (
-                        <TableCell key={day} className="text-center text-sm">
-                          {menu[day][slot] ?? <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                      ))}
-                    </TableRow>
+                    <div key={slot} className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Icon className="size-4" />
+                        <span className="font-medium text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        {WEEKDAYS.map((day) => {
+                          const isToday = dayDates[day] === today
+                          return (
+                            <div key={day} className={cn('flex items-start justify-between gap-3 text-sm', isToday && 'text-primary')}>
+                              <span className="shrink-0">{WEEKDAY_LABELS[day]}</span>
+                              <span className="text-right text-muted-foreground">
+                                {menu[day][slot] ?? <span>—</span>}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   )
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

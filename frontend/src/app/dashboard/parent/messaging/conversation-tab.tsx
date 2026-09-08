@@ -103,7 +103,7 @@ export function ConversationTab() {
   }
 
   return (
-    <Card className="pt-2 lg:h-[600px]">
+    <Card className="h-[calc(100vh-16rem)] pt-2 lg:h-[600px]">
       <CardContent className="flex h-full flex-col p-0">
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
           {isLoading ? (
@@ -131,7 +131,7 @@ export function ConversationTab() {
                         key={att.id}
                         type="button"
                         className={cn(
-                          'mt-1.5 flex items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
+                          'mt-1.5 flex max-w-full items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
                           isMine ? 'border-primary-foreground/30' : 'border-border'
                         )}
                         onClick={async () => {
@@ -143,8 +143,8 @@ export function ConversationTab() {
                           }
                         }}
                       >
-                        <Paperclip className="size-3" />
-                        {att.filename}
+                        <Paperclip className="size-3 shrink-0" />
+                        <span className="min-w-0 truncate">{att.filename}</span>
                       </button>
                     ))}
                   </div>

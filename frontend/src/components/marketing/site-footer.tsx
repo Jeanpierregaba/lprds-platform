@@ -22,12 +22,12 @@ const NAV_LINKS = [
 
 export function SiteFooter() {
   return (
-    <footer className="bg-primary text-primary-foreground">
+    <footer className="bg-secondary text-primary-foreground">
       <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block">
-              <Image src="/images/marketing/logo.png" alt={BRAND.name} width={148} height={90} className="h-14 w-auto" />
+              <Image src="/images/marketing/logo.png" alt={BRAND.name} width={200} height={90} className="h-30 w-auto" />
             </Link>
             <p className="mt-6 max-w-md text-sm leading-relaxed text-primary-foreground/75">
               Depuis {BRAND.since}, nous accompagnons les enfants de 3 mois à 8 ans dans leur épanouissement
@@ -50,11 +50,11 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h3 className="font-display text-lg">Navigation</h3>
+            <h3 className="font-bold text-lg text-primary">Navigation</h3>
             <ul className="mt-5 space-y-3">
               {NAV_LINKS.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="text-sm text-primary-foreground/75 transition-colors hover:text-secondary">
+                  <Link href={l.href} className="text-sm text-primary-foreground/75 transition-colors hover:text-primary">
                     {l.name}
                   </Link>
                 </li>
@@ -63,22 +63,22 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h3 className="font-display text-lg">Contact</h3>
+            <h3 className="font-bold text-lg text-primary">Contact</h3>
             <ul className="mt-5 space-y-4 text-sm text-primary-foreground/75">
               <li className="flex gap-3">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-secondary" />
+                <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
                 <span>{BRAND.address}</span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone className="size-4 shrink-0 text-secondary" />
-                <a href={BRAND.phoneHref} className="hover:text-secondary">{BRAND.phone}</a>
+                <Phone className="size-4 shrink-0 text-primary" />
+                <a href={BRAND.phoneHref} className="hover:text-primary">{BRAND.phone}</a>
               </li>
               <li className="flex items-center gap-3">
-                <Mail className="size-4 shrink-0 text-secondary" />
-                <a href={`mailto:${BRAND.email}`} className="hover:text-secondary">{BRAND.email}</a>
+                <Mail className="size-4 shrink-0 text-primary" />
+                <a href={`mailto:${BRAND.email}`} className="hover:text-primary">{BRAND.email}</a>
               </li>
               <li className="flex gap-3 pt-1">
-                <Clock className="mt-0.5 size-4 shrink-0 text-secondary" />
+                <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="space-y-1">
                   {BRAND.hours.map((h) => (
                     <div key={h.day}>
@@ -97,8 +97,8 @@ export function SiteFooter() {
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-6 text-xs text-primary-foreground/60 sm:flex-row sm:justify-between lg:px-8">
           <p>© {new Date().getFullYear()} {BRAND.name}. Tous droits réservés.</p>
           <div className="flex gap-6">
-            <Link href="/mentions-legales" className="hover:text-secondary">Mentions légales</Link>
-            <Link href="/confidentialite" className="hover:text-secondary">Politique de confidentialité</Link>
+            <Link href="/mentions-legales" className="hover:text-primary">Mentions légales</Link>
+            <Link href="/confidentialite" className="hover:text-primary">Politique de confidentialité</Link>
           </div>
         </div>
       </div>

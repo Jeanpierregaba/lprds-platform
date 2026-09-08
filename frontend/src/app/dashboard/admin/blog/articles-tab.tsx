@@ -72,7 +72,7 @@ export function ArticlesTab() {
             value={status}
             onValueChange={(v) => setStatus(v ?? ALL)}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Tous les statuts" />
             </SelectTrigger>
             <SelectContent>
@@ -84,7 +84,7 @@ export function ArticlesTab() {
           </Select>
 
           <Select items={tagItems} value={tagId} onValueChange={(v) => setTagId(v ?? ALL)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Toutes les étiquettes" />
             </SelectTrigger>
             <SelectContent>

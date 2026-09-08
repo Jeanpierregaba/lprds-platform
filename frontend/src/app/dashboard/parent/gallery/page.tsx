@@ -12,9 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AuthMedia } from '@/components/media/auth-media'
 import { galleryApi } from '@/lib/api/gallery.api'
 import { GALLERY_SOURCE_LABELS, isVideo, type GalleryMediaItem } from '@/types/gallery'
-import { downloadBlob } from '@/lib/utils/download'
-import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { toast } from 'sonner'
+import { MediaLightbox } from '@/app/dashboard/admin/gallery/media-lightbox'
 import { useMyChildren } from '../use-my-children'
 
 const ALL = '__all__'
@@ -24,6 +22,7 @@ export default function ParentGalleryPage() {
   const [source, setSource] = useState(ALL)
   const [childId, setChildId] = useState(ALL)
   const [skip, setSkip] = useState(0)
+  const [selected, setSelected] = useState<GalleryMediaItem | null>(null)
   const { children } = useMyChildren()
 
   useEffect(() => setSkip(0), [source, childId])
@@ -62,7 +61,7 @@ export default function ParentGalleryPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Select items={{ [ALL]: 'Toutes les sources', ...GALLERY_SOURCE_LABELS }} value={source} onValueChange={(v) => setSource(v ?? ALL)}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Toutes les sources</SelectItem>
             {Object.entries(GALLERY_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -71,7 +70,7 @@ export default function ParentGalleryPage() {
 
         {children.length > 1 && (
           <Select items={childItems} value={childId} onValueChange={(v) => setChildId(v ?? ALL)}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>
             <SelectContent>
               {Object.entries(childItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
             </SelectContent>
@@ -88,7 +87,7 @@ export default function ParentGalleryPage() {
           <div className="flex size-12 items-center justify-center rounded-full bg-muted">
             <Images className="size-5" />
           </div>
-          <p className="font-medium text-foreground">Aucun média pour le moment.</p>
+          <p className="font-medium text-white">Aucun média pour le moment.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -96,14 +95,7 @@ export default function ParentGalleryPage() {
             <button
               key={item.id}
               type="button"
-              onClick={async () => {
-                try {
-                  const res = await galleryApi.download(item.url)
-                  downloadBlob(res.data, item.filename)
-                } catch (err) {
-                  toast.error(getApiErrorMessage(err))
-                }
-              }}
+              onClick={() => setSelected(item)}
               className="group relative aspect-square overflow-hidden rounded-md ring-1 ring-border transition hover:ring-primary"
             >
               <AuthMedia
@@ -127,7 +119,7 @@ export default function ParentGalleryPage() {
       )}
 
       {!isLoading && total > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>{total} média{total > 1 ? 's' : ''}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
@@ -139,6 +131,8 @@ export default function ParentGalleryPage() {
           </div>
         </div>
       )}
+
+      <MediaLightbox item={selected} onOpenChange={(open) => !open && setSelected(null)} />
     </motion.div>
   )
 }

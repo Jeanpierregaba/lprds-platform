@@ -1,6 +1,7 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -8,6 +9,7 @@ from app.modules.auth.models import User
 from app.modules.children import service
 from app.modules.children.dependencies import get_staff
 from app.modules.children.schemas import (
+    ChildAttachmentResponse,
     ChildCreateRequest,
     ChildListResponse,
     ChildResponse,
@@ -102,4 +104,56 @@ async def set_child_status(
     """
     return await service.set_child_status(
         child_id, payload.is_active, current_user.establishment_id, db
+    )
+
+
+# ── Documents du dossier d'inscription ─────────────────────────
+@router.post(
+    "/{child_id}/documents",
+    response_model=ChildAttachmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_child_document(
+    child_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.CHILDREN_WRITE)),
+) -> ChildAttachmentResponse:
+    """Upload en deux temps : la fiche existe déjà, on y attache un document
+    (pièce d'identité, certificat médical, autorisation...)."""
+    return await service.add_child_document(
+        child_id, current_user.establishment_id, current_user, file, db
+    )
+
+
+@router.get("/{child_id}/documents/{document_id}")
+async def download_child_document(
+    child_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.CHILDREN_READ)),
+) -> FileResponse:
+    """Téléchargement authentifié uniquement — jamais servi en statique."""
+    attachment, path = await service.get_child_document(
+        child_id, document_id, current_user.establishment_id, db
+    )
+    return FileResponse(
+        path, filename=attachment.filename, media_type=attachment.content_type
+    )
+
+
+@router.delete(
+    "/{child_id}/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_child_document(
+    child_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.CHILDREN_WRITE)),
+) -> None:
+    """Suppression définitive du document (fichier + ligne) — un document
+    erroné ou doublon doit pouvoir être retiré, contrairement à la fiche."""
+    await service.delete_child_document(
+        child_id, document_id, current_user.establishment_id, db
     )

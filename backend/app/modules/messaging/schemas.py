@@ -61,6 +61,14 @@ class AnnouncementListResponse(BaseModel):
 
 
 # ── Conversations & messages ──────────────────────────────────────
+class ConversationStartRequest(BaseModel):
+    # Le parent avec qui l'admin lance une conversation privée.
+    parent_id: uuid.UUID
+    # Message d'ouverture optionnel — s'il est fourni, l'admin envoie un
+    # premier message au parent dans le même appel.
+    body: str | None = Field(default=None, min_length=1)
+
+
 class MessageCreateRequest(BaseModel):
     body: str = Field(min_length=1)
 

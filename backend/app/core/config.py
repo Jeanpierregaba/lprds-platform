@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     reset_token_expire_minutes: int = 60
     frontend_url: str = "http://localhost:3000"
 
+    # Notifications push Web (PWA Phase 2) — clés VAPID. Générer le couple via :
+    #   python -c "from py_vapid import Vapid01; v=Vapid01(); v.generate_keys(); print(v)"
+    # (ou py_vapid CLI). La clé publique est exposée aux clients via
+    # GET /api/v1/notifications/vapid-public-key pour la souscription.
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_subject: str = "mailto:no-reply@lespetitsrayonsdesoleil.fr"
+
     # Anti brute-force sur /auth/login — cf. app/core/rate_limit.py.
     # Compté par (IP, email), remis à zéro sur connexion réussie.
     login_rate_limit_max_attempts: int = 5
@@ -113,6 +121,22 @@ class Settings(BaseSettings):
         return {
             t.strip()
             for t in self.blog_allowed_attachment_types.split(",")
+            if t.strip()
+        }
+
+    # Pièces jointes (module enfants) — documents du dossier d'inscription
+    # (pièce d'identité, certificat médical, autorisations...). Implique la
+    # messagerie (images + PDF) : la vidéo n'a pas de sens pour un dossier.
+    children_max_attachment_mb: int = 10
+    children_allowed_attachment_types: str = (
+        "image/jpeg,image/png,image/gif,image/webp,application/pdf"
+    )
+
+    @property
+    def children_allowed_attachment_types_set(self) -> set[str]:
+        return {
+            t.strip()
+            for t in self.children_allowed_attachment_types.split(",")
             if t.strip()
         }
 

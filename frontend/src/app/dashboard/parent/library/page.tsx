@@ -130,7 +130,7 @@ export default function ParentLibraryPage() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <Table>
+                <Table className="min-w-[640px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Livre</TableHead>

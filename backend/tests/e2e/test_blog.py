@@ -1,5 +1,6 @@
 """E2E blog : étiquettes, workflow brouillon/publication, image à la une,
-médias, soft delete, accès public (site vitrine, sans authentification)."""
+médias, galerie du site vitrine, soft delete, accès public (site vitrine,
+sans authentification)."""
 from tests.helpers import PNG, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
 
 
@@ -140,11 +141,79 @@ def test_blog(client):
     list_all = c.get("/blog/articles?include_inactive=true", headers=redac1).json()
     ck("include_inactive=true → 2 (brouillon + supprimé)", list_all["total"], 2)
 
+    # ── Galerie du site vitrine ──
+    ck("Éducatrice sans blog:write ne peut pas uploader → 403", c.post(
+       "/blog/gallery", data={"category": "activities"},
+       files={"file": ("g1.png", PNG, "image/png")}, headers=educ).status_code, 403)
+    up1 = c.post("/blog/gallery", data={"category": "activities"},
+                 files={"file": ("g1.png", PNG, "image/png")}, headers=redac1)
+    ck("Upload galerie → 201", up1.status_code, 201)
+    ck("  catégorie renseignée", up1.json()["category"], "activities")
+    ck("  url interne présente", up1.json()["url"] is not None, True)
+    gid = up1.json()["id"]
+    up2 = c.post("/blog/gallery", data={"category": "meals"},
+                 files={"file": ("g2.png", PNG, "image/png")}, headers=redac1)
+    ck("2e upload (meals) → 201", up2.status_code, 201)
+    gid2 = up2.json()["id"]
+    ck("Catégorie inconnue → 422", c.post(
+       "/blog/gallery", data={"category": "toto"},
+       files={"file": ("g.png", PNG, "image/png")}, headers=redac1).status_code, 422)
+    ck("Vidéo refusée dans la galerie → 422", c.post(
+       "/blog/gallery", data={"category": "events"},
+       files={"file": ("v.mp4", b"\x00\x00\x00\x18ftypmp42fake", "video/mp4")},
+       headers=redac1).status_code, 422)
+    ck("SVG refusé → 422", c.post(
+       "/blog/gallery", data={"category": "events"},
+       files={"file": ("s.svg", b"<svg></svg>", "image/svg+xml")},
+       headers=redac1).status_code, 422)
+
+    gal = c.get("/blog/gallery", headers=redac1).json()
+    ck("Liste interne → 2 photos", gal["total"], 2)
+    ck("  tri récent d'abord", gal["items"][0]["id"], gid2)
+    gal_meals = c.get("/blog/gallery?category=meals", headers=redac1).json()
+    ck("Filtre catégorie (interne) → 1", gal_meals["total"], 1)
+    ck("  uploaded_by présent", gal_meals["items"][0]["uploaded_by"]["last_name"], "Un")
+    img = c.get(f"/blog/gallery/{gid}/image", headers=redac1)
+    ck("Téléchargement image interne → 200", img.status_code, 200)
+    ck("  contenu PNG correct", img.content, PNG)
+
+    # ── Publication immédiate : visible du site public dès l'upload ──
+    pub_gal = c.get("/public/blog/LPRDS/gallery")
+    ck("Galerie publique (sans token) → 200", pub_gal.status_code, 200)
+    ck("  2 photos visibles", pub_gal.json()["total"], 2)
+    ck("  URL publique vers /public/blog/.../gallery/...",
+       pub_gal.json()["items"][0]["url"].startswith("/api/v1/public/blog/LPRDS/gallery/"), True)
+    pub_gal_cat = c.get("/public/blog/LPRDS/gallery?category=activities")
+    ck("Filtre catégorie public → 1", pub_gal_cat.json()["total"], 1)
+    pub_img = c.get(f"/public/blog/LPRDS/gallery/{gid}/image")
+    ck("Téléchargement image publique → 200", pub_img.status_code, 200)
+    ck("  contenu PNG correct", pub_img.content, PNG)
+
+    # ── Suppression définitive → disparition immédiate du site public ──
+    ck("Éducatrice ne peut pas supprimer → 403", c.delete(
+       f"/blog/gallery/{gid}", headers=educ).status_code, 403)
+    ck("Suppression photo → 204", c.delete(f"/blog/gallery/{gid}",
+                                           headers=redac1).status_code, 204)
+    ck("Photo inconnue côté interne → 404", c.get(f"/blog/gallery/{gid}/image",
+        headers=redac1).status_code, 404)
+    ck("Disparue de la galerie publique", c.get(
+       "/public/blog/LPRDS/gallery").json()["total"], 1)
+    ck("Image publique supprimée → 404", c.get(
+       f"/public/blog/LPRDS/gallery/{gid}/image").status_code, 404)
+
     # ── Isolation étab B ──
     adm_b = onboard(c, su, "AUTRE", "admin@b.fr")
     pub_b = c.get("/public/blog/AUTRE/articles")
     ck("Étab B : aucune actualité (isolation)", pub_b.json()["total"], 0)
+    ck("Étab B : aucune photo galerie (isolation)", c.get(
+       "/public/blog/AUTRE/gallery").json()["total"], 0)
+    ck("Image de l'établissement A via le code B → 404", c.get(
+       f"/public/blog/AUTRE/gallery/{gid2}/image").status_code, 404)
+    ck("Admin B liste interne galerie → 0 (isolation)", c.get(
+       "/blog/gallery", headers=adm_b).json()["total"], 0)
     pub_wrong_code = c.get("/public/blog/INEXISTANT/articles")
     ck("Code établissement inexistant → 404", pub_wrong_code.status_code, 404)
+    ck("Code établissement inexistant (galerie) → 404", c.get(
+       "/public/blog/INEXISTANT/gallery").status_code, 404)
     list_b = c.get("/blog/articles", headers=adm_b).json()
     ck("Admin B liste interne : 0 (isolation)", list_b["total"], 0)

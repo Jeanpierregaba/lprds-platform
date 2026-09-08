@@ -19,7 +19,7 @@ from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.organization import service as org_service
 from app.modules.organization.models import Department, Group
-from app.modules.reports.email import send_report_available_email
+from app.modules.notifications.service import notify_parents_report_validated
 from app.modules.reports.models import (
     ACQUISITION_LEVEL_LABELS,
     BEHAVIOR_TAG_LABELS,
@@ -331,6 +331,8 @@ async def submit_report(
         await db.flush()
         await db.refresh(report)
         await _notify_parents(report)
+        # Push notification : envoie aux parents que le rapport est validé
+        await _send_report_push_notifications(report, db)
     else:
         report.status = str(ReportStatus.SUBMITTED)
         await db.flush()
@@ -356,6 +358,8 @@ async def validate_report(
     await db.flush()
     await db.refresh(report)
     await _notify_parents(report)
+    # Push notification : envoie aux parents que le rapport est validé
+    await _send_report_push_notifications(report, db)
     return await _to_response(report, db)
 
 
@@ -581,6 +585,38 @@ async def _notify_parents(report: Report) -> None:
             )
 
 
+async def _send_report_push_notifications(report: Report, db) -> int:
+    """
+    Envoie des notifications push aux parents lorsqu'un rapport est validé.
+    Best-effort : l'échec ne bloque pas la consultation du rapport sur le portail.
+    """
+    from app.modules.notifications.service import send_push_to_subscription
+
+    child = report.child
+    establishment_id = child.establishment_id
+
+    sent = 0
+    for parent in child.parents:
+        if not parent.is_active:
+            continue
+        sub_result = await db.execute(
+            select(PushSubscription).where(PushSubscription.user_id == parent.id)
+        )
+        subscriptions = sub_result.scalars().all()
+
+        for sub in subscriptions:
+            success = await send_push_to_subscription(
+                sub,
+                "Rapport validé",
+                f"Un nouveau rapport '{report.period_label}' est disponible pour {child.first_names}.",
+                {"report_id": str(report.id), "child_id": str(child.id)},
+            )
+            if success:
+                sent += 1
+
+    return sent
+
+
 def _child_brief(child: Child) -> ChildBrief:
     return ChildBrief(
         id=child.id, matricule=child.matricule,
@@ -738,6 +774,17 @@ async def _prefill_attendance_times(
 
 
 # ── Pièces jointes (photos / vidéos) ─────────────────────────────
+def _is_allowed_media_type(content_type: str) -> bool:
+    """Tout MIME image/* ou video/* est accepté (sauf image/svg+xml, risque
+    XSS), en plus de la liste explicite configurée (reports_allowed_attachment_types)."""
+    if content_type in settings.reports_allowed_attachment_types_set:
+        return True
+    return (
+        (content_type.startswith("image/") or content_type.startswith("video/"))
+        and content_type != "image/svg+xml"
+    )
+
+
 async def add_report_attachment(
     report_id: uuid.UUID,
     establishment_id: uuid.UUID,
@@ -760,12 +807,12 @@ async def add_report_attachment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
         )
     content_type = file.content_type or ""
-    if content_type not in settings.reports_allowed_attachment_types_set:
+    if not _is_allowed_media_type(content_type):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Autorisés : {', '.join(sorted(settings.reports_allowed_attachment_types_set))}"
+                f"Seules les images et vidéos sont acceptées."
             ),
         )
 

@@ -18,7 +18,12 @@ from app.modules.attendance.models import (
     StaffAttendanceSchedule,
 )
 from app.modules.auth.models import User, UserRole
-from app.modules.children.models import AuthorizedPerson, Child, Guardian
+from app.modules.children.models import (
+    AuthorizedPerson,
+    Child,
+    ChildAttachment,
+    Guardian,
+)
 from app.modules.establishments.models import Establishment
 from app.modules.library.models import Book, BookLending, LibrarySettings, book_sections
 from app.modules.messaging.models import (
@@ -38,8 +43,8 @@ from app.modules.rbac.models import (
     user_roles,
 )
 from app.modules.reports.models import DepartmentReportType, Report, ReportAttachment, ReportRead
-from app.modules.menus.models import WeeklyMenu
-from app.modules.blog.models import Article, ArticleAttachment, BlogTag
+from app.modules.notifications.models import PushSubscription
+from app.modules.blog.models import Article, ArticleAttachment, BlogGalleryPhoto, BlogTag
 
 __all__ = [
     "Base",
@@ -55,6 +60,7 @@ __all__ = [
     "role_permissions",
     "user_roles",
     "Child",
+    "ChildAttachment",
     "Guardian",
     "AuthorizedPerson",
     "parent_children",
@@ -75,8 +81,10 @@ __all__ = [
     "BlogTag",
     "Article",
     "ArticleAttachment",
+    "BlogGalleryPhoto",
     "Book",
     "BookLending",
     "LibrarySettings",
     "book_sections",
+    "PushSubscription",
 ]

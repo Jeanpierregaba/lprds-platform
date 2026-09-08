@@ -1,11 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Newspaper, Tags } from 'lucide-react'
+import { Images, Newspaper, Tags } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ArticlesTab } from './articles-tab'
 import { TagsTab } from './tags-tab'
+import { GalleryTab } from './gallery-tab'
 
 export default function BlogPage() {
   return (
@@ -30,6 +31,10 @@ export default function BlogPage() {
             <Tags className="mr-1.5 size-4" />
             Étiquettes
           </TabsTrigger>
+          <TabsTrigger value="gallery">
+            <Images className="mr-1.5 size-4" />
+            Galerie
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="articles">
@@ -37,6 +42,9 @@ export default function BlogPage() {
         </TabsContent>
         <TabsContent value="tags">
           <TagsTab />
+        </TabsContent>
+        <TabsContent value="gallery">
+          <GalleryTab />
         </TabsContent>
       </Tabs>
     </motion.div>

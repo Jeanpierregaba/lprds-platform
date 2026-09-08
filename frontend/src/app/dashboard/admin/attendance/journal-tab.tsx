@@ -70,7 +70,7 @@ export function JournalTab() {
             value={personType}
             onValueChange={(v) => setPersonType(v ?? ALL)}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Tous" />
             </SelectTrigger>
             <SelectContent>
@@ -82,11 +82,11 @@ export function JournalTab() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="date_from" className="text-white font-semibold text-sm">Du</Label>
-          <Input id="date_from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-44" />
+          <Input id="date_from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-44" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="date_to" className="text-white font-semibold text-sm">Au</Label>
-          <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-44" />
+          <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full sm:w-44" />
         </div>
       </div>
 

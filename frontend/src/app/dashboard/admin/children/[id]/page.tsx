@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -8,7 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, FileUp, Loader2, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,7 +27,8 @@ import {
 import { organizationApi } from '@/lib/api/organization.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import type { Child } from '@/types/children'
+import { downloadBlob } from '@/lib/utils/download'
+import type { Child, ChildDocument } from '@/types/children'
 
 const infoSchema = z.object({
   last_name: z.string().min(1, 'Nom requis').max(100),
@@ -161,6 +163,7 @@ export default function ChildDetailPage() {
           <TabsTrigger value="behavior">Comportement</TabsTrigger>
           <TabsTrigger value="medical">Médical</TabsTrigger>
           <TabsTrigger value="contacts">Tuteurs ({child.guardians.length})</TabsTrigger>
+          <TabsTrigger value="documents">Documents ({child.documents.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="infos">
@@ -174,6 +177,9 @@ export default function ChildDetailPage() {
         </TabsContent>
         <TabsContent value="contacts">
           <ContactsTab childId={id} child={child} onSaved={invalidate} />
+        </TabsContent>
+        <TabsContent value="documents">
+          <DocumentsTab childId={id} child={child} onSaved={invalidate} />
         </TabsContent>
       </Tabs>
     </motion.div>
@@ -592,6 +598,149 @@ function ContactsTab({ childId, child, onSaved }: TabProps) {
             </Button>
           </div>
         </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+const DOCUMENT_MAX_MB = 10
+const DOCUMENT_ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+]
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR')
+}
+
+function DocumentsTab({ childId, child, onSaved }: TabProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => childrenApi.uploadDocument(childId, file),
+    onSuccess: () => {
+      toast.success('Document ajouté.')
+      onSaved()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (documentId: string) => childrenApi.removeDocument(childId, documentId),
+    onSuccess: () => {
+      toast.success('Document supprimé.')
+      onSaved()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > DOCUMENT_MAX_MB * 1024 * 1024) {
+        toast.error(`Le fichier dépasse ${DOCUMENT_MAX_MB} Mo.`)
+      } else if (!DOCUMENT_ALLOWED_TYPES.includes(file.type)) {
+        toast.error('Seuls les images et PDF sont acceptés.')
+      } else {
+        uploadMutation.mutate(file)
+      }
+    }
+    e.target.value = ''
+  }
+
+  const onDownload = async (doc: ChildDocument) => {
+    try {
+      const res = await childrenApi.downloadDocument(childId, doc.id)
+      downloadBlob(res.data, doc.filename)
+    } catch (err) {
+      toast.error(getApiErrorMessage(err))
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 pt-6">
+        <div className="rounded-md border border-dashed border-border p-6 text-center">
+          <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
+          <Label htmlFor="document" className="cursor-pointer text-sm font-medium text-primary">
+            Ajouter un document
+          </Label>
+          <input
+            ref={fileInputRef}
+            id="document"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+            className="hidden"
+            onChange={onFileSelected}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pièces d&apos;identité, certificats, autorisations... (images ou PDF, {DOCUMENT_MAX_MB} Mo max)
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-2"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending}
+          >
+            {uploadMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
+            Choisir un fichier
+          </Button>
+        </div>
+
+        {child.documents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun document.</p>
+        ) : (
+          <ul className="space-y-2">
+            {child.documents.map((doc) => (
+              <li key={doc.id} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{doc.filename}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatBytes(doc.size_bytes)} · {formatDate(doc.created_at)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button type="button" variant="outline" size="sm" onClick={() => onDownload(doc)}>
+                    <Download className="mr-1.5 size-3.5" />
+                    Télécharger
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Supprimer ${doc.filename}`} />}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Supprimer ce document ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          « {doc.filename} » sera retiré du dossier de l&apos;enfant.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => removeMutation.mutate(doc.id)}>
+                          Supprimer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   )

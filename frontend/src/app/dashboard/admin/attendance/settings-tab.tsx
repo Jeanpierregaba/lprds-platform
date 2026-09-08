@@ -135,7 +135,7 @@ function GeneralSettings() {
             <Input id="timezone" placeholder="Africa/Porto-Novo" {...register('timezone')} aria-invalid={!!errors.timezone} />
             {errors.timezone && <p className="text-sm text-destructive">{errors.timezone.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="staff_expected_arrival_time">Arrivée attendue</Label>
               <Input
@@ -297,7 +297,7 @@ function DepartmentSettings() {
             <DialogDescription>Utilisés pour calculer les retards des enfants de ce département.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="expected_arrival_time">Arrivée attendue</Label>
                 <Input id="expected_arrival_time" type="time" {...register('expected_arrival_time')} aria-invalid={!!errors.expected_arrival_time} />
@@ -507,7 +507,7 @@ function StaffSchedulesSettings() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="expected_arrival_time">Arrivée attendue</Label>
                 <Input id="expected_arrival_time" type="time" {...register('expected_arrival_time')} aria-invalid={!!errors.expected_arrival_time} />

@@ -193,9 +193,12 @@ modèles doit s'ajouter à ce registre, sinon les relations casseront au runtime
 ```
 src/
 ├── app/
-│   ├── layout.tsx                 # Root layout (Providers + Toaster)
+│   ├── layout.tsx                 # Root layout (Providers + Toaster) + métadonnées PWA
 │   ├── globals.css                # Tailwind v4 + variables CSS shadcn
 │   ├── providers.tsx              # QueryClientProvider React Query
+│   ├── manifest.ts                # Manifest Web App (PWA) — /manifest.webmanifest
+│   ├── offline/page.tsx           # Page hors-ligne (fallback du service worker)
+│   ├── (marketing)/               # Site vitrine public (a-propos, galerie, actualités…)
 │   ├── auth/
 │   │   ├── login/page.tsx         # Page connexion (email + password)
 │   │   ├── reset-password/page.tsx # Demande reset mdp
@@ -206,6 +209,7 @@ src/
 │       ├── staff/page.tsx         # Dashboard staff (temporaire)
 │       └── parent/page.tsx        # Dashboard parent (temporaire)
 ├── components/
+│   ├── pwa/pwa-provider.tsx       # Enregistrement SW + prompt d'installation + voile hors-ligne
 │   └── ui/                        # Composants shadcn (button, input, card, form, sonner...)
 ├── lib/
 │   ├── api/
@@ -220,7 +224,57 @@ src/
 │   ├── auth.ts                    # UserRole, User, TokenResponse, ROLE_HOME...
 │   └── api.ts                     # ApiResponse<T>, PaginatedResponse<T>
 └── middleware.ts                   # Protection routes Next.js (Edge Runtime)
+
+public/
+├── sw.js                          # Service worker PWA (app shell + vitrine)
+├── icons/                         # Icônes PWA (192/512, maskable, apple-touch, favicon)
+└── images/                        # Assets marketing (dont images du site)
 ```
+
+### PWA — coque d'application installable (Phase 1)
+
+La plateforme est installable comme une application native (mobile/desktop) :
+**manifest**, **service worker** (hors-ligne), **bouton d'installation** et
+**voile hors-ligne**. La **Phase 2 (notifications push Web)** est décidée en
+principe (événements : messagerie + rapports publiés) mais non implémentée.
+
+- **Manifest** (`src/app/manifest.ts`) : `display: standalone`,
+  `theme_color #F5AA2D` (Jaune Soleil), `background_color #FFFFFF`, icônes
+  `any` + `maskable`, raccourcis vitrine (Galerie, Actualités). Servi sur
+  `/manifest.webmanifest`.
+- **Meta iOS / app-like** (`src/app/layout.tsx`) : `appleWebApp.capable`,
+  `viewportFit: cover`, `themeColor`, `formatDetection.telephone: false`.
+- **Service worker** (`public/sw.js`, enregistré par `pwa-provider.tsx`) —
+  stratégies volontairement simples, **pas de réseau-first partout** :
+  | Ressource | Stratégie |
+  |---|---|
+  | Navigation (pages) | network-first, repli HTML en cache → `/offline` |
+  | `/_next/static/*` | stale-while-revalidate (chunks hashed) |
+  | `/icons`, `/images` | cache-first |
+  | `/api/*` | **jamais caché** (données authentifiées, sensibles RGPD) |
+  ⚠️ **`CACHE_VERSION`** en tête de `sw.js` : l'incrémenter à chaque
+  changement de stratégie/des assets pré-cachés, sinon les clients gardent le
+  worker précédent.
+- **`PwaProvider`** (`src/components/pwa/pwa-provider.tsx`, monté dans le root
+  layout) : enregistre `/sw.js` (avec `registration.update()`), capture
+  `beforeinstallprompt` → bouton flottant « Installer l'application »
+  (masqué une fois installé / standalone), et affiche un bandeau « hors ligne »
+  sur `offline`/`online`.
+- **Page `/offline`** : repli hors-ligne stylé vitrine, publiée en statique,
+  exclue des moteurs de recherche, **exclue du middleware** (elle doit rester
+  accessible sans session).
+- **Middleware** (`src/middleware.ts`) : les ressources PWA
+  (`manifest.webmanifest`, `sw.js`, `offline`, icônes/images) sont exclues du
+  matcher — sans quoi un visiteur anonyme serait redirigé vers `/auth/login`.
+- Aucune variable d'env supplémentaire pour cette phase (les icônes sont
+  dérivées de `public/images/marketing/logo.png`).
+
+Test local : `pnpm dev` sur `http://localhost:3000` (contexte sécurisé) →
+DevTools > Application > Manifest / Service Workers ; mode hors-ligne = le
+voile s'affiche et la navigation retombe sur `/offline`. En production, le
+service worker exige HTTPS. *(Phase 2 — notifications push : nécessitera un
+module backend dédié avec abonnements `PushSubscription` + clés VAPID, et des
+endpoints d'enregistrement — pas encore écrit.)*
 
 ---
 
@@ -1151,8 +1205,10 @@ endpoints JSON existants (`send_message` reste inchangé).
   mount) — un accès direct au chemin de stockage ne suffirait à rien voir,
   toute lecture passe par cette vérification.
 - **Validation** : taille max (`MESSAGING_MAX_ATTACHMENT_MB`, défaut 10 Mo,
-  413 sinon) et type MIME en liste blanche
-  (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) —
+  413 sinon) et type MIME — la liste blanche
+  (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) est
+  complétée par un sur-ensemble : **tout MIME `image/*` est accepté** (sauf
+  `image/svg+xml`), la vidéo reste exclue de la messagerie —
   le `content_type` déclaré par le client n'est **pas** vérifié par analyse du
   contenu (pas de sniffing des octets magiques) : simplification assumée,
   acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
@@ -1278,8 +1334,11 @@ jointes de la messagerie — modules indépendants, pas de FK croisée) :
   (JSON), le fichier s'ajoute après via `multipart/form-data`.
 - Limites **propres au module** (`MESSAGING_*` ne s'applique pas ici) :
   `REPORTS_MAX_ATTACHMENT_MB` (défaut 50 Mo — plus haut que la messagerie car
-  la vidéo est acceptée) et `REPORTS_ALLOWED_ATTACHMENT_TYPES` (images + `video/mp4`,
-  `video/quicktime`, `video/webm`).
+  la vidéo est acceptée) et `REPORTS_ALLOWED_ATTACHMENT_TYPES`. **Tout MIME
+  `image/*` ou `video/*` est accepté** (le plafond + la liste configurée
+  restent en vigueur en sur-ensemble) — l'utilisateur a demandé le support de
+  **tous** les formats image/vidéo. Seul `image/svg+xml` est rejeté (422,
+  risque XSS).
 - **Téléchargement authentifié uniquement**, jamais de fichier servi en
   statique — même principe que la messagerie. Côté parent
   (`GET /reports/mine/{id}/attachments/{id}`), les pièces jointes ne sont
@@ -1660,8 +1719,8 @@ une, médias) avant d'être rendu public via `POST /articles/{id}/publish`.
   `ReportAttachment`/messaging `Attachment` — pas de polymorphisme entre
   modules), liste illimitée d'images/vidéos, upload/suppression indépendants
   de l'article. `BLOG_MAX_ATTACHMENT_MB` (défaut 50 Mo) et
-  `BLOG_ALLOWED_ATTACHMENT_TYPES` (images + vidéo, mêmes valeurs par défaut
-  que les rapports).
+  `BLOG_ALLOWED_ATTACHMENT_TYPES`. Idem rapports : **tout MIME `image/*` ou
+  `video/*` est accepté**, seul `image/svg+xml` est rejeté.
 
 ### Suppression : soft delete explicite (demande utilisateur)
 
@@ -1746,14 +1805,17 @@ MAIL_SSL_TLS=false
 MAIL_SUPPRESS_SEND=false
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
-# Pièces jointes messagerie (défauts si absent : 10 Mo, images + PDF)
+# Pièces jointes messagerie (défauts si absent : 10 Mo) — tout MIME image/*
+# est accepté en plus de la liste (sauf image/svg+xml) ; la vidéo reste exclue
 MESSAGING_MAX_ATTACHMENT_MB=10
 MESSAGING_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf
-# Pièces jointes rapports (défauts si absent : 50 Mo, images + vidéo)
+# Pièces jointes rapports (défauts si absent : 50 Mo) — tout MIME image/* ou
+# video/* est accepté en plus de la liste (sauf image/svg+xml)
 REPORTS_MAX_ATTACHMENT_MB=50
 REPORTS_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
-# Pièces jointes blog (défauts si absent : 50 Mo, images + vidéo) — l'image à
-# la une est en plus filtrée aux seuls types "image/*" (cf. blog/service.py)
+# Pièces jointes blog (défauts si absent : 50 Mo) — même sur-ensemble image/*
+# ou video/* sauf image/svg+xml. L'image à la une est en plus filtrée aux
+# seuls types "image/*" (cf. blog/service.py)
 BLOG_MAX_ATTACHMENT_MB=50
 BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
 ```
@@ -1762,6 +1824,9 @@ BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_APP_NAME=LPRDS - Gestion Crèche
+# Code court unique de l'établissement (préfixe de matricule, ex. LPRDS) —
+# sert de scope aux endpoints PUBLICS du site vitrine (/api/v1/public/blog/{code}/…)
+NEXT_PUBLIC_ESTABLISHMENT_CODE=LPRDS
 ```
 
 ---

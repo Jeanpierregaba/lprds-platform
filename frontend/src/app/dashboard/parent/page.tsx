@@ -71,9 +71,9 @@ export default function ParentDashboardPage() {
                 <li key={r.id}>
                   <Link
                     href={`/dashboard/parent/reports/${r.id}`}
-                    className="flex items-center justify-between gap-2 py-2.5 text-sm hover:text-primary"
+                    className="flex min-w-0 items-center justify-between gap-2 py-2.5 text-sm hover:text-primary"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       <span className="font-medium">{r.child.first_names} {r.child.last_name}</span>
                       {' · '}{REPORT_TYPE_LABELS[r.report_type]} · {r.period_label}
                     </span>

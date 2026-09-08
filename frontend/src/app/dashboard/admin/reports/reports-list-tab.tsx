@@ -62,7 +62,7 @@ export function ReportsListTab() {
             value={status}
             onValueChange={(v) => setStatus(v ?? ALL)}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Tous les statuts" />
             </SelectTrigger>
             <SelectContent>
@@ -77,7 +77,7 @@ export function ReportsListTab() {
             value={reportType}
             onValueChange={(v) => setReportType(v ?? ALL)}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Tous les types" />
             </SelectTrigger>
             <SelectContent>

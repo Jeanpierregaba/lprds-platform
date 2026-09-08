@@ -17,6 +17,7 @@ from app.modules.messaging.schemas import (
     AttachmentResponse,
     ConversationListResponse,
     ConversationResponse,
+    ConversationStartRequest,
     MessageCreateRequest,
     MessageListResponse,
     MessageResponse,
@@ -164,6 +165,23 @@ async def upload_my_message_attachment(
 
 
 # ── Conversations : côté admin (n'importe quel parent, par id) ────
+@router.post(
+    "/conversations",
+    response_model=ConversationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_conversation(
+    payload: ConversationStartRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> ConversationResponse:
+    """L'admin ouvRE (get-or-create) la conversation privée avec un parent, et envoie
+    éventuellement un premier message d'ouverture (body optionnel)."""
+    return await service.start_conversation(
+        payload.parent_id, admin.establishment_id, admin, db, body=payload.body
+    )
+
+
 @router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations(
     db: AsyncSession = Depends(get_db),

@@ -8,6 +8,7 @@ from app.modules.establishments.router import router as establishments_router
 from app.modules.gallery.router import router as gallery_router
 from app.modules.library.router import router as library_router
 from app.modules.menus.router import router as menus_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.messaging.router import router as messaging_router
 from app.modules.organization.router import router as organization_router
 from app.modules.parents.router import router as parents_router
@@ -25,6 +26,7 @@ api_router.include_router(parents_router)
 api_router.include_router(staff_router)
 api_router.include_router(attendance_router)
 api_router.include_router(messaging_router)
+api_router.include_router(notifications_router)
 api_router.include_router(reports_router)
 api_router.include_router(gallery_router)
 api_router.include_router(menus_router)

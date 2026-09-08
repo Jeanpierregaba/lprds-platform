@@ -1,5 +1,7 @@
 import { apiClient } from './client'
-import type { Child, ChildCreatePayload, ChildListResponse, ChildUpdatePayload } from '@/types/children'
+import type {
+  Child, ChildCreatePayload, ChildDocument, ChildListResponse, ChildUpdatePayload,
+} from '@/types/children'
 
 export const childrenApi = {
   // ── Portail staff : « Mon Groupe » (hors RBAC) ──────────────
@@ -24,4 +26,17 @@ export const childrenApi = {
 
   setStatus: (id: string, isActive: boolean) =>
     apiClient.patch<Child>(`/api/v1/children/${id}/status`, { is_active: isActive }),
+
+  // ── Documents du dossier d'inscription ──────────────────────
+  uploadDocument: (childId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return apiClient.post<ChildDocument>(`/api/v1/children/${childId}/documents`, form)
+  },
+
+  downloadDocument: (childId: string, documentId: string) =>
+    apiClient.get<Blob>(`/api/v1/children/${childId}/documents/${documentId}`, { responseType: 'blob' }),
+
+  removeDocument: (childId: string, documentId: string) =>
+    apiClient.delete<void>(`/api/v1/children/${childId}/documents/${documentId}`),
 }

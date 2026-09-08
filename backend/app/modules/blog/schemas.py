@@ -110,3 +110,34 @@ class PublicArticleDetail(BaseModel):
     cover_url:     str | None
     published_at:  datetime | None
     attachments:   list[AttachmentResponse] = []
+
+
+# ── Galerie du site vitrine ──────────────────────────────────────
+class GalleryPhotoListItem(BaseModel):
+    id:           uuid.UUID
+    category:     str
+    filename:     str
+    content_type: str
+    size_bytes:   int
+    uploaded_by:  UserBrief
+    created_at:   datetime
+    url:          str
+
+
+class GalleryPhotoListResponse(BaseModel):
+    total: int
+    items: list[GalleryPhotoListItem]
+
+
+class PublicGalleryPhoto(BaseModel):
+    id:           uuid.UUID
+    category:     str
+    content_type: str
+    size_bytes:   int
+    created_at:   datetime
+    url:          str
+
+
+class PublicGalleryListResponse(BaseModel):
+    total: int
+    items: list[PublicGalleryPhoto]

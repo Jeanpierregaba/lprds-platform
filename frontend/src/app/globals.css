@@ -4,6 +4,20 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * Doodles décoratifs du site vitrine (style landing ludique) : flottement
+ * doux vertical en boucle lente. La rotation éventuelle vient des classes
+ * Tailwind rotate-* (propriété `rotate`, composée avec le translate animé).
+ */
+@keyframes doodle-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/*
  * Animation « suggestion » du module Présences (scan) : le bouton du
  * prochain événement logique (Arrivée / Cantine / Départ) clignote pour
  * attirer l'œil du scanneur. On anime la bordure et la teinte de fond.
@@ -98,6 +112,9 @@
 
   /* Animation de suggestion d'événement (module Présences / scan) */
   --animate-suggest: suggest-pulse 1.4s ease-in-out infinite;
+
+  /* Flottement des doodles décoratifs du site vitrine */
+  --animate-doodle: doodle-float 5s ease-in-out infinite;
 }
 
 :root {
@@ -220,6 +237,21 @@
 @layer base {
   * {
     border-color: hsl(var(--border));
+  }
+
+  /* Défilement fluide sur tout le site vitrine (ancres, navigation douce).
+     Désactivé si l'utilisateur préfère réduire les animations. */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    .animate-doodle {
+      animation: none;
+    }
   }
 
   body {

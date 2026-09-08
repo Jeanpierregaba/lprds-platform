@@ -115,7 +115,7 @@ export default function ChildrenListPage() {
           value={departmentId}
           onValueChange={(v) => setDepartmentId(v ?? ALL)}
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Tous les départements" />
           </SelectTrigger>
           <SelectContent>
@@ -130,7 +130,7 @@ export default function ChildrenListPage() {
           value={sectionId}
           onValueChange={(v) => setSectionId(v ?? ALL)}
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Toutes les sections" />
           </SelectTrigger>
           <SelectContent>

@@ -76,6 +76,11 @@ export interface ConversationListResponse {
   items: Conversation[]
 }
 
+export interface ConversationStartPayload {
+  parent_id: string
+  body?: string
+}
+
 // ── Événements WebSocket ───────────────────────────────────────
 export type WSAnnouncementEvent = Announcement & { type: 'announcement' }
 

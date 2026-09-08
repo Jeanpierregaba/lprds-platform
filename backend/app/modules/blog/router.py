@@ -1,19 +1,21 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.modules.auth.models import User
 from app.modules.blog import service
-from app.modules.blog.models import ArticleStatus
+from app.modules.blog.models import ArticleStatus, GalleryCategory
 from app.modules.blog.schemas import (
     ArticleCreateRequest,
     ArticleListResponse,
     ArticleResponse,
     ArticleUpdateRequest,
     AttachmentResponse,
+    GalleryPhotoListItem,
+    GalleryPhotoListResponse,
     TagCreateRequest,
     TagListResponse,
     TagResponse,
@@ -192,3 +194,53 @@ async def delete_article_attachment(
     user: User = Depends(_write),
 ) -> None:
     await service.delete_article_attachment(article_id, attachment_id, user.establishment_id, db)
+
+
+# ── Galerie du site vitrine ──────────────────────────────────────
+@router.post(
+    "/gallery",
+    response_model=GalleryPhotoListItem,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_gallery_photo(
+    category: GalleryCategory = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> GalleryPhotoListItem:
+    """Upload = publication immédiate sur le site vitrine. Catégorie 422 si
+    inconnue (GalleryCategory + Form, validé à la frontière de l'API)."""
+    return await service.create_gallery_photo(user.establishment_id, user, category, file, db)
+
+
+@router.get("/gallery", response_model=GalleryPhotoListResponse)
+async def list_gallery_photos(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+    category: GalleryCategory | None = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> GalleryPhotoListResponse:
+    return await service.list_gallery_photos(
+        user.establishment_id, db, category=category, skip=skip, limit=limit
+    )
+
+
+@router.get("/gallery/{photo_id}/image")
+async def download_gallery_photo(
+    photo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> FileResponse:
+    photo, path = await service.get_gallery_photo_for_staff(photo_id, user.establishment_id, db)
+    return FileResponse(path, filename=photo.filename, media_type=photo.content_type)
+
+
+@router.delete("/gallery/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_gallery_photo(
+    photo_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> None:
+    """Suppression définitive — la photo disparaît immédiatement du site public."""
+    await service.delete_gallery_photo(photo_id, user.establishment_id, db)

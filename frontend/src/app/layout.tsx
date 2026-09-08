@@ -1,6 +1,7 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Fredoka, Work_Sans } from 'next/font/google'
 import { Providers } from './providers'
+import { PwaProvider } from '@/components/pwa/pwa-provider'
 import './globals.css'
 
 import { Toaster } from '@/components/ui/sonner'
@@ -25,6 +26,30 @@ const workSans = Work_Sans({
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
   description: 'Gestion de crèche et école maternelle',
+  applicationName: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'LPRDS',
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#F5AA2D',
 }
 
 export default function RootLayout({
@@ -33,10 +58,12 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning className={`${fredoka.variable} ${workSans.variable}`}>
     <body>
-      <Providers>
-        {children}
-        <Toaster position="top-right" richColors />
-      </Providers>
+      <PwaProvider>
+        <Providers>
+          {children}
+          <Toaster position="top-right" richColors />
+        </Providers>
+      </PwaProvider>
     </body>
     </html>
 

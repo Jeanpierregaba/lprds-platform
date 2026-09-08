@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ThemeToggle } from './theme-toggle'
+import { MobileNav } from './mobile-nav'
 import { useUser } from '@/lib/stores/auth.store'
 import { ROLE_LABELS } from '@/types/auth'
 
@@ -15,9 +16,9 @@ export function Header() {
   if (!user) return null
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-accent px-4">
-      <div />
-      <div className="flex items-center gap-2">
+    <header className="flex h-14 items-center justify-between border-b border-border bg-accent px-2 sm:px-4">
+      <MobileNav />
+      <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
         <div className="flex items-center gap-2 rounded-md px-2 py-2 text-sm">
           <Avatar>

@@ -29,6 +29,10 @@ from app.modules.messaging.schemas import (
     UserBrief,
 )
 from app.modules.messaging.ws_manager import publish_event
+from app.modules.notifications.service import (
+    send_push_to_establishment_admins,
+    send_push_to_establishment_parents,
+)
 
 
 def _announcements_channel(establishment_id: uuid.UUID) -> str:
@@ -64,6 +68,15 @@ async def create_announcement(
     await publish_event(
         _announcements_channel(establishment_id),
         {"type": "announcement", **response.model_dump(mode="json")},
+    )
+
+    # Push notification : envoie à tous les parents de l'établissement
+    await send_push_to_establishment_parents(
+        establishment_id,
+        "Nouvelle diffusion",
+        announcement.title,
+        {"type": "announcement", "announcement_id": str(announcement.id)},
+        db,
     )
     return response
 
@@ -211,6 +224,48 @@ async def get_or_create_own_conversation(parent: User, db: AsyncSession) -> Conv
     return conversation
 
 
+async def start_conversation(
+    parent_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    admin: User,
+    db: AsyncSession,
+    *,
+    body: str | None = None,
+) -> ConversationResponse:
+    """L'admin ouvre (ou récupère) la conversation privée avec un parent, et envoie
+    éventuellement un premier message d'ouverture dans le même appel."""
+    parent = await db.scalar(
+        select(User).where(
+            User.id == parent_id,
+            User.establishment_id == establishment_id,
+            User.role == UserRole.PARENT,
+            User.is_active.is_(True),
+        )
+    )
+    if not parent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent introuvable")
+
+    conversation = await db.scalar(
+        select(Conversation).where(
+            Conversation.establishment_id == establishment_id,
+            Conversation.parent_id == parent.id,
+        )
+    )
+    if not conversation:
+        conversation = Conversation(
+            establishment_id=establishment_id, parent_id=parent.id
+        )
+        db.add(conversation)
+        await db.flush()
+        await db.refresh(conversation)
+
+    if body:
+        await send_message(conversation, admin, body, db)
+
+    unread = await _unread_count(conversation.id, unread_from="parent", db=db)
+    return _conversation_response(conversation, unread_count=unread)
+
+
 async def get_own_conversation_summary(
     parent: User, db: AsyncSession
 ) -> ConversationResponse:
@@ -320,6 +375,15 @@ async def send_message(
     # connectés écoutent le canal agrégé pour rafraîchir leur liste en direct.
     await publish_event(_conversation_channel(conversation.id), payload)
     await publish_event(_admin_channel(conversation.establishment_id), payload)
+
+    # Push notification : envoie aux admins de l'établissement
+    await send_push_to_establishment_admins(
+        conversation.establishment_id,
+        "Nouveau message",
+        f"Un nouveau message de {sender.nickname or sender.first_name} {sender.last_name or ''}".strip(),
+        {"type": "message", "conversation_id": str(conversation.id)},
+        db,
+    )
     return response
 
 
@@ -554,12 +618,15 @@ def _validate_upload(file: UploadFile, content: bytes) -> None:
             detail="Fichier vide",
         )
     content_type = file.content_type or ""
-    if content_type not in settings.messaging_allowed_attachment_types_set:
+    if content_type not in settings.messaging_allowed_attachment_types_set and not (
+        content_type.startswith("image/") and content_type != "image/svg+xml"
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Autorisés : {', '.join(sorted(settings.messaging_allowed_attachment_types_set))}"
+                f"Autorisés : {', '.join(sorted(settings.messaging_allowed_attachment_types_set))} "
+                f"ou toute image (hors SVG)"
             ),
         )
 

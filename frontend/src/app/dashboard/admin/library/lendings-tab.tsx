@@ -236,7 +236,7 @@ export function LendingsTab() {
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v ?? ALL)}
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Tous les statuts" />
           </SelectTrigger>
           <SelectContent>

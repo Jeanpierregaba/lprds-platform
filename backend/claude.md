@@ -1007,6 +1007,9 @@ POST   /api/v1/messaging/conversations/me/messages
 POST   /api/v1/messaging/conversations/me/read
 
 GET    /api/v1/messaging/conversations                     # admin — liste, triée par activité
+POST   /api/v1/messaging/conversations                     # admin — ouvre (get-or-create) une conversation
+                                                           #   avec un parent {parent_id, body?} ; body = 1er
+                                                           #   message d'ouverture (optionnel) — 201
 GET    /api/v1/messaging/conversations/{id}/messages       # admin — n'importe quel parent
 POST   /api/v1/messaging/conversations/{id}/messages       # admin — répond « au nom de l'administration »
 POST   /api/v1/messaging/conversations/{id}/read           # admin
@@ -1075,8 +1078,10 @@ endpoints JSON existants (`send_message` reste inchangé).
   mount) — un accès direct au chemin de stockage ne suffirait à rien voir,
   toute lecture passe par cette vérification.
 - **Validation** : taille max (`MESSAGING_MAX_ATTACHMENT_MB`, défaut 10 Mo,
-  413 sinon) et type MIME en liste blanche
-  (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) —
+  413 sinon) et type MIME — la liste blanche
+  (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) est
+  complétée par un sur-ensemble : **tout MIME `image/*` est accepté** (sauf
+  `image/svg+xml`), la vidéo reste exclue de la messagerie —
   le `content_type` déclaré par le client n'est **pas** vérifié par analyse du
   contenu (pas de sniffing des octets magiques) : simplification assumée,
   acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
@@ -1202,8 +1207,11 @@ jointes de la messagerie — modules indépendants, pas de FK croisée) :
   (JSON), le fichier s'ajoute après via `multipart/form-data`.
 - Limites **propres au module** (`MESSAGING_*` ne s'applique pas ici) :
   `REPORTS_MAX_ATTACHMENT_MB` (défaut 50 Mo — plus haut que la messagerie car
-  la vidéo est acceptée) et `REPORTS_ALLOWED_ATTACHMENT_TYPES` (images + `video/mp4`,
-  `video/quicktime`, `video/webm`).
+  la vidéo est acceptée) et `REPORTS_ALLOWED_ATTACHMENT_TYPES`. **Tout MIME
+  `image/*` ou `video/*` est accepté** (le plafond + la liste configurée
+  restent en vigueur en sur-ensemble) — l'utilisateur a demandé le support de
+  **tous** les formats image/vidéo. Seul `image/svg+xml` est rejeté (422,
+  risque XSS).
 - **Téléchargement authentifié uniquement**, jamais de fichier servi en
   statique — même principe que la messagerie. Côté parent
   (`GET /reports/mine/{id}/attachments/{id}`), les pièces jointes ne sont
@@ -1584,8 +1592,8 @@ une, médias) avant d'être rendu public via `POST /articles/{id}/publish`.
   `ReportAttachment`/messaging `Attachment` — pas de polymorphisme entre
   modules), liste illimitée d'images/vidéos, upload/suppression indépendants
   de l'article. `BLOG_MAX_ATTACHMENT_MB` (défaut 50 Mo) et
-  `BLOG_ALLOWED_ATTACHMENT_TYPES` (images + vidéo, mêmes valeurs par défaut
-  que les rapports).
+  `BLOG_ALLOWED_ATTACHMENT_TYPES`. Idem rapports : **tout MIME `image/*` ou
+  `video/*` est accepté**, seul `image/svg+xml` est rejeté.
 
 ### Suppression : soft delete explicite (demande utilisateur)
 
@@ -1670,14 +1678,17 @@ MAIL_SSL_TLS=false
 MAIL_SUPPRESS_SEND=false
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
-# Pièces jointes messagerie (défauts si absent : 10 Mo, images + PDF)
+# Pièces jointes messagerie (défauts si absent : 10 Mo) — tout MIME image/*
+# est accepté en plus de la liste (sauf image/svg+xml) ; la vidéo reste exclue
 MESSAGING_MAX_ATTACHMENT_MB=10
 MESSAGING_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf
-# Pièces jointes rapports (défauts si absent : 50 Mo, images + vidéo)
+# Pièces jointes rapports (défauts si absent : 50 Mo) — tout MIME image/* ou
+# video/* est accepté en plus de la liste (sauf image/svg+xml)
 REPORTS_MAX_ATTACHMENT_MB=50
 REPORTS_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
-# Pièces jointes blog (défauts si absent : 50 Mo, images + vidéo) — l'image à
-# la une est en plus filtrée aux seuls types "image/*" (cf. blog/service.py)
+# Pièces jointes blog (défauts si absent : 50 Mo) — même sur-ensemble image/*
+# ou video/* sauf image/svg+xml. L'image à la une est en plus filtrée aux
+# seuls types "image/*" (cf. blog/service.py)
 BLOG_MAX_ATTACHMENT_MB=50
 BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
 ```
@@ -1686,6 +1697,9 @@ BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_APP_NAME=LPRDS - Gestion Crèche
+# Code court unique de l'établissement (préfixe de matricule, ex. LPRDS) —
+# sert de scope aux endpoints PUBLICS du site vitrine (/api/v1/public/blog/{code}/…)
+NEXT_PUBLIC_ESTABLISHMENT_CODE=LPRDS
 ```
 
 ---
@@ -1950,6 +1964,69 @@ Types    : PascalCase interfaces, SCREAMING_SNAKE pour les constantes
 - PostgreSQL et Redis tournent dans WSL2
 - Accès depuis Windows via `localhost`
 - **Ne jamais travailler dans `/mnt/c/`** — performances I/O catastrophiques
+
+---
+
+## Phase 2 — Notifications Push (PWA)
+
+### Contexte
+La Phase 2 étend le PWA (Phase 1 complete) en ajoutant les notifications push Web pour deux types d'événements :
+- **Messagerie** : nouveau message admin↔parent, nouvelle diffusion
+- **Rapports** : rapport validé → notification aux parents
+
+### Architecture technique
+- **Clés VAPID** générées via `py_vapid`, stockées dans `backend/.env` (`VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`) et exposées via `GET /api/v1/notifications/vapid-public-key`
+- **Bibliothèque** : `pywebpush 2.5.0` (dépendance `base` ajoutée à `requirements/base.txt`)
+- **Modèle** : `push_subscriptions` table (migration `fe76c1320d23`) stockant l'endpoint, les clés p256dh/auth et l'associations user/établishment
+- **Rate-limiting** : les tentatives de push échouent silencieusement (best-effort), jamais d'erreur HTTP remontée
+
+### Module backend `app/modules/notifications/`
+Nouveau module créé avec :
+- `models.py` — modèle `PushSubscription` (user_id FK, establishment_id, endpoint, p256dh, auth_key)
+- `schemas.py` — schémas Pydantic `PushSubscriptionCreate`, `PushSubscriptionResponse`, `PushSubscriptionDelete`
+- `service.py` — fonctions CRUD + `send_push_to_subscription()`, `send_push_to_establishment_parents()`, `send_push_to_establishment_admins()`, `_send_report_push_notifications()`
+- `router.py` — endpoints `POST /subscriptions`, `DELETE /subscriptions/{id}`, `GET /vapid-public-key`, `GET /test`
+
+### Intégration dans les modules existants
+- **Messagerie** (`app/modules/messaging/service.py`) :
+  - `send_message()` : push aux admins de l'établissement après publication
+  - `create_announcement()` : push à tous les parents de l'établissement après diffusion
+- **Rapports** (`app/modules/reports/service.py`) :
+  - `validate_report()` : push aux parents en plus des emails après validation
+  - `submit_report` (admin) : push aux parents après validation immédiate
+  - `_send_report_push_notifications()` : nouvelle fonction d'envoi push
+
+### Intégration frontend
+- `frontend/src/lib/push-subscription.ts` — hook `usePushSubscription` gérant :
+  - Détection support navigateur
+  - Demande de permission `Notification.requestPermission()`
+  - Récupération de la clé VAPID publique via `GET /api/v1/notifications/vapid-public-key`
+  - Abonnement `navigator.serviceWorker.pushManager.subscribe()`
+  - Envoi de l'abonnement au backend `POST /api/v1/notifications/subscriptions`
+  - Désabonnement `DELETE /api/v1/notifications/subscriptions`
+- `frontend/public/sw.js` — handlers `push` et `notificationclick` :
+  - Sur `push` : montre une notification avec titre/corps/icône depuis le payload JSON
+  - Sur `notificationclick` : focalise la fenêtre d'application existante ou ouvre `/`
+
+### Événements push notifiés
+- **Messagerie** : nouvel message (title/body avec noms), diffusion admin→parent
+- **Rapports** : rapport validé (title/body avec nom de l'enfant, période)
+
+### Sécurité
+- Les clés VAPID privées ne sont JAMAIS exposées au frontend (seule la clé publique l'est)
+- Les abonnements sont associés à un `user_id` et `establishment_id`
+- L'échec d'envoi push est journalisé, jamais bloquant (best-effort, comme les emails de rapport)
+- Les permissions Notification sont demandées par l'utilisateur via l'interface
+
+### Dépendances ajoutées
+- `pywebpush==2.5.0` dans `requirements/base.txt`
+- `py-vapid==1.9.4` (déjà présent, utilisé pour la génération des clés)
+- Nouvelle table BDD : `push_subscriptions`
+- Module `app/modules/notifications/` complet
+
+### Tests
+- Backend : `pytest` (les tests e2e ont des dépendances de configuration de serveur)
+- Frontend : `pnpm lint && pnpm type-check && pnpm build`
 
 ---
 

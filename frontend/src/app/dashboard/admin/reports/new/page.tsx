@@ -31,6 +31,16 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// Mêmes limites que le backend (REPORTS_MAX_ATTACHMENT_MB +
+// REPORTS_ALLOWED_ATTACHMENT_TYPES, défauts config.py) — pré-vérification
+// côté client pour éviter des échecs d'upload silencieux à la soumission.
+// Le backend accepte désormais tout MIME image/* ou video/* (sauf
+// image/svg+xml) : on reflète ce contrat ici.
+const MAX_ATTACHMENT_MB = 50
+const MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_MB * 1024 * 1024
+const isAllowedMediaType = (type: string): boolean =>
+  (type.startsWith('image/') || type.startsWith('video/')) && type !== 'image/svg+xml'
+
 export default function NewReportPage() {
   const router = useRouter()
   const user = useUser()
@@ -122,23 +132,28 @@ export default function NewReportPage() {
         content,
       })
 
+      let uploadFailures: string[] = []
       if (stagedFiles.length > 0) {
         const results = await Promise.allSettled(
           stagedFiles.map((file) => reportsApi.uploadAttachment(data.id, file))
         )
-        const failures = results.filter((r) => r.status === 'rejected').length
-        if (failures > 0) {
-          toast.error(`${failures} pièce(s) jointe(s) n'ont pas pu être envoyées.`)
-        }
+        uploadFailures = results
+          .map((r, i) => (r.status === 'rejected' ? stagedFiles[i]?.name ?? null : null))
+          .filter((name): name is string => name !== null)
       }
 
-      if (action === 'submit') {
+      if (action === 'submit' && uploadFailures.length === 0) {
         try {
           await reportsApi.submit(data.id)
           toast.success('Rapport créé et soumis.')
         } catch (err) {
           toast.error(`Rapport créé en brouillon, mais la soumission a échoué : ${getApiErrorMessage(err)}`)
         }
+      } else if (uploadFailures.length > 0) {
+        toast.error(
+          `Rapport enregistré en brouillon — ${uploadFailures.length} pièce(s) jointe(s) n'ont pas pu être envoyée(s) : ` +
+            `${uploadFailures.join(', ')}. Ré-ajoutez-les, puis soumettez depuis la page du rapport.`
+        )
       } else {
         toast.success('Rapport créé (brouillon).')
       }
@@ -152,9 +167,26 @@ export default function NewReportPage() {
   }
 
   const onFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setStagedFiles((prev) => [...prev, ...Array.from(e.target.files!)])
-      e.target.value = ''
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length === 0) return
+
+    const valid: File[] = []
+    const rejected: string[] = []
+    for (const file of files) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        rejected.push(`${file.name} (dépasse ${MAX_ATTACHMENT_MB} Mo)`)
+      } else if (!isAllowedMediaType(file.type)) {
+        rejected.push(`${file.name} (type non accepté)`)
+      } else {
+        valid.push(file)
+      }
+    }
+    if (rejected.length > 0) {
+      toast.error(`Fichier(s) ignoré(s) : ${rejected.join(', ')}`)
+    }
+    if (valid.length > 0) {
+      setStagedFiles((prev) => [...prev, ...valid])
     }
   }
 
@@ -184,8 +216,8 @@ export default function NewReportPage() {
         href="/dashboard/admin/reports"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
+        <ArrowLeft className="size-4 text-white" />
+        <span className="text-white">Retour à la liste</span>
       </Link>
 
       <Card>
@@ -309,46 +341,44 @@ export default function NewReportPage() {
                 {reportType === 'bi_mensuel' && <BiMensuelFields form={bimensuelForm} vocabulary={vocabulary} />}
                 {reportType === 'annuel' && <AnnualFields form={annualForm} vocabulary={vocabulary} />}
 
-                {reportType !== 'annuel' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="attachments">Photos et vidéos</Label>
-                    <div className="rounded-md border border-dashed border-border p-6 text-center ">
-                      <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
-                      <Label htmlFor="attachments" className="cursor-pointer text-sm font-medium text-primary">
-                        Choisir des fichiers
-                      </Label>
-                      <input
-                        id="attachments"
-                        type="file"
-                        multiple
-                        accept="image/*,video/mp4,video/quicktime,video/webm"
-                        className="hidden"
-                        onChange={onFilesSelected}
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Envoyées automatiquement à la création du rapport.
-                      </p>
-                    </div>
-                    {stagedFiles.length > 0 && (
-                      <ul className="space-y-2">
-                        {stagedFiles.map((file, index) => (
-                          <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-                            <span className="truncate">{file.name}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Retirer ${file.name}`}
-                              onClick={() => setStagedFiles((prev) => prev.filter((_, i) => i !== index))}
-                            >
-                              <X className="size-4" />
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                <div className="space-y-2">
+                  <Label htmlFor="attachments">Photos et vidéos</Label>
+                  <div className="rounded-md border border-dashed border-border p-6 text-center ">
+                    <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
+                    <Label htmlFor="attachments" className="cursor-pointer text-sm font-medium text-primary">
+                      Choisir des fichiers
+                    </Label>
+                    <input
+                      id="attachments"
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={onFilesSelected}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Envoyées automatiquement à la création du rapport.
+                    </p>
                   </div>
-                )}
+                  {stagedFiles.length > 0 && (
+                    <ul className="space-y-2">
+                      {stagedFiles.map((file, index) => (
+                        <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                          <span className="truncate">{file.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Retirer ${file.name}`}
+                            onClick={() => setStagedFiles((prev) => prev.filter((_, i) => i !== index))}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
 
                 <div className="flex gap-2">
                   <Button

@@ -32,9 +32,9 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-4 pt-2">
-      <div className="w-fit space-y-1.5">
+      <div className="w-full space-y-1.5 sm:w-fit">
         <Label htmlFor="attendance-date" className="text-white font-semibold text-sm">Date</Label>
-        <Input id="attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+        <Input id="attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-44" />
       </div>
 
       <Tabs defaultValue="children">
@@ -98,7 +98,7 @@ function ChildrenDaily({ date }: { date: string }) {
           value={departmentId}
           onValueChange={(v) => setDepartmentId(v ?? ALL)}
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Tous les départements" />
           </SelectTrigger>
           <SelectContent>
@@ -111,7 +111,7 @@ function ChildrenDaily({ date }: { date: string }) {
           value={sectionId}
           onValueChange={(v) => setSectionId(v ?? ALL)}
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Toutes les sections" />
           </SelectTrigger>
           <SelectContent>

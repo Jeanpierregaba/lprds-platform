@@ -37,7 +37,7 @@ export default function ParentMessagingPage() {
         className="space-y-4"
       >
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">Messagerie</h1>
             <p className="text-muted-foreground">Diffusions de l&apos;établissement et conversation privée.</p>
           </div>

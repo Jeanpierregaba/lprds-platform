@@ -122,7 +122,7 @@ export function SectionsTab() {
             value={filterDepartmentId}
             onValueChange={(v) => setFilterDepartmentId(v ?? ALL)}
           >
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="w-full sm:w-56">
               <SelectValue placeholder="Tous les départements" />
             </SelectTrigger>
             <SelectContent>

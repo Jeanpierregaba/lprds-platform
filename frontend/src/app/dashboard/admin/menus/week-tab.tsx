@@ -151,49 +151,87 @@ export function WeekTab({
           ) : showEmptyPastState ? (
             <p className="p-6 text-center text-sm text-muted-foreground">Aucun menu enregistré pour cette semaine.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-40">Repas</TableHead>
-                  {WEEKDAYS.map((day) => {
-                    const isToday = dayDates[day] === today
-                    return (
-                      <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
-                        <div>{WEEKDAY_LABELS[day]}</div>
-                        <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
-                        {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
-                      </TableHead>
-                    )
-                  })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {MEAL_SLOTS.map((slot) => {
-                  const Icon = MEAL_SLOT_ICONS[slot]
-                  return (
-                    <TableRow key={slot}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Icon className="size-4" />
-                          <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
-                        </div>
-                      </TableCell>
-                      {WEEKDAYS.map((day) => (
-                        <TableCell key={day} className="whitespace-normal">
-                          <Input
-                            value={content[day][slot] ?? ''}
-                            onChange={(e) => setCell(day, slot, e.target.value)}
-                            disabled={!isEditable}
-                            placeholder="—"
-                            className="min-w-36"
-                          />
-                        </TableCell>
-                      ))}
+            <>
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-40">Repas</TableHead>
+                      {WEEKDAYS.map((day) => {
+                        const isToday = dayDates[day] === today
+                        return (
+                          <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
+                            <div>{WEEKDAY_LABELS[day]}</div>
+                            <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
+                            {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
+                          </TableHead>
+                        )
+                      })}
                     </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {MEAL_SLOTS.map((slot) => {
+                      const Icon = MEAL_SLOT_ICONS[slot]
+                      return (
+                        <TableRow key={slot}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <Icon className="size-4" />
+                              <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
+                            </div>
+                          </TableCell>
+                          {WEEKDAYS.map((day) => (
+                            <TableCell key={day} className="whitespace-normal">
+                              <Input
+                                value={content[day][slot] ?? ''}
+                                onChange={(e) => setCell(day, slot, e.target.value)}
+                                disabled={!isEditable}
+                                placeholder="—"
+                                className="min-w-36"
+                              />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="divide-y divide-border lg:hidden">
+                {WEEKDAYS.map((day) => {
+                  const isToday = dayDates[day] === today
+                  return (
+                    <div key={day} className="px-4 py-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <h3 className="font-medium">{WEEKDAY_LABELS[day]}</h3>
+                        <span className="text-sm text-muted-foreground">{formatShortDate(dayDates[day])}</span>
+                        {isToday && <Badge variant="default">Aujourd&apos;hui</Badge>}
+                      </div>
+                      <div className="space-y-2">
+                        {MEAL_SLOTS.map((slot) => {
+                          const Icon = MEAL_SLOT_ICONS[slot]
+                          return (
+                            <div key={slot}>
+                              <label className="mb-0.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                                <Icon className="size-4" />
+                                {MEAL_SLOT_LABELS[slot]}
+                              </label>
+                              <Input
+                                value={content[day][slot] ?? ''}
+                                onChange={(e) => setCell(day, slot, e.target.value)}
+                                disabled={!isEditable}
+                                placeholder="—"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   )
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

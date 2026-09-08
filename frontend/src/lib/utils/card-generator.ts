@@ -17,11 +17,11 @@ const QR_SIZE = 300
 const NAME_FONT_SIZE = 40
 const NAME_X = 570
 const PRENOMS_Y = 865
-const NOM_Y = 655
+const NOM_Y = 665
 
 const SECTION_FONT_SIZE = 40
 const SECTION_X = 570
-const SECTION_Y = 1070
+const SECTION_Y = 1065
 
 let fontLoaded = false
 

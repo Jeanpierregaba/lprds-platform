@@ -31,6 +31,16 @@ export interface UnitBrief {
   name: string
 }
 
+export interface ChildDocument {
+  id:           string
+  filename:     string
+  content_type: string
+  size_bytes:   number
+  created_at:   string
+  /** Chemin de téléchargement authentifié — jamais servi en statique. */
+  url:          string
+}
+
 export interface Child {
   id:               string
   matricule:        string
@@ -59,6 +69,7 @@ export interface Child {
 
   guardians:          Guardian[]
   authorized_persons: AuthorizedPerson[]
+  documents:          ChildDocument[]
 }
 
 export interface ChildListItem {

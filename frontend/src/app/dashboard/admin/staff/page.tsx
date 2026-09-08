@@ -87,7 +87,7 @@ export default function StaffListPage() {
           value={staffType}
           onValueChange={(v) => setStaffType(v ?? ALL)}
         >
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Tous les types" />
           </SelectTrigger>
           <SelectContent>

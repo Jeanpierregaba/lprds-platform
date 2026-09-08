@@ -58,7 +58,7 @@ export default function ParentReportsPage() {
 
       {children.length > 1 && (
         <Select items={childItems} value={childId} onValueChange={(v) => setChildId(v ?? ALL)}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-full sm:w-56">
             <SelectValue placeholder="Tous les enfants" />
           </SelectTrigger>
           <SelectContent>
@@ -89,12 +89,12 @@ export default function ParentReportsPage() {
             <Link key={r.id} href={`/dashboard/parent/reports/${r.id}`}>
               <Card className="transition hover:border-primary">
                 <CardContent className="flex items-center justify-between gap-3 py-4">
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
                       <FileText className="size-4 text-muted-foreground" />
                     </div>
-                    <div>
-                      <p className="font-medium">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">
                         {r.child.first_names} {r.child.last_name} · {REPORT_TYPE_LABELS[r.report_type]}
                       </p>
                       <p className="text-sm text-muted-foreground">

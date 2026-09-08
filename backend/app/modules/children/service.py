@@ -1,13 +1,23 @@
 import uuid
+from pathlib import Path
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import storage
+from app.core.config import settings
+from app.modules.auth.models import User
 from app.modules.children.matricule import generate_unique_matricule
-from app.modules.children.models import AuthorizedPerson, Child, Guardian
+from app.modules.children.models import (
+    AuthorizedPerson,
+    Child,
+    ChildAttachment,
+    Guardian,
+)
 from app.modules.children.schemas import (
     AuthorizedPersonRequest,
+    ChildAttachmentResponse,
     ChildCreateRequest,
     ChildListItem,
     ChildListResponse,
@@ -53,7 +63,7 @@ async def create_child(
     # On a posé department_id/section_id (les FK), pas les objets : sans refresh,
     # lire child.department déclencherait un lazy-load interdit en async.
     await db.refresh(child)
-    return ChildResponse.model_validate(child)
+    return _child_response(child)
 
 
 # ── Lecture ─────────────────────────────────────────────────────
@@ -136,9 +146,7 @@ async def get_child(
     establishment_id: uuid.UUID,
     db: AsyncSession,
 ) -> ChildResponse:
-    return ChildResponse.model_validate(
-        await _get_or_404(child_id, establishment_id, db)
-    )
+    return _child_response(await _get_or_404(child_id, establishment_id, db))
 
 
 # ── Modification ────────────────────────────────────────────────
@@ -179,7 +187,7 @@ async def update_child(
 
     await db.flush()
     await db.refresh(child)
-    return ChildResponse.model_validate(child)
+    return _child_response(child)
 
 
 async def set_child_status(
@@ -196,10 +204,139 @@ async def set_child_status(
     child.is_active = is_active
     await db.flush()
     await db.refresh(child)
-    return ChildResponse.model_validate(child)
+    return _child_response(child)
+
+
+# ── Documents du dossier d'inscription ──────────────────────────
+async def add_child_document(
+    child_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    current_user: User,
+    file: UploadFile,
+    db: AsyncSession,
+) -> ChildAttachmentResponse:
+    """Upload en deux temps (la fiche existe déjà). Limite de taille + type
+    MIME en liste blanche via les réglages `children_*` — même pattern que
+    les pièces jointes des autres modules."""
+    await _get_or_404(child_id, establishment_id, db)
+    return await _store_document(child_id, current_user, file, db)
+
+
+async def get_child_document(
+    child_id: uuid.UUID,
+    document_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> tuple[ChildAttachment, Path]:
+    """Téléchargement authentifié uniquement — jamais servi en statique."""
+    await _get_or_404(child_id, establishment_id, db)
+    attachment = await _get_document_or_404(child_id, document_id, db)
+    return attachment, storage.resolve_path(attachment.storage_key)
+
+
+async def delete_child_document(
+    child_id: uuid.UUID,
+    document_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """
+    Suppression définitive du document (fichier + ligne). Contrairement à la
+    fiche enfant elle-même (jamais supprimée), un document erroné/doublon doit
+    pouvoir être retiré. Scopé à l'établissement via la fiche (404 sinon).
+    """
+    await _get_or_404(child_id, establishment_id, db)
+    attachment = await _get_document_or_404(child_id, document_id, db)
+    await storage.delete_file(attachment.storage_key)
+    await db.delete(attachment)
+    await db.flush()
 
 
 # ── Helpers privés ──────────────────────────────────────────────
+async def _store_document(
+    child_id: uuid.UUID,
+    current_user: User,
+    file: UploadFile,
+    db: AsyncSession,
+) -> ChildAttachmentResponse:
+    content_bytes = await file.read()
+    max_bytes = settings.children_max_attachment_mb * 1024 * 1024
+    if len(content_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Fichier trop volumineux (max {settings.children_max_attachment_mb} Mo)",
+        )
+    if not content_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Fichier vide",
+        )
+
+    content_type = file.content_type or ""
+    if content_type not in settings.children_allowed_attachment_types_set:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
+                f"Autorisés : {', '.join(sorted(settings.children_allowed_attachment_types_set))}"
+            ),
+        )
+
+    filename = file.filename or "document"
+    storage_key = await storage.save_file("children", filename, content_bytes)
+    attachment = ChildAttachment(
+        child_id=child_id,
+        uploaded_by_id=current_user.id,
+        filename=filename,
+        content_type=content_type,
+        size_bytes=len(content_bytes),
+        storage_key=storage_key,
+    )
+    db.add(attachment)
+    await db.flush()
+    await db.refresh(attachment)
+    return _attachment_response(attachment)
+
+
+async def _get_document_or_404(
+    child_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: AsyncSession,
+) -> ChildAttachment:
+    attachment = await db.scalar(
+        select(ChildAttachment).where(
+            ChildAttachment.id == document_id,
+            # Toujours rattaché à la fiche courante : un document d'un autre
+            # enfant est un 404, jamais 403 — on ne révèle pas son existence.
+            ChildAttachment.child_id == child_id,
+        )
+    )
+    if not attachment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document introuvable",
+        )
+    return attachment
+
+
+def _child_response(child: Child) -> ChildResponse:
+    base = ChildResponse.model_validate(child)
+    return base.model_copy(
+        update={
+            "documents": [_attachment_response(a) for a in child.attachments]
+        }
+    )
+
+
+def _attachment_response(attachment: ChildAttachment) -> ChildAttachmentResponse:
+    return ChildAttachmentResponse(
+        id=attachment.id,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        size_bytes=attachment.size_bytes,
+        created_at=attachment.created_at,
+        url=f"/api/v1/children/{attachment.child_id}/documents/{attachment.id}",
+    )
 def _build_guardian(payload: GuardianRequest) -> Guardian:
     return Guardian(
         last_name=payload.last_name,

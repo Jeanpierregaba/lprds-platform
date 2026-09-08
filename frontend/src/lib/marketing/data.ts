@@ -14,7 +14,7 @@ export const BRAND = {
   phone: '+228 98 60 29 20',
   phoneHref: 'tel:+22898602920',
   whatsapp: 'https://wa.me/22890554121',
-  email: 'contact@lespetitsrayonsdesoleil.fr',
+  email: 'hello@lespetitsrayonsdesoleil.net',
   social: {
     facebook: 'https://www.facebook.com/p/Les-Petits-Rayons-de-Soleil-61559745601729/',
     instagram: 'https://www.instagram.com/lespetitsrayonsdesoleil_',
@@ -218,6 +218,79 @@ export const SECTIONS: SectionAgeGroup[] = [
   },
 ]
 
+export type Difference = {
+  id: string
+  title: string
+  description: string
+}
+
+export const DIFFERENCES: Difference[] = [
+  {
+    id: 'bilingue',
+    title: 'Programme bilingue français / anglais',
+    description: 'Une ouverture au monde dès le plus jeune âge grâce à un apprentissage naturel des deux langues.',
+  },
+  {
+    id: 'montessori',
+    title: 'Pédagogie Montessori',
+    description: 'Une approche favorisant l’autonomie, la curiosité et l’apprentissage par l’expérience.',
+  },
+  {
+    id: 'soins-personnalises',
+    title: 'Soins personnalisés',
+    description: 'Chaque enfant reçoit une attention adaptée à ses besoins spécifiques et à son développement.',
+  },
+  {
+    id: 'environnement-securise',
+    title: 'Environnement sécurisé',
+    description: 'Notre établissement est conçu pour la sécurité des enfants, avec un personnel formé.',
+  },
+  {
+    id: 'educatrices-formees',
+    title: 'Éducatrices formées',
+    description: 'Une équipe qualifiée, passionnée et en formation continue, dédiée au bien-être et à la progression de chaque enfant.',
+  },
+  {
+    id: 'routines-structurees',
+    title: 'Routines structurées',
+    description: 'Des journées équilibrées entre apprentissage, jeu et repos, pour un développement harmonieux.',
+  },
+  {
+    id: 'activites-extrascolaires',
+    title: 'Activités extrascolaires enrichissantes',
+    description: 'Natation, karaté, escrime et danse contemporaine — pour stimuler la motricité, la confiance et la discipline.',
+  },
+  {
+    id: 'espace-de-jeux',
+    title: 'Espace de jeux spacieux et équipé',
+    description: 'Un lieu sûr et stimulant où l’enfant apprend en explorant et en s’amusant.',
+  },
+]
+
+export type JoinStep = {
+  id: string
+  title: string
+  description: string
+}
+
+export const JOIN_STEPS: JoinStep[] = [
+  {
+    id: 'visite',
+    title: 'Une visite (30 min)',
+    description: 'Explorez les locaux. Posez vos questions. Rassurez-vous.',
+  },
+  {
+    id: 'fiche-inscription',
+    title: "Fiche d'inscription",
+    description: 'Infos essentielles + besoins de votre enfant.',
+  },
+  {
+    id: 'demarrage-confirme',
+    title: 'Démarrage confirmé',
+    description: 'Bienvenue chez Les Petits Rayons de Soleil !',
+  },
+]
+
 export const PARTNERS = [
   { name: 'Pédiatre', role: 'Intervient en cas de besoin pour la santé et le bien-être général des enfants.' },
   { name: 'Psychologue d’éducation', role: 'Accompagne le développement émotionnel et social.' },
@@ -230,125 +303,6 @@ export const PARTNERS = [
   { name: 'Maître d’armes d’escrime', role: 'Stimule la concentration, les réflexes et l’esprit sportif.' },
 ] as const
 
-export type NewsArticle = {
-  id: string
-  title: string
-  category: 'events' | 'outings' | 'pedagogy' | 'info'
-  date: string
-  emoji: string
-  excerpt: string
-  content: string[]
-  featured?: boolean
-}
-
-export const NEWS_CATEGORIES = [
-  { id: 'all', name: 'Toutes les actualités' },
-  { id: 'events', name: 'Événements' },
-  { id: 'outings', name: 'Sorties' },
-  { id: 'pedagogy', name: 'Projets pédagogiques' },
-  { id: 'info', name: 'Informations parents' },
-] as const
-
-export const NEWS: NewsArticle[] = [
-  {
-    id: 'carnaval-2026',
-    title: 'Carnaval 2026 : une fête colorée et joyeuse !',
-    category: 'events',
-    date: '2026-03-15',
-    emoji: '🎭',
-    excerpt: 'Les enfants ont célébré le carnaval avec des déguisements magnifiques et une parade dans le jardin. Une journée inoubliable !',
-    content: [
-      'Costumes faits main, maquillage et musique : le jardin de la crèche s’est transformé en défilé le temps d’un après-midi.',
-      'Chaque section a préparé sa propre parade, avec l’aide des éducatrices, avant un grand goûter commun pour clôturer la fête.',
-    ],
-    featured: true,
-  },
-  {
-    id: 'sortie-parc',
-    title: 'Sortie pédagogique au parc',
-    category: 'outings',
-    date: '2026-03-10',
-    emoji: '🌳',
-    excerpt: 'Découverte de la nature et des animaux pour les sections Moyenne et Grande Section. Les enfants ont adoré observer les oiseaux.',
-    content: [
-      'Une matinée en plein air pour observer la faune et la flore locales, avec un carnet d’observation confectionné en classe.',
-      'Retour à la crèche avec un atelier dessin pour restituer ce que chacun a vu et préféré pendant la sortie.',
-    ],
-  },
-  {
-    id: 'jardin-pedagogique',
-    title: 'Nouveau projet : le jardin pédagogique',
-    category: 'pedagogy',
-    date: '2026-03-05',
-    emoji: '🌱',
-    excerpt: 'Lancement de notre jardin pédagogique ! Les enfants vont pouvoir planter, arroser et voir pousser leurs propres légumes.',
-    content: [
-      'Un coin du jardin a été réservé aux sections maternelles pour un projet au long cours : semer, entretenir, récolter.',
-      'L’objectif : éveiller la curiosité scientifique et la patience, tout en reconnectant les enfants avec le rythme des saisons.',
-    ],
-  },
-  {
-    id: 'fermeture-formation',
-    title: 'Fermeture exceptionnelle — journée de formation',
-    category: 'info',
-    date: '2026-02-28',
-    emoji: '📅',
-    excerpt: 'La crèche sera fermée le temps d’une journée pour une formation continue de toute l’équipe pédagogique.',
-    content: [
-      'Cette journée est consacrée à la formation continue de nos éducatrices, sur les gestes de premiers secours et les nouvelles approches pédagogiques.',
-      'Merci de votre compréhension — la date exacte est communiquée aux familles au moins deux semaines à l’avance.',
-    ],
-  },
-  {
-    id: 'atelier-cuisine',
-    title: 'Atelier cuisine : les petits chefs !',
-    category: 'events',
-    date: '2026-02-20',
-    emoji: '👨‍🍳',
-    excerpt: 'Les enfants ont préparé des cookies avec notre cuisinière. Ils étaient si fiers de repartir avec leurs créations !',
-    content: [
-      'Un atelier pas à pas, du pesage des ingrédients à la cuisson, pour apprendre en s’amusant les gestes simples de la cuisine.',
-      'Chaque enfant est reparti avec sa propre boîte de cookies à partager en famille.',
-    ],
-  },
-  {
-    id: 'spectacle-marionnettes',
-    title: 'Spectacle de marionnettes sur les émotions',
-    category: 'events',
-    date: '2026-02-15',
-    emoji: '🎪',
-    excerpt: 'Une compagnie de marionnettistes est venue présenter un spectacle sur les émotions. Les enfants étaient captivés !',
-    content: [
-      'À travers des personnages hauts en couleur, le spectacle a permis d’aborder la joie, la tristesse et la colère avec des mots simples.',
-      'Un temps d’échange avec les artistes a suivi la représentation, très apprécié des plus curieux.',
-    ],
-  },
-  {
-    id: 'baby-yoga',
-    title: 'Nouvelle activité : baby yoga',
-    category: 'pedagogy',
-    date: '2026-02-10',
-    emoji: '🧘',
-    excerpt: 'Introduction du baby yoga pour les tout-petits, une activité douce qui favorise la détente et la coordination.',
-    content: [
-      'Des postures simples, adaptées à l’âge, animées en musique douce pour accompagner le développement moteur des tout-petits.',
-      'Une séance hebdomadaire désormais intégrée au programme des sections Étoile et Nuage.',
-    ],
-  },
-  {
-    id: 'inscriptions-ouvertes',
-    title: 'Inscriptions 2026–2027 ouvertes',
-    category: 'info',
-    date: '2026-02-01',
-    emoji: '📝',
-    excerpt: 'Les inscriptions pour la prochaine rentrée sont ouvertes ! N’hésitez pas à nous contacter pour planifier une visite.',
-    content: [
-      'Places limitées par section — nous recommandons de nous contacter tôt pour organiser une visite et échanger sur les besoins de votre enfant.',
-      'Un dossier d’inscription complet vous est remis lors de la visite, avec le détail des tarifs et des pièces à fournir.',
-    ],
-  },
-]
-
 export const GALLERY_CATEGORIES = [
   { id: 'all', name: 'Tout voir' },
   { id: 'activities', name: 'Activités manuelles' },
@@ -357,26 +311,3 @@ export const GALLERY_CATEGORIES = [
   { id: 'rest', name: 'Temps calme' },
   { id: 'events', name: 'Fêtes & sorties' },
 ] as const
-
-export type GalleryItem = {
-  id: number
-  category: 'activities' | 'outdoor' | 'meals' | 'rest' | 'events'
-  title: string
-  description: string
-  image: string
-}
-
-export const GALLERY: GalleryItem[] = [
-  { id: 1, category: 'activities', title: 'Atelier peinture', description: 'Les enfants découvrent les couleurs', image: '/images/marketing/gallery-1.jpg' },
-  { id: 2, category: 'outdoor', title: 'Jeux dans le jardin', description: 'Moment de détente à l’extérieur', image: '/images/marketing/gallery-2.jpg' },
-  { id: 3, category: 'meals', title: 'Déjeuner ensemble', description: 'Apprentissage de l’autonomie', image: '/images/marketing/gallery-main.jpg' },
-  { id: 4, category: 'events', title: 'Fête de printemps', description: 'Célébration avec les familles', image: '/images/marketing/choose-img-v1.jpg' },
-  { id: 5, category: 'rest', title: 'Lecture calme', description: 'Moment de détente et d’éveil', image: '/images/marketing/choose-img-v2.jpg' },
-  { id: 6, category: 'activities', title: 'Construction libre', description: 'Développement de la créativité', image: '/images/marketing/about-img-2.jpg' },
-  { id: 7, category: 'outdoor', title: 'Découverte nature', description: 'Sortie pédagogique au parc', image: '/images/marketing/about-img-3.jpg' },
-  { id: 8, category: 'meals', title: 'Goûter d’anniversaire', description: 'Moment de partage et de joie', image: '/images/marketing/about-img.jpg' },
-  { id: 9, category: 'events', title: 'Spectacle de marionnettes', description: 'Animation spéciale pour les enfants', image: '/images/marketing/news-gard.jpg' },
-  { id: 10, category: 'rest', title: 'Sieste paisible', description: 'Repos mérité après les activités', image: '/images/marketing/life-gard.jpg' },
-  { id: 11, category: 'activities', title: 'Éveil musical', description: 'Rituel musical quotidien', image: '/images/marketing/hero-image.jpg' },
-  { id: 12, category: 'outdoor', title: 'Motricité en extérieur', description: 'Parcours et jeux collectifs', image: '/images/marketing/our-sec.jpg' },
-]

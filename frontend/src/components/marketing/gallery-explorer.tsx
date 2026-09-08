@@ -5,17 +5,24 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Reveal } from './reveal'
-import { GALLERY, GALLERY_CATEGORIES } from '@/lib/marketing/data'
+import { GALLERY_CATEGORIES } from '@/lib/marketing/data'
+import { GALLERY_PHOTO_CATEGORIES, type GalleryCategory } from '@/types/blog'
 
-export function GalleryExplorer() {
+export type LiveGalleryItem = {
+  id: string
+  category: GalleryCategory
+  url: string
+}
+
+export function GalleryExplorer({ items }: { items: LiveGalleryItem[] }) {
   const [filter, setFilter] = useState<(typeof GALLERY_CATEGORIES)[number]['id']>('all')
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
-  const visible = filter === 'all' ? GALLERY : GALLERY.filter((g) => g.category === filter)
+  const visible = filter === 'all' ? items : items.filter((g) => g.category === filter)
   const active = activeIndex !== null ? visible[activeIndex] : null
 
   const go = (delta: number) => {
-    if (activeIndex === null) return
+    if (activeIndex === null || visible.length === 0) return
     setActiveIndex((activeIndex + delta + visible.length) % visible.length)
   }
 
@@ -38,40 +45,52 @@ export function GalleryExplorer() {
         ))}
       </div>
 
-      <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {visible.map((item, i) => (
-          <Reveal key={item.id} delay={(i % 4) * 0.05}>
-            <button
-              type="button"
-              onClick={() => setActiveIndex(i)}
-              className="group relative block aspect-square w-full overflow-hidden rounded-2xl"
-            >
-              <Image
-                src={item.image}
-                alt={item.title}
-                fill
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-              />
-              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/0 to-black/0 p-4 opacity-0 transition-opacity group-hover:opacity-100">
-                <p className="text-sm font-medium text-white">{item.title}</p>
-                <p className="text-xs text-white/75">{item.description}</p>
-              </div>
-            </button>
-          </Reveal>
-        ))}
-      </div>
+      {visible.length === 0 ? (
+        <div className="mt-10 rounded-2xl bg-muted/60 py-16 text-center">
+          <p className="font-medium text-foreground">
+            {items.length === 0
+              ? 'Aucune photo publiée pour le moment.'
+              : 'Aucune photo dans cette catégorie pour le moment.'}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Les photos publiées par l&apos;établissement apparaîtront ici.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {visible.map((item, i) => (
+            <Reveal key={item.id} delay={(i % 4) * 0.05}>
+              <button
+                type="button"
+                onClick={() => setActiveIndex(i)}
+                className="group relative block aspect-square w-full overflow-hidden rounded-2xl"
+              >
+                <Image
+                  src={item.url}
+                  alt={GALLERY_PHOTO_CATEGORIES[item.category]}
+                  fill
+                  unoptimized
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                />
+                <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/0 to-black/0 p-4 opacity-0 transition-opacity group-hover:opacity-100">
+                  <p className="text-sm font-medium text-white">{GALLERY_PHOTO_CATEGORIES[item.category]}</p>
+                </div>
+              </button>
+            </Reveal>
+          ))}
+        </div>
+      )}
 
       <Dialog open={!!active} onOpenChange={(open) => !open && setActiveIndex(null)}>
         <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none ring-0" showCloseButton={false}>
           {active && (
             <div className="relative">
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl sm:aspect-video">
-                <Image src={active.image} alt={active.title} fill className="object-cover" sizes="768px" />
+                <Image src={active.url} alt={GALLERY_PHOTO_CATEGORIES[active.category]} fill unoptimized className="object-cover" sizes="768px" />
               </div>
               <div className="mt-3 text-center text-white">
-                <p className="font-display text-lg">{active.title}</p>
-                <p className="text-sm text-white/70">{active.description}</p>
+                <p className="font-display text-lg">{GALLERY_PHOTO_CATEGORIES[active.category]}</p>
               </div>
               <DialogClose
                 className="absolute -top-3 -right-3 flex size-9 items-center justify-center rounded-full bg-white text-foreground shadow-lg transition-colors hover:bg-muted"

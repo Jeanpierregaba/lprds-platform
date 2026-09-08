@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Paperclip } from 'lucide-react'
+import { ArrowLeft, FileVideo, Loader2, Paperclip } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -23,13 +23,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { AuthMedia } from '@/components/media/auth-media'
+import { AttachmentLightbox } from '@/components/media/attachment-lightbox'
 import { reportsApi } from '@/lib/api/reports.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useReportForms } from '@/lib/reports/use-report-forms'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { downloadBlob } from '@/lib/utils/download'
-import { REPORT_STATUS_LABELS, REPORT_TYPE_LABELS } from '@/types/reports'
+import { REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
@@ -48,6 +49,7 @@ export default function ReportDetailPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const canValidate = permissions.has('reports:validate')
 
@@ -171,10 +173,10 @@ export default function ReportDetailPage() {
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <Link
         href="/dashboard/admin/reports"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm text-white"
       >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
+        <ArrowLeft className="size-4 text-white" />
+        <span className="text-white font-semibold">Retour à la liste</span>
       </Link>
 
       <Card>
@@ -298,25 +300,25 @@ export default function ReportDetailPage() {
           {report.attachments.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune pièce jointe.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {report.attachments.map((att) => (
-                <Button
+                <button
                   key={att.id}
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const res = await reportsApi.downloadAttachment(id, att.id)
-                      downloadBlob(res.data, att.filename)
-                    } catch (err) {
-                      toast.error(getApiErrorMessage(err))
-                    }
-                  }}
+                  onClick={() => setSelectedAttachment(att)}
+                  className="group relative aspect-square overflow-hidden rounded-md ring-1 ring-border transition hover:ring-primary"
                 >
-                  <Paperclip className="mr-1.5 size-3.5" />
-                  {att.filename}
-                </Button>
+                  <AuthMedia
+                    queryKey={['reports', 'attachment-thumb', att.id]}
+                    fetchBlob={() => reportsApi.downloadAttachment(id, att.id).then((r) => r.data)}
+                    contentType={att.content_type}
+                    alt={att.filename}
+                    className="size-full transition group-hover:scale-105"
+                  />
+                  {att.content_type.startsWith('video/') && (
+                    <FileVideo className="pointer-events-none absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
+                  )}
+                </button>
               ))}
             </div>
           )}
@@ -333,15 +335,34 @@ export default function ReportDetailPage() {
           <input
             ref={fileInputRef}
             type="file"
+            accept="image/*,video/*"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]
-              if (file) uploadMutation.mutate(file)
+              if (file) {
+                const isMedia = (file.type.startsWith('image/') || file.type.startsWith('video/'))
+                  && file.type !== 'image/svg+xml'
+                if (!isMedia) {
+                  toast.error('Type de fichier non autorisé : seules les images et vidéos sont acceptées.')
+                } else {
+                  uploadMutation.mutate(file)
+                }
+              }
               e.target.value = ''
             }}
           />
         </CardContent>
       </Card>
+
+      {selectedAttachment && (
+        <AttachmentLightbox
+          filename={selectedAttachment.filename}
+          contentType={selectedAttachment.content_type}
+          sizeBytes={selectedAttachment.size_bytes}
+          fetchBlob={() => reportsApi.downloadAttachment(id, selectedAttachment.id).then((r) => r.data)}
+          onOpenChange={(open) => !open && setSelectedAttachment(null)}
+        />
+      )}
     </div>
   )
 }

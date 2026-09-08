@@ -106,9 +106,10 @@ function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement
                     toast.error(getApiErrorMessage(err))
                   }
                 }}
+                className="max-w-full overflow-hidden"
               >
-                <Paperclip className="mr-1.5 size-3.5" />
-                {att.filename}
+                <Paperclip className="mr-1.5 size-3.5 shrink-0" />
+                <span className="min-w-0 truncate">{att.filename}</span>
               </Button>
             ))}
           </div>

@@ -174,7 +174,7 @@ export function GroupsTab() {
             value={filterSectionId}
             onValueChange={(v) => setFilterSectionId(v ?? ALL)}
           >
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder="Toutes les sections" />
             </SelectTrigger>
             <SelectContent>

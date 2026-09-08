@@ -79,9 +79,9 @@ export function GalleryFilters({
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS)
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
       <Select items={{ [ALL]: 'Toutes les sources', ...GALLERY_SOURCE_LABELS }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
-        <SelectTrigger className="w-40"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Toutes les sources</SelectItem>
           {Object.entries(GALLERY_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -89,35 +89,35 @@ export function GalleryFilters({
       </Select>
 
       <Select items={childItems} value={filters.childId} onValueChange={(v) => set('childId', v ?? ALL)}>
-        <SelectTrigger className="w-44"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>
         <SelectContent>
           {Object.entries(childItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
 
       <Select items={groupItems} value={filters.groupId} onValueChange={(v) => set('groupId', v ?? ALL)}>
-        <SelectTrigger className="w-40"><SelectValue placeholder="Tous les groupes" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Tous les groupes" /></SelectTrigger>
         <SelectContent>
           {Object.entries(groupItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
 
       <Select items={deptItems} value={filters.departmentId} onValueChange={(v) => set('departmentId', v ?? ALL)}>
-        <SelectTrigger className="w-44"><SelectValue placeholder="Tous les départements" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tous les départements" /></SelectTrigger>
         <SelectContent>
           {Object.entries(deptItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
 
       <Select items={staffItems} value={filters.staffId} onValueChange={(v) => set('staffId', v ?? ALL)}>
-        <SelectTrigger className="w-44"><SelectValue placeholder="Toute l'équipe" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Toute l'équipe" /></SelectTrigger>
         <SelectContent>
           {Object.entries(staffItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
 
       <Select items={{ [ALL]: 'Tous les types', ...REPORT_TYPE_LABELS }} value={filters.reportType} onValueChange={(v) => set('reportType', v ?? ALL)}>
-        <SelectTrigger className="w-40"><SelectValue placeholder="Tous les types" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Tous les types" /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Tous les types</SelectItem>
           {Object.entries(REPORT_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -125,13 +125,13 @@ export function GalleryFilters({
       </Select>
 
       <div className="flex items-center gap-1.5">
-        <Input type="date" value={filters.dateFrom} onChange={(e) => set('dateFrom', e.target.value)} className="w-36" aria-label="Date de début" />
-        <span className="text-muted-foreground">–</span>
-        <Input type="date" value={filters.dateTo} onChange={(e) => set('dateTo', e.target.value)} className="w-36" aria-label="Date de fin" />
+        <Input type="date" value={filters.dateFrom} onChange={(e) => set('dateFrom', e.target.value)} className="w-full sm:w-36" aria-label="Date de début" />
+        <span className="hidden text-muted-foreground sm:inline">–</span>
+        <Input type="date" value={filters.dateTo} onChange={(e) => set('dateTo', e.target.value)} className="w-full sm:w-36" aria-label="Date de fin" />
       </div>
 
       {hasActiveFilters && (
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(EMPTY_FILTERS)}>
+        <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => onChange(EMPTY_FILTERS)}>
           Réinitialiser
         </Button>
       )}

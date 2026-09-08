@@ -9,13 +9,12 @@ import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, ArrowRight, Check, FileUp, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, FileUp, Info, Loader2, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -76,6 +75,15 @@ const STEPS = [
   'Résumé',
 ]
 
+const DOCUMENT_MAX_MB = 10
+const DOCUMENT_ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+]
+
 function formatDate(iso: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('fr-FR')
@@ -128,10 +136,21 @@ export default function NewChildPage() {
   const goPrev = () => setStep((s) => Math.max(s - 1, 0))
 
   const onFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setDocuments((prev) => [...prev, ...Array.from(e.target.files!)])
-      e.target.value = ''
+    if (!e.target.files) return
+    const accepted: File[] = []
+    for (const file of Array.from(e.target.files)) {
+      if (file.size > DOCUMENT_MAX_MB * 1024 * 1024) {
+        toast.error(`« ${file.name} » dépasse ${DOCUMENT_MAX_MB} Mo.`)
+        continue
+      }
+      if (!DOCUMENT_ALLOWED_TYPES.includes(file.type)) {
+        toast.error(`« ${file.name} » : seuls les images et PDF sont acceptés.`)
+        continue
+      }
+      accepted.push(file)
     }
+    if (accepted.length > 0) setDocuments((prev) => [...prev, ...accepted])
+    e.target.value = ''
   }
 
   const onSubmit = async (values: Form) => {
@@ -154,7 +173,24 @@ export default function NewChildPage() {
         guardians: values.guardians.map((g) => ({ ...g, email: g.email || undefined })),
         authorized_persons: values.authorized_persons,
       })
-      toast.success('Fiche enfant créée.')
+
+      let uploaded = 0
+      for (const file of documents) {
+        try {
+          await childrenApi.uploadDocument(data.id, file)
+          uploaded += 1
+        } catch {
+          toast.error(`Échec de l'envoi de « ${file.name} ».`)
+        }
+      }
+
+      if (documents.length === 0) {
+        toast.success('Fiche enfant créée.')
+      } else if (uploaded === documents.length) {
+        toast.success('Fiche enfant créée et documents envoyés.')
+      } else {
+        toast.error(`Fiche créée, mais ${documents.length - uploaded} document(s) non envoyé(s).`)
+      }
       router.push(`/dashboard/admin/children/${data.id}`)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -499,6 +535,7 @@ export default function NewChildPage() {
                         id="documents"
                         type="file"
                         multiple
+                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
                         className="hidden"
                         onChange={onFilesSelected}
                       />
@@ -508,11 +545,10 @@ export default function NewChildPage() {
                     </div>
 
                     <div className="flex items-start gap-2 rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                      <Badge variant="outline" className="shrink-0 font-normal">À venir</Badge>
+                      <Info className="mt-0.5 size-4 shrink-0" />
                       <span>
-                        L&apos;envoi de documents au serveur n&apos;est pas encore disponible côté plateforme.
-                        Les fichiers sélectionnés ici restent dans votre navigateur et n&apos;accompagnent pas
-                        encore la fiche créée.
+                        Les documents seront envoyés au serveur à la création de la fiche : images ou PDF,
+                        {DOCUMENT_MAX_MB} Mo maximum par fichier.
                       </span>
                     </div>
 

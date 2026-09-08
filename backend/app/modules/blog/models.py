@@ -43,6 +43,18 @@ class ArticleStatus(StrEnum):
     PUBLISHED = "published"
 
 
+class GalleryCategory(StrEnum):
+    """Catégories de la galerie du site vitrine — vocabulaire figé qui reflète
+    `GALLERY_CATEGORIES` côté frontend (data.ts). Stables, jamais les phrases
+    françaises brutes — même pattern que ArticleStatus/PermissionCode."""
+
+    ACTIVITIES = "activities"
+    OUTDOOR    = "outdoor"
+    MEALS      = "meals"
+    REST       = "rest"
+    EVENTS     = "events"
+
+
 class BlogTag(Base):
     __tablename__ = "blog_tags"
     __table_args__ = (
@@ -163,3 +175,41 @@ class ArticleAttachment(Base):
 
     def __repr__(self) -> str:
         return f"<ArticleAttachment {self.filename}>"
+
+
+class BlogGalleryPhoto(Base):
+    """Photo de la galerie du site vitrine. Liste volontairement simple :
+    1 ligne = 1 photo, upload = publication immédiate (pas de workflow, pas de
+    titre/légende — cf. décisions produit), catégorie pageant reflet des
+    catégories frontend (GalleryCategory). Table dédiée, même pattern que
+    ArticleAttachment."""
+
+    __tablename__ = "blog_gallery_photos"
+    __mapper_args__ = {"eager_defaults": True}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    establishment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("establishments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[str] = mapped_column(String(20), nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    uploaded_by_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    uploaded_by: Mapped["User"] = relationship(lazy="selectin")
+
+    def __repr__(self) -> str:
+        return f"<BlogGalleryPhoto {self.category} {self.filename}>"

@@ -622,7 +622,9 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 | Personnes autorisées (0-N) | `authorized_persons[]` : `last_name`, `first_names`, `phone` |
 
 ### Règles métier (invariants)
-- **Au moins 1 tuteur** obligatoire à la création (422 sinon)
+- **Tuteur non obligatoire** : une fiche peut être créée/importée sans tuteur
+  (`guardians=[]` accepté — règle assouplie sur demande : les lignes d'import
+  sans tuteur créent la fiche au lieu d'être rejetées)
 - **Dates cohérentes** : naissance non future, admission ≥ naissance — vérifié
   aussi au PATCH partiel (en recroisant avec les valeurs déjà en base)
 - **Département / section doivent appartenir au même établissement** (404 sinon).
@@ -641,6 +643,48 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 - **Parents/tuteurs = fiches de contact**, sans compte de connexion. La colonne
   `guardians.user_id` (nullable) est prévue pour brancher un compte le jour où le
   portail parent arrivera — sans migration de schéma.
+
+### Import one-shot depuis l'export legacy (`backend/scripts/import_children.py`)
+
+Script CLI de migration unique (jamais d'endpoint API pour ça — pas de surface
+d'attaque permanente). Chaque ligne passe par `create_child` (+ `set_child_status`
+si `inactive`) : matricules générés par `children/matricule.py`, validations
+Pydantic natives, rattachement département/section vérifié. **Dry-run par défaut**,
+`--apply` pour écrire ; rapport CSV systématique (`legacy_id → OK + matricule /
+REJETÉE + motif / avertissements`) + `--resume-from-report` (les doublons se
+créent quand même par décision produit : la reprise évite le double import).
+
+Mapping legacy (72 lignes testées : 71 OK, 1 rejetée sur dates incohérentes) :
+`first_name/last_name`, dates ISO, `address` (vide → mention par défaut +
+avertissement), `status` active/inactive, `section` (slug → `--section-map` puis
+repli nom exact, inconnu → NULL + avertissement ; `department_id` dérivé de la
+section), `emergency_contacts_detailed` (JSON : `parent`/`guardian` → `guardians[]`
+dédupliqués par téléphone puis fusion même-nom-tél-différent avec avertissement ;
+autres + `is_pickup_authorized` → `authorized_persons[]` ; autres non autorisés
+ignorés car aucun champ ne les porte), `medical_info_detailed` + `medical_info` +
+`special_needs` → champs médicaux, `dietary_restrictions`/`behavioral_notes`/
+`preferences` homonymes (`"[]"` = vide), `usual_name` → préfixé à
+`behavioral_notes` si non inclus dans `first_names`. Emails invalides → `None` +
+avertissement (jamais de rejet) ; téléphone > 20 car. → 1er segment avant `/` +
+avertissement, sinon rejet.
+
+**Colonnes ignorées** (`IGNORED_COLUMNS` dans le script) : `id`/`created_at`/
+`updated_at` (régénérés), `code_qr_id` (QR legacy — nos QR d'attendance dérivent
+des IDs internes, jamais du matricule), `group_id`/`assigned_educator_id` (IDs
+legacy — assignation aux groupes après coup via `/groups/...`), `photo_url`
+(aucun fichier), `administrative_documents`/`dietary_restrictions`/
+`medical_history`/`allergies`/`special_needs` plats (vides dans l'export),
+`emergency_contacts` plat (vide — seul le JSON est lu).
+
+Garde-fous : vérification `to_regclass` du schéma effectif avant toute écriture
+(sans elle, un `DB_SCHEMA` sans migrations ferait retomber les écritures sur
+`public` — piège vécu en test) ; CSV **jamais versionné** (`**/children_rows*.csv`
+au `.gitignore`, données RGPD).
+
+Runbook VPS : backup `pg_dump` → `scp` + `docker cp` du CSV → `docker compose exec
+backend python scripts/import_children.py --csv /tmp/... --establishment-code
+LPRDS` (dry-run d'abord, `--apply` ensuite) → récupérer le rapport (`docker cp`)
+→ supprimer les CSV (conteneur + VPS). Détail complet dans le docstring du script.
 
 ---
 

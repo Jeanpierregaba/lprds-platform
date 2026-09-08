@@ -73,7 +73,7 @@ class ChildCreateRequest(BaseModel):
     doctor_name:          str | None = Field(default=None, max_length=150)
     doctor_phone:         str | None = Field(default=None, max_length=20)
 
-    guardians:          list[GuardianRequest] = Field(min_length=1)
+    guardians:          list[GuardianRequest] = Field(default_factory=list)
     authorized_persons: list[AuthorizedPersonRequest] = []
 
     @model_validator(mode="after")
@@ -173,3 +173,21 @@ class ChildListItem(BaseModel):
 class ChildListResponse(BaseModel):
     total: int
     items: list[ChildListItem]
+
+
+# ── Import / export ─────────────────────────────────────────────
+class ChildImportRowResult(BaseModel):
+    """Une ligne du fichier : créée / mise à jour / rejetée, jamais silencieuse."""
+
+    ligne: int
+    matricule: str | None = None
+    statut: str  # "créé" | "mis à jour" | "rejeté"
+    avertissements: list[str] = []
+    erreur: str | None = None
+
+
+class ChildImportReportResponse(BaseModel):
+    crees: int
+    mis_a_jour: int
+    rejetees: int
+    lignes: list[ChildImportRowResult]

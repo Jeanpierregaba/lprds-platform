@@ -75,8 +75,8 @@ async def create_announcement(
         establishment_id,
         "Nouvelle diffusion",
         announcement.title,
-        {"type": "announcement", "announcement_id": str(announcement.id)},
         db,
+        {"type": "announcement", "announcement_id": str(announcement.id)},
     )
     return response
 
@@ -381,8 +381,8 @@ async def send_message(
         conversation.establishment_id,
         "Nouveau message",
         f"Un nouveau message de {sender.nickname or sender.first_name} {sender.last_name or ''}".strip(),
-        {"type": "message", "conversation_id": str(conversation.id)},
         db,
+        {"type": "message", "conversation_id": str(conversation.id)},
     )
     return response
 

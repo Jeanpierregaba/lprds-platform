@@ -6718,3 +6718,5 @@
 {"sessionId":"27ced3","runId":"pre-fix","hypothesisId":"A","location":"providers.tsx:render","message":"Providers render (ThemeProvider wraps tree)","data":{"isClient":false},"timestamp":1788945453740}
 {"sessionId":"27ced3","runId":"pre-fix","hypothesisId":"A","location":"providers.tsx:render","message":"Providers render (ThemeProvider wraps tree)","data":{"isClient":false},"timestamp":1788945453748}
 {"sessionId":"27ced3","runId":"pre-fix","hypothesisId":"A","location":"providers.tsx:render","message":"Providers render (ThemeProvider wraps tree)","data":{"isClient":false},"timestamp":1788945453817}
+{"sessionId":"27ced3","runId":"pre-fix","hypothesisId":"A","location":"providers.tsx:render","message":"Providers render (ThemeProvider wraps tree)","data":{"isClient":true},"timestamp":1788951218196}
+{"sessionId":"27ced3","runId":"pre-fix","hypothesisId":"A","location":"providers.tsx:render","message":"Providers render (ThemeProvider wraps tree)","data":{"isClient":true},"timestamp":1788951218197}

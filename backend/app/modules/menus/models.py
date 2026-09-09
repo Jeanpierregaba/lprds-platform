@@ -2,10 +2,15 @@
 Menu hebdomadaire (lundi–vendredi), rempli par l'admin ou le staff délégué
 (menus:write — typiquement un staff_type=restaurateur, mais RBAC seul fait foi,
 staff_type reste une métadonnée descriptive sans effet sur les droits, cf.
-module Staff). Une ligne = une semaine entière pour l'établissement, `content`
+module Staff). Une ligne = une semaine pour UN département (`department_id`
+obligatoire — il n'existe plus de menu « général » d'établissement), `content`
 JSONB validé côté Pydantic (WeekMenuContent, schemas.py) — pas de variabilité
 de structure comme les rapports (toujours 5 jours × 4 créneaux), donc pas
 besoin d'une validation par type : le schéma de requête FastAPI suffit déjà.
+
+Visibilité : admin et menus:write voient tout ; parent = départements de ses
+enfants ; éducatrice = départements de ses groupes ; autre staff = tout
+(comme avant — seuls parents et éducatrices sont scopés, sur demande).
 """
 
 import uuid
@@ -21,12 +26,16 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.modules.auth.models import User
     from app.modules.establishments.models import Establishment
+    from app.modules.organization.models import Department
 
 
 class WeeklyMenu(Base):
     __tablename__ = "weekly_menus"
     __table_args__ = (
-        UniqueConstraint("establishment_id", "week_start", name="uq_weekly_menu_week"),
+        UniqueConstraint(
+            "establishment_id", "department_id", "week_start",
+            name="uq_weekly_menu_dept_week",
+        ),
     )
     __mapper_args__ = {"eager_defaults": True}
 
@@ -36,6 +45,12 @@ class WeeklyMenu(Base):
     establishment_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("establishments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    department_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("departments.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -63,6 +78,7 @@ class WeeklyMenu(Base):
     )
 
     establishment: Mapped["Establishment"] = relationship(lazy="selectin")
+    department: Mapped["Department"] = relationship(lazy="selectin")
     created_by: Mapped["User"] = relationship(foreign_keys=[created_by_id], lazy="selectin")
     updated_by: Mapped["User | None"] = relationship(
         foreign_keys=[updated_by_id], lazy="selectin"

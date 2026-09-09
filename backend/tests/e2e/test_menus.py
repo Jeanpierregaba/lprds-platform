@@ -1,9 +1,13 @@
-"""E2E menus : écriture (admin/staff délégué), lecture ouverte, historique
-restreint, isolation établissement.
+"""E2E menus PAR DÉPARTEMENT : un menu = (semaine, département), plus de menu
+général d'établissement.
 
-Les dates sont calculées par rapport à `date.today()` (jamais codées en dur) —
-un test committé doit rester valide indéfiniment, contrairement aux scripts
-manuels ponctuels utilisés pendant le développement du module."""
+Couvre : validations d'écriture, 409 par (semaine, département), visibilité
+scopée (parent = départements de ses enfants — y compris multi-départements,
+éducatrice = départements de ses groupes, autre staff = tout comme avant),
+/current en liste, historique scopé, isolation établissement.
+
+Les dates sont calculées par rapport à `date.today()` (jamais codées en dur).
+"""
 from datetime import date, timedelta
 
 from tests.helpers import SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
@@ -25,143 +29,185 @@ WEEK_CONTENT = {
 }
 
 
-def test_menus(client):
-    c = client
+def _login_staff(c, adm, email, first, last, nick, stype, pwd="Staff2026"):
+    c.post("/staff", json={"first_name": first, "last_name": last, "nickname": nick,
+           "phone": "+229", "email": email, "password": pwd,
+           "staff_type": stype}, headers=adm)
+    h = login(c, email, pwd)
+    c.post("/auth/password-change", json={"current_password": pwd,
+           "new_password": pwd + "New"}, headers=h)
+    return login(c, email, pwd + "New")
+
+
+def _setup(c):
     su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
-
     adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    mat = c.post("/departments", json={"name": "Mat"}, headers=adm).json()
+    prim = c.post("/departments", json={"name": "Prim"}, headers=adm).json()
+    sec_m = c.post("/sections", json={"department_id": mat["id"], "name": "PS"},
+                   headers=adm).json()
+    sec_p = c.post("/sections", json={"department_id": prim["id"], "name": "CP"},
+                   headers=adm).json()
 
-    c.post("/staff", json={"first_name": "R", "last_name": "Un", "nickname": "Resto1",
-           "phone": "+229", "email": "resto1@a.fr", "password": "Staff2026",
-           "staff_type": "restaurateur"}, headers=adm)
-    h1 = login(c, "resto1@a.fr", "Staff2026")
-    c.post("/auth/password-change", json={"current_password": "Staff2026",
-           "new_password": "StaffNew2026"}, headers=h1)
-    resto1_id = c.get("/staff?search=resto1@a.fr", headers=adm).json()["items"][0]["id"]
+    resto = _login_staff(c, adm, "resto@a.fr", "R", "Un", "Resto", "restaurateur")
+    resto_id = c.get("/staff?search=resto@a.fr", headers=adm).json()["items"][0]["id"]
     role = c.post("/rbac/roles", json={"name": "Restauration",
           "permissions": ["menus:write"]}, headers=adm).json()
-    c.post(f"/rbac/staff/{resto1_id}/roles/{role['id']}", headers=adm)
-    resto1 = login(c, "resto1@a.fr", "StaffNew2026")
+    c.post(f"/rbac/staff/{resto_id}/roles/{role['id']}", headers=adm)
 
-    # Staff quelconque SANS menus:write (une éducatrice) — doit pouvoir LIRE,
-    # y compris l'historique (menus:read fait partie du rôle socle
-    # automatiquement attribué à staff_type=educateur, cf. rbac/service.py::
-    # ensure_educatrice_baseline_role), mais jamais écrire.
-    c.post("/staff", json={"first_name": "E", "last_name": "T", "nickname": "Educ",
-           "phone": "+229", "email": "educ@a.fr", "password": "Staff2026",
-           "staff_type": "educateur"}, headers=adm)
-    h2 = login(c, "educ@a.fr", "Staff2026")
-    c.post("/auth/password-change", json={"current_password": "Staff2026",
-           "new_password": "StaffNew2026"}, headers=h2)
-    educ = login(c, "educ@a.fr", "StaffNew2026")
+    # Éducatrice menant un groupe en Mat (menus:read via socle automatique).
+    educ = _login_staff(c, adm, "educ@a.fr", "E", "T", "Educ", "educateur")
+    educ_id = c.get("/staff?search=educ@a.fr", headers=adm).json()["items"][0]["id"]
+    c.post("/groups", json={"section_id": sec_m["id"], "educatrice_id": educ_id},
+           headers=adm)
 
-    dep = c.post("/departments", json={"name": "Maternelle"}, headers=adm).json()
-    sec = c.post("/sections", json={"department_id": dep["id"], "name": "PS"},
-                 headers=adm).json()
-    child = c.post("/children", json={"last_name": "Alpha", "first_names": "Emma",
-                   "birth_date": "2023-01-01", "admission_date": "2025-01-01",
-                   "residence_address": "x", "department_id": dep["id"],
-                   "section_id": sec["id"], "guardians": [{"last_name": "Alpha",
-                   "first_names": "P", "phone": "+229"}]}, headers=adm).json()
-    cid = child["id"]
-    rp = c.post("/parents", json={"first_name": "Anaïs", "last_name": "Kossou",
-           "nickname": "Maman Anaïs", "phone": "+229 97", "email": "parent@a.fr",
-           "password": "Parent2026", "child_ids": [cid]}, headers=adm)
-    assert rp.status_code == 201, rp.text
-    pl = login(c, "parent@a.fr", "Parent2026")
+    # Secrétaire : aucun groupe, aucun menus:write → voit tout (inchangé).
+    secr = _login_staff(c, adm, "secr@a.fr", "S", "Ecr", "Secr", "secretaire")
+
+    # Deux enfants dans deux départements + un parent des deux.
+    emma = c.post("/children", json={
+        "last_name": "Emma", "first_names": "E", "birth_date": "2023-01-01",
+        "admission_date": "2025-01-01", "residence_address": "x",
+        "department_id": mat["id"], "section_id": sec_m["id"],
+        "guardians": [{"last_name": "Emma", "first_names": "T", "phone": "+229"}],
+    }, headers=adm).json()
+    hugo = c.post("/children", json={
+        "last_name": "Hugo", "first_names": "H", "birth_date": "2023-01-01",
+        "admission_date": "2025-01-01", "residence_address": "x",
+        "department_id": prim["id"], "section_id": sec_p["id"],
+        "guardians": [{"last_name": "Hugo", "first_names": "T", "phone": "+228"}],
+    }, headers=adm).json()
+    c.post("/parents", json={"first_name": "P", "last_name": "Deux",
+           "nickname": "Parent 2", "phone": "+229", "email": "p2@a.fr",
+           "password": "Parent2026", "child_ids": [emma["id"], hugo["id"]]}, headers=adm)
+    pl = login(c, "p2@a.fr", "Parent2026")
     c.post("/auth/password-change", json={"current_password": "Parent2026",
            "new_password": "ParentNew2026"}, headers=pl)
-    par = login(c, "parent@a.fr", "ParentNew2026")
+    par2 = login(c, "p2@a.fr", "ParentNew2026")
+    # Parent d'un seul département (Mat).
+    c.post("/parents", json={"first_name": "P", "last_name": "Un",
+           "nickname": "Parent 1", "phone": "+229", "email": "p1@a.fr",
+           "password": "Parent2026", "child_ids": [emma["id"]]}, headers=adm)
+    pl1 = login(c, "p1@a.fr", "Parent2026")
+    c.post("/auth/password-change", json={"current_password": "Parent2026",
+           "new_password": "ParentNew2026"}, headers=pl1)
+    par1 = login(c, "p1@a.fr", "ParentNew2026")
+    return {"adm": adm, "mat": mat, "prim": prim, "resto": resto, "educ": educ,
+            "secr": secr, "par1": par1, "par2": par2}
+
+
+def test_menus_per_department(client):
+    c = client
+    s = _setup(c)
+    adm, mat, prim = s["adm"], s["mat"], s["prim"]
+    resto, educ, secr, par1, par2 = s["resto"], s["educ"], s["secr"], s["par1"], s["par2"]
+    cur, nxt = CURRENT_MONDAY.isoformat(), NEXT_MONDAY.isoformat()
 
     # ── Écriture : validations ──
-    ck("Éducatrice sans menus:write → 403 à la création", c.post(
-       "/menus", json={"week_start": CURRENT_MONDAY.isoformat(), **WEEK_CONTENT},
+    ck("Éducatrice sans menus:write → 403", c.post(
+       "/menus", json={"week_start": cur, "department_id": mat["id"], **WEEK_CONTENT},
        headers=educ).status_code, 403)
-    ck("week_start pas un lundi → 422", c.post(
-       "/menus", json={"week_start": NOT_A_MONDAY.isoformat(), **WEEK_CONTENT},
-       headers=resto1).status_code, 422)
-    ck("Semaine passée → 422 (historique immuable)", c.post(
-       "/menus", json={"week_start": PAST_MONDAY.isoformat(), **WEEK_CONTENT},
-       headers=resto1).status_code, 422)
-    ck("Créneau vide (chaîne vide) → 422", c.post(
-       "/menus", json={"week_start": CURRENT_MONDAY.isoformat(),
-       "monday": {"collation": ""}}, headers=resto1).status_code, 422)
+    ck("Département manquant → 422", c.post(
+       "/menus", json={"week_start": cur, **WEEK_CONTENT}, headers=resto).status_code, 422)
+    ck("Département inconnu → 404", c.post(
+       "/menus", json={"week_start": cur,
+       "department_id": "00000000-0000-0000-0000-000000000000", **WEEK_CONTENT},
+       headers=resto).status_code, 404)
+    ck("Pas un lundi → 422", c.post(
+       "/menus", json={"week_start": NOT_A_MONDAY.isoformat(),
+       "department_id": mat["id"], **WEEK_CONTENT}, headers=resto).status_code, 422)
+    ck("Semaine passée → 422", c.post(
+       "/menus", json={"week_start": PAST_MONDAY.isoformat(),
+       "department_id": mat["id"], **WEEK_CONTENT}, headers=resto).status_code, 422)
 
-    # ── Création semaine en cours (staff délégué) ──
-    r = c.post("/menus", json={"week_start": CURRENT_MONDAY.isoformat(), **WEEK_CONTENT},
-               headers=resto1)
-    ck("Création OK", r.status_code, 201)
-    menu = r.json()
-    ck("  week_end = vendredi", menu["week_end"], (CURRENT_MONDAY + timedelta(days=4)).isoformat())
-    ck("  monday.dejeuner correct", menu["monday"]["dejeuner"], "Poulet rôti, riz")
-    ck("  wednesday encore vide (remplissage progressif)", menu["wednesday"]["dejeuner"], None)
-    ck("  created_by = resto1", menu["created_by"]["nickname"], "Resto1")
-    ck("  updated_by absent à la création", menu["updated_by"], None)
+    # ── Création Mat + Prim (même semaine, départements différents : OK) ──
+    r = c.post("/menus", json={"week_start": cur, "department_id": mat["id"],
+               **WEEK_CONTENT}, headers=resto)
+    ck("Création Mat OK", r.status_code, 201)
+    ck("department_id renvoyé", r.json()["department_id"], mat["id"])
+    ck("department_name dénormalisé", r.json()["department_name"], "Mat")
+    ck("Doublon même (semaine, département) → 409", c.post(
+       "/menus", json={"week_start": cur, "department_id": mat["id"], **WEEK_CONTENT},
+       headers=resto).status_code, 409)
+    ck("Création Prim même semaine OK", c.post(
+       "/menus", json={"week_start": cur, "department_id": prim["id"], **WEEK_CONTENT},
+       headers=resto).status_code, 201)
 
-    ck("Doublon même semaine → 409", c.post(
-       "/menus", json={"week_start": CURRENT_MONDAY.isoformat(), **WEEK_CONTENT},
-       headers=resto1).status_code, 409)
+    # ── /current : UN menu par département visible ──
+    ck("Admin voit 2 menus", len(
+       c.get("/menus/current", headers=adm).json()["items"]), 2)
+    ck("Parent 2 dépts voit 2 menus", len(
+       c.get("/menus/current", headers=par2).json()["items"]), 2)
+    got1 = c.get("/menus/current", headers=par1).json()["items"]
+    ck("Parent 1 dept voit 1 menu", len(got1), 1)
+    ck("… celui de Mat", got1[0]["department_id"], mat["id"])
+    got_e = c.get("/menus/current", headers=educ).json()["items"]
+    ck("Éducatrice (groupes Mat) voit 1 menu", len(got_e), 1)
+    ck("… celui de Mat", got_e[0]["department_id"], mat["id"])
+    ck("Secrétaire (aucun groupe) voit tout, inchangé", len(
+       c.get("/menus/current", headers=secr).json()["items"]), 2)
 
-    # ── Lecture ouverte à tous (semaine en cours) ──
-    for label, hdrs in [("admin", adm), ("staff sans menus:write", educ), ("parent", par)]:
-        g = c.get("/menus/current", headers=hdrs)
-        ck(f"{label} lit /menus/current → 200", g.status_code, 200)
-    g_week = c.get(f"/menus/{CURRENT_MONDAY.isoformat()}", headers=educ)
-    ck("Lecture par semaine explicite (staff) → 200", g_week.status_code, 200)
+    # ── /{semaine}?department_id= : périmètre + historique ──
+    ck("Parent lit son dept (semaine future) → 200", c.post(
+       "/menus", json={"week_start": nxt, "department_id": mat["id"], **WEEK_CONTENT},
+       headers=resto).status_code, 201)
+    ck("Parent lit Mat future → 200", c.get(
+       f"/menus/{nxt}", params={"department_id": mat["id"]}, headers=par1).status_code, 200)
+    ck("Parent lit Prim (pas son dept) → 403", c.get(
+       f"/menus/{cur}", params={"department_id": prim["id"]}, headers=par1).status_code, 403)
+    ck("Éducatrice lit Prim (pas ses groupes) → 403", c.get(
+       f"/menus/{cur}", params={"department_id": prim["id"]}, headers=educ).status_code, 403)
+    ck("Parent semaine passée → 403 (même son dept)", c.get(
+       f"/menus/{PAST_MONDAY.isoformat()}", params={"department_id": mat["id"]},
+       headers=par1).status_code, 403)
+    ck("department_id manquant → 422", c.get(
+       f"/menus/{cur}", headers=par1).status_code, 422)
 
-    # ── Remplissage progressif (PATCH, remplace le contenu entier) ──
-    full_week = {**WEEK_CONTENT, "wednesday": {"collation": "Compote", "dejeuner": "Boeuf, pâtes",
-                 "dessert": "Fromage blanc", "gouter": "Madeleine"}}
-    upd = c.patch(f"/menus/{CURRENT_MONDAY.isoformat()}", json=full_week, headers=resto1)
-    ck("Educatrice ne peut pas modifier (403)", c.patch(
-       f"/menus/{CURRENT_MONDAY.isoformat()}", json=full_week, headers=educ).status_code, 403)
-    ck("Restaurateur modifie", upd.status_code, 200)
-    ck("  wednesday.dejeuner mis à jour", upd.json()["wednesday"]["dejeuner"], "Boeuf, pâtes")
-    ck("  updated_by renseigné", upd.json()["updated_by"]["nickname"], "Resto1")
+    # ── PATCH/DELETE scopés au (semaine, département) ──
+    ck("Éducatrice ne modifie pas → 403", c.patch(
+       f"/menus/{cur}", params={"department_id": mat["id"]},
+       json=WEEK_CONTENT, headers=educ).status_code, 403)
+    ck("Resto modifie Mat", c.patch(
+       f"/menus/{cur}", params={"department_id": mat["id"]},
+       json=WEEK_CONTENT, headers=resto).status_code, 200)
+    ck("Resto supprime Prim", c.delete(
+       f"/menus/{cur}", params={"department_id": prim["id"]},
+       headers=resto).status_code, 204)
+    ck("Prim supprimé (404 ensuite)", c.get(
+       f"/menus/{cur}", params={"department_id": prim["id"]},
+       headers=adm).status_code, 404)
+    ck("Mat intact après suppression de Prim", c.get(
+       f"/menus/{cur}", params={"department_id": mat["id"]},
+       headers=adm).status_code, 200)
 
-    # ── Semaine future : création + lecture ouverte ──
-    r_next = c.post("/menus", json={"week_start": NEXT_MONDAY.isoformat(), **WEEK_CONTENT},
-                    headers=resto1)
-    ck("Création semaine future OK", r_next.status_code, 201)
-    g_next = c.get(f"/menus/{NEXT_MONDAY.isoformat()}", headers=par)
-    ck("Parent lit la semaine future → 200 (pas réservé à l'historique)",
-       g_next.status_code, 200)
+    # ── Historique : scopé + filtre ──
+    lst_e = c.get("/menus", headers=educ).json()
+    ck("Historique éducatrice : que Mat", {i["department_id"] for i in lst_e["items"]},
+       {mat["id"]})
+    ck("Filtre Prim pour l'éducatrice → 403", c.get(
+       "/menus", params={"department_id": prim["id"]}, headers=educ).status_code, 403)
+    ck("Admin filtre Prim → 200", c.get(
+       "/menus", params={"department_id": prim["id"]}, headers=adm).status_code, 200)
+    ck("Parent → GET /menus → 403", c.get("/menus", headers=par1).status_code, 403)
 
-    # ── Historique (semaine passée) : réservé admin/menus:write ──
-    # Aucun menu n'existe réellement sur PAST_MONDAY ici : on vérifie que le
-    # contrôle d'accès (403) prime sur l'existence de la ressource (404) —
-    # même principe que partout ailleurs dans l'application.
-    ck("Parent → semaine passée → 403 (pas 404)", c.get(
-       f"/menus/{PAST_MONDAY.isoformat()}", headers=par).status_code, 403)
-    ck("Éducatrice (menus:read via socle) → semaine passée (inexistante) → 404", c.get(
-       f"/menus/{PAST_MONDAY.isoformat()}", headers=educ).status_code, 404)
-    ck("Admin → semaine passée (inexistante) → 404, pas 403", c.get(
-       f"/menus/{PAST_MONDAY.isoformat()}", headers=adm).status_code, 404)
-    ck("Restaurateur (menus:write) → semaine passée (inexistante) → 404", c.get(
-       f"/menus/{PAST_MONDAY.isoformat()}", headers=resto1).status_code, 404)
-
-    # ── Liste / historique complet ──
-    lst_educ = c.get("/menus", headers=educ)
-    ck("Éducatrice (menus:read via socle) → GET /menus (liste) → 200",
-       lst_educ.status_code, 200)
-    ck("Parent → GET /menus (liste) → 403", c.get(
-       "/menus", headers=par).status_code, 403)
-    lst = c.get("/menus", headers=adm).json()
-    ck("Admin liste : 2 semaines (courante + future)", lst["total"], 2)
-    lst_resto = c.get("/menus", headers=resto1).json()
-    ck("Restaurateur liste aussi : 2 semaines", lst_resto["total"], 2)
-
-    # ── Suppression ──
-    ck("Éducatrice ne peut pas supprimer → 403", c.delete(
-       f"/menus/{NEXT_MONDAY.isoformat()}", headers=educ).status_code, 403)
-    ck("Restaurateur supprime la semaine future", c.delete(
-       f"/menus/{NEXT_MONDAY.isoformat()}", headers=resto1).status_code, 204)
-    ck("  bien supprimée (404 ensuite)", c.get(
-       f"/menus/{NEXT_MONDAY.isoformat()}", headers=adm).status_code, 404)
+    # ── Départements visibles (sélecteurs UI) ──
+    depts_par2 = c.get("/menus/departments", headers=par2).json()
+    ck("Parent 2 dépts : 2 départements", depts_par2["total"], 2)
+    depts_par1 = c.get("/menus/departments", headers=par1).json()
+    ck("Parent 1 dept : Mat uniquement",
+       [d["name"] for d in depts_par1["items"]], ["Mat"])
+    depts_educ = c.get("/menus/departments", headers=educ).json()
+    ck("Éducatrice : Mat uniquement",
+       [d["name"] for d in depts_educ["items"]], ["Mat"])
+    ck("Admin : tout", c.get("/menus/departments", headers=adm).json()["total"], 2)
 
     # ── Isolation étab B ──
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
     adm_b = onboard(c, su, "AUTRE", "admin@b.fr")
-    g_b_current = c.get("/menus/current", headers=adm_b)
-    ck("Admin B : pas de menu (établissement différent) → 404", g_b_current.status_code, 404)
-    lst_b = c.get("/menus", headers=adm_b).json()
-    ck("Admin B liste : 0 (isolation)", lst_b["total"], 0)
+    ck("Admin B /current : liste vide (pas 404)", c.get(
+       "/menus/current", headers=adm_b).json()["items"], [])
+    ck("Département de B refusé en création ici → 404", c.post(
+       "/menus", json={"week_start": cur,
+       "department_id": c.post("/departments", json={"name": "X"},
+       headers=adm_b).json()["id"], **WEEK_CONTENT},
+       headers=resto).status_code, 404)

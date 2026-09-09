@@ -1,12 +1,11 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { BookMarked, BookOpen, Settings2 } from 'lucide-react'
+import { BookMarked, BookOpen } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CatalogueTab } from './catalogue-tab'
 import { LendingsTab } from './lendings-tab'
-import { SettingsTab } from './settings-tab'
 
 export default function LibraryPage() {
   return (
@@ -33,10 +32,6 @@ export default function LibraryPage() {
             <BookMarked className="mr-1.5 size-4" />
             Prêts
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings2 className="mr-1.5 size-4" />
-            Paramètres
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalogue">
@@ -44,9 +39,6 @@ export default function LibraryPage() {
         </TabsContent>
         <TabsContent value="lendings">
           <LendingsTab />
-        </TabsContent>
-        <TabsContent value="settings">
-          <SettingsTab />
         </TabsContent>
       </Tabs>
     </motion.div>

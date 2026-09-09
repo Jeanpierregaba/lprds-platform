@@ -77,8 +77,12 @@ class Settings(BaseSettings):
     storage_backend: str = "local"
     storage_local_path: str = "./media"
 
-    # Pièces jointes (module messagerie)
+    # Pièces jointes (module messagerie). Les messages privés acceptent les
+    # images ET les vidéos ; les diffusions restent images + PDF. La vidéo a
+    # son propre plafond (10 Mo par défaut = inutilisable pour une vidéo de
+    # téléphone, d'où 50 Mo comme les rapports).
     messaging_max_attachment_mb: int = 10
+    messaging_max_video_mb: int = 50
     messaging_allowed_attachment_types: str = (
         "image/jpeg,image/png,image/gif,image/webp,application/pdf"
     )

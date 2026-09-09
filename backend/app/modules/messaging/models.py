@@ -1,13 +1,17 @@
 """
 Messagerie admin ↔ parents. Deux volets :
-  • Announcement — diffusion : un admin publie, tous les parents de
-    l'établissement la voient.
+  • Announcement — diffusion : un admin publie pour tous les parents de
+    l'établissement OU pour un à plusieurs départements ciblés (table
+    d'association announcement_departments ; aucune ligne = tout
+    l'établissement). L'audience d'un parent = les départements de ses
+    enfants (via parent_children + children.department_id).
   • Conversation / Message — discussion privée : UNE conversation par parent
     (pas par admin — « l'administration » est collective), n'importe quel admin
     peut y répondre. Un seul niveau de lu/non-lu par message (lu "par l'autre
     côté"), pas de suivi par admin individuel : un admin qui ouvre le fil marque
     lu pour toute l'administration, ce qui correspond à l'usage réel (un seul
-    parent en face, une équipe côté établissement).
+    parent en face, une équipe côté établissement). Les messages acceptent des
+    pièces jointes images ET vidéos (les diffusions restent images + PDF).
 
 ⚠️ Module volontairement en dehors du RBAC : accès restreint aux comptes
 UserRole.ADMIN et UserRole.PARENT uniquement (ni staff, ni superadmin), sur
@@ -22,9 +26,11 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Column,
     DateTime,
     ForeignKey,
     String,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -37,6 +43,30 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.modules.auth.models import User
     from app.modules.establishments.models import Establishment
+    from app.modules.organization.models import Department
+
+
+# Ciblage d'une diffusion : une à plusieurs lignes = départements visés,
+# AUCUNE ligne = tout l'établissement (broadcast). Côté département le
+# ONDELETE est RESTRICT : supprimer un département ne doit jamais élargir
+# silencieusement une audience ciblée vers un broadcast (les départements ne
+# sont de toute façon que soft-deleted via l'API, jamais hard-deleted).
+announcement_departments = Table(
+    "announcement_departments",
+    Base.metadata,
+    Column(
+        "announcement_id",
+        UUID(as_uuid=True),
+        ForeignKey("announcements.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "department_id",
+        UUID(as_uuid=True),
+        ForeignKey("departments.id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+)
 
 
 class Announcement(Base):
@@ -69,6 +99,10 @@ class Announcement(Base):
 
     establishment: Mapped["Establishment"] = relationship(lazy="selectin")
     created_by: Mapped["User"] = relationship(lazy="selectin")
+    # Départements ciblés (vide = broadcast tout l'établissement).
+    departments: Mapped[list["Department"]] = relationship(
+        secondary=announcement_departments, lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<Announcement {self.title}>"

@@ -14,3 +14,6 @@ dump.rdb
 # Imports de données personnelles (enfants, RGPD) — jamais versionnés
 **/children_rows*.csv
 **/*.import.csv
+
+# Logs générés par l'éditeur Cursor
+.cursor/*.log

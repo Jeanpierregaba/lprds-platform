@@ -21,6 +21,8 @@ export interface Announcement {
   title:            string
   body:             string
   is_active:        boolean
+  /** Départements ciblés — [] = broadcast à tous les parents. */
+  department_ids:   string[]
   created_by:       UserBrief
   created_at:       string
   updated_at:       string
@@ -38,12 +40,16 @@ export interface AnnouncementListResponse {
 export interface AnnouncementCreatePayload {
   title: string
   body:  string
+  /** [] = tous les parents. */
+  department_ids: string[]
 }
 
 export interface AnnouncementUpdatePayload {
   title?:     string
   body?:      string
   is_active?: boolean
+  /** null/omise = périmètre inchangé ; [] = retour au broadcast. */
+  department_ids?: string[] | null
 }
 
 export interface Message {

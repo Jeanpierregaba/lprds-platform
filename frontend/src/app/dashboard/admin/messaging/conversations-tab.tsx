@@ -17,7 +17,7 @@ import { messagingApi } from '@/lib/api/messaging.api'
 import { parentsApi } from '@/lib/api/parents.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { downloadBlob } from '@/lib/utils/download'
+import { MessageAttachments } from '@/components/messaging/message-attachments'
 import { cn } from '@/lib/utils'
 import type { Conversation, ConversationListResponse, Message, MessageListResponse } from '@/types/messaging'
 
@@ -95,7 +95,11 @@ export function ConversationsTab() {
   useMessagingEvent((event) => {
     if (event.type === 'message') {
       queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(event.conversation_id), (old) =>
-        old ? { total: old.total + 1, items: [...old.items, event] } : old
+        old
+          ? old.items.some((m) => m.id === event.id)
+            ? old
+            : { total: old.total + 1, items: [...old.items, event] }
+          : old
       )
       queryClient.invalidateQueries({ queryKey: conversationsKey })
       if (event.conversation_id === selectedId && event.sender_role !== 'admin') {
@@ -287,7 +291,7 @@ function ConversationThread({
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const fileInputsRef = useRef<Record<string, HTMLInputElement | null>>({})
+  const composeFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -297,7 +301,11 @@ function ConversationThread({
     mutationFn: (text: string) => messagingApi.sendConversationMessage(conversation.id, text).then((r) => r.data),
     onSuccess: (message) => {
       queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(conversation.id), (old) =>
-        old ? { total: old.total + 1, items: [...old.items, message] } : old
+        old
+          ? old.items.some((m) => m.id === message.id)
+            ? old
+            : { total: old.total + 1, items: [...old.items, message] }
+          : old
       )
       queryClient.invalidateQueries({ queryKey: conversationsKey })
       setBody('')
@@ -305,11 +313,26 @@ function ConversationThread({
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
-  const attachMutation = useMutation({
-    mutationFn: ({ messageId, file }: { messageId: string; file: File }) =>
-      messagingApi.uploadConversationAttachment(conversation.id, messageId, file),
-    onSuccess: () => {
-      toast.success('Pièce jointe ajoutée.')
+  // Envoi « comme un message » : le fichier choisi dans la barre de saisie crée
+  // un message (texte éventuel + corps vide sinon) puis y attache le média.
+  const sendMediaMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const message = await messagingApi
+        .sendConversationMessage(conversation.id, body.trim())
+        .then((r) => r.data)
+      await messagingApi.uploadConversationAttachment(conversation.id, message.id, file)
+      return message
+    },
+    onSuccess: (message) => {
+      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(conversation.id), (old) =>
+        old
+          ? old.items.some((m) => m.id === message.id)
+            ? old
+            : { total: old.total + 1, items: [...old.items, message] }
+          : old
+      )
+      queryClient.invalidateQueries({ queryKey: conversationsKey })
+      setBody('')
       queryClient.invalidateQueries({ queryKey: messagesKey(conversation.id) })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -347,52 +370,12 @@ function ConversationThread({
                     isAdmin ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   )}
                 >
-                  <p className="whitespace-pre-wrap">{msg.body}</p>
-                  {msg.attachments.map((att) => (
-                    <button
-                      key={att.id}
-                      type="button"
-                      className={cn(
-                        'mt-1.5 flex max-w-full items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
-                        isAdmin ? 'border-primary-foreground/30' : 'border-border'
-                      )}
-                      onClick={async () => {
-                        try {
-                          const res = await messagingApi.downloadAttachment(att.id)
-                          downloadBlob(res.data, att.filename)
-                        } catch (err) {
-                          toast.error(getApiErrorMessage(err))
-                        }
-                      }}
-                    >
-                      <Paperclip className="size-3 shrink-0" />
-                      <span className="truncate">{att.filename}</span>
-                    </button>
-                  ))}
+                  {msg.body ? <p className="whitespace-pre-wrap">{msg.body}</p> : null}
+                  <MessageAttachments attachments={msg.attachments} highlight={isAdmin} />
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
                   <span>{formatTime(msg.created_at)}</span>
                   {isAdmin && msg.read_at && <span>· Vu</span>}
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => fileInputsRef.current[msg.id]?.click()}
-                      className="hover:text-foreground"
-                      aria-label="Joindre un fichier à ce message"
-                    >
-                      <Paperclip className="size-3" />
-                    </button>
-                  )}
-                  <input
-                    ref={(el) => { fileInputsRef.current[msg.id] = el }}
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) attachMutation.mutate({ messageId: msg.id, file })
-                      e.target.value = ''
-                    }}
-                  />
                 </div>
               </div>
             )
@@ -414,9 +397,35 @@ function ConversationThread({
           }}
           className="flex-1 resize-none"
         />
-        <Button type="button" onClick={onSend} disabled={sendMutation.isPending || !body.trim()}>
-          {sendMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-        </Button>
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Envoyer une photo ou une vidéo"
+            title="Envoyer une photo ou une vidéo"
+            onClick={() => composeFileRef.current?.click()}
+            disabled={sendMediaMutation.isPending}
+          >
+            {sendMediaMutation.isPending
+              ? <Loader2 className="size-4 animate-spin" />
+              : <Paperclip className="size-4" />}
+          </Button>
+          <Button type="button" onClick={onSend} disabled={sendMutation.isPending || !body.trim()}>
+            {sendMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          </Button>
+        </div>
+        <input
+          ref={composeFileRef}
+          type="file"
+          accept="image/*,video/*,application/pdf"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) sendMediaMutation.mutate(file)
+            e.target.value = ''
+          }}
+        />
       </div>
     </div>
   )

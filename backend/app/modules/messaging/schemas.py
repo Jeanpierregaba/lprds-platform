@@ -30,12 +30,18 @@ class AttachmentResponse(BaseModel):
 class AnnouncementCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     body:  str = Field(min_length=1)
+    # Départements ciblés : UNE liste cochée AVANT l'envoi (1 à N). Vide =
+    # broadcast à tous les parents de l'établissement.
+    department_ids: list[uuid.UUID] = []
 
 
 class AnnouncementUpdateRequest(BaseModel):
     title:     str | None = Field(default=None, min_length=1, max_length=200)
     body:      str | None = Field(default=None, min_length=1)
     is_active: bool | None = None
+    # None = périmètre inchangé ; liste fournie (éventuellement vide) =
+    # REMPLACE le ciblage (vide = retour au broadcast).
+    department_ids: list[uuid.UUID] | None = None
 
 
 class AnnouncementResponse(BaseModel):
@@ -44,6 +50,8 @@ class AnnouncementResponse(BaseModel):
     title:            str
     body:             str
     is_active:        bool
+    # [] = broadcast (tous les parents), sinon départements ciblés.
+    department_ids:   list[uuid.UUID] = []
     created_by:       UserBrief
     created_at:       datetime
     updated_at:       datetime
@@ -70,7 +78,10 @@ class ConversationStartRequest(BaseModel):
 
 
 class MessageCreateRequest(BaseModel):
-    body: str = Field(min_length=1)
+    # Corps vide autorisé : un message peut être purement média (photo/vidéo
+    # envoyée comme un message depuis la barre de saisie). L'UI n'envoie jamais
+    # un message à la fois vide ET sans pièce jointe (bouton désactivé).
+    body: str = Field(default="", max_length=5000)
 
 
 class MessageResponse(BaseModel):

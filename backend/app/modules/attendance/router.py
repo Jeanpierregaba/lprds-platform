@@ -238,14 +238,18 @@ async def export_attendance(
     date_to: date_ = Query(...),
     department_id: uuid.UUID | None = Query(default=None),
     section_id: uuid.UUID | None = Query(default=None),
+    child_id: uuid.UUID | None = Query(default=None),
+    staff_id: uuid.UUID | None = Query(default=None),
 ) -> Response:
     """Export agrégé des présences (statut par personne × jour), en PDF ou Excel.
 
     Périmètre enfants et/ou personnel ; filtres département/section pour les
-    enfants. Limité à 366 jours par appel."""
+    enfants ; `child_id` / `staff_id` (exclusifs) pour UNE personne précise.
+    Limité à 366 jours par appel."""
     content, filename = await service.get_attendance_export(
         user.establishment_id, file_format, person_type, date_from, date_to, db,
         department_id=department_id, section_id=section_id,
+        child_id=child_id, staff_id=staff_id,
     )
     media_type = (
         "application/pdf"

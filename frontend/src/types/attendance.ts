@@ -126,4 +126,7 @@ export interface AttendanceExportParams {
   date_to:       string
   department_id?: string
   section_id?:    string
+  /** Export d'UNE personne précise (exclusifs) — priment sur le périmètre. */
+  child_id?:      string
+  staff_id?:      string
 }

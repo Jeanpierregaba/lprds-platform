@@ -38,6 +38,8 @@ export type WeekContent = Record<Weekday, DayMenu>
 export interface Menu extends WeekContent {
   id:               string
   establishment_id: string
+  department_id:    string
+  department_name:  string | null
   week_start:       string
   week_end:         string
   created_by:       UserBrief
@@ -47,7 +49,9 @@ export interface Menu extends WeekContent {
 }
 
 export interface MenuListItem {
-  id:         string
+  id:              string
+  department_id:   string
+  department_name: string | null
   week_start: string
   week_end:   string
   updated_at: string
@@ -58,10 +62,26 @@ export interface MenuListResponse {
   items: MenuListItem[]
 }
 
+/** Semaine en cours : UN menu par département visible (vide si aucun publié). */
+export interface CurrentMenusResponse {
+  items: Menu[]
+}
+
+export interface VisibleDepartment {
+  id:   string
+  name: string
+}
+
+export interface VisibleDepartmentsResponse {
+  total: number
+  items: VisibleDepartment[]
+}
+
 export type MenuWritePayload = WeekContent
 
 export interface MenuCreatePayload extends WeekContent {
   week_start: string
+  department_id: string
 }
 
 export const EMPTY_DAY_MENU: DayMenu = { collation: null, dejeuner: null, dessert: null, gouter: null }

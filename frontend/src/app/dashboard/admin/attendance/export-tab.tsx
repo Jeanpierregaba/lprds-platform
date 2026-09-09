@@ -1,18 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { CalendarRange, FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
+import { CalendarRange, FileSpreadsheet, FileText, Loader2, Search, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { attendanceApi } from '@/lib/api/attendance.api'
+import { childrenApi } from '@/lib/api/children.api'
+import { staffApi } from '@/lib/api/staff.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import type { ExportFileFormat, ExportPersonType } from '@/types/attendance'
@@ -54,6 +57,48 @@ export function ExportTab() {
   const [format, setFormat] = useState<ExportFileFormat>('pdf')
   const [downloading, setDownloading] = useState(false)
 
+  // Personne précise (facultatif) : recherche + sélection, prime sur le reste.
+  interface SelectedPerson { id: string; kind: 'child' | 'staff'; label: string; sub: string | null }
+  const [personSearch, setPersonSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [selectedPerson, setSelectedPerson] = useState<SelectedPerson | null>(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(personSearch.trim()), 300)
+    return () => clearTimeout(t)
+  }, [personSearch])
+
+  const searchActive = debouncedSearch.length >= 2 && !selectedPerson
+  const { data: childHits, isLoading: childrenSearching } = useQuery({
+    queryKey: ['attendance-export-search', 'children', debouncedSearch],
+    queryFn: () => childrenApi.list({ search: debouncedSearch, limit: 8 }).then((r) => r.data),
+    enabled: searchActive,
+  })
+  const { data: staffHits, isLoading: staffSearching } = useQuery({
+    queryKey: ['attendance-export-search', 'staff', debouncedSearch],
+    queryFn: () => staffApi.list({ search: debouncedSearch, limit: 8 }).then((r) => r.data),
+    enabled: searchActive,
+  })
+  const searching = childrenSearching || staffSearching
+  const results: SelectedPerson[] = searchActive
+    ? [
+        ...(childHits?.items ?? []).map((c) => ({
+          id: c.id, kind: 'child' as const,
+          label: `${c.first_names} ${c.last_name}`, sub: c.matricule,
+        })),
+        ...(staffHits?.items ?? []).map((s) => ({
+          id: s.id, kind: 'staff' as const,
+          label: s.nickname || `${s.first_name} ${s.last_name}`, sub: s.matricule,
+        })),
+      ]
+    : []
+
+  const pickPerson = (p: SelectedPerson) => {
+    setSelectedPerson(p)
+    setPersonSearch('')
+    setDebouncedSearch('')
+  }
+
   const applyPeriod = (p: PeriodType) => {
     setPeriod(p)
     if (p !== 'custom') {
@@ -90,11 +135,13 @@ export function ExportTab() {
     try {
       const res = await attendanceApi.exportAttendance({
         format,
-        person_type: personType,
+        person_type: selectedPerson ? (selectedPerson.kind === 'child' ? 'children' : 'staff') : personType,
         date_from: dateFrom,
         date_to: dateTo,
-        department_id: departmentId || undefined,
-        section_id: sectionId || undefined,
+        department_id: selectedPerson ? undefined : departmentId || undefined,
+        section_id: selectedPerson ? undefined : sectionId || undefined,
+        child_id: selectedPerson?.kind === 'child' ? selectedPerson.id : undefined,
+        staff_id: selectedPerson?.kind === 'staff' ? selectedPerson.id : undefined,
       })
       const blob = res.data as Blob
       const disposition = res.headers['content-disposition']
@@ -122,6 +169,69 @@ export function ExportTab() {
         Export agrégé des présences (statut par personne et par jour) en PDF ou Excel,
         pour les enfants et/ou le personnel. Période limitée à 366 jours.
       </p>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Personne précise (facultatif)</CardTitle>
+          <CardDescription>
+            Recherchez un enfant ou un membre du personnel pour n&apos;exporter que lui.
+            Tant qu&apos;une personne est sélectionnée, les filtres ci-dessous sont ignorés.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {selectedPerson ? (
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <Badge variant="outline">{selectedPerson.kind === 'child' ? 'Enfant' : 'Personnel'}</Badge>
+              <span className="min-w-0 truncate text-sm font-medium">{selectedPerson.label}</span>
+              {selectedPerson.sub && <span className="truncate text-xs text-muted-foreground">{selectedPerson.sub}</span>}
+              <button
+                type="button"
+                onClick={() => setSelectedPerson(null)}
+                className="ml-auto shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                aria-label="Retirer la personne sélectionnée"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Rechercher par nom, prénom ou surnom (2 lettres min)…"
+                  aria-label="Rechercher une personne précise"
+                  value={personSearch}
+                  onChange={(e) => setPersonSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {searchActive && (
+                <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
+                  {searching ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Recherche…</p>
+                  ) : results.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Aucune personne trouvée.</p>
+                  ) : (
+                    results.map((p) => (
+                      <button
+                        key={`${p.kind}-${p.id}`}
+                        type="button"
+                        onClick={() => pickPerson(p)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                      >
+                        <Badge variant="outline">{p.kind === 'child' ? 'Enfant' : 'Personnel'}</Badge>
+                        <span className="min-w-0 truncate font-medium">{p.label}</span>
+                        {p.sub && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{p.sub}</span>}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -173,7 +283,7 @@ export function ExportTab() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Personnes</Label>
-              <Select value={personType} onValueChange={(v) => setPersonType(v as ExportPersonType)}>
+              <Select value={personType} onValueChange={(v) => setPersonType(v as ExportPersonType)} disabled={!!selectedPerson}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choisir qui exporter" />
                 </SelectTrigger>
@@ -189,7 +299,7 @@ export function ExportTab() {
               <>
                 <div className="space-y-2">
                   <Label>Département (enfants)</Label>
-                  <Select value={departmentId} onValueChange={(v) => { setDepartmentId(v ?? ''); setSectionId('') }}>
+                  <Select value={departmentId} onValueChange={(v) => { setDepartmentId(v ?? ''); setSectionId('') }} disabled={!!selectedPerson}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Tous les départements" />
                     </SelectTrigger>
@@ -203,7 +313,7 @@ export function ExportTab() {
                 </div>
                 <div className="space-y-2">
                   <Label>Section (enfants)</Label>
-                  <Select value={sectionId} onValueChange={(v) => setSectionId(v ?? '')} disabled={!departmentId}>
+                  <Select value={sectionId} onValueChange={(v) => setSectionId(v ?? '')} disabled={!departmentId || !!selectedPerson}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder={departmentId ? 'Toutes les sections' : 'Choisissez un département d’abord'} />
                     </SelectTrigger>

@@ -880,7 +880,14 @@ GET  /PUT /api/v1/attendance/settings/departments/{department_id}   # attendance
 GET  /PUT /api/v1/attendance/settings/general                        # fuseau + horaires staff
 GET  /api/v1/attendance/settings/exempt-staff                        # ?exempt_only=
 PATCH /api/v1/attendance/settings/exempt-staff/{staff_id}
+GET  /api/v1/attendance/export                      # ?format=&person_type=&date_from=&date_to=
+                                                    #  &department_id=&section_id=&child_id=&staff_id=
 ```
+
+Export agrégé PDF/Excel (statut par personne × jour, max 366 jours) :
+`child_id` / `staff_id` (exclusifs, 422 sinon) restreignent à UNE personne
+précise — 404 si hors établissement — et priment sur `person_type` /
+département / section.
 
 ### Permissions — trois, pas deux
 
@@ -966,10 +973,11 @@ de son établissement).
 
 ## Module Messagerie (temps réel)
 
-Deux volets : **diffusions** (un admin publie, tous les parents de
-l'établissement voient) et **conversations privées** (une par parent — pas par
-membre du staff : « l'administration » est collective, n'importe quel admin
-peut répondre dans n'importe quelle conversation).
+Deux volets : **diffusions** (un admin publie pour tous les parents de
+l'établissement **ou** pour un à plusieurs départements cochés avant l'envoi)
+et **conversations privées** (une par parent — pas par membre du staff :
+« l'administration » est collective, n'importe quel admin peut répondre dans
+n'importe quelle conversation ; photos ET vidéos acceptées).
 
 ### ⚠️ HORS RBAC — la seule exception du projet
 
@@ -1074,6 +1082,36 @@ d'endpoints proprement.
 - vue **parent** : `is_read` (son statut personnel)
 - vue **admin** : `read_count` / `total_parents` (« combien de parents ont vu »)
 
+### Diffusions — ciblage par départements (1 à N, coché avant l'envoi)
+
+UX voulue : la diffusion se rédige **en entier d'abord**, puis l'admin coche
+les départements concernés avant d'envoyer (un seul ou plusieurs) —
+`POST /announcements {title, body, department_ids: [...]}`. **Liste vide =
+broadcast** à tous les parents (comportement historique inchangé).
+
+- Stockage : table d'association `announcement_departments` (aucune ligne =
+  broadcast), relation `Announcement.departments` (`lazy="selectin"`).
+  FK côté département en `RESTRICT` : une suppression ne doit jamais élargir
+  silencieusement une audience ciblée vers un broadcast (les départements ne
+  sont de toute façon que soft-deleted via l'API).
+- **Audience d'un parent** = les départements de SES enfants (via
+  `parent_children` + `children.department_id`, enfants sans département
+  ignorés). Un parent sans enfant dans le périmètre : la diffusion n'apparaît
+  ni en liste, ni au détail, ni en `POST .../read` (**404 partout**, jamais
+  403 — on ne révèle pas l'existence, comme tout le projet).
+- **Compteur admin X/Y sur l'audience réelle** : `total_parents` = parents
+  actifs ayant ≥ 1 enfant dans le périmètre (broadcast = tous les parents).
+  Au `PATCH` du périmètre, les lectures de parents sortis du périmètre sont
+  **supprimées** (sinon `read_count > total`). `PATCH {department_ids: [...]`
+  remplace le ciblage (`[]` = retour au broadcast, `null` = inchangé).
+- **Temps réel & push ciblés** : l'événement WS `announcement` inclut
+  `department_ids` (même canal établissement — le client filtre) ; le push
+  (`send_push_to_establishment_parents(..., parent_ids=...)`) et le
+  téléchargement des pièces jointes de diffusion respectent le périmètre
+  (404 hors périmètre côté parent).
+- Validation : chaque `department_id` doit appartenir à l'établissement
+  (404 sinon, doublons dédupliqués).
+
 ### Conversations — un seul niveau de lu/non-lu
 `Message.read_at` = lu **par l'autre côté**, un seul champ (pas de suivi par
 admin individuel). Un admin qui ouvre le fil et appelle `POST .../read` marque
@@ -1105,7 +1143,11 @@ deux** — même pattern « double FK nullable + `CHECK`» que
 `AttendanceEvent.child_id`/`staff_id`. Upload en **deux temps** (pas dans le
 même appel que l'envoi du texte) : le message/l'annonce existe déjà, on y
 attache un fichier après coup via un endpoint dédié — ça n'a rien cassé des
-endpoints JSON existants (`send_message` reste inchangé).
+endpoints JSON existants (`send_message` reste inchangé). Côté UI le trombone
+vit dans la barre de saisie (au-dessus du bouton d'envoi), plus sur chaque
+bulle : choisir un fichier crée le message (texte éventuel, corps vide sinon
+— `MessageCreateRequest.body` accepte `""`) puis y attache le média dans la
+foulée, façon WhatsApp.
 
 - **Stockage local uniquement** (`app/core/storage.py`, backend `local` —
   `STORAGE_BACKEND`/`STORAGE_LOCAL_PATH` étaient déjà dans `Settings` mais
@@ -1116,16 +1158,20 @@ endpoints JSON existants (`send_message` reste inchangé).
 - **Écriture disque hors thread principal** (`asyncio.to_thread`) — ne bloque
   pas la boucle asyncio le temps de l'I/O.
 - **Téléchargement authentifié uniquement** : `GET /messaging/attachments/{id}`
-  vérifie l'établissement (404 si différent) et, pour une pièce jointe de
-  message, que le demandeur est admin OU le parent propriétaire de la
-  conversation. **Jamais de fichier servi en statique** (pas de `StaticFiles`
-  mount) — un accès direct au chemin de stockage ne suffirait à rien voir,
-  toute lecture passe par cette vérification.
+  vérifie l'établissement (404 si différent), pour une pièce jointe de
+  message que le demandeur est admin OU le parent propriétaire de la
+  conversation, et pour une pièce jointe de **diffusion ciblée** que le parent
+  est dans le périmètre (404 sinon). **Jamais de fichier servi en statique**
+  (pas de `StaticFiles` mount) — un accès direct au chemin de stockage ne
+  suffirait à rien voir, toute lecture passe par cette vérification.
 - **Validation** : taille max (`MESSAGING_MAX_ATTACHMENT_MB`, défaut 10 Mo,
-  413 sinon) et type MIME — la liste blanche
+  413 sinon — **sauf la vidéo** : `MESSAGING_MAX_VIDEO_MB`, défaut 50 Mo, car
+  10 Mo rendrait tout envoi vidéo impossible) et type MIME — la liste blanche
   (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) est
   complétée par un sur-ensemble : **tout MIME `image/*` est accepté** (sauf
-  `image/svg+xml`), la vidéo reste exclue de la messagerie —
+  `image/svg+xml`) partout, et **tout MIME `video/*` est accepté UNIQUEMENT
+  dans les conversations privées** (`_validate_upload(allow_video=True)` —
+  les diffusions restent images + PDF) —
   le `content_type` déclaré par le client n'est **pas** vérifié par analyse du
   contenu (pas de sniffing des octets magiques) : simplification assumée,
   acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
@@ -1493,6 +1539,13 @@ Menu hebdomadaire (lundi–vendredi) informant les parents des repas servis par
 l'établissement. Une semaine = 5 jours × 4 créneaux, **toujours dans cet ordre
 réel des repas** : collation → déjeuner → dessert → goûter.
 
+### Une ligne = une semaine pour UN département (plus de menu général)
+
+Chaque menu appartient à **un département** (`department_id` obligatoire,
+unicité `(establishment_id, department_id, week_start)`) — il n'existe plus de
+menu « général » d'établissement. La réponse dénormalise `department_name`
+(le parent ne peut pas appeler `/departments`, `organization:read` requis).
+
 ### Une ligne = une semaine entière, contenu typé (pas de `content: dict` ouvert)
 
 Contrairement aux rapports, la structure ne varie jamais (toujours 5 jours ×
@@ -1512,42 +1565,58 @@ Nouvelle permission RBAC délégable `menus:write` — typiquement accordée à 
 staff `staff_type=restaurateur`, mais **RBAC seul fait foi** : `staff_type`
 reste une métadonnée descriptive sans effet sur les droits (cf. module Staff),
 n'importe quel staff peut recevoir `menus:write` si l'admin le décide.
+L'écriture couvre TOUS les départements (la restauration reste centrale) :
+`department_id` passé en body (POST) ou query (PATCH/DELETE, 422 si absent),
+vérifié dans l'établissement (404 sinon), 409 par (semaine, département).
 
 **On ne réécrit jamais l'historique** : création, modification (`PATCH`,
 remplace `content` en entier — pas de fusion partielle implicite, comme pour
 les rapports) et suppression sont toutes les trois limitées à la semaine en
 cours ou à venir (`week_start >= lundi de cette semaine`, 422 sinon).
 
-### Lecture — ouverte à tous, sauf l'historique
+### Lecture — scopée aux départements visibles
 
-- **Semaine en cours ou à venir** (`GET /menus/current`, `GET /menus/{week_start}`) :
-  **ouvert à tout acteur de l'établissement** — admin, n'importe quel staff
-  (même sans `menus:write`), parent — aucune permission RBAC requise. Seul le
-  superadmin en est exclu (`establishment_id` NULL, même principe de
-  minimisation RGPD qu'ailleurs).
-- **Semaine passée** (`GET /menus/{week_start}` avec une date antérieure au
-  lundi courant) : réservé à l'admin et au staff avec `menus:write` — 403 pour
-  tous les autres. Le contrôle d'accès prime sur l'existence de la ressource
-  (403 avant 404, comme dans le reste de l'application) : un lecteur non
-  autorisé ne doit jamais pouvoir distinguer « semaine inexistante » de
-  « semaine existante mais interdite ».
-- **`GET /menus`** (liste/historique complet, passé + à venir) : réservé à
-  l'admin et au staff avec `menus:write` — c'est l'outil de gestion, pas la
-  consultation grand public.
+- **Admin / `menus:write`** : tous les départements (gestion).
+- **Parent** : départements de SES enfants — multi-départements = tous les
+  siens (`GET /current` renvoie UN menu par département visible).
+- **Éducatrice** (≥ 1 groupe mené) : départements de ses groupes (menus:read
+  du socle automatique + scope, cf. `ensure_educatrice_baseline_role`).
+- **Autre staff** (aucun groupe, pas de `menus:write`) : tout, comme avant —
+  seuls parents et éducatrices sont scopés (décision explicite).
+- **`GET /menus/departments`** : départements visibles de l'appelant —
+  alimente les sélecteurs UI sans passer par `/departments` (inaccessible
+  parent). Placé AVANT `/{week_start}` dans le router.
+- **Semaine passée** : réservé admin / `menus:write` / `menus:read` — 403 pour
+  les autres. Le contrôle d'accès prime sur l'existence (403 avant 404) :
+  périmètre d'abord, historique ensuite, existence en dernier.
+- **`GET /menus`** (historique, `?department_id=` optionnel) : réservé admin /
+  `menus:read` / `menus:write`, scopé aux départements visibles — jamais les
+  parents (403, inchangé).
 
 ### Endpoints
 ```
-POST   /api/v1/menus                # menus:write — 422 si pas un lundi ou semaine passée
-PATCH  /api/v1/menus/{week_start}    # menus:write — remplace le contenu entier, jamais le passé
-DELETE /api/v1/menus/{week_start}    # menus:write — jamais le passé
-GET    /api/v1/menus                 # menus:write — historique complet, paginé
+POST   /api/v1/menus                # menus:write — department_id obligatoire, 409 par (semaine, dept)
+PATCH  /api/v1/menus/{week_start}?department_id=  # menus:write — remplace le contenu entier
+DELETE /api/v1/menus/{week_start}?department_id=  # menus:write
+GET    /api/v1/menus?department_id=  # admin/menus:read/menus:write — historique scopé, paginé
+GET    /api/v1/menus/departments      # départements visibles (sélecteurs UI)
 
-GET    /api/v1/menus/current         # ouvert à tous — semaine en cours
-GET    /api/v1/menus/{week_start}    # ouvert si >= semaine en cours, sinon menus:write requis
+GET    /api/v1/menus/current         # UN menu par département visible (liste, éventuellement vide)
+GET    /api/v1/menus/{week_start}?department_id=  # 403 hors périmètre, 403 historique sans droit, 404 si rien
 ```
 
-> ⚠️ `/current` placé **avant** `/{week_start}` dans le router — même
-> précaution de routage que `/vocabulary` (rapports) ou `/mine` (galerie).
+> ⚠️ `/departments` et `/current` placés **avant** `/{week_start}` dans le
+> router — même précaution de routage que `/vocabulary` (rapports).
+
+### Registre central — leçon apprise
+
+`menus/models.py` manquait dans `app/core/models.py` (`WeeklyMenu` figurait
+dans `__all__` mais l'import avait été oublié) : l'app tournait quand même
+(import en cascade via le router), mais **l'autogenerate Alembic ne voyait
+jamais la table** et proposait de la SUPPRIMER à chaque revision (fantôme
+`weekly_menus` croisé deux fois avant diagnostic). Règle durcie : après ajout
+au registre, relancer un `alembic revision --autogenerate` à vide pour vérifier
+qu'il ne détecte rien d'inattendu.
 
 ### Isolation
 Toutes les requêtes sont bornées à `establishment_id` — même principe que le
@@ -1722,9 +1791,12 @@ MAIL_SSL_TLS=false
 MAIL_SUPPRESS_SEND=false
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
-# Pièces jointes messagerie (défauts si absent : 10 Mo) — tout MIME image/*
-# est accepté en plus de la liste (sauf image/svg+xml) ; la vidéo reste exclue
+# Pièces jointes messagerie (défauts si absent : 10 Mo, 50 Mo vidéo) — tout
+# MIME image/* est accepté en plus de la liste (sauf image/svg+xml) ; tout
+# MIME video/* est accepté UNIQUEMENT dans les conversations privées (les
+# diffusions restent images + PDF), avec son propre plafond vidéo.
 MESSAGING_MAX_ATTACHMENT_MB=10
+MESSAGING_MAX_VIDEO_MB=50
 MESSAGING_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf
 # Pièces jointes rapports (défauts si absent : 50 Mo) — tout MIME image/* ou
 # video/* est accepté en plus de la liste (sauf image/svg+xml)
@@ -1868,6 +1940,7 @@ tests/
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
+    ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     └── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
 ```
 
@@ -2034,7 +2107,7 @@ Nouveau module créé avec :
 ### Intégration dans les modules existants
 - **Messagerie** (`app/modules/messaging/service.py`) :
   - `send_message()` : push aux admins de l'établissement après publication
-  - `create_announcement()` : push à tous les parents de l'établissement après diffusion
+  - `create_announcement()` : push à l'audience de la diffusion (tous les parents, ou parents des départements ciblés) après diffusion
 - **Rapports** (`app/modules/reports/service.py`) :
   - `validate_report()` : push aux parents en plus des emails après validation
   - `submit_report` (admin) : push aux parents après validation immédiate

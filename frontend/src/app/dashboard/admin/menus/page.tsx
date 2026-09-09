@@ -11,6 +11,7 @@ import { mondayOf, toIsoDate } from '@/lib/utils/dates'
 
 export default function MenusPage() {
   const [weekStart, setWeekStart] = useState(() => toIsoDate(mondayOf(new Date())))
+  const [departmentId, setDepartmentId] = useState('')
   const [tab, setTab] = useState('week')
 
   return (
@@ -38,11 +39,14 @@ export default function MenusPage() {
         </TabsList>
 
         <TabsContent value="week">
-          <WeekTab weekStart={weekStart} onWeekStartChange={setWeekStart} />
+          <WeekTab
+            weekStart={weekStart} onWeekStartChange={setWeekStart}
+            departmentId={departmentId} onDepartmentChange={setDepartmentId}
+          />
         </TabsContent>
         <TabsContent value="history">
           <HistoryTab
-            onSelectWeek={(ws) => { setWeekStart(ws); setTab('week') }}
+            onSelectMenu={(ws, dep) => { setWeekStart(ws); setDepartmentId(dep); setTab('week') }}
           />
         </TabsContent>
       </Tabs>

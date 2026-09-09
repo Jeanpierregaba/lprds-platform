@@ -74,7 +74,11 @@ export const STAFF_BASELINE_ITEMS: NavItem[] = [
  * des permissions listées — jamais Messagerie (hors RBAC, admin/parent
  * uniquement) ni Rôles & permissions (réservé à l'admin).
  */
-export const STAFF_MODULE_ITEMS: (NavItem & { permissions: string[] })[] = [
+export const STAFF_MODULE_ITEMS: (NavItem & {
+  permissions: string[]
+  /** true = TOUTES les permissions requises (défaut : AU MOINS UNE). */
+  requireAll?: boolean
+})[] = [
   { label: 'Enfants', href: '/dashboard/admin/children', icon: Baby, permissions: ['children:read'] },
   { label: 'Parents', href: '/dashboard/admin/parents', icon: Users, permissions: ['parents:read'] },
   { label: 'Personnel', href: '/dashboard/admin/staff', icon: UserRound, permissions: ['staff:read'] },
@@ -97,4 +101,18 @@ export const STAFF_MODULE_ITEMS: (NavItem & { permissions: string[] })[] = [
   },
   { label: 'Blog', href: '/dashboard/admin/blog', icon: Newspaper, permissions: ['blog:write'] },
   { label: 'Organisation', href: '/dashboard/admin/organization', icon: Network, permissions: ['organization:read'] },
+  // Paramètres des modules (onglets déplacés vers /dashboard/admin/settings) —
+  // le staff délégué y garde accès en lien profond (?tab=), filtré ci-dessous.
+  {
+    label: 'Paramètres présences', href: '/dashboard/admin/settings?tab=presences', icon: Settings,
+    permissions: ['attendance:write'],
+  },
+  {
+    label: 'Paramètres rapports', href: '/dashboard/admin/settings?tab=rapports', icon: Settings,
+    permissions: ['reports:write'],
+  },
+  {
+    label: 'Paramètres bibliothèque', href: '/dashboard/admin/settings?tab=bibliotheque', icon: Settings,
+    permissions: ['library:read', 'library:write', 'library:lend'], requireAll: true,
+  },
 ]

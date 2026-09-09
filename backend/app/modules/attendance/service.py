@@ -515,9 +515,14 @@ async def get_attendance_export(
     *,
     department_id: uuid.UUID | None = None,
     section_id: uuid.UUID | None = None,
+    child_id: uuid.UUID | None = None,
+    staff_id: uuid.UUID | None = None,
 ) -> tuple[bytes, str]:
     """Construit l'export agrégé (statut par personne × jour) et le rend dans
-    le format demandé. Retourne (octets du fichier, nom de fichier)."""
+    le format demandé. Retourne (octets du fichier, nom de fichier).
+    `child_id` / `staff_id` restreignent l'export à UNE personne précise
+    (exclusifs l'un de l'autre, 422 sinon ; 404 si hors établissement) et
+    priment sur `export_scope` / département / section."""
     if date_to < date_from:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -537,6 +542,7 @@ async def get_attendance_export(
     rows = await _build_export_rows(
         establishment_id, export_scope, date_from, date_to, db,
         department_id=department_id, section_id=section_id,
+        child_id=child_id, staff_id=staff_id,
     )
 
     filename = (
@@ -562,29 +568,71 @@ async def _build_export_rows(
     *,
     department_id: uuid.UUID | None = None,
     section_id: uuid.UUID | None = None,
+    child_id: uuid.UUID | None = None,
+    staff_id: uuid.UUID | None = None,
 ) -> list[AttendanceExportRow]:
+    if child_id and staff_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="child_id et staff_id sont exclusifs l'un de l'autre",
+        )
+    # Export d'une personne précise : on la résout d'abord (404 si hors
+    # établissement — on ne révèle pas l'existence, comme partout).
+    only_child: Child | None = None
+    only_staff: User | None = None
+    if child_id:
+        only_child = await db.scalar(
+            select(Child).where(
+                Child.id == child_id, Child.establishment_id == establishment_id
+            )
+        )
+        if not only_child:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable"
+            )
+        export_scope = ExportPersonType.CHILDREN
+    if staff_id:
+        only_staff = await db.scalar(
+            select(User).where(
+                User.id == staff_id,
+                User.establishment_id == establishment_id,
+                User.role == UserRole.STAFF,
+            )
+        )
+        if not only_staff:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Membre du personnel introuvable"
+            )
+        export_scope = ExportPersonType.STAFF
+
     want_children = export_scope in (ExportPersonType.CHILDREN, ExportPersonType.BOTH)
     want_staff = export_scope in (ExportPersonType.STAFF, ExportPersonType.BOTH)
 
     children: list[Child] = []
     staff_members: list[User] = []
     if want_children:
-        filters = [Child.establishment_id == establishment_id, Child.is_active.is_(True)]
-        if department_id:
-            filters.append(Child.department_id == department_id)
-        if section_id:
-            filters.append(Child.section_id == section_id)
-        children = (await db.execute(select(Child).where(*filters))).scalars().all()
+        if only_child is not None:
+            children = [only_child]
+        else:
+            filters = [Child.establishment_id == establishment_id, Child.is_active.is_(True)]
+            if department_id:
+                filters.append(Child.department_id == department_id)
+            if section_id:
+                filters.append(Child.section_id == section_id)
+            children = (await db.execute(select(Child).where(*filters))).scalars().all()
     if want_staff:
-        staff_members = (
-            await db.execute(
-                select(User).where(
-                    User.establishment_id == establishment_id,
-                    User.role == UserRole.STAFF,
-                    User.is_active.is_(True),
+        if only_staff is not None:
+            staff_members = [only_staff]
+        else:
+            staff_members = (
+                await db.execute(
+                    select(User).where(
+                        User.establishment_id == establishment_id,
+                        User.role == UserRole.STAFF,
+                        User.is_active.is_(True),
+                    )
                 )
-            )
-        ).scalars().all()
+            ).scalars().all()
 
     if not children and not staff_members:
         return []

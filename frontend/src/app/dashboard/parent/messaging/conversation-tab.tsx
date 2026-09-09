@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { downloadBlob } from '@/lib/utils/download'
+import { MessageAttachments } from '@/components/messaging/message-attachments'
 import { cn } from '@/lib/utils'
 import type { MessageListResponse } from '@/types/messaging'
 
@@ -27,7 +27,7 @@ export function ConversationTab() {
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const fileInputsRef = useRef<Record<string, HTMLInputElement | null>>({})
+  const composeFileRef = useRef<HTMLInputElement>(null)
   const markedReadRef = useRef(false)
 
   const { data: conversation } = useQuery({
@@ -58,11 +58,18 @@ export function ConversationTab() {
     }
   }, [conversation, markReadMutation])
 
+  const appendMessage = (message: MessageListResponse['items'][number]) =>
+    queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
+      old
+        ? old.items.some((m) => m.id === message.id)
+          ? old
+          : { total: old.total + 1, items: [...old.items, message] }
+        : old
+    )
+
   useMessagingEvent((event) => {
     if (event.type === 'message' && event.conversation_id === conversation?.id) {
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
-        old ? { total: old.total + 1, items: [...old.items, event] } : old
-      )
+      appendMessage(event)
       if (event.sender_role !== 'parent') markedReadRef.current = false
     } else if (event.type === 'read_receipt' && event.conversation_id === conversation?.id) {
       queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
@@ -78,19 +85,23 @@ export function ConversationTab() {
   const sendMutation = useMutation({
     mutationFn: (text: string) => messagingApi.sendMyMessage(text).then((r) => r.data),
     onSuccess: (message) => {
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
-        old ? { total: old.total + 1, items: [...old.items, message] } : old
-      )
+      appendMessage(message)
       setBody('')
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
-  const attachMutation = useMutation({
-    mutationFn: ({ messageId, file }: { messageId: string; file: File }) =>
-      messagingApi.uploadMyMessageAttachment(messageId, file),
-    onSuccess: () => {
-      toast.success('Pièce jointe ajoutée.')
+  // Envoi « comme un message » : le fichier choisi dans la barre de saisie crée
+  // un message (texte éventuel + corps vide sinon) puis y attache le média.
+  const sendMediaMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const message = await messagingApi.sendMyMessage(body.trim()).then((r) => r.data)
+      await messagingApi.uploadMyMessageAttachment(message.id, file)
+      return message
+    },
+    onSuccess: (message) => {
+      appendMessage(message)
+      setBody('')
       queryClient.invalidateQueries({ queryKey: messagesKey })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -125,52 +136,12 @@ export function ConversationTab() {
                       isMine ? 'bg-primary text-primary-foreground' : 'bg-muted'
                     )}
                   >
-                    <p className="whitespace-pre-wrap">{msg.body}</p>
-                    {msg.attachments.map((att) => (
-                      <button
-                        key={att.id}
-                        type="button"
-                        className={cn(
-                          'mt-1.5 flex max-w-full items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
-                          isMine ? 'border-primary-foreground/30' : 'border-border'
-                        )}
-                        onClick={async () => {
-                          try {
-                            const res = await messagingApi.downloadAttachment(att.id)
-                            downloadBlob(res.data, att.filename)
-                          } catch (err) {
-                            toast.error(getApiErrorMessage(err))
-                          }
-                        }}
-                      >
-                        <Paperclip className="size-3 shrink-0" />
-                        <span className="min-w-0 truncate">{att.filename}</span>
-                      </button>
-                    ))}
+                    {msg.body ? <p className="whitespace-pre-wrap">{msg.body}</p> : null}
+                    <MessageAttachments attachments={msg.attachments} highlight={isMine} />
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
                     <span>{formatTime(msg.created_at)}</span>
                     {isMine && msg.read_at && <span>· Vu</span>}
-                    {isMine && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputsRef.current[msg.id]?.click()}
-                        className="hover:text-foreground"
-                        aria-label="Joindre un fichier à ce message"
-                      >
-                        <Paperclip className="size-3" />
-                      </button>
-                    )}
-                    <input
-                      ref={(el) => { fileInputsRef.current[msg.id] = el }}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) attachMutation.mutate({ messageId: msg.id, file })
-                        e.target.value = ''
-                      }}
-                    />
                   </div>
                 </div>
               )
@@ -192,9 +163,35 @@ export function ConversationTab() {
             }}
             className="flex-1 resize-none"
           />
-          <Button type="button" onClick={onSend} disabled={sendMutation.isPending || !body.trim()}>
-            {sendMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Envoyer une photo ou une vidéo"
+              title="Envoyer une photo ou une vidéo"
+              onClick={() => composeFileRef.current?.click()}
+              disabled={sendMediaMutation.isPending}
+            >
+              {sendMediaMutation.isPending
+                ? <Loader2 className="size-4 animate-spin" />
+                : <Paperclip className="size-4" />}
+            </Button>
+            <Button type="button" onClick={onSend} disabled={sendMutation.isPending || !body.trim()}>
+              {sendMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            </Button>
+          </div>
+          <input
+            ref={composeFileRef}
+            type="file"
+            accept="image/*,video/*,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) sendMediaMutation.mutate(file)
+              e.target.value = ''
+            }}
+          />
         </div>
       </CardContent>
     </Card>

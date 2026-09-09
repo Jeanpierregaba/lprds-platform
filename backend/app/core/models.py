@@ -32,7 +32,9 @@ from app.modules.messaging.models import (
     Attachment,
     Conversation,
     Message,
+    announcement_departments,
 )
+from app.modules.menus.models import WeeklyMenu
 from app.modules.organization.models import Department, Group, Section
 from app.modules.parents.models import parent_children
 from app.modules.rbac.models import (
@@ -70,6 +72,7 @@ __all__ = [
     "StaffAttendanceSchedule",
     "Announcement",
     "AnnouncementRead",
+    "announcement_departments",
     "Conversation",
     "Message",
     "Attachment",

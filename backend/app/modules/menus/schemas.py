@@ -41,11 +41,18 @@ class MenuWriteRequest(BaseModel):
 
 class MenuCreateRequest(MenuWriteRequest):
     week_start: date
+    # Département du menu — OBLIGATOIRE : il n'existe plus de menu général
+    # d'établissement, un menu est toujours celui d'un département.
+    department_id: uuid.UUID
 
 
 class MenuResponse(BaseModel):
     id:               uuid.UUID
     establishment_id: uuid.UUID
+    department_id:    uuid.UUID
+    # Dénormalisé : le parent ne peut pas appeler /departments
+    # (organization:read requis) et doit afficher le nom quand même.
+    department_name:  str | None = None
     week_start:       date
     week_end:         date  # vendredi — calculé, jamais saisi
 
@@ -62,7 +69,9 @@ class MenuResponse(BaseModel):
 
 
 class MenuListItem(BaseModel):
-    id:         uuid.UUID
+    id:              uuid.UUID
+    department_id:   uuid.UUID
+    department_name: str | None = None
     week_start: date
     week_end:   date
     updated_at: datetime
@@ -71,3 +80,23 @@ class MenuListItem(BaseModel):
 class MenuListResponse(BaseModel):
     total: int
     items: list[MenuListItem]
+
+
+class CurrentMenusResponse(BaseModel):
+    """Menus de la semaine en cours, UN par département visible (liste vide si
+    aucun publié) — le parent multi-départements reçoit tous les siens."""
+
+    items: list[MenuResponse]
+
+
+class DepartmentBrief(BaseModel):
+    id:   uuid.UUID
+    name: str
+
+
+class VisibleDepartmentsResponse(BaseModel):
+    """Départements dont l'appelant voit les menus — alimente les sélecteurs
+    UI sans passer par /departments (organization:read, inaccessible parent)."""
+
+    total: int
+    items: list[DepartmentBrief]

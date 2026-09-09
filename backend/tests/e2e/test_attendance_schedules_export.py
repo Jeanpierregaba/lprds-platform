@@ -119,3 +119,36 @@ def test_attendance_export_pdf_and_excel(client):
         "format": "pdf", "person_type": "both",
         "date_from": to, "date_to": from_}, headers=adm)
     ck("Période inversée rejetée", inv.status_code, 422)
+
+def test_attendance_export_single_person(client):
+    """Export restreint à UNE personne précise (child_id / staff_id)."""
+    c = client
+    adm, dep, sec, child, staff = _setup(c)
+    today = date.today()
+    from_ = (today - timedelta(days=7)).isoformat()
+    to = today.isoformat()
+    base = {"format": "pdf", "person_type": "both",
+            "date_from": from_, "date_to": to}
+
+    one_child = c.get("/attendance/export", params={**base, "child_id": child["id"]},
+                      headers=adm)
+    ck("Export enfant précis OK", one_child.status_code, 200)
+    ck("Export enfant précis non vide", len(one_child.content) > 500, True)
+
+    one_staff = c.get("/attendance/export", params={**base, "staff_id": staff["id"]},
+                      headers=adm)
+    ck("Export personnel précis OK", one_staff.status_code, 200)
+
+    both_ids = c.get("/attendance/export", params={
+        **base, "child_id": child["id"], "staff_id": staff["id"]}, headers=adm)
+    ck("child_id + staff_id → 422", both_ids.status_code, 422)
+
+    unknown = c.get("/attendance/export", params={
+        **base, "child_id": "00000000-0000-0000-0000-000000000000"}, headers=adm)
+    ck("Enfant inconnu → 404", unknown.status_code, 404)
+
+    # Enfant d'un AUTRE établissement → 404 (isolation), jamais 403.
+    adm_other, _d, _s, _ch, _st = _setup(c, code="AUTRE")
+    cross = c.get("/attendance/export", params={**base, "child_id": child["id"]},
+                  headers=adm_other)
+    ck("Enfant hors établissement → 404", cross.status_code, 404)

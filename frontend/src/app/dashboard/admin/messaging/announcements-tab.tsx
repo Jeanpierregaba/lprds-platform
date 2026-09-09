@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Loader2, Megaphone, Paperclip, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,6 +21,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { messagingApi } from '@/lib/api/messaging.api'
+import { organizationApi } from '@/lib/api/organization.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
@@ -41,12 +43,22 @@ export function AnnouncementsTab() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Announcement | null>(null)
   const [attachFile, setAttachFile] = useState<File | null>(null)
+  // Ciblage : coché AVANT l'envoi (rédaction d'abord, périmètre ensuite).
+  // broadcast=true → department_ids=[] (tous les parents).
+  const [broadcast, setBroadcast] = useState(true)
+  const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['messaging', 'announcements', { includeInactive }],
     queryFn: () => messagingApi.listAnnouncements({ include_inactive: includeInactive }).then((r) => r.data),
   })
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ['organization', 'departments'],
+    queryFn: () => organizationApi.listDepartments().then((r) => r.data),
+  })
+  const deptNames = new Map(departments.map((d) => [d.id, d.name]))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['messaging', 'announcements'] })
 
@@ -78,6 +90,8 @@ export function AnnouncementsTab() {
   const openCreate = () => {
     setEditing(null)
     setAttachFile(null)
+    setBroadcast(true)
+    setSelectedDeptIds([])
     reset({ title: '', body: '' })
     setDialogOpen(true)
   }
@@ -85,19 +99,30 @@ export function AnnouncementsTab() {
   const openEdit = (a: Announcement) => {
     setEditing(a)
     setAttachFile(null)
+    const scoped = a.department_ids ?? []
+    setBroadcast(scoped.length === 0)
+    setSelectedDeptIds(scoped)
     reset({ title: a.title, body: a.body })
     setDialogOpen(true)
   }
 
+  const toggleDept = (id: string) =>
+    setSelectedDeptIds((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]))
+
   const onSubmit = async (values: Form) => {
+    if (!broadcast && selectedDeptIds.length === 0) {
+      toast.error('Cochez au moins un département, ou choisissez « Tous les parents ».')
+      return
+    }
+    const department_ids = broadcast ? [] : selectedDeptIds
     try {
       let announcement: Announcement
       if (editing) {
-        await messagingApi.updateAnnouncement(editing.id, values)
+        await messagingApi.updateAnnouncement(editing.id, { ...values, department_ids })
         announcement = editing
         toast.success('Diffusion mise à jour.')
       } else {
-        const created = await messagingApi.createAnnouncement(values)
+        const created = await messagingApi.createAnnouncement({ ...values, department_ids })
         announcement = created.data
         toast.success('Diffusion publiée.')
       }
@@ -139,7 +164,9 @@ export function AnnouncementsTab() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editing ? 'Modifier la diffusion' : 'Nouvelle diffusion'}</DialogTitle>
-              <DialogDescription>Visible par tous les parents de l&apos;établissement.</DialogDescription>
+              <DialogDescription>
+                Rédigez le message en entier, puis cochez les départements concernés avant l&apos;envoi.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
@@ -151,6 +178,40 @@ export function AnnouncementsTab() {
                 <Label htmlFor="body">Contenu</Label>
                 <Textarea id="body" rows={5} {...register('body')} aria-invalid={!!errors.body} />
                 {errors.body && <p className="text-sm text-destructive">{errors.body.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Destinataires</Label>
+                <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <Checkbox
+                    id="announcement-broadcast"
+                    checked={broadcast}
+                    onCheckedChange={(v) => setBroadcast(v === true)}
+                  />
+                  <Label htmlFor="announcement-broadcast" className="text-sm font-normal">
+                    Tous les parents de l&apos;établissement
+                  </Label>
+                </div>
+                {!broadcast && (
+                  <div className="space-y-1 rounded-md border px-3 py-2">
+                    {departments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Aucun département dans l&apos;établissement.</p>
+                    ) : (
+                      departments.map((d) => (
+                        <div key={d.id} className="flex items-center gap-2 py-1">
+                          <Checkbox
+                            id={`announcement-dept-${d.id}`}
+                            checked={selectedDeptIds.includes(d.id)}
+                            onCheckedChange={() => toggleDept(d.id)}
+                          />
+                          <Label htmlFor={`announcement-dept-${d.id}`} className="text-sm font-normal">
+                            {d.name}
+                          </Label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               {!editing && (
@@ -182,6 +243,7 @@ export function AnnouncementsTab() {
                   <input
                     ref={fileInputRef}
                     type="file"
+                    accept="image/*,application/pdf"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
@@ -220,7 +282,13 @@ export function AnnouncementsTab() {
       ) : (
         <div className="space-y-3">
           {items.map((a) => (
-            <AnnouncementCard key={a.id} announcement={a} onEdit={() => openEdit(a)} onToggleActive={() => toggleActiveMutation.mutate(a)} />
+            <AnnouncementCard
+              key={a.id}
+              announcement={a}
+              deptNames={deptNames}
+              onEdit={() => openEdit(a)}
+              onToggleActive={() => toggleActiveMutation.mutate(a)}
+            />
           ))}
         </div>
       )}
@@ -229,10 +297,16 @@ export function AnnouncementsTab() {
 }
 
 function AnnouncementCard({
-  announcement, onEdit, onToggleActive,
-}: { announcement: Announcement; onEdit: () => void; onToggleActive: () => void }) {
+  announcement, deptNames, onEdit, onToggleActive,
+}: {
+  announcement: Announcement
+  deptNames: Map<string, string>
+  onEdit: () => void
+  onToggleActive: () => void
+}) {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const scoped = announcement.department_ids ?? []
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => messagingApi.uploadAnnouncementAttachment(announcement.id, file),
@@ -262,6 +336,11 @@ function AnnouncementCard({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {!announcement.is_active && <Badge variant="outline">Inactive</Badge>}
+            <Badge variant="outline" className="font-normal">
+              {scoped.length === 0
+                ? 'Tous les parents'
+                : scoped.map((id) => deptNames.get(id) ?? 'Département').join(', ')}
+            </Badge>
             {announcement.read_count != null && (
               <Badge variant="outline" className="font-normal">
                 {announcement.read_count}/{announcement.total_parents} ont lu
@@ -313,7 +392,7 @@ function AnnouncementCard({
               : <Paperclip className="mr-1.5 size-3.5" />}
             Joindre un fichier
           </Button>
-          <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
+          <input ref={fileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onFileChange} />
         </div>
       </CardContent>
     </Card>

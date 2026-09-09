@@ -3,19 +3,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
 from app.modules.auth.models import User, UserRole
+from app.modules.children.models import Child
 from app.modules.messaging.models import (
     Announcement,
     AnnouncementRead,
     Attachment,
     Conversation,
     Message,
+    announcement_departments,
 )
+from app.modules.organization.models import Department
+from app.modules.parents.models import parent_children
 from app.modules.messaging.schemas import (
     AnnouncementCreateRequest,
     AnnouncementListResponse,
@@ -62,21 +66,42 @@ async def create_announcement(
     )
     db.add(announcement)
     await db.flush()
+
+    # Ciblage : liste vide = broadcast (aucune ligne). Chaque id est vérifié
+    # dans l'établissement (404 sinon), doublons dédupliqués.
+    department_ids = await _validate_scope_departments(
+        payload.department_ids, establishment_id, db
+    )
+    if department_ids:
+        await db.execute(
+            announcement_departments.insert(),
+            [
+                {"announcement_id": announcement.id, "department_id": d}
+                for d in department_ids
+            ],
+        )
     await db.refresh(announcement)
 
-    response = _announcement_response(announcement, read_count=0, total_parents=None)
+    # Audience réelle dès la création (le « Y » du compteur admin).
+    audience = await _audience_parent_ids(establishment_id, department_ids or None, db)
+    response = _announcement_response(
+        announcement, read_count=0, total_parents=len(audience),
+        department_ids=department_ids,
+    )
     await publish_event(
         _announcements_channel(establishment_id),
         {"type": "announcement", **response.model_dump(mode="json")},
     )
 
-    # Push notification : envoie à tous les parents de l'établissement
+    # Push : audience ciblée si départements cochés, sinon tous les parents.
     await send_push_to_establishment_parents(
         establishment_id,
         "Nouvelle diffusion",
         announcement.title,
         db,
-        {"type": "announcement", "announcement_id": str(announcement.id)},
+        {"type": "announcement", "announcement_id": str(announcement.id),
+         "department_ids": [str(d) for d in department_ids]},
+        parent_ids=audience,
     )
     return response
 
@@ -108,25 +133,47 @@ async def list_announcements(
     attachments_map = await _attachments_for_announcements(
         [a.id for a in announcements], db
     )
+    departments_map = await _departments_for_announcements(
+        [a.id for a in announcements], db
+    )
 
     if current_user.role == UserRole.PARENT:
+        # Un parent ne voit que le broadcast + les diffusions ciblant AU MOINS
+        # un département de ses enfants.
+        parent_depts = await _parent_department_ids(current_user.id, db)
+        visible = [
+            a for a in announcements
+            if not departments_map.get(a.id) or (set(departments_map[a.id]) & parent_depts)
+        ]
+        total = len(visible)
+        visible = visible[skip:skip + limit]
         read_ids = await _read_announcement_ids(current_user.id, db)
         items = [
             _announcement_response(
-                a, is_read=a.id in read_ids, attachments=attachments_map.get(a.id)
+                a, is_read=a.id in read_ids, attachments=attachments_map.get(a.id),
+                department_ids=departments_map.get(a.id, []),
             )
-            for a in announcements
+            for a in visible
         ]
     else:
-        total_parents = await _count_active_parents(establishment_id, db)
         counts = await _read_counts({a.id for a in announcements}, db)
-        items = [
-            _announcement_response(
-                a, read_count=counts.get(a.id, 0), total_parents=total_parents,
-                attachments=attachments_map.get(a.id),
+        # Total d'audience par périmètre (broadcast vs chaque ciblage), mis en
+        # cache car plusieurs diffusions partagent souvent le même périmètre.
+        totals: dict[tuple, int] = {}
+        items = []
+        for a in announcements:
+            scope = departments_map.get(a.id, [])
+            key = tuple(sorted(scope))
+            if key not in totals:
+                totals[key] = await _count_audience_parents(
+                    establishment_id, scope or None, db
+                )
+            items.append(
+                _announcement_response(
+                    a, read_count=counts.get(a.id, 0), total_parents=totals[key],
+                    attachments=attachments_map.get(a.id), department_ids=scope,
+                )
             )
-            for a in announcements
-        ]
 
     return AnnouncementListResponse(total=total or 0, items=items)
 
@@ -141,17 +188,22 @@ async def get_announcement(
     attachments = (await _attachments_for_announcements([announcement.id], db)).get(
         announcement.id
     )
+    scope = await _announcement_department_ids(announcement.id, db)
     if current_user.role == UserRole.PARENT:
+        # Hors périmètre → 404 (on ne révèle pas l'existence, comme partout).
+        if scope and not (set(scope) & await _parent_department_ids(current_user.id, db)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
         read_ids = await _read_announcement_ids(current_user.id, db)
         return _announcement_response(
-            announcement, is_read=announcement.id in read_ids, attachments=attachments
+            announcement, is_read=announcement.id in read_ids, attachments=attachments,
+            department_ids=scope,
         )
 
-    total_parents = await _count_active_parents(establishment_id, db)
+    total_parents = await _count_audience_parents(establishment_id, scope or None, db)
     counts = await _read_counts({announcement.id}, db)
     return _announcement_response(
         announcement, read_count=counts.get(announcement.id, 0),
-        total_parents=total_parents, attachments=attachments,
+        total_parents=total_parents, attachments=attachments, department_ids=scope,
     )
 
 
@@ -163,15 +215,49 @@ async def update_announcement(
 ) -> AnnouncementResponse:
     announcement = await _get_announcement_or_404(announcement_id, establishment_id, db)
     changes = payload.model_dump(exclude_unset=True)
+    # Le périmètre ne se pose pas par setattr (relation M2M) : il REMPLACE le
+    # ciblage (liste vide = retour au broadcast).
+    scope_change = changes.pop("department_ids", None)
     for field, value in changes.items():
         setattr(announcement, field, value)
+    if scope_change is not None:
+        validated = await _validate_scope_departments(
+            scope_change, establishment_id, db
+        )
+        await db.execute(
+            delete(announcement_departments).where(
+                announcement_departments.c.announcement_id == announcement.id
+            )
+        )
+        if validated:
+            await db.execute(
+                announcement_departments.insert(),
+                [
+                    {"announcement_id": announcement.id, "department_id": d}
+                    for d in validated
+                ],
+            )
+        # Cohérence du compteur X/Y : les lectures de parents sortis du
+        # périmètre sont supprimées (sinon read_count > total).
+        audience = await _audience_parent_ids(
+            establishment_id, validated or None, db
+        )
+        if validated:
+            prune = delete(AnnouncementRead).where(
+                AnnouncementRead.announcement_id == announcement.id
+            )
+            if audience:
+                prune = prune.where(AnnouncementRead.parent_id.not_in(audience))
+            await db.execute(prune)
     await db.flush()
     await db.refresh(announcement)
 
-    total_parents = await _count_active_parents(establishment_id, db)
+    scope = await _announcement_department_ids(announcement.id, db)
+    total_parents = await _count_audience_parents(establishment_id, scope or None, db)
     counts = await _read_counts({announcement.id}, db)
     return _announcement_response(
-        announcement, read_count=counts.get(announcement.id, 0), total_parents=total_parents
+        announcement, read_count=counts.get(announcement.id, 0), total_parents=total_parents,
+        department_ids=scope,
     )
 
 
@@ -181,6 +267,10 @@ async def mark_announcement_read(
     db: AsyncSession,
 ) -> None:
     await _get_announcement_or_404(announcement_id, parent.establishment_id, db)
+    # Hors périmètre → 404 : un parent ne marque jamais lu ce qu'il ne voit pas.
+    scope = await _announcement_department_ids(announcement_id, db)
+    if scope and not (set(scope) & await _parent_department_ids(parent.id, db)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
     existing = await db.scalar(
         select(AnnouncementRead.id).where(
             AnnouncementRead.announcement_id == announcement_id,
@@ -472,6 +562,112 @@ async def _count_active_parents(establishment_id: uuid.UUID, db: AsyncSession) -
     ) or 0
 
 
+# ── Ciblage des diffusions par départements ───────────────────────
+async def _validate_scope_departments(
+    department_ids: list[uuid.UUID], establishment_id: uuid.UUID, db: AsyncSession
+) -> list[uuid.UUID]:
+    """Déduplique et vérifie que chaque département ciblé appartient à
+    l'établissement (404 sinon). Liste vide = broadcast."""
+    unique = list(dict.fromkeys(department_ids))
+    if not unique:
+        return []
+    rows = (
+        await db.execute(
+            select(Department.id).where(
+                Department.id.in_(unique),
+                Department.establishment_id == establishment_id,
+            )
+        )
+    ).scalars().all()
+    if set(rows) != set(unique):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Département introuvable"
+        )
+    return unique
+
+
+async def _departments_for_announcements(
+    announcement_ids: list[uuid.UUID], db: AsyncSession
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """Batch : départements ciblés par diffusion (absent = broadcast)."""
+    if not announcement_ids:
+        return {}
+    result = await db.execute(
+        select(
+            announcement_departments.c.announcement_id,
+            announcement_departments.c.department_id,
+        ).where(announcement_departments.c.announcement_id.in_(announcement_ids))
+    )
+    by_announcement: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for ann_id, dept_id in result.all():
+        by_announcement.setdefault(ann_id, []).append(dept_id)
+    return by_announcement
+
+
+async def _announcement_department_ids(
+    announcement_id: uuid.UUID, db: AsyncSession
+) -> list[uuid.UUID]:
+    return (await _departments_for_announcements([announcement_id], db)).get(
+        announcement_id, []
+    )
+
+
+async def _parent_department_ids(parent_id: uuid.UUID, db: AsyncSession) -> set[uuid.UUID]:
+    """Départements des enfants rattachés au compte parent (via
+    parent_children ; enfants sans département ignorés)."""
+    result = await db.execute(
+        select(Child.department_id)
+        .join(parent_children, parent_children.c.child_id == Child.id)
+        .where(
+            parent_children.c.parent_id == parent_id,
+            Child.department_id.is_not(None),
+        )
+        .distinct()
+    )
+    return set(result.scalars().all())
+
+
+async def _audience_parent_ids(
+    establishment_id: uuid.UUID,
+    department_ids: list[uuid.UUID] | None,
+    db: AsyncSession,
+) -> set[uuid.UUID]:
+    """Comptes parents destinataires : tous les parents actifs (broadcast,
+    `department_ids` vide/None) ou ceux ayant ≥ 1 enfant dans l'un des
+    départements ciblés."""
+    if not department_ids:
+        result = await db.execute(
+            select(User.id).where(
+                User.establishment_id == establishment_id,
+                User.role == UserRole.PARENT,
+                User.is_active.is_(True),
+            )
+        )
+        return set(result.scalars().all())
+    result = await db.execute(
+        select(User.id)
+        .join(parent_children, parent_children.c.parent_id == User.id)
+        .join(Child, Child.id == parent_children.c.child_id)
+        .where(
+            User.establishment_id == establishment_id,
+            User.role == UserRole.PARENT,
+            User.is_active.is_(True),
+            Child.department_id.in_(department_ids),
+        )
+        .distinct()
+    )
+    return set(result.scalars().all())
+
+
+async def _count_audience_parents(
+    establishment_id: uuid.UUID,
+    department_ids: list[uuid.UUID] | None,
+    db: AsyncSession,
+) -> int:
+    """Dénominateur du « X/Y ont lu » : audience réelle de la diffusion."""
+    return len(await _audience_parent_ids(establishment_id, department_ids, db))
+
+
 async def _unread_count(
     conversation_id: uuid.UUID, *, unread_from: str, db: AsyncSession
 ) -> int:
@@ -491,6 +687,7 @@ def _announcement_response(
     total_parents: int | None = None,
     is_read: bool | None = None,
     attachments: list[AttachmentResponse] | None = None,
+    department_ids: list[uuid.UUID] | None = None,
 ) -> AnnouncementResponse:
     return AnnouncementResponse(
         id=announcement.id,
@@ -498,6 +695,7 @@ def _announcement_response(
         title=announcement.title,
         body=announcement.body,
         is_active=announcement.is_active,
+        department_ids=department_ids or [],
         created_by=UserBrief(
             id=announcement.created_by.id,
             first_name=announcement.created_by.first_name,
@@ -605,12 +803,18 @@ async def _attachments_for_announcements(
     return by_announcement
 
 
-def _validate_upload(file: UploadFile, content: bytes) -> None:
-    max_bytes = settings.messaging_max_attachment_mb * 1024 * 1024
+def _validate_upload(file: UploadFile, content: bytes, *, allow_video: bool = False) -> None:
+    """Plafond : vidéo → `messaging_max_video_mb`, sinon
+    `messaging_max_attachment_mb`. Types : liste blanche + tout `image/*`
+    (hors SVG) ; `video/*` uniquement si `allow_video` (messages privés —
+    les diffusions restent images + PDF)."""
+    is_video = (file.content_type or "").startswith("video/")
+    max_mb = settings.messaging_max_video_mb if is_video else settings.messaging_max_attachment_mb
+    max_bytes = max_mb * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.messaging_max_attachment_mb} Mo)",
+            detail=f"Fichier trop volumineux (max {max_mb} Mo)",
         )
     if not content:
         raise HTTPException(
@@ -618,16 +822,23 @@ def _validate_upload(file: UploadFile, content: bytes) -> None:
             detail="Fichier vide",
         )
     content_type = file.content_type or ""
-    if content_type not in settings.messaging_allowed_attachment_types_set and not (
+    image_ok = (
         content_type.startswith("image/") and content_type != "image/svg+xml"
+    )
+    video_ok = allow_video and is_video
+    if content_type not in settings.messaging_allowed_attachment_types_set and not (
+        image_ok or video_ok
     ):
+        allowed = ", ".join(sorted(settings.messaging_allowed_attachment_types_set))
+        detail = (
+            f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
+            f"Autorisés : {allowed} ou toute image (hors SVG)"
+        )
+        if allow_video:
+            detail += " ou toute vidéo"
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Autorisés : {', '.join(sorted(settings.messaging_allowed_attachment_types_set))} "
-                f"ou toute image (hors SVG)"
-            ),
+            detail=detail + ".",
         )
 
 
@@ -647,7 +858,7 @@ async def add_message_attachment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
 
     content = await file.read()
-    _validate_upload(file, content)
+    _validate_upload(file, content, allow_video=True)
     storage_key = await storage.save_file("messaging", file.filename or "fichier", content)
 
     attachment = Attachment(
@@ -725,7 +936,15 @@ async def get_attachment_for_download(
             select(Announcement).where(Announcement.id == attachment.announcement_id)
         )
         establishment_id = announcement.establishment_id
-        owner_ok = True  # toute diffusion de l'établissement est visible par ses parents
+        if current_user.role == UserRole.ADMIN:
+            owner_ok = True
+        else:
+            # Diffusion ciblée : le parent doit être dans le périmètre (un
+            # broadcast reste visible par tous les parents).
+            scope = await _announcement_department_ids(announcement.id, db)
+            owner_ok = not scope or bool(
+                set(scope) & await _parent_department_ids(current_user.id, db)
+            )
 
     if establishment_id != current_user.establishment_id or not owner_ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")

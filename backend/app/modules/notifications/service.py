@@ -124,16 +124,22 @@ async def send_push_to_establishment_parents(
     body: str,
     db: AsyncSession,
     data: Optional[dict] = None,
+    *,
+    parent_ids: Optional[set[uuid.UUID]] = None,
 ) -> int:
-    """Envoie un push à tous les parents d'un établissement."""
+    """Envoie un push aux parents d'un établissement, restreint à `parent_ids`
+    si fourni (diffusion ciblée par départements) — sinon tous les parents."""
     # Récupérer tous les users role=parent de l'établissement
-    result = await db.execute(
-        select(User).where(
-            User.establishment_id == establishment_id,
-            User.role == UserRole.PARENT,
-            User.is_active.is_(True),
-        )
-    )
+    filters = [
+        User.establishment_id == establishment_id,
+        User.role == UserRole.PARENT,
+        User.is_active.is_(True),
+    ]
+    if parent_ids is not None:
+        if not parent_ids:
+            return 0
+        filters.append(User.id.in_(parent_ids))
+    result = await db.execute(select(User).where(*filters))
     parents = result.scalars().all()
 
     sent = 0

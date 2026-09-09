@@ -1,29 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Coffee, Cookie, IceCream2, UtensilsCrossed, Utensils } from 'lucide-react'
+import { ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MenuWeekTable } from '@/components/menus/menu-week-table'
 import { menusApi } from '@/lib/api/menus.api'
 import { addDays, mondayOf, parseIsoDate, toIsoDate } from '@/lib/utils/dates'
-import { cn } from '@/lib/utils'
-import {
-  MEAL_SLOTS, MEAL_SLOT_LABELS, WEEKDAYS, WEEKDAY_LABELS,
-  type MealSlot, type Weekday,
-} from '@/types/menus'
-
-const MEAL_SLOT_ICONS: Record<MealSlot, React.ElementType> = {
-  collation: Coffee,
-  dejeuner: Utensils,
-  dessert: IceCream2,
-  gouter: Cookie,
-}
+import type { Menu, Weekday } from '@/types/menus'
 
 function formatDate(iso: string) {
   return parseIsoDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -36,6 +25,7 @@ function formatShortDate(iso: string) {
 export default function ParentMenusPage() {
   const currentMonday = toIsoDate(mondayOf(new Date()))
   const [weekStart, setWeekStart] = useState(currentMonday)
+  const [deptId, setDeptId] = useState('')
 
   const today = toIsoDate(new Date())
   const isCurrentWeek = weekStart === currentMonday
@@ -48,13 +38,40 @@ export default function ParentMenusPage() {
     friday: weekEnd,
   }
 
-  const { data: menu, isLoading } = useQuery({
-    queryKey: ['parent', 'menus', weekStart],
-    queryFn: async () => {
-      const res = isCurrentWeek ? await menusApi.getCurrent() : await menusApi.get(weekStart)
-      return res.status === 200 ? res.data : null
-    },
+  // Départements de MES enfants (parent multi-départements = plusieurs onglets).
+  const { data: departments = [] } = useQuery({
+    queryKey: ['parent', 'menus', 'departments'],
+    queryFn: () => menusApi.getVisibleDepartments().then((r) => r.data.items),
   })
+
+  useEffect(() => {
+    const first = departments[0]
+    if (!deptId && first) setDeptId(first.id)
+  }, [deptId, departments])
+
+  const deptIdsKey = departments.map((d) => d.id).join(',')
+  const { data: currentItems = [], isLoading: loadingCurrent } = useQuery({
+    queryKey: ['parent', 'menus', 'current'],
+    queryFn: () => menusApi.getCurrent().then((r) => r.data.items),
+    enabled: isCurrentWeek,
+  })
+  const { data: weekItems = [], isLoading: loadingWeek } = useQuery({
+    // deptIdsKey fige la liste des départements dans la clé de cache.
+    queryKey: ['parent', 'menus', 'week', weekStart, deptIdsKey],
+    queryFn: async () => {
+      const results = await Promise.all(
+        departments.map(async (d) => {
+          const res = await menusApi.get(weekStart, d.id)
+          return res.status === 200 ? res.data : null
+        })
+      )
+      return results.filter((m): m is Menu => m !== null)
+    },
+    enabled: !isCurrentWeek && departments.length > 0,
+  })
+
+  const isLoading = isCurrentWeek ? loadingCurrent : loadingWeek
+  const menu = (isCurrentWeek ? currentItems : weekItems).find((m) => m.department_id === deptId) ?? null
 
   return (
     <motion.div
@@ -69,6 +86,16 @@ export default function ParentMenusPage() {
           <p className="text-muted-foreground">Repas servis par l&apos;établissement.</p>
         </div>
       </div>
+
+      {departments.length > 1 && (
+        <Tabs value={deptId} onValueChange={(v) => v && setDeptId(v)}>
+          <TabsList>
+            {departments.map((d) => (
+              <TabsTrigger key={d.id} value={d.id}>{d.name}</TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -109,74 +136,7 @@ export default function ParentMenusPage() {
               <p className="font-medium text-foreground">Aucun menu publié pour cette semaine.</p>
             </div>
           ) : (
-            <>
-              <div className="hidden sm:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-40">Repas</TableHead>
-                      {WEEKDAYS.map((day) => {
-                        const isToday = dayDates[day] === today
-                        return (
-                          <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
-                            <div>{WEEKDAY_LABELS[day]}</div>
-                            <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
-                            {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
-                          </TableHead>
-                        )
-                      })}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {MEAL_SLOTS.map((slot) => {
-                      const Icon = MEAL_SLOT_ICONS[slot]
-                      return (
-                        <TableRow key={slot}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <Icon className="size-4" />
-                              <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
-                            </div>
-                          </TableCell>
-                          {WEEKDAYS.map((day) => (
-                            <TableCell key={day} className="text-center text-sm">
-                              {menu[day][slot] ?? <span className="text-muted-foreground">—</span>}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="divide-y divide-border sm:hidden">
-                {MEAL_SLOTS.map((slot) => {
-                  const Icon = MEAL_SLOT_ICONS[slot]
-                  return (
-                    <div key={slot} className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Icon className="size-4" />
-                        <span className="font-medium text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
-                      </div>
-                      <div className="mt-2 space-y-2">
-                        {WEEKDAYS.map((day) => {
-                          const isToday = dayDates[day] === today
-                          return (
-                            <div key={day} className={cn('flex items-start justify-between gap-3 text-sm', isToday && 'text-primary')}>
-                              <span className="shrink-0">{WEEKDAY_LABELS[day]}</span>
-                              <span className="text-right text-muted-foreground">
-                                {menu[day][slot] ?? <span>—</span>}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </>
+            <MenuWeekTable menu={menu} dayDates={dayDates} today={today} formatShortDate={formatShortDate} />
           )}
         </CardContent>
       </Card>

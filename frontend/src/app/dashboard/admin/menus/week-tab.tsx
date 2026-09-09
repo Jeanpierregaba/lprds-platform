@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -40,8 +42,13 @@ function formatShortDate(iso: string) {
 }
 
 export function WeekTab({
-  weekStart, onWeekStartChange,
-}: { weekStart: string; onWeekStartChange: (weekStart: string) => void }) {
+  weekStart, onWeekStartChange, departmentId, onDepartmentChange,
+}: {
+  weekStart: string
+  onWeekStartChange: (weekStart: string) => void
+  departmentId: string
+  onDepartmentChange: (departmentId: string) => void
+}) {
   const queryClient = useQueryClient()
   const [content, setContent] = useState<WeekContent>(emptyWeek())
 
@@ -58,12 +65,24 @@ export function WeekTab({
   }
 
   const { data: menu, isLoading, isFetching } = useQuery({
-    queryKey: ['menus', 'week', weekStart],
+    queryKey: ['menus', 'week', weekStart, departmentId],
     queryFn: async () => {
-      const res = await menusApi.get(weekStart)
+      if (!departmentId) return null
+      const res = await menusApi.get(weekStart, departmentId)
       return res.status === 200 ? res.data : null
     },
   })
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ['menus', 'visible-departments'],
+    queryFn: () => menusApi.getVisibleDepartments().then((r) => r.data.items),
+  })
+
+  // Département par défaut : le premier de la liste dès qu'elle arrive.
+  useEffect(() => {
+    const first = departments[0]
+    if (!departmentId && first) onDepartmentChange(first.id)
+  }, [departmentId, departments, onDepartmentChange])
 
   useEffect(() => {
     if (menu) {
@@ -77,7 +96,7 @@ export function WeekTab({
   }, [menu])
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['menus', 'week', weekStart] })
+    queryClient.invalidateQueries({ queryKey: ['menus', 'week', weekStart, departmentId] })
     queryClient.invalidateQueries({ queryKey: ['menus', 'history'] })
   }
 
@@ -97,19 +116,19 @@ export function WeekTab({
   })
 
   const createMutation = useMutation({
-    mutationFn: () => menusApi.create({ week_start: weekStart, ...normalizeContent(content) }),
+    mutationFn: () => menusApi.create({ week_start: weekStart, department_id: departmentId, ...normalizeContent(content) }),
     onSuccess: () => { toast.success('Menu créé.'); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const updateMutation = useMutation({
-    mutationFn: () => menusApi.update(weekStart, normalizeContent(content)),
+    mutationFn: () => menusApi.update(weekStart, departmentId, normalizeContent(content)),
     onSuccess: () => { toast.success('Menu enregistré.'); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: () => menusApi.remove(weekStart),
+    mutationFn: () => menusApi.remove(weekStart, departmentId),
     onSuccess: () => { toast.success('Menu supprimé.'); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
@@ -118,16 +137,29 @@ export function WeekTab({
     setContent((prev) => ({ ...prev, [day]: { ...prev[day], [slot]: value } }))
   }
 
-  const isEditable = !isPast
+  const isEditable = !isPast && !!departmentId
   const isSaving = createMutation.isPending || updateMutation.isPending
   const showEmptyPastState = !menu && isPast && !isLoading
 
   return (
     <div className="space-y-4 pt-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-white">Semaine du {formatDate(weekStart)} <br />Au {formatDate(weekEnd)}</h2>
-        
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="menu-department">Département</Label>
+          <Select
+            items={Object.fromEntries(departments.map((d) => [d.id, d.name]))}
+            value={departmentId}
+            onValueChange={(v) => v && onDepartmentChange(v)}
+          >
+            <SelectTrigger id="menu-department" className="w-full sm:w-52">
+              <SelectValue placeholder="Choisir un département" />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon-sm" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), -7)))}>
@@ -142,6 +174,19 @@ export function WeekTab({
         </div>
       </div>
 
+      <div>
+        <h2 className="text-xl font-bold text-white">Semaine du {formatDate(weekStart)} <br />Au {formatDate(weekEnd)}</h2>
+      </div>
+
+      {departments.length === 0 && (
+        <Card>
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            Aucun département dans l&apos;établissement — créez-en un d&apos;abord pour saisir un menu.
+          </CardContent>
+        </Card>
+      )}
+      {departments.length > 0 && (
+      <>
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -268,6 +313,8 @@ export function WeekTab({
 
       {isPast && !showEmptyPastState && (
         <p className="text-sm text-muted-foreground">Semaine passée — lecture seule.</p>
+      )}
+      </>
       )}
     </div>
   )

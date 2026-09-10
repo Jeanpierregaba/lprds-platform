@@ -17,7 +17,7 @@ export interface TagBrief {
   name: string
 }
 
-export type GalleryCategory = 'activities' | 'outdoor' | 'meals' | 'rest' | 'events'
+export type GalleryCategory = 'activities' | 'outdoor' | 'meals' | 'rest' | 'events' | 'environment'
 
 export const GALLERY_PHOTO_CATEGORIES: Record<GalleryCategory, string> = {
   activities: 'Activités manuelles',
@@ -25,6 +25,7 @@ export const GALLERY_PHOTO_CATEGORIES: Record<GalleryCategory, string> = {
   meals: 'Repas',
   rest: 'Temps calme',
   events: 'Fêtes & sorties',
+  environment: 'Cadre'
 }
 
 export interface BlogTag {

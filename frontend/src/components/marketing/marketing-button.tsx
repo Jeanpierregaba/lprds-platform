@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
  * même densité et partagent seulement les tokens de couleur.
  */
 const marketingButtonVariants = cva(
-  'group/mbtn inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+  'group/mbtn inline-flex max-w-full shrink-0 items-center justify-center gap-2 rounded-full font-medium whitespace-normal text-center transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 sm:whitespace-nowrap [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -21,7 +21,7 @@ const marketingButtonVariants = cva(
       },
       size: {
         default: 'h-11 px-6 text-sm [&_svg:not([class*="size-"])]:size-4',
-        lg: 'h-14 px-8 text-base [&_svg:not([class*="size-"])]:size-5',
+        lg: 'h-12 px-6 text-sm sm:h-14 sm:px-8 sm:text-base [&_svg:not([class*="size-"])]:size-5',
         icon: 'size-11 [&_svg:not([class*="size-"])]:size-5',
       },
     },

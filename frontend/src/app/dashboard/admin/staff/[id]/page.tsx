@@ -139,8 +139,8 @@ export default function StaffDetailPage() {
         href="/dashboard/admin/staff"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
+        <ArrowLeft className="size-4 text-white font-semibold"/>
+        <span className="text-white font-semibold">Retour à la liste</span>
       </Link>
 
       <div className="flex items-center justify-between">
@@ -151,7 +151,7 @@ export default function StaffDetailPage() {
               {staff.is_active ? 'Actif' : 'Inactif'}
             </Badge>
           </div>
-          <p className="font-mono text-sm text-muted-foreground">{staff.matricule ?? '—'}</p>
+          <p className="font-mono text-sm text-white font-semibold">{staff.matricule ?? '—'}</p>
         </div>
 
         <div className="flex items-center gap-2">

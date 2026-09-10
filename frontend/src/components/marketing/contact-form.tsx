@@ -43,14 +43,14 @@ export function ContactForm() {
 
   if (status === 'sent') {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl bg-accent/10 p-10 text-center">
+      <div className="flex flex-col items-center justify-center rounded-3xl bg-accent/10 p-6 text-center sm:p-10">
         <div className="flex size-14 items-center justify-center rounded-full bg-accent/20">
           <Send className="size-6 text-accent" />
         </div>
         <h3 className="mt-4 font-display text-xl text-primary">Votre logiciel de messagerie s’est ouvert</h3>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
           Il ne reste plus qu’à envoyer le message. Vous pouvez aussi nous écrire directement à{' '}
-          <a href={`mailto:${BRAND.email}`} className="font-medium text-primary underline">{BRAND.email}</a> ou nous
+          <a href={`mailto:${BRAND.email}`} className="break-all font-medium text-primary underline">{BRAND.email}</a> ou nous
           joindre sur WhatsApp.
         </p>
         <MarketingButton className="mt-6" variant="outline" onClick={() => setStatus('idle')}>

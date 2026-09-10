@@ -5,6 +5,7 @@ import { ArrowRight, Newspaper, Baby, Cloud, Sun } from 'lucide-react'
 import { DifferenceTimeline } from '@/components/marketing/difference-timeline'
 import { Doodle } from '@/components/marketing/doodle'
 import { SectionDivider } from '@/components/marketing/section-divider'
+import { SECTION_PIN_STYLES, SectionPinCard } from '@/components/marketing/section-pin-card'
 import { JoinTimeline } from '@/components/marketing/join-timeline'
 import { MarketingButton } from '@/components/marketing/marketing-button'
 import { Reveal } from '@/components/marketing/reveal'
@@ -12,23 +13,16 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { STATS, SECTIONS, BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, sortByPublished, fetchPublicGallery } from '@/lib/api/public-blog.api'
 import { GALLERY_PHOTO_CATEGORIES } from '@/types/blog'
-import { cn } from '@/lib/utils/cn'
-import heroImg from '@/assets/hero-img.png'
+import heroImg from '../../../public/images/marketing/hero-img.png'
 
-// Icône Lucide par section (aperçu accueil : 3 sections crèche).
+// Icône Lucide par section (aperçu accueil : 3 sections crèche) — voir aussi
+// sectionPinIcon() pour la page Nos Sections (les 7 sections).
 const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   creche_etoile: Baby,
   creche_nuage: Cloud,
   creche_soleil: Sun,
 }
 
-// Style « note épinglée » inspiré de la maquette : panneau pastel intérieur,
-// numéro manuscrit, punaise colorée, légère rotation en quinconce.
-const SECTION_PIN_STYLES = [
-  { panel: 'bg-[#009f98]', number: 'text-[#ffffff]', pin: 'bg-[#009f98]', rotate: 'sm:-rotate-2', offset: '' },
-  { panel: 'bg-[#f5a82e]', number: 'text-[#ffffff]', pin: 'bg-[#f5a82e]', rotate: 'sm:rotate-2', offset: 'sm:mt-10' },
-  { panel: 'bg-[#174f33]', number: 'text-[#ffffff]', pin: 'bg-[#174f33]', rotate: 'sm:-rotate-1', offset: '' },
-] as const
 
 export const metadata: Metadata = {
   title: `${BRAND.name} — Crèche, Garderie & École Maternelle à Lomé`,
@@ -46,86 +40,69 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero + Bande de confiance — plein écran (100vh) */}
-      <div className="relative min-h-screen flex flex-col bg-cream">
-        {/* Hero — DESIGN.md § 9 : titre + CTA à gauche, illustration de la crèche à droite. */}
-        <section className="relative overflow-hidden flex-1 flex items-center">
-          {/* Décorations organiques discrètes — rayons et halo, sans surcharger. */}
-          <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-primary/15 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -right-20 top-1/3 size-64 rounded-full bg-mint/70 blur-3xl" />
+      {/* Hero plein-bleed (inspiration maquette) : la photo actuelle en fond,
+          titre blanc par-dessus, stats en bas — header flottant par-dessus. */}
+      <div className="relative flex min-h-[100svh] flex-col">
+        <section className="relative flex flex-1 flex-col overflow-hidden">
+          <Image
+            src={heroImg}
+            alt="Enfants épanouis dans la cour de la crèche"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/50 via-from-black/35 to-black/45" />
 
-          {/* Doodles ludiques façon landing — flottement doux. */}
-          <Doodle src="/images/marketing/icons-decor/star.png" size={56} className="right-[6%] top-10 rotate-12" delay={0.6} />
-          <Doodle src="/images/marketing/icons-decor/avion.png" size={64} className="bottom-8 right-[10%] hidden -rotate-12 sm:block" delay={1.8} duration={6} />
-          <Doodle src="/images/marketing/icons-decor/soleil.png" size={52} className="left-[3%] top-1/3 hidden lg:block" delay={1.2} duration={7} />
-
-          <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 w-full px-4 lg:grid-cols-2 lg:gap-12 lg:px-6">
-          <div className="text-center lg:text-left">
+          <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 pb-10 pt-32 sm:px-6 sm:pb-14 lg:px-8">
             <Reveal>
-              <span className="inline-flex items-center gap-2 rounded-full border border-tertiary/30 bg-tertiary/10 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-tertiary">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
                 Crèche · Garderie · Maternelle
               </span>
             </Reveal>
             <Reveal delay={0.08}>
-              <h1 className="mt-6 font-display font-bold text-5xl leading-[1.05] text-navy drop-shadow-sm sm:text-6xl lg:text-6xl">
-                Où chaque enfant <span className="text-primary">explore</span>, <span className="text-primary"> </span> <br />et <span className="text-primary">rayonne</span>
+              <h1 className="mt-6 max-w-3xl font-display font-bold text-4xl leading-[1.05] text-white drop-shadow-md sm:text-6xl">
+                Où chaque enfant explore, <br />et rayonne
               </h1>
             </Reveal>
-            <Reveal delay={0.16}>
-              <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg lg:mx-0">
-                Votre enfant mérite un départ réussi : une structure où il grandit, apprend et s’épanouit en toute sécurité.
-              </p>
-            </Reveal>
-            <Reveal delay={0.24}>
-              <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-                <MarketingButton href="/contact" size="lg" variant="primary">
-                  Réserver une visite
-                </MarketingButton>
-                <MarketingButton href="/nos-sections" size="lg" variant="tertiary">
-                  Découvrir nos sections
-                </MarketingButton>
-              </div>
-            </Reveal>
-          </div>
 
-          <Reveal delay={0.2} className="relative mx-auto w-full lg:max-w-none">
-            <div aria-hidden className="absolute -inset-4 -z-10 rounded-[2.5rem] bg-mint/70" />
-            <div className="relative aspect-[4/3] overflow-hidden rounded-[2.5rem] shadow-soft ring-1 ring-border">
-              <Image
-                src={heroImg}
-                alt="Enfants épanouis dans la cour de la crèche"
-                fill
-                priority
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                className="object-cover"
-              />
+            <div className="mt-auto flex flex-col gap-8 pt-10 sm:pt-14 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-xl">
+                <Reveal delay={0.16}>
+                  <p className="text-base text-white/85 sm:text-lg">
+                    Votre enfant mérite un départ réussi : une structure où il grandit, apprend et s’épanouit en toute sécurité.
+                  </p>
+                </Reveal>
+                <Reveal delay={0.24}>
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <MarketingButton href="/contact" size="lg" variant="primary" className="w-full sm:w-auto">
+                      Réserver une visite
+                    </MarketingButton>
+                    <MarketingButton href="/nos-sections" size="lg" variant="tertiary" className="w-full sm:w-auto">
+                      Découvrir nos sections
+                    </MarketingButton>
+                  </div>
+                </Reveal>
+              </div>
+              <Reveal delay={0.3}>
+                <div className="flex flex-wrap gap-6 sm:gap-10">
+                  {STATS.map((s) => (
+                    <div key={s.label}>
+                      <div className="font-display font-bold text-3xl text-white drop-shadow sm:text-4xl">{s.value}</div>
+                      <div className="mt-1 text-xs text-white/75 sm:text-sm">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
             </div>
-          </Reveal>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* Vague de transition hero (crème) → bandeau (vert forêt). */}
-      <SectionDivider bgClass="bg-cream" fillClass="fill-secondary" />
-
-      {/* Bandeau de confiance — sous le hero, jamais dedans. */}
-      <section className="bg-secondary pb-0 pt-10 text-secondary-foreground shrink-0">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-8 px-6 sm:grid-cols-4 lg:px-8">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} delay={i * 0.08}>
-              <div className="text-center">
-                <div className="font-display font-bold text-3xl sm:text-4xl">{s.value}</div>
-                <div className="mt-1 text-xs text-primary-foreground/70 sm:text-sm">{s.label}</div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-        {/* Vague de transition bandeau (vert forêt) → Pourquoi (blanc). */}
-        <SectionDivider bgClass="bg-secondary" fillClass="fill-background" flip className="mt-10" />
-      </section>
-    </div>
+      {/* Coupe franche hero photo → Pourquoi (blanc), sans vague. */}
+      </div>
 
       {/* Pourquoi nous — grille asymétrique image + cartes, pas un simple split 50/50. */}
-      <section className="relative overflow-clip px-6 pt-20 sm:pt-28 lg:px-8">
+      <section className="relative overflow-clip px-4 pt-14 sm:px-6 sm:pt-28 lg:px-8">
         <Doodle src="/images/marketing/icons-decor/contours-dessines-a-la-main-nuage-et-soleil.png" size={72} className="right-[4%] top-10 hidden sm:block" delay={0.4} duration={7} />
         <Doodle src="/images/marketing/icons-decor/crayon.png" size={52} className="bottom-28 left-[3%] hidden rotate-12 sm:block" delay={2} />
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-5 lg:gap-16">
@@ -151,11 +128,11 @@ export default async function HomePage() {
           </Reveal>
         </div>
         {/* Vague de transition Pourquoi (blanc) → Sections (bleu très clair). */}
-        <SectionDivider bgClass="bg-background" fillClass="fill-muted" className="mt-20 sm:mt-28" />
+        <SectionDivider bgClass="bg-background" fillClass="fill-muted" className="mt-12 sm:mt-28" />
       </section>
 
       {/* Nos sections — grille de cartes, familles d'âge. */}
-      <section className="relative overflow-clip bg-muted/40 px-6 pt-20 sm:pt-28 lg:px-8">
+      <section className="relative overflow-clip bg-muted/40 px-4 pt-14 sm:px-6 sm:pt-28 lg:px-8">
         <Doodle src="/images/marketing/icons-decor/abaque.png" size={60} className="left-[3%] top-16 hidden -rotate-12 md:block" delay={1} duration={6} />
         <Doodle src="/images/marketing/icons-decor/ours-en-peluche.png" size={64} className="bottom-28 right-[3%] hidden rotate-6 md:block" delay={2.4} />
         <div className="mx-auto max-w-6xl">
@@ -174,35 +151,20 @@ export default async function HomePage() {
                   <Link
                     href="/nos-sections"
                     aria-label={`Découvrir la section ${section.shortTitle} — ${section.ageRange}`}
-                    className={cn(
-                      'group relative block h-full rounded-[1.75rem] bg-white p-3 pb-4 shadow-xl ring-1 ring-black/5 transition-all duration-300 hover:rotate-0 hover:-translate-y-1.5 hover:shadow-2xl',
-                      style.rotate,
-                    )}
+                    className="group relative block h-full"
                   >
-                    {/* Punaise */}
-                    <span aria-hidden className="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
-                      <span className={cn('relative block size-6 rounded-full shadow-md ring-4 ring-white', style.pin)}>
-                        <span className="absolute left-1 top-1 block size-1.5 rounded-full bg-white" />
-                      </span>
-                    </span>
-                    <div className={cn('rounded-[1.25rem] p-5 pt-7', style.panel)}>
-                      <div className="flex items-start justify-between gap-3">
-                        <span className={cn('font-display text-3xl italic leading-none', style.number)}>
-                          {String(i + 1).padStart(2, '0')}
-                        </span>
-                        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/80 ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-110">
-                          <section.Icon className="size-5 text-navy" aria-hidden="true" />
-                        </span>
-                      </div>
-                      <h3 className="mt-1 font-display text-2xl font-bold text-white">{section.shortTitle}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-white">{section.description}</p>
-                    </div>
+                    <SectionPinCard
+                      index={i}
+                      icon={section.Icon}
+                      title={section.shortTitle}
+                      description={section.description}
+                    />
                   </Link>
                 </Reveal>
               )
             })}
           </div>
-          <div className="mt-20 text-center">
+          <div className="mt-12 text-center sm:mt-20">
             <MarketingButton href="/nos-sections" variant="tertiary">
               Voir toutes les sections
               <ArrowRight className="size-4" />
@@ -210,14 +172,14 @@ export default async function HomePage() {
           </div>
         </div>
         {/* Vague de transition Sections (bleu très clair) → Différences (blanc). */}
-        <SectionDivider bgClass="bg-muted/40" fillClass="fill-background" flip className="mt-20" />
+        <SectionDivider bgClass="bg-muted/40" fillClass="fill-background" flip className="mt-12 sm:mt-20" />
       </section>
 
       <DifferenceTimeline />
 
       {/* Vie de la crèche — mosaïque photo, teaser de la galerie. */}
       {galleryPreview.length > 0 && (
-        <section className="relative overflow-clip px-6 pt-20 sm:pt-28 lg:px-8">
+        <section className="relative overflow-clip px-4 pt-14 sm:px-6 sm:pt-28 lg:px-8">
           <Doodle src="/images/marketing/icons-decor/star.png" size={44} className="right-[10%] top-8 hidden rotate-12 sm:block" delay={0.9} duration={4} />
           <Doodle src="/images/marketing/icons-decor/avion.png" size={52} className="bottom-28 left-[4%] hidden -rotate-12 lg:block" delay={2.2} duration={6} />
           <div className="mx-auto max-w-6xl">
@@ -241,7 +203,7 @@ export default async function HomePage() {
                 {galleryPreview.slice(0, 5).map((photo, i) => (
                   <div
                     key={photo.id}
-                    className={`relative aspect-square overflow-hidden rounded-2xl ${i === 2 ? 'row-span-2 sm:aspect-auto' : ''}`}
+                    className={`relative aspect-square overflow-hidden rounded-2xl ${i === 2 ? 'sm:row-span-2 sm:aspect-auto' : ''} ${i === 4 ? 'col-span-2 sm:col-span-1' : ''}`}
                   >
                     <Image
                       src={photo.url}
@@ -249,7 +211,7 @@ export default async function HomePage() {
                       fill
                       unoptimized
                       className="object-cover transition-transform duration-500 hover:scale-105"
-                      sizes="25vw"
+                      sizes="(min-width: 640px) 25vw, 50vw"
                     />
                   </div>
                 ))}
@@ -257,14 +219,14 @@ export default async function HomePage() {
             </Reveal>
           </div>
           {/* Vague de transition Galerie (blanc) → Rejoindre (crème). */}
-          <SectionDivider bgClass="bg-background" fillClass="fill-cream" flip className="mt-20 sm:mt-28" />
+          <SectionDivider bgClass="bg-background" fillClass="fill-cream" flip className="mt-12 sm:mt-28" />
         </section>
       )}
 
       <JoinTimeline />
 
       {/* Actualités — teaser éditorial. */}
-      <section className="relative overflow-clip bg-muted/40 px-6 pt-20 sm:pt-28 lg:px-8">
+      <section className="relative overflow-clip bg-muted/40 px-4 pt-14 sm:px-6 sm:pt-28 lg:px-8">
         <Doodle src="/images/marketing/icons-decor/soleil.png" size={56} className="left-[4%] top-12 hidden sm:block" delay={1.5} duration={7} />
         <Doodle src="/images/marketing/icons-decor/crayon.png" size={44} className="bottom-28 right-[5%] hidden rotate-12 lg:block" delay={0.3} duration={5} />
         <div className="mx-auto max-w-6xl">
@@ -338,7 +300,7 @@ export default async function HomePage() {
           </div>
         </div>
         {/* Vague de transition Actualités (bleu très clair) → CTA (crème). */}
-        <SectionDivider bgClass="bg-muted/40" fillClass="fill-accent" className="mt-20 sm:mt-28" />
+        <SectionDivider bgClass="bg-muted/40" fillClass="fill-accent" className="mt-12 sm:mt-28" />
       </section>
 
       <CtaBand />

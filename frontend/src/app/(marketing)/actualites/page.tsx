@@ -23,7 +23,7 @@ export default async function NewsPage() {
         subtitle="Suivez la vie quotidienne, les événements et les projets pédagogiques de nos petits rayons."
         badge="Actualités"
         Icon={Newspaper}
-        image="/images/marketing/news-gard.jpg"
+        image="/images/marketing/news-gard.png"
       />
 
       <section className="px-6 py-16 sm:py-20 lg:px-8">

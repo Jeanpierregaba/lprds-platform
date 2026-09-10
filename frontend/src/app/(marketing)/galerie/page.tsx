@@ -23,7 +23,7 @@ export default async function GalleryPage() {
         subtitle="Découvrez le quotidien joyeux de nos petits rayons de soleil à travers nos photos."
         badge="Galerie"
         Icon={Images}
-        image="/images/marketing/gallery-main.jpg"
+        image="/images/marketing/gallery-hero.png"
       />
 
       <section className="px-6 py-16 sm:py-20 lg:px-8">

@@ -18,31 +18,19 @@ const NAV_ITEMS = [
 ]
 
 export function SiteHeader() {
-  const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   useEffect(() => {
     setMenuOpen(false)
   }, [pathname])
 
-  const solid = scrolled || menuOpen
-
   return (
-    <header
-      className={cn(
-        'fixed inset-x-0 top-0 z-50 transition-colors duration-300',
-        solid ? 'bg-background/95 shadow-sm backdrop-blur-md' : 'bg-transparent'
-      )}
-    >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[72px] lg:px-8">
+    // Header flottant façon pilule (inspiration maquette) : crème (ancien fond
+    // du hero), logo à gauche, nav au centre, actions à droite. Toujours opaque
+    // — plus d'état transparent/solide au scroll.
+    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-full bg-cream px-4 shadow-lg ring-1 ring-black/5 sm:px-6 lg:h-[72px] lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={BRAND.name}>
           <Image src="/images/marketing/logo.png" alt={BRAND.name} width={148} height={90} className="h-11 w-auto sm:h-12" priority />
         </Link>
@@ -100,10 +88,7 @@ export function SiteHeader() {
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={menuOpen}
-            className={cn(
-              'inline-flex size-10 items-center justify-center rounded-full transition-colors lg:hidden',
-              solid ? 'text-foreground hover:bg-muted' : 'text-white hover:bg-white/15'
-            )}
+            className="inline-flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-black/5 lg:hidden"
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -111,12 +96,13 @@ export function SiteHeader() {
       </div>
 
       {menuOpen && (
-        <div className="border-t border-border bg-background px-4 pb-6 pt-2 shadow-lg lg:hidden">
+        <div className="mx-auto mt-2 max-h-[calc(100dvh-7rem)] max-w-7xl overflow-y-auto rounded-3xl bg-cream px-4 pb-6 pt-2 shadow-lg ring-1 ring-black/5 lg:hidden">
           <nav className="flex flex-col divide-y divide-border">
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMenuOpen(false)}
                 className="py-3 text-base font-medium text-foreground/90 hover:text-primary"
               >
                 {item.name}
@@ -128,14 +114,15 @@ export function SiteHeader() {
               href={BRAND.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#25D366] text-sm font-medium text-white"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#25D366] text-sm font-medium text-white"
             >
               <MessageCircle className="size-4" />
-              
+              Discuter sur WhatsApp
             </a>
             <Link
               href="/auth/login"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border-2 border-primary text-sm font-medium text-primary"
+              onClick={() => setMenuOpen(false)}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)] transition-all hover:translate-y-1 hover:shadow-none"
             >
               <User className="size-4" />
               Espace Parent

@@ -175,7 +175,7 @@ export default function StaffListPage() {
                     </TableCell>
                     <TableCell className="p-0">
                       <Link href={`/dashboard/admin/staff/${s.id}`} className="block p-2">
-                        <Badge variant={s.is_active ? 'default' : 'outline'}>
+                        <Badge variant={s.is_active ? 'secondary' : 'outline'}>
                           {s.is_active ? 'Actif' : 'Inactif'}
                         </Badge>
                       </Link>

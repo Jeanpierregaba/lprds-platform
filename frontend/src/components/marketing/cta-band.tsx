@@ -13,10 +13,10 @@ export function CtaBand() {
           Planifiez une visite de nos locaux et rencontrez notre équipe. Nous répondons à toutes vos questions.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <MarketingButton href="/contact" size="lg" variant="primary">
+          <MarketingButton href="/contact" size="lg" variant="primary" className="w-full sm:w-auto">
             Réserver une visite
           </MarketingButton>
-          <MarketingButton href={BRAND.whatsapp} size="lg" variant="whatsapp">
+          <MarketingButton href={BRAND.whatsapp} size="lg" variant="whatsapp" className="w-full sm:w-auto">
             <MessageCircle className="size-5" />
             Discuter sur WhatsApp
           </MarketingButton>

@@ -23,11 +23,11 @@ const NAV_LINKS = [
 export function SiteFooter() {
   return (
     <footer className="bg-secondary text-primary-foreground">
-      <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
-        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 sm:gap-12 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block">
-              <Image src="/images/marketing/logo.png" alt={BRAND.name} width={200} height={90} className="h-30 w-auto" />
+              <Image src="/images/marketing/logo.png" alt={BRAND.name} width={200} height={90} className="h-16 w-auto sm:h-20" />
             </Link>
             <p className="mt-6 max-w-md text-sm leading-relaxed text-primary-foreground/75">
               Depuis {BRAND.since}, nous accompagnons les enfants de 3 mois à 8 ans dans leur épanouissement
@@ -75,7 +75,7 @@ export function SiteFooter() {
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="size-4 shrink-0 text-primary" />
-                <a href={`mailto:${BRAND.email}`} className="hover:text-primary">{BRAND.email}</a>
+                <a href={`mailto:${BRAND.email}`} className="break-all hover:text-primary">{BRAND.email}</a>
               </li>
               <li className="flex gap-3 pt-1">
                 <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -96,7 +96,7 @@ export function SiteFooter() {
       <div className="border-t border-primary-foreground/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-6 text-xs text-primary-foreground/60 sm:flex-row sm:justify-between lg:px-8">
           <p>© {new Date().getFullYear()} {BRAND.name}. Tous droits réservés.</p>
-          <div className="flex gap-6">
+          <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-6">
             <Link href="/mentions-legales" className="hover:text-primary">Mentions légales</Link>
             <Link href="/confidentialite" className="hover:text-primary">Politique de confidentialité</Link>
           </div>

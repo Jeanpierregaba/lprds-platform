@@ -83,17 +83,17 @@ export function GalleryExplorer({ items }: { items: LiveGalleryItem[] }) {
       )}
 
       <Dialog open={!!active} onOpenChange={(open) => !open && setActiveIndex(null)}>
-        <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none ring-0" showCloseButton={false}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-3xl border-none bg-transparent p-0 shadow-none ring-0" showCloseButton={false}>
           {active && (
             <div className="relative">
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl sm:aspect-video">
-                <Image src={active.url} alt={GALLERY_PHOTO_CATEGORIES[active.category]} fill unoptimized className="object-cover" sizes="768px" />
+                <Image src={active.url} alt={GALLERY_PHOTO_CATEGORIES[active.category]} fill unoptimized className="object-cover" sizes="(max-width: 768px) 100vw, 768px" />
               </div>
               <div className="mt-3 text-center text-white">
                 <p className="font-display text-lg">{GALLERY_PHOTO_CATEGORIES[active.category]}</p>
               </div>
               <DialogClose
-                className="absolute -top-3 -right-3 flex size-9 items-center justify-center rounded-full bg-white text-foreground shadow-lg transition-colors hover:bg-muted"
+                className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-white text-foreground shadow-lg transition-colors hover:bg-muted"
                 aria-label="Fermer"
               >
                 <X className="size-4" />

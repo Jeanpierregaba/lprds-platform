@@ -36,7 +36,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <article className="px-6 pb-20 pt-32 sm:pt-40 lg:px-8">
+      <article className="px-4 pb-16 pt-24 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8">
         <div className="mx-auto max-w-2xl">
           <Link href="/actualites" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
             <ArrowLeft className="size-4" />
@@ -70,7 +70,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
               </time>
             )}
             <h1 className="mt-3 font-display text-3xl leading-tight text-primary sm:text-4xl">{article.title}</h1>
-            <div className="mt-6 whitespace-pre-line border-t border-border pt-6 text-foreground/85">
+            <div className="mt-6 whitespace-pre-line break-words border-t border-border pt-6 text-foreground/85">
               {article.content}
             </div>
           </Reveal>

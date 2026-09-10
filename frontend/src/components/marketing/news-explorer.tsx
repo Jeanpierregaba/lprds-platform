@@ -110,7 +110,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
             href={`/actualites/${featured.id}`}
             className="group grid grid-cols-1 overflow-hidden rounded-3xl bg-primary text-primary-foreground shadow-lg sm:grid-cols-2"
           >
-            <div className="flex flex-col justify-center p-8 sm:p-10">
+            <div className="flex flex-col justify-center p-6 sm:p-10">
               <span className="w-fit rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
                 À la une
               </span>
@@ -127,7 +127,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
               <h3 className="mt-2 font-display text-2xl leading-snug group-hover:underline sm:text-3xl">{featured.title}</h3>
               <p className="mt-3 text-primary-foreground/80">{featured.excerpt}</p>
             </div>
-            <div className="relative min-h-56 bg-primary-foreground/5 sm:min-h-full">
+            <div className="relative min-h-48 bg-primary-foreground/5 sm:min-h-full">
               <ArticleCover coverUrl={featured.coverUrl} title={featured.title} />
             </div>
           </Link>

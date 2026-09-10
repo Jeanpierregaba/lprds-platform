@@ -18,7 +18,7 @@ export default function SectionsPage() {
         subtitle="De 3 mois à 8 ans, chaque section a son rythme, ses activités et une équipe dédiée pour accompagner votre enfant."
         badge="Nos sections"
         Icon={Baby}
-        image="/images/marketing/our-sec.jpg"
+        image="/images/marketing/our-sec.png"
       />
 
       <section className="px-6 py-16 sm:py-20 lg:px-8">

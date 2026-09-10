@@ -29,7 +29,7 @@ export function MobileNav() {
       // best-effort
     } finally {
       clearSession()
-      router.push('/auth/login')
+      router.push('/')
     }
   }
 

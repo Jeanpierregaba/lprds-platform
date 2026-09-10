@@ -24,7 +24,7 @@ export function Sidebar() {
       // best-effort — on nettoie la session locale même si l'appel échoue
     } finally {
       clearSession()
-      router.push('/auth/login')
+      router.push('/')
     }
   }
 

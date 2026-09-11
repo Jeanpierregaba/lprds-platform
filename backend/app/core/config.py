@@ -57,8 +57,40 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        extra = [o.strip() for o in self.cors_extra_origins.split(",") if o.strip()]
-        return [self.frontend_url, *extra]
+        configured = [
+            self.frontend_url,
+            *(o.strip() for o in self.cors_extra_origins.split(",") if o.strip()),
+        ]
+        seen: set[str] = set()
+        origins: list[str] = []
+        for origin in configured:
+            for variant in self._origin_variants(origin):
+                if variant and variant not in seen:
+                    seen.add(variant)
+                    origins.append(variant)
+        return origins
+
+    @staticmethod
+    def _origin_variants(origin: str) -> list[str]:
+        """Normalise une origine et ajoute son homologue www / sans-www.
+
+        Le site est servi sur les deux (lespetitsrayonsdesoleil.net ET
+        www.lespetitsrayonsdesoleil.net) ; un visiteur arrivé par l'un des
+        deux peut donc faire un appel cross-origin depuis l'autre. Sans ce
+        double enregistrement, le login échoue en CORS selon la forme de
+        l'URL utilisée (cas réel observé en production sur Safari).
+        """
+        normalized = origin.strip().rstrip("/").lower()
+        if not normalized:
+            return []
+        variants = {normalized}
+        if "://" in normalized:
+            scheme, host = normalized.split("://", 1)
+            if host.startswith("www."):
+                variants.add(f"{scheme}://{host[4:]}")
+            else:
+                variants.add(f"{scheme}://www.{host}")
+        return sorted(variants)
 
     # Email
     mail_username: str = ""

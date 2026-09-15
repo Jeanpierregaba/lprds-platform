@@ -4,7 +4,7 @@ from tests.helpers import PNG, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login,
 QUOTIDIEN_CONTENT = {
     "health_status": "bien", "breakfast": "bien_mange", "lunch": "bien_mange",
     "snack": "bien_mange", "nap": False, "bath": True, "poop": True,
-    "moods": ["joyeux"], "activities": "Jeux", "behaviors": ["pleasant_day"],
+    "moods": ["joyeux"], "activities": ["Jeux"], "behaviors": ["pleasant_day"],
 }
 
 

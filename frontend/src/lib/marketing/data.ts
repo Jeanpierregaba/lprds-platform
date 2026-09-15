@@ -10,10 +10,10 @@ export const BRAND = {
   shortName: 'LPRDS',
   baseline: 'La maison de l’éveil',
   since: 2022,
-  address: 'Quatrième voie à droite, en face du commissariat du 3ᵉ district, Djidjolé, Lomé — Togo',
+  address: 'Rue le sauveur, Quatrième voie à droite, en face du commissariat du 3e district, Djidjolé, Lomé -Togo',
   phone: '+228 98 60 29 20',
   phoneHref: 'tel:+22898602920',
-  whatsapp: 'https://wa.me/22890554121',
+  whatsapp: 'https://wa.me/22898602920',
   email: 'hello@lespetitsrayonsdesoleil.net',
   social: {
     facebook: 'https://www.facebook.com/p/Les-Petits-Rayons-de-Soleil-61559745601729/',
@@ -22,22 +22,22 @@ export const BRAND = {
     tiktok: 'https://www.tiktok.com/@lespetitsrayonsdesoleil',
   },
   hours: [
-    { day: 'Lundi — Vendredi', hours: '7h30 – 19h00' },
+    { day: 'Lundi — Vendredi', hours: '7h00 – 19h00' },
     { day: 'Samedi (espace de jeux extérieur)', hours: '11h00 – 19h00' },
     { day: 'Dimanche (espace de jeux extérieur)', hours: '14h00 – 19h00' },
   ],
 } as const
 
 export const STATS = [
-  { value: '80+', label: 'Enfants accueillis' },
+  { value: '100+', label: 'Enfants accueillis' },
   { value: '15', label: 'Professionnels qualifiés' },
-  { value: '9', label: 'Sections, de 3 mois à 8 ans' },
+  { value: '6', label: 'Sections, de 3 mois à 6 ans' },
   { value: '100%', label: 'Parents satisfaits' },
 ] as const
 
 export const WHY_US = [
-  { value: '+80', label: 'Enfants confiés par leurs parents' },
-  { value: '+10', label: 'Professionnels passionnés et formés' },
+  { value: '+100', label: 'Enfants confiés par leurs parents' },
+  { value: '+15', label: 'Professionnels passionnés et formés' },
   { label: 'Espace de jeux spacieux et équipé' },
   { label: 'Environnement 100 % sécurisé' },
 ] as const
@@ -63,7 +63,7 @@ export const SECTIONS: SectionAgeGroup[] = [
     title: 'Crèche — Section Étoile',
     shortTitle: 'Étoile',
     ageRange: '3 – 18 mois',
-    capacity: '15 enfants',
+    capacity: '10 enfants',
     ratio: '1 adulte pour 5 bébés',
     description: 'Un cocon douillet pour les premiers mois de découverte.',
     activities: [
@@ -71,13 +71,14 @@ export const SECTIONS: SectionAgeGroup[] = [
       'Exploration des textures et des sons',
       'Initiation musicale et moments de détente',
       'Jeux de manipulation et d’exploration libre',
+      'Initiation au bébé signe ',
     ],
     schedule: {
       morning: 'Accueil personnalisé, temps de soin, biberon et activités sensorielles',
       midday: 'Repas adapté, moments calmes et sieste longue',
       afternoon: 'Éveil en douceur, découverte en plein air et goûter',
     },
-    image: '/images/marketing/about-image-1-B_by9-Oc.jpg',
+    image: '/images/marketing/',
   },
   {
     id: 'creche_nuage',
@@ -85,8 +86,8 @@ export const SECTIONS: SectionAgeGroup[] = [
     title: 'Crèche — Section Nuage',
     shortTitle: 'Nuage',
     ageRange: '18 – 24 mois',
-    capacity: '16 enfants',
-    ratio: '1 adulte pour 8 enfants',
+    capacity: '14 enfants',
+    ratio: '1 adulte pour 7 enfants',
     description: 'L’âge des premières explorations et de l’autonomie naissante.',
     activities: [
       'Motricité libre et parcours de découverte',
@@ -108,8 +109,8 @@ export const SECTIONS: SectionAgeGroup[] = [
     title: 'Crèche — Section Soleil',
     shortTitle: 'Soleil',
     ageRange: '24 – 36 mois',
-    capacity: '16 enfants',
-    ratio: '1 adulte pour 8 enfants',
+    capacity: '14 enfants',
+    ratio: '1 adulte pour 7 enfants',
     description: 'Une préparation douce et joyeuse vers l’école maternelle.',
     activities: [
       'Pré-graphisme et découverte de l’écrit',
@@ -130,12 +131,12 @@ export const SECTIONS: SectionAgeGroup[] = [
     category: 'garderie',
     title: 'Garderie périscolaire',
     shortTitle: 'Garderie',
-    ageRange: '3 – 8 ans',
+    ageRange: '3 – 6 ans',
     capacity: '10 enfants',
     ratio: '1 adulte pour 10 enfants',
     description: 'Un espace d’épanouissement et d’accompagnement après l’école.',
     activities: [
-      'Aide personnalisée aux devoirs (niveau primaire)',
+      'Aide personnalisée aux devoirs',
       'Ateliers créatifs et manuels',
       'Activités sportives et jeux collectifs',
       'Découvertes culturelles et ludiques',
@@ -152,7 +153,7 @@ export const SECTIONS: SectionAgeGroup[] = [
     category: 'maternelle',
     title: 'Maternelle — Petite Section',
     shortTitle: 'Petite Section',
-    ageRange: '3 ans',
+    ageRange: '3 ans - 4 ans',
     capacity: '20 enfants',
     ratio: '1 adulte pour 10 enfants',
     description: 'La Petite Section marque le début du parcours scolaire : l’enfant découvre le plaisir d’apprendre à travers le jeu, le mouvement et la communication.',
@@ -162,6 +163,7 @@ export const SECTIONS: SectionAgeGroup[] = [
       'Activités artistiques : dessin, peinture, modelage, musique',
       'Premiers jeux mathématiques : tri, classement, formes et couleurs',
       'Explorer le monde : nature, animaux, saisons et cinq sens',
+      'Anglais'
     ],
     schedule: {
       morning: 'Accueil individualisé, jeux libres, rituels du jour, ateliers dirigés, chansons',
@@ -175,9 +177,9 @@ export const SECTIONS: SectionAgeGroup[] = [
     category: 'maternelle',
     title: 'Maternelle — Moyenne Section',
     shortTitle: 'Moyenne Section',
-    ageRange: '3 – 4 ans',
-    capacity: '20 enfants',
-    ratio: '1 adulte pour 10 enfants',
+    ageRange: '4 – 5 ans',
+    capacity: '16 enfants',
+    ratio: '1 adulte pour 8 enfants',
     description: 'Les apprentissages se consolident : l’enfant affine son langage, sa motricité, et commence à organiser sa pensée.',
     activities: [
       'Langage : vocabulaire, phrases complètes, phonologie, anglais oral quotidien',
@@ -185,6 +187,7 @@ export const SECTIONS: SectionAgeGroup[] = [
       'Arts et expression : peinture, bricolage, expression corporelle, chant',
       'Repérage dans le temps et l’espace, tri, comparaison, nombres',
       'Petites expériences sensorielles, découverte des plantes et animaux',
+      'Anglais'
     ],
     schedule: {
       morning: 'Accueil individualisé, jeux libres, rituels du jour, ateliers dirigés, chansons',
@@ -198,9 +201,9 @@ export const SECTIONS: SectionAgeGroup[] = [
     category: 'maternelle',
     title: 'Maternelle — Grande Section',
     shortTitle: 'Grande Section',
-    ageRange: '4 – 5 ans',
-    capacity: '20 enfants',
-    ratio: '1 adulte pour 10 enfants',
+    ageRange: '5 – 6 ans',
+    capacity: '16 enfants',
+    ratio: '1 adulte pour 8 enfants',
     description: 'La Grande Section prépare en douceur le passage vers l’école primaire : curiosité intellectuelle, rigueur, confiance en soi et envie d’apprendre.',
     activities: [
       'Conscience phonologique, reconnaissance des lettres, initiation à la lecture',
@@ -258,7 +261,7 @@ export const DIFFERENCES: Difference[] = [
   {
     id: 'activites-extrascolaires',
     title: 'Activités extrascolaires enrichissantes',
-    description: 'Natation, karaté, escrime et danse contemporaine — pour stimuler la motricité, la confiance et la discipline.',
+    description: 'Natation, karaté, escrime et danse afrocontemporaine pour stimuler la motricité, la confiance et la discipline.',
   },
   {
     id: 'espace-de-jeux',
@@ -298,7 +301,7 @@ export const PARTNERS = [
   { name: 'Orthophoniste', role: 'Veille au développement du langage et de la communication.' },
   { name: 'Maître-nageur', role: 'Initie les enfants à la natation en toute sécurité.' },
   { name: 'Professeur de musique', role: 'Développe la sensibilité musicale et la créativité.' },
-  { name: 'Professeure de karaté', role: 'Enseigne discipline, confiance et coordination.' },
+  { name: 'Professeur de karaté', role: 'Enseigne discipline, confiance et coordination.' },
   { name: 'Professeure de danse', role: 'Favorise l’expression corporelle et le rythme.' },
   { name: 'Maître d’armes d’escrime', role: 'Stimule la concentration, les réflexes et l’esprit sportif.' },
 ] as const

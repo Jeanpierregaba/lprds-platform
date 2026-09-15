@@ -1,7 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { Controller, type UseFormReturn } from 'react-hook-form'
+import { Plus, X } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -11,6 +15,64 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckboxGroup } from './checkbox-group'
 import type { DailyContentForm } from '@/lib/reports/content-schemas'
 import type { ReportVocabulary } from '@/types/reports'
+
+/** Saisie des activités une par une : texte + validation + bouton « + ». */
+function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState('')
+
+  const add = () => {
+    const trimmed = draft.trim()
+    if (!trimmed) return
+    onChange([...value, trimmed])
+    setDraft('')
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+          }}
+          placeholder="Ex. Arrosage, Collage…"
+          aria-label="Nouvelle activité"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={add}
+          disabled={!draft.trim()}
+          aria-label="Ajouter l'activité"
+        >
+          <Plus className="size-4" />
+        </Button>
+      </div>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((activity, i) => (
+            <Badge key={`${activity}-${i}`} variant="secondary" className="gap-1 py-1 font-normal">
+              {i + 1}-{activity}
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((_, j) => j !== i))}
+                aria-label={`Retirer ${activity}`}
+                className="rounded-full p-0.5 transition hover:bg-destructive/20"
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function DailyFields({
   form, vocabulary,
@@ -148,8 +210,14 @@ export function DailyFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="activities">Activités du jour</Label>
-        <Textarea id="activities" rows={3} {...register('activities')} aria-invalid={!!errors.activities} />
+        <Label>Activités du jour (au moins une)</Label>
+        <Controller
+          control={control}
+          name="activities"
+          render={({ field }) => (
+            <ActivitiesEditor value={field.value} onChange={field.onChange} />
+          )}
+        />
         {errors.activities && <p className="text-sm text-destructive">{errors.activities.message}</p>}
       </div>
 

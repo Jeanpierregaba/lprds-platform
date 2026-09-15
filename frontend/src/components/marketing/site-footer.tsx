@@ -30,7 +30,7 @@ export function SiteFooter() {
               <Image src="/images/marketing/logo.png" alt={BRAND.name} width={200} height={90} className="h-16 w-auto sm:h-20" />
             </Link>
             <p className="mt-6 max-w-md text-sm leading-relaxed text-primary-foreground/75">
-              Depuis {BRAND.since}, nous accompagnons les enfants de 3 mois à 8 ans dans leur épanouissement
+              Depuis {BRAND.since}, nous accompagnons les enfants de 3 mois à 6 ans dans leur épanouissement
               quotidien. Un environnement sécurisé, bienveillant et stimulant pour grandir en toute sérénité.
             </p>
             <div className="mt-6 flex gap-3">

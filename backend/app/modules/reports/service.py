@@ -269,11 +269,9 @@ async def update_report(
 ) -> ReportResponse:
     report = await _get_report_or_404(report_id, establishment_id, db)
     await _authorize_write(report, current_user, db)
-    if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport en brouillon ou rejeté peut être modifié",
-        )
+    # L'admin peut modifier un rapport à tout moment (même soumis, validé et
+    # déjà lu par le parent) ; le staff reste limité au brouillon / rejeté.
+    _ensure_mutable(report, current_user)
 
     changes = payload.model_dump(exclude_unset=True)
     # Revalider le contenu si l'un ou l'autre change — un summary modifié seul
@@ -517,6 +515,22 @@ async def _authorize_write(report: Report, current_user: User, db: AsyncSession)
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Vous n'êtes pas autorisé à modifier ce rapport",
     )
+
+
+def _ensure_mutable(report: Report, current_user: User) -> None:
+    """Garde-fou de statut pour toute modification (contenu ou médias).
+
+    L'admin peut modifier un rapport à tout moment — même soumis, validé et
+    déjà lu par le parent. Le staff (éducatrice de son groupe) reste limité
+    au brouillon et au rejeté, comme avant.
+    """
+    if current_user.role == UserRole.ADMIN:
+        return
+    if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Seul un rapport en brouillon ou rejeté peut être modifié",
+        )
 
 
 async def _authorize_read(report: Report, current_user: User, db: AsyncSession) -> None:
@@ -796,6 +810,7 @@ async def add_report_attachment(
 ) -> ReportAttachmentResponse:
     report = await _get_report_or_404(report_id, establishment_id, db)
     await _authorize_write(report, current_user, db)
+    _ensure_mutable(report, current_user)
 
     content_bytes = await file.read()
     max_bytes = settings.reports_max_attachment_mb * 1024 * 1024
@@ -831,6 +846,36 @@ async def add_report_attachment(
     await db.flush()
     await db.refresh(attachment)
     return _attachment_response(attachment)
+
+
+async def delete_report_attachment(
+    report_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    current_user: User,
+    db: AsyncSession,
+) -> None:
+    """Retire un média d'un rapport (ligne en base + fichier sur disque).
+
+    Mêmes règles que toute modification : l'admin à tout moment, le staff
+    seulement en brouillon / rejeté. Le fichier manquant sur disque n'est
+    pas une erreur (suppression best-effort côté stockage).
+    """
+    report = await _get_report_or_404(report_id, establishment_id, db)
+    await _authorize_write(report, current_user, db)
+    _ensure_mutable(report, current_user)
+    attachment = await db.scalar(
+        select(ReportAttachment).where(
+            ReportAttachment.id == attachment_id, ReportAttachment.report_id == report.id
+        )
+    )
+    if not attachment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+        )
+    await db.delete(attachment)
+    await db.flush()
+    await storage.delete_file(attachment.storage_key)
 
 
 async def get_report_attachment_for_staff(

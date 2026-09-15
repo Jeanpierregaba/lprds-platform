@@ -70,7 +70,7 @@ export default async function HomePage() {
               <div className="max-w-xl">
                 <Reveal delay={0.16}>
                   <p className="text-base text-white/85 sm:text-lg">
-                    Votre enfant mérite un départ réussi : une structure où il grandit, apprend et s’épanouit en toute sécurité.
+                    Votre enfant mérite le meilleur départ dans la vie : un environnement bienveillant et sécurisé, où il peut grandir, apprendre, s’épanouir et révéler pleinement son potentiel.
                   </p>
                 </Reveal>
                 <Reveal delay={0.24}>
@@ -112,8 +112,7 @@ export default async function HomePage() {
               Pourquoi Les Petits Rayons de Soleil&nbsp;?
             </h2>
             <p className="my-6 text-muted-foreground sm:text-lg">
-              Une équipe passionnée, un cadre pensé pour la sécurité et la découverte, et une pédagogie qui
-              grandit avec votre enfant — de la crèche à la grande section.
+              Un cadre chaleureux et sécurisé, une équipe passionnée et une pédagogie pensée pour accompagner chaque enfant dans ses découvertes, son autonomie et son épanouissement, de la crèche à la Grande Section. 
             </p>
 
             <MarketingButton href="/a-propos" size="lg" variant="tertiary">

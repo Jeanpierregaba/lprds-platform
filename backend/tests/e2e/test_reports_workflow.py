@@ -1,11 +1,12 @@
 """E2E rapports : types par département, workflow soumission/validation/rejet,
-isolation par groupe, auto-publication admin, portail parent."""
-from tests.helpers import SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
+isolation par groupe, auto-publication admin, portail parent, modification
+admin à tout moment (même validé/lu) avec ajout/retrait de médias."""
+from tests.helpers import PNG, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
 
 VALID_CONTENT = {
     "health_status": "bien", "breakfast": "bien_mange", "lunch": "bien_mange",
     "snack": "bien_mange", "nap": True, "nap_duration_minutes": 60,
-    "bath": True, "poop": True, "moods": ["joyeux"], "activities": "Jeux calmes.",
+    "bath": True, "poop": True, "moods": ["joyeux"], "activities": ["Jeux calmes."],
     "behaviors": ["pleasant_day"],
 }
 
@@ -199,3 +200,36 @@ def test_reports_workflow(client):
     c.post(f"/reports/{r3['id']}/submit", headers=educ1)
     r = c.post(f"/reports/{r3['id']}/validate", headers=educ2b)
     ck("Staff délégué (reports:validate) peut valider", r.status_code, 200)
+
+    # ── Modification admin à tout moment (même validé et lu par le parent) ──
+    r = c.patch(f"/reports/{rid}", json={
+        "summary": "Corrigé par l'admin après lecture du parent."}, headers=adm)
+    ck("Admin modifie un rapport validé et lu", r.status_code, 200)
+    ck("  statut inchangé (validated)", r.json()["status"], "validated")
+    ck("  summary mis à jour",
+       "Corrigé par l'admin" in (r.json()["summary"] or ""), True)
+    par_detail2 = c.get(f"/reports/mine/{rid}", headers=par).json()
+    ck("Parent voit le contenu modifié",
+       "Corrigé par l'admin" in (par_detail2["summary"] or ""), True)
+    ck("Staff modifie un validé → 409", c.patch(
+        f"/reports/{rid}", json={"summary": "x"}, headers=educ1).status_code, 409)
+
+    # ── Ajout / retrait de médias sur rapport validé ──
+    up = c.post(f"/reports/{rid}/attachments",
+                files={"file": ("photo.png", PNG, "image/png")}, headers=adm)
+    ck("Admin ajoute un média sur rapport validé", up.status_code, 201)
+    aid = up.json()["id"]
+    ck("Admin retire le média", c.request(
+        "DELETE", f"/reports/{rid}/attachments/{aid}", headers=adm).status_code, 204)
+    ck("  bien retiré (404 au téléchargement)", c.get(
+        f"/reports/{rid}/attachments/{aid}", headers=adm).status_code, 404)
+    ck("Retrait d'un média inexistant → 404", c.request(
+        "DELETE", f"/reports/{rid}/attachments/{aid}", headers=adm).status_code, 404)
+    up2 = c.post(f"/reports/{rid}/attachments",
+                 files={"file": ("photo2.png", PNG, "image/png")}, headers=adm)
+    aid2 = up2.json()["id"]
+    ck("Staff retire un média d'un validé → 409", c.request(
+        "DELETE", f"/reports/{rid}/attachments/{aid2}", headers=educ1).status_code, 409)
+    ck("  média toujours présent", c.get(
+        f"/reports/{rid}/attachments/{aid2}", headers=adm).status_code, 200)
+    c.request("DELETE", f"/reports/{rid}/attachments/{aid2}", headers=adm)

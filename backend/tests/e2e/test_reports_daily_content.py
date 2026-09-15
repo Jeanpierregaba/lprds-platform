@@ -15,7 +15,7 @@ FULL_CONTENT = {
     "bath": True,
     "poop": True,
     "moods": ["joyeux", "calme", "joyeux"],  # doublon volontaire
-    "activities": "Peinture, jeux de construction, lecture d'histoires.",
+    "activities": ["Peinture", "Jeux de construction", "Lecture d'histoires"],
     "behaviors": ["pleasant_day", "good_interaction", "pleasant_day"],  # doublon
     "highlight": "A dit ses premiers mots en chanson !",
 }
@@ -142,6 +142,15 @@ def test_reports_daily_content(client):
     good_update = c.patch(f"/reports/{rid}", json={
         "content": {**rep["content"], "health_notes": "RAS, journée calme."}}, headers=educ)
     ck("Modification valide acceptée", good_update.status_code, 200)
+    ck("Activités vides → 422", c.patch(f"/reports/{rid}", json={
+        "content": {**rep["content"], "activities": []}}, headers=educ).status_code, 422)
+    ck("Activités blanches → 422", c.patch(f"/reports/{rid}", json={
+        "content": {**rep["content"], "activities": ["   "]}}, headers=educ).status_code, 422)
+    r = c.patch(f"/reports/{rid}", json={
+        "content": {**rep["content"], "activities": ["  Collage  ", "Peinture"]}},
+        headers=educ)
+    ck("Activités multiples acceptées", r.status_code, 200)
+    ck("  espaces rognés", r.json()["content"]["activities"], ["Collage", "Peinture"])
 
     # ── Pièces jointes (photos / vidéos) ──
     r = c.post(f"/reports/{rid}/attachments",

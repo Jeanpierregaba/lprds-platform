@@ -22,7 +22,7 @@ export const dailyContentSchema = z.object({
   bath: z.boolean(),
   poop: z.boolean(),
   moods: z.array(z.string()).min(1, 'Au moins une humeur requise'),
-  activities: z.string().min(1, 'Activités requises'),
+  activities: z.array(z.string().min(1, 'Activité vide')).min(1, 'Au moins une activité requise'),
   behaviors: z.array(z.string()).min(1, 'Au moins un comportement requis'),
   highlight: z.string().optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
@@ -57,6 +57,14 @@ export function toDailyContent(form: DailyContentForm): DailyReportContent {
   }
 }
 
+/** Normalise les activités lues en base : liste attendue, avec repli sur les
+ *  rapports historiques qui stockent encore une simple chaîne. */
+export function normalizeActivities(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string')
+  if (typeof value === 'string' && value.trim()) return [value]
+  return []
+}
+
 export function fromDailyContent(content: Partial<DailyReportContent>): DailyContentForm {
   return {
     arrival_time: content.arrival_time ?? '',
@@ -73,7 +81,7 @@ export function fromDailyContent(content: Partial<DailyReportContent>): DailyCon
     bath: content.bath ?? false,
     poop: content.poop ?? false,
     moods: content.moods ?? [],
-    activities: content.activities ?? '',
+    activities: normalizeActivities(content.activities),
     behaviors: content.behaviors ?? [],
     highlight: content.highlight ?? '',
   }
@@ -142,7 +150,7 @@ export const DAILY_DEFAULTS: DailyContentForm = {
   breakfast: '', lunch: '', snack: '',
   nap: false, nap_duration_minutes: '',
   bath: false, poop: false,
-  moods: [], activities: '', behaviors: [], highlight: '',
+  moods: [], activities: [], behaviors: [], highlight: '',
 }
 
 export const BIMENSUEL_DEFAULTS: BiMensuelContentForm = {

@@ -83,7 +83,10 @@ export interface DailyReportContent {
   bath: boolean
   poop: boolean
   moods: string[]
-  activities: string
+  // Liste d'activités (saisie une par une côté formulaire). Les rapports
+  // créés avant cette évolution stockent une simple chaîne : normalisée en
+  // liste à la lecture (cf. fromDailyContent).
+  activities: string[]
   behaviors: string[]
   highlight?: string | null
 }

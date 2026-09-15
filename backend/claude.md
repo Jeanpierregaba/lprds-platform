@@ -1222,7 +1222,7 @@ de rapport ne touche que cette table.
 | `nap_duration_minutes` | `int \| None` | **Cohérence imposée** : requis si `nap=true`, doit être absent si `nap=false` (422 sinon) |
 | `bath` / `poop` | `bool` | Requis |
 | `moods` | `list[Mood]`, ≥1 | Cases cochées (au moins une) ; doublons silencieusement dédupliqués, pas une erreur |
-| `activities` | `str`, non vide | Requis |
+| `activities` | `list[str]`, ≥1 | Saisie une par une côté formulaire (input + bouton « + ») ; espaces rognés, entrées vides écartées, au moins une activité réelle exigée (422 sinon). Les rapports historiques stockent encore une `str` : normalisée en liste à la lecture côté frontend (`normalizeActivities`), jamais migrée en base.
 | `behaviors` | `list[BehaviorTag]`, ≥1 | Idem `moods` — dédupliqué automatiquement |
 | `highlight` | `str \| None` | Facultatif (« petit fait marquant ») |
 
@@ -1360,7 +1360,12 @@ draft ──submit──> submitted ──validate──> validated (publié au 
   └──────reject────────┘  (avec motif, conservé dans rejected_reason)
 ```
 
-- **Modifiable** seulement en `draft` ou `rejected`.
+- **Modifiable** : l'**admin à tout moment** — même `submitted`/`validated`,
+  même déjà lu par le parent (le statut ne change pas, aucune re-notification ;
+  le parent voit le contenu corrigé à sa prochaine visite). Le **staff** reste
+  limité à `draft` / `rejected`. Les médias suivent la même règle : ajout
+  (`POST .../attachments`) et retrait (`DELETE .../attachments/{id}`) possibles
+  pour l'admin quel que soit le statut.
 - **Soumissible** depuis `draft` ou `rejected` (`rejected_reason` est effacé au
   moment de la resoumission — la prochaine décision de l'admin repart neuve).
 - **Supprimable** (hard delete) **seulement en `draft` jamais soumis** — dès
@@ -1412,12 +1417,13 @@ GET    /api/v1/reports/vocabulary         # reports:read — labels FR (mood, be
 POST   /api/v1/reports                    # reports:write (+ règle de groupe pour le staff)
 GET    /api/v1/reports                    # reports:read — scope auto par groupe si staff
 GET    /api/v1/reports/{id}
-PATCH  /api/v1/reports/{id}               # draft/rejected uniquement — revalide le contenu
+PATCH  /api/v1/reports/{id}               # admin : tout statut ; staff : draft/rejected — revalide le contenu
 DELETE /api/v1/reports/{id}               # draft jamais soumis uniquement
 POST   /api/v1/reports/{id}/submit        # admin → auto-validé ; staff → submitted
 POST   /api/v1/reports/{id}/validate      # reports:validate
 POST   /api/v1/reports/{id}/reject        # reports:validate — body {reason}
-POST   /api/v1/reports/{id}/attachments               # reports:write — multipart
+POST   /api/v1/reports/{id}/attachments               # reports:write — multipart (même règle de statut que PATCH)
+DELETE /api/v1/reports/{id}/attachments/{attachment_id}  # retrait d'un média (même règle de statut que PATCH)
 GET    /api/v1/reports/{id}/attachments/{attachment_id}
 
 GET    /api/v1/reports/mine/list          # parent — rapports VALIDÉS de ses enfants

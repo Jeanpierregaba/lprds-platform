@@ -155,7 +155,8 @@ async def update_report(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
 ) -> ReportResponse:
-    """Modifiable seulement en brouillon ou après rejet."""
+    """L'admin peut modifier à tout moment (même soumis/validé/lu par le
+    parent) ; le staff seulement en brouillon ou après rejet."""
     return await service.update_report(report_id, payload, user.establishment_id, user, db)
 
 
@@ -217,6 +218,20 @@ async def upload_report_attachment(
     user: User = Depends(_write),
 ) -> ReportAttachmentResponse:
     return await service.add_report_attachment(report_id, user.establishment_id, user, file, db)
+
+
+@router.delete("/{report_id}/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_report_attachment(
+    report_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> None:
+    """Retire un média d'un rapport — l'admin à tout moment, le staff
+    seulement en brouillon ou après rejet (mêmes règles que le contenu)."""
+    await service.delete_report_attachment(
+        report_id, attachment_id, user.establishment_id, user, db
+    )
 
 
 @router.get("/{report_id}/attachments/{attachment_id}")

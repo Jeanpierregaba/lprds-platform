@@ -316,7 +316,7 @@ def test_report_attachment_upload_still_reachable_for_regression(client):
                      "health_status": "bien", "breakfast": "bien_mange",
                      "lunch": "bien_mange", "snack": "bien_mange", "nap": False,
                      "bath": True, "poop": True, "moods": ["joyeux"],
-                     "activities": "Jeux", "behaviors": ["pleasant_day"]}},
+                     "activities": ["Jeux"], "behaviors": ["pleasant_day"]}},
                  headers=adm).json()
     up = c.post(f"/reports/{rep['id']}/attachments",
                files={"file": ("photo.png", PNG, "image/png")}, headers=adm)

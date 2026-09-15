@@ -82,7 +82,9 @@ class DailyReportContent(BaseModel):
     poop: bool
 
     moods: list[Mood] = Field(min_length=1)
-    activities: str = Field(min_length=1)
+    # Liste d'activités saisie une par une côté frontend (input + bouton « + »)
+    # — plus un simple champ texte libre. Nettoyée (espaces, vides) ci-dessous.
+    activities: list[str] = Field(min_length=1)
     behaviors: list[BehaviorTag] = Field(min_length=1)
     highlight: str | None = None  # petit fait marquant — facultatif
 
@@ -99,6 +101,12 @@ class DailyReportContent(BaseModel):
         # Des cases cochées deux fois ne doivent pas produire de doublons.
         self.moods = list(dict.fromkeys(self.moods))
         self.behaviors = list(dict.fromkeys(self.behaviors))
+        # Activités : espaces rognés, entrées vides écartées, au moins une
+        # activité réelle exigée (un ["  "] ne doit pas passer la validation).
+        cleaned = [a.strip() for a in self.activities if a.strip()]
+        if not cleaned:
+            raise ValueError("Au moins une activité est requise")
+        self.activities = cleaned
         return self
 
 

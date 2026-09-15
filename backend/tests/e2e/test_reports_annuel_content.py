@@ -119,7 +119,7 @@ def test_reports_annuel_content(client):
                     "health_status": "bien", "breakfast": "bien_mange",
                     "lunch": "bien_mange", "snack": "bien_mange", "nap": False,
                     "bath": True, "poop": True, "moods": ["joyeux"],
-                    "activities": "Jeux", "behaviors": ["pleasant_day"]}}, headers=educ)
+                    "activities": ["Jeux"], "behaviors": ["pleasant_day"]}}, headers=educ)
     rqid = rq.json()["id"]
     c.post(f"/reports/{rqid}/submit", headers=educ)
     c.post(f"/reports/{rqid}/validate", headers=adm)

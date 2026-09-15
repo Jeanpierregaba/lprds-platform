@@ -52,6 +52,9 @@ export const reportsApi = {
   downloadAttachment: (reportId: string, attachmentId: string) =>
     apiClient.get<Blob>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`, { responseType: 'blob' }),
 
+  deleteAttachment: (reportId: string, attachmentId: string) =>
+    apiClient.delete<void>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`),
+
   // ── Portail parent ───────────────────────────────────────────
   listMine: (params?: { child_id?: string; skip?: number; limit?: number }) =>
     apiClient.get<ParentReportListResponse>('/api/v1/reports/mine/list', { params }),

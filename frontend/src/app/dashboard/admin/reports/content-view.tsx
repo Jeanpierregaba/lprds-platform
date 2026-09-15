@@ -1,6 +1,8 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { DOMAIN_LABELS, type ReportType, type ReportVocabulary } from '@/types/reports'
+import { normalizeActivities } from '@/lib/reports/content-schemas'
 import type {
   AnnualReportContent, BiMensuelReportContent, DailyReportContent, DomainAssessment,
 } from '@/types/reports'
@@ -10,18 +12,49 @@ const DOMAIN_KEYS = Object.keys(DOMAIN_LABELS) as (keyof typeof DOMAIN_LABELS)[]
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium text-secondary/70">{label}</p>
       <p className="text-sm">{value || '—'}</p>
     </div>
   )
 }
 
-function Tags({ codes, vocabulary }: { codes: string[]; vocabulary: Record<string, string> }) {
+function Tags({
+  codes, vocabulary, badgeClassName,
+}: {
+  codes: string[]
+  vocabulary: Record<string, string>
+  badgeClassName?: string
+}) {
   if (codes.length === 0) return <p className="text-sm text-muted-foreground">—</p>
   return (
     <div className="flex flex-wrap gap-1.5">
-      {codes.map((c) => <Badge key={c} variant="outline" className="font-normal">{vocabulary[c] ?? c}</Badge>)}
+      {codes.map((c) => (
+        <Badge key={c} variant="outline" className={cn('font-normal', badgeClassName)}>
+          {vocabulary[c] ?? c}
+        </Badge>
+      ))}
     </div>
+  )
+}
+
+/** Section bordurée de la lecture du quotidien : bandeau de titre vert forêt
+ *  sur fond teinté, corps sur fond de carte. */
+function Section({
+  title, children, contentClassName,
+}: {
+  title: string
+  children: React.ReactNode
+  contentClassName?: string
+}) {
+  return (
+    <Card className="gap-0 border-secondary/20 py-0">
+      <CardHeader className="rounded-t-xl border-b border-secondary/10 bg-secondary/[0.06] px-5 py-3 sm:px-6">
+        <CardTitle className="font-display text-base font-bold text-secondary">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className={cn('px-5 py-4 sm:px-6', contentClassName)}>
+        {children}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -30,38 +63,55 @@ export function ContentView({
 }: { reportType: ReportType; content: Record<string, unknown>; vocabulary: ReportVocabulary }) {
   if (reportType === 'quotidien') {
     const c = content as unknown as DailyReportContent
+    const activities = normalizeActivities(c.activities)
     return (
-      <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-3">
+        <Section title="Horaires" contentClassName="grid gap-4 sm:grid-cols-2">
           <Field label="Heure d'arrivée" value={c.arrival_time} />
           <Field label="Heure de départ" value={c.departure_time} />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="État de santé" value={vocabulary.health_status[c.health_status]} />
-          <Field label="Température arrivée" value={c.temperature_arrival != null ? `${c.temperature_arrival}°C` : undefined} />
-          <Field label="Température départ" value={c.temperature_departure != null ? `${c.temperature_departure}°C` : undefined} />
-        </div>
-        {c.health_notes && <Field label="Notes de santé" value={c.health_notes} />}
-        <div className="grid gap-4 sm:grid-cols-3">
+        </Section>
+        <Section title="Santé" contentClassName="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="État de santé" value={vocabulary.health_status[c.health_status]} />
+            <Field label="Température arrivée" value={c.temperature_arrival != null ? `${c.temperature_arrival}°C` : undefined} />
+            <Field label="Température départ" value={c.temperature_departure != null ? `${c.temperature_departure}°C` : undefined} />
+          </div>
+          {c.health_notes && <Field label="Notes de santé" value={c.health_notes} />}
+        </Section>
+        <Section title="Repas" contentClassName="grid gap-4 sm:grid-cols-3">
           <Field label="Petit-déjeuner" value={vocabulary.meal_amount[c.breakfast]} />
           <Field label="Déjeuner" value={vocabulary.meal_amount[c.lunch]} />
           <Field label="Goûter" value={vocabulary.meal_amount[c.snack]} />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        </Section>
+        <Section title="Sieste & Hygiène" contentClassName="grid gap-4 sm:grid-cols-3">
           <Field label="Sieste" value={c.nap ? `Oui (${c.nap_duration_minutes ?? '?'} min)` : 'Non'} />
           <Field label="Bain" value={c.bath ? 'Oui' : 'Non'} />
           <Field label="Selles" value={c.poop ? 'Oui' : 'Non'} />
-        </div>
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Humeurs</p>
-          <Tags codes={c.moods} vocabulary={vocabulary.mood} />
-        </div>
-        <Field label="Activités" value={c.activities} />
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Comportements</p>
-          <Tags codes={c.behaviors} vocabulary={vocabulary.behavior_tag} />
-        </div>
-        {c.highlight && <Field label="Fait marquant" value={c.highlight} />}
+        </Section>
+        <Section title="Humeurs">
+          <Tags codes={c.moods} vocabulary={vocabulary.mood} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
+        </Section>
+        <Section title="Activités">
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">—</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {activities.map((activity, i) => (
+                <Badge key={`${activity}-${i}`} variant="outline" className="border-primary/50 bg-primary/10 font-normal">
+                  {i + 1}-{activity}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Section>
+        <Section title="Comportements">
+          <Tags codes={c.behaviors} vocabulary={vocabulary.behavior_tag} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
+        </Section>
+        {c.highlight && (
+          <Section title="Fait marquant">
+            <p className="text-sm">{c.highlight}</p>
+          </Section>
+        )}
       </div>
     )
   }

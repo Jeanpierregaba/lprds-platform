@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { ArrowLeft, FileVideo, Loader2, Paperclip } from 'lucide-react'
+import { ArrowLeft, FileVideo, Loader2, Paperclip, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,7 @@ import {
 import { AuthMedia } from '@/components/media/auth-media'
 import { AttachmentLightbox } from '@/components/media/attachment-lightbox'
 import { reportsApi } from '@/lib/api/reports.api'
+import { useUser } from '@/lib/stores/auth.store'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useReportForms } from '@/lib/reports/use-report-forms'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
@@ -52,6 +53,8 @@ export default function ReportDetailPage() {
   const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const canValidate = permissions.has('reports:validate')
+  const user = useUser()
+  const isAdmin = user?.role === 'admin'
 
   const { data: report, isLoading } = useQuery({
     queryKey: ['reports', 'detail', id],
@@ -153,6 +156,16 @@ export default function ReportDetailPage() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: string) => reportsApi.deleteAttachment(id, attachmentId),
+    onSuccess: (_data, attachmentId) => {
+      toast.success('Pièce jointe retirée.')
+      setSelectedAttachment((prev) => (prev?.id === attachmentId ? null : prev))
+      invalidate()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -166,7 +179,10 @@ export default function ReportDetailPage() {
     return <p className="text-muted-foreground">Rapport introuvable.</p>
   }
 
-  const isEditable = report.status === 'draft' || report.status === 'rejected'
+  // L'admin peut modifier un rapport à tout moment (même soumis, validé et
+  // déjà lu par le parent) ; le staff reste limité au brouillon / rejeté.
+  const isEditable = isAdmin || report.status === 'draft' || report.status === 'rejected'
+  const isSubmittable = report.status === 'draft' || report.status === 'rejected'
   const isDeletable = report.status === 'draft' && !report.submitted_at
 
   return (
@@ -220,12 +236,14 @@ export default function ReportDetailPage() {
               <div className="flex flex-wrap gap-2 border-t border-border pt-4">
                 <Button type="button" variant="outline" onClick={onSave} disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                  Enregistrer le brouillon
+                  {isSubmittable ? 'Enregistrer le brouillon' : 'Enregistrer les modifications'}
                 </Button>
-                <Button type="button" onClick={onSubmitReport} disabled={submitMutation.isPending}>
-                  {submitMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                  Soumettre
-                </Button>
+                {isSubmittable && (
+                  <Button type="button" onClick={onSubmitReport} disabled={submitMutation.isPending}>
+                    {submitMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                    Soumettre
+                  </Button>
+                )}
                 {isDeletable && (
                   <AlertDialog>
                     <AlertDialogTrigger render={<Button type="button" variant="destructive" className="ml-auto" />}>
@@ -302,23 +320,59 @@ export default function ReportDetailPage() {
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {report.attachments.map((att) => (
-                <button
+                <div
                   key={att.id}
-                  type="button"
-                  onClick={() => setSelectedAttachment(att)}
                   className="group relative aspect-square overflow-hidden rounded-md ring-1 ring-border transition hover:ring-primary"
                 >
-                  <AuthMedia
-                    queryKey={['reports', 'attachment-thumb', att.id]}
-                    fetchBlob={() => reportsApi.downloadAttachment(id, att.id).then((r) => r.data)}
-                    contentType={att.content_type}
-                    alt={att.filename}
-                    className="size-full transition group-hover:scale-105"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAttachment(att)}
+                    className="size-full"
+                    aria-label={`Voir ${att.filename}`}
+                  >
+                    <AuthMedia
+                      queryKey={['reports', 'attachment-thumb', att.id]}
+                      fetchBlob={() => reportsApi.downloadAttachment(id, att.id).then((r) => r.data)}
+                      contentType={att.content_type}
+                      alt={att.filename}
+                      className="size-full transition group-hover:scale-105"
+                    />
+                  </button>
                   {att.content_type.startsWith('video/') && (
                     <FileVideo className="pointer-events-none absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
                   )}
-                </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon-xs"
+                          className="absolute left-1.5 top-1.5 opacity-80 shadow transition hover:opacity-100"
+                          aria-label={`Retirer ${att.filename}`}
+                        />
+                      }
+                    >
+                      <Trash2 className="size-3.5" />
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Retirer cette pièce jointe ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {att.filename} sera définitivement retirée de ce rapport.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteAttachmentMutation.mutate(att.id)}
+                        >
+                          Retirer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               ))}
             </div>
           )}

@@ -12,17 +12,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { reportsApi } from '@/lib/api/reports.api'
-import { REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportStatus, type ReportType } from '@/types/reports'
+import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportStatus, type ReportType } from '@/types/reports'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
-
-const STATUS_BADGE_VARIANT: Record<ReportStatus, 'default' | 'outline' | 'destructive' | 'secondary'> = {
-  draft: 'outline',
-  submitted: 'secondary',
-  rejected: 'destructive',
-  validated: 'default',
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR')
@@ -151,7 +144,7 @@ export function ReportsListTab() {
                     </TableCell>
                     <TableCell className="p-0">
                       <Link href={`/dashboard/admin/reports/${r.id}`} className="block p-2">
-                        <Badge variant={STATUS_BADGE_VARIANT[r.status]}>{REPORT_STATUS_LABELS[r.status]}</Badge>
+                        <Badge className={REPORT_STATUS_BADGE_CLASS[r.status]}>{REPORT_STATUS_LABELS[r.status]}</Badge>
                       </Link>
                     </TableCell>
                     <TableCell className="p-0">

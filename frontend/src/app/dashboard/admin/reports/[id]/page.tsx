@@ -31,7 +31,7 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useReportForms } from '@/lib/reports/use-report-forms'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
+import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
@@ -204,9 +204,7 @@ export default function ReportDetailPage() {
                 {REPORT_TYPE_LABELS[report.report_type]} · {report.period_label}
               </CardDescription>
             </div>
-            <Badge
-              variant={report.status === 'validated' ? 'default' : report.status === 'rejected' ? 'destructive' : 'outline'}
-            >
+            <Badge className={REPORT_STATUS_BADGE_CLASS[report.status]}>
               {REPORT_STATUS_LABELS[report.status]}
             </Badge>
           </div>
@@ -264,50 +262,53 @@ export default function ReportDetailPage() {
               </div>
             </div>
           ) : vocabulary ? (
-            <div className="space-y-4">
-              <ContentView reportType={report.report_type} content={report.content} vocabulary={vocabulary} />
-
-              {report.status === 'submitted' && !isLoadingPermissions && canValidate && (
-                <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-                  <Button type="button" onClick={() => validateMutation.mutate()} disabled={validateMutation.isPending}>
-                    {validateMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                    Valider et publier
-                  </Button>
-                  <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-                    <DialogTrigger render={<Button type="button" variant="destructive" />}>
-                      Rejeter
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Rejeter ce rapport</DialogTitle>
-                        <DialogDescription>Le rapport retourne à son auteur avec le motif indiqué.</DialogDescription>
-                      </DialogHeader>
-                      <form
-                        onSubmit={handleRejectSubmit((values) => rejectMutation.mutate(values.reason))}
-                        className="space-y-4" noValidate
-                      >
-                        <div className="space-y-2">
-                          <Label htmlFor="reason">Motif</Label>
-                          <Textarea id="reason" rows={3} {...registerReject('reason')} aria-invalid={!!rejectErrors.reason} />
-                          {rejectErrors.reason && <p className="text-sm text-destructive">{rejectErrors.reason.message}</p>}
-                        </div>
-                        <DialogFooter>
-                          <Button type="submit" disabled={isRejecting || rejectMutation.isPending}>
-                            {isRejecting || rejectMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                            Rejeter
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              )}
-            </div>
+            <ContentView reportType={report.report_type} content={report.content} vocabulary={vocabulary} />
           ) : (
             <Skeleton className="h-64 w-full" />
           )}
         </CardContent>
       </Card>
+
+      {report.status === 'submitted' && !isLoadingPermissions && canValidate && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-2">
+            <p className="mr-auto text-sm text-muted-foreground">
+              Ce rapport est en attente de validation — sa publication notifie les parents par email.
+            </p>
+            <Button type="button" onClick={() => validateMutation.mutate()} disabled={validateMutation.isPending}>
+              {validateMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+              Valider et publier
+            </Button>
+            <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+              <DialogTrigger render={<Button type="button" variant="destructive" />}>
+                Rejeter
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Rejeter ce rapport</DialogTitle>
+                  <DialogDescription>Le rapport retourne à son auteur avec le motif indiqué.</DialogDescription>
+                </DialogHeader>
+                <form
+                  onSubmit={handleRejectSubmit((values) => rejectMutation.mutate(values.reason))}
+                  className="space-y-4" noValidate
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="reason">Motif</Label>
+                    <Textarea id="reason" rows={3} {...registerReject('reason')} aria-invalid={!!rejectErrors.reason} />
+                    {rejectErrors.reason && <p className="text-sm text-destructive">{rejectErrors.reason.message}</p>}
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={isRejecting || rejectMutation.isPending}>
+                      {isRejecting || rejectMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                      Rejeter
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

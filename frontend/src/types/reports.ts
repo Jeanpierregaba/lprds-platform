@@ -14,6 +14,15 @@ export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   validated: 'Validé',
 }
 
+/** Pastilles pleines des statuts (sans `variant`, le défaut convient) :
+ *  brouillon = blanc, soumis = jaune, rejeté = rouge, validé = vert. */
+export const REPORT_STATUS_BADGE_CLASS: Record<ReportStatus, string> = {
+  draft: 'border-border bg-card text-muted-foreground',
+  submitted: 'border-transparent bg-primary text-primary-foreground',
+  rejected: 'border-transparent bg-destructive text-white',
+  validated: 'border-transparent bg-secondary text-secondary-foreground',
+}
+
 // Les 6 domaines partagent les mêmes clés entre bi_mensuel (texte libre) et
 // annuel (notation + observation) — même convention de nommage côté backend.
 export const DOMAIN_LABELS = {

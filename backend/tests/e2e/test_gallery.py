@@ -1,4 +1,5 @@
-"""E2E galerie : agrégation rapports + messagerie, filtres, isolation RBAC."""
+"""E2E galerie : agrégation rapports + messagerie (messages ET diffusions),
+filtres, isolation RBAC et périmètre parent des diffusions."""
 from tests.helpers import PNG, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
 
 QUOTIDIEN_CONTENT = {
@@ -95,7 +96,7 @@ def test_gallery(client):
     c.post(f"/messaging/conversations/me/messages/{msg['id']}/attachments",
           files={"file": ("photo_message.png", PNG, "image/png")}, headers=par)
 
-    # ── Média (exclu) : photo de diffusion (announcement) ──
+    # ── Média n°3 : photo de diffusion broadcast (visible par tous) ──
     ann = c.post("/messaging/announcements", json={
         "title": "Journée portes ouvertes", "body": "Photos de l'événement"},
         headers=adm).json()
@@ -104,9 +105,10 @@ def test_gallery(client):
 
     # ── Vue admin : agrégation complète ──
     g_all = c.get("/gallery/media", headers=adm).json()
-    ck("Admin : 2 médias (rapport + message, PAS la diffusion)", g_all["total"], 2)
+    ck("Admin : 3 médias (rapport + message + diffusion)", g_all["total"], 3)
     sources = sorted(i["source"] for i in g_all["items"])
-    ck("  1 report + 1 message", sources, ["message", "report"])
+    ck("  1 report + 1 message + 1 announcement", sources,
+       ["announcement", "message", "report"])
 
     g_report = c.get("/gallery/media?source=report", headers=adm).json()
     ck("Admin filtré source=report", g_report["total"], 1)
@@ -117,6 +119,12 @@ def test_gallery(client):
     ck("Admin filtré source=message", g_message["total"], 1)
     ck("  conversation_parent = la maman", g_message["items"][0]["conversation_parent"]["nickname"],
        "Maman Anaïs")
+
+    g_ann = c.get("/gallery/media?source=announcement", headers=adm).json()
+    ck("Admin filtré source=announcement", g_ann["total"], 1)
+    ck("  titre de la diffusion exposé", g_ann["items"][0]["announcement_title"],
+       "Journée portes ouvertes")
+    ck("  pas d'enfant rattaché", g_ann["items"][0]["child"], None)
 
     g_by_child = c.get(f"/gallery/media?child_id={cid}", headers=adm).json()
     ck("Filtre par enfant → exclut la messagerie", g_by_child["total"], 1)
@@ -129,7 +137,11 @@ def test_gallery(client):
     ck("Filtre par éducatrice (auteur upload) → 1", g_by_staff["total"], 1)
 
     g_by_dept = c.get(f"/gallery/media?department_id={did}", headers=adm).json()
-    ck("Filtre par département → 1", g_by_dept["total"], 1)
+    ck("Filtre par département → 2 (rapport + diffusion broadcast)",
+       g_by_dept["total"], 2)
+    ck("  sources report + announcement",
+       sorted(i["source"] for i in g_by_dept["items"]),
+       ["announcement", "report"])
 
     g_by_type = c.get("/gallery/media?report_type=bi_mensuel", headers=adm).json()
     ck("Filtre report_type ne correspondant à rien → 0", g_by_type["total"], 0)
@@ -143,6 +155,8 @@ def test_gallery(client):
     ck("  source=report", g_educ1["items"][0]["source"], "report")
     forbidden_msg = c.get("/gallery/media?source=message", headers=educ1)
     ck("Educ1 → source=message explicite → 403", forbidden_msg.status_code, 403)
+    forbidden_ann = c.get("/gallery/media?source=announcement", headers=educ1)
+    ck("Educ1 → source=announcement explicite → 403", forbidden_ann.status_code, 403)
 
     dl_url = g_educ1["items"][0]["url"]
     dl = c.get(dl_url.replace("/api/v1", ""), headers=educ1)
@@ -160,9 +174,11 @@ def test_gallery(client):
 
     # ── Vue parent : avant validation du rapport ──
     g_par_before = c.get("/gallery/mine", headers=par).json()
-    ck("Parent avant validation : seulement le message (pas le rapport draft)",
-       g_par_before["total"], 1)
-    ck("  source=message", g_par_before["items"][0]["source"], "message")
+    ck("Parent avant validation : message + diffusion broadcast (pas le rapport draft)",
+       g_par_before["total"], 2)
+    ck("  sources message + announcement",
+       sorted(i["source"] for i in g_par_before["items"]),
+       ["announcement", "message"])
     ck("  pas de conversation_parent exposé côté parent",
        g_par_before["items"][0]["conversation_parent"], None)
 
@@ -171,7 +187,12 @@ def test_gallery(client):
 
     # ── Vue parent : après validation ──
     g_par_after = c.get("/gallery/mine", headers=par).json()
-    ck("Parent après validation : 2 médias", g_par_after["total"], 2)
+    ck("Parent après validation : 3 médias", g_par_after["total"], 3)
+
+    g_par_ann = c.get("/gallery/mine?source=announcement", headers=par).json()
+    ck("Parent filtré source=announcement → 1", g_par_ann["total"], 1)
+    ck("  titre exposé", g_par_ann["items"][0]["announcement_title"],
+       "Journée portes ouvertes")
 
     g_par_child = c.get(f"/gallery/mine?child_id={cid}", headers=par).json()
     ck("Parent filtré par enfant → exclut le message", g_par_child["total"], 1)
@@ -180,6 +201,24 @@ def test_gallery(client):
     for item in g_par_after["items"]:
         dl = c.get(item["url"].replace("/api/v1", ""), headers=par)
         ck(f"Parent télécharge son média ({item['source']}) → 200", dl.status_code, 200)
+
+    # ── Diffusion ciblée vers un autre département ──
+    dep2 = c.post("/departments", json={"name": "Primaire"}, headers=adm).json()
+    scoped_ann = c.post("/messaging/announcements", json={
+        "title": "Primaire only", "body": "Privé",
+        "department_ids": [dep2["id"]]}, headers=adm).json()
+    c.post(f"/messaging/announcements/{scoped_ann['id']}/attachments",
+          files={"file": ("prive.png", PNG, "image/png")}, headers=adm)
+
+    g_par_scoped = c.get("/gallery/mine", headers=par).json()
+    ck("Parent (enfant en Maternelle) ne voit pas la diffusion Primaire → toujours 3",
+       g_par_scoped["total"], 3)
+    g_adm_scoped = c.get("/gallery/media", headers=adm).json()
+    ck("Admin voit tout (4 médias)", g_adm_scoped["total"], 4)
+    g_adm_dep2 = c.get(f"/gallery/media?department_id={dep2['id']}", headers=adm).json()
+    ck("Admin filtre Primaire → ciblé + broadcast",
+       sorted(i["source"] for i in g_adm_dep2["items"]),
+       ["announcement", "announcement"])
 
     # ── Isolation étab B ──
     adm_b = onboard(c, su, "AUTRE", "admin@b.fr")

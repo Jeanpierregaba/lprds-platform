@@ -17,6 +17,10 @@
 /.next/
 /out/
 
+# version du build (générée par scripts/stamp-version.mjs en prebuild)
+# pour l'auto-update PWA — jamais committée.
+public/version.json
+
 # production
 /build
 

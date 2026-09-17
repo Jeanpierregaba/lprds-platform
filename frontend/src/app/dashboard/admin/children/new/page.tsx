@@ -9,6 +9,8 @@ import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { ArrowLeft, ArrowRight, Check, FileUp, Info, Loader2, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -90,6 +92,9 @@ function formatDate(iso: string) {
 }
 
 export default function NewChildPage() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('children:write')
   const router = useRouter()
   const [step, setStep] = useState(0)
   const [documents, setDocuments] = useState<File[]>([])
@@ -209,6 +214,19 @@ export default function NewChildPage() {
   }
 
   const values = getValues()
+
+  if (!canWrite) {
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Droits insuffisants — vous n'avez pas la permission de créer une fiche enfant.
+        </p>
+        <Link href="/dashboard/admin/children" className="text-sm text-primary hover:underline">
+          Retour à la liste
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <motion.div

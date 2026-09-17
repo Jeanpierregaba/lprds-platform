@@ -15,10 +15,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { parentsApi } from '@/lib/api/parents.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 
 const PAGE_SIZE = 20
 
 export default function ParentsListPage() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('parents:write')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -56,10 +61,12 @@ export default function ParentsListPage() {
           <h1 className="text-2xl font-bold">Parents</h1>
           <p className="text-muted-foreground">Gérer les comptes parents connectables.</p>
         </div>
+        {canWrite && (
         <Button render={<Link href="/dashboard/admin/parents/new" />}>
           <Plus className="mr-1.5 size-4" />
           Nouveau compte parent
         </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -116,7 +123,7 @@ export default function ParentsListPage() {
                           ? 'Essayez un autre nom, surnom ou email.'
                           : 'Créez le premier compte pour donner accès à un parent.'}
                       </p>
-                      {!debouncedSearch && (
+                      {!debouncedSearch && canWrite && (
                         <Button render={<Link href="/dashboard/admin/parents/new" />} size="sm" className="mt-1">
                           <Plus className="mr-1.5 size-4" />
                           Nouveau compte parent

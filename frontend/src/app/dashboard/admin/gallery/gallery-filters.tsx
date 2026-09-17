@@ -49,8 +49,14 @@ const isReportFilter = (f: GalleryFilterState) =>
 export { isReportFilter }
 
 export function GalleryFilters({
-  filters, onChange,
-}: { filters: GalleryFilterState; onChange: (f: GalleryFilterState) => void }) {
+  filters, onChange, hideSource,
+}: {
+  filters: GalleryFilterState
+  onChange: (f: GalleryFilterState) => void
+  /** Staff délégué : rapports uniquement (la messagerie reste hors RBAC) —
+   * le sélecteur de source est masqué, la page force `source=report`. */
+  hideSource?: boolean
+}) {
   const { data: children } = useQuery({
     queryKey: ['children', 'options'],
     queryFn: () => childrenApi.list({ limit: 200 }).then((r) => r.data.items),
@@ -80,6 +86,7 @@ export function GalleryFilters({
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+      {!hideSource && (
       <Select items={{ [ALL]: 'Toutes les sources', ...GALLERY_SOURCE_LABELS }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
         <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
         <SelectContent>
@@ -87,6 +94,7 @@ export function GalleryFilters({
           {Object.entries(GALLERY_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
+      )}
 
       <Select items={childItems} value={filters.childId} onValueChange={(v) => set('childId', v ?? ALL)}>
         <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>

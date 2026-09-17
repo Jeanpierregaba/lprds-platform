@@ -6,6 +6,7 @@ import { LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore, useUser } from '@/lib/stores/auth.store'
 import { authApi } from '@/lib/api/auth.api'
+import { useMessagingUnread } from '@/lib/messaging/use-messaging-unread'
 import { NavList } from './nav-list'
 import { useNavItems } from './use-nav-items'
 
@@ -13,6 +14,7 @@ export function Sidebar() {
   const user = useUser()
   const router = useRouter()
   const items = useNavItems()
+  const unreadMessages = useMessagingUnread()
   const { refreshToken, clearSession } = useAuthStore()
 
   if (!user) return null
@@ -39,7 +41,17 @@ export function Sidebar() {
           className="h-9 w-auto"
         />
       </div>
-      <NavList items={items} />
+      <NavList
+        items={items}
+        badges={
+          unreadMessages > 0
+            ? {
+                '/dashboard/admin/messaging': unreadMessages,
+                '/dashboard/parent/messaging': unreadMessages,
+              }
+            : undefined
+        }
+      />
       <div className="border-t border-border p-3">
         <button
           type="button"

@@ -21,6 +21,7 @@ from app.modules.messaging.schemas import (
     MessageCreateRequest,
     MessageListResponse,
     MessageResponse,
+    MessageUpdateRequest,
 )
 from app.modules.messaging.ws_auth import WSAuthError, authenticate_ws
 from app.modules.messaging.ws_manager import run_relay_until_disconnect
@@ -106,6 +107,25 @@ async def upload_announcement_attachment(
     )
 
 
+@router.post(
+    "/announcements/{announcement_id}/attachments/batch",
+    response_model=list[AttachmentResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_announcement_attachments_batch(
+    announcement_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> list[AttachmentResponse]:
+    """Envoi en lot (jusqu'à 15 médias au total par diffusion) : tout ou
+    rien — un fichier invalide ou le dépassement du quota rejette le lot
+    entier, sans envoi partiel."""
+    return await service.add_announcement_attachments_batch(
+        announcement_id, admin.establishment_id, admin, files, db
+    )
+
+
 # ── Conversations : côté parent (toujours SA propre conversation) ─
 @router.get("/conversations/me", response_model=ConversationResponse)
 async def get_my_conversation(
@@ -121,9 +141,10 @@ async def list_my_messages(
     parent: User = Depends(get_parent),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
+    before_id: uuid.UUID | None = Query(default=None),
 ) -> MessageListResponse:
     conversation = await service.get_or_create_own_conversation(parent, db)
-    return await service.list_messages(conversation, db, skip=skip, limit=limit)
+    return await service.list_messages(conversation, db, skip=skip, limit=limit, before_id=before_id)
 
 
 @router.post(
@@ -162,6 +183,69 @@ async def upload_my_message_attachment(
 ) -> AttachmentResponse:
     conversation = await service.get_or_create_own_conversation(parent, db)
     return await service.add_message_attachment(conversation, message_id, parent, file, db)
+
+
+@router.patch(
+    "/conversations/me/messages/{message_id}",
+    response_model=MessageResponse,
+)
+async def edit_my_message(
+    message_id: uuid.UUID,
+    payload: MessageUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    parent: User = Depends(get_parent),
+) -> MessageResponse:
+    conversation = await service.get_or_create_own_conversation(parent, db)
+    return await service.edit_message(
+        conversation, message_id, parent, payload.body, db
+    )
+
+
+@router.delete("/conversations/me/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_message(
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    parent: User = Depends(get_parent),
+) -> None:
+    conversation = await service.get_or_create_own_conversation(parent, db)
+    await service.delete_message(conversation, message_id, parent, db)
+
+
+@router.post(
+    "/conversations/me/messages/{message_id}/attachments/batch",
+    response_model=list[AttachmentResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_my_message_attachments_batch(
+    message_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    parent: User = Depends(get_parent),
+) -> list[AttachmentResponse]:
+    conversation = await service.get_or_create_own_conversation(parent, db)
+    return await service.add_message_attachments_batch(
+        conversation,
+        message_id,
+        parent,
+        files,
+        db,
+    )
+
+
+@router.delete(
+    "/conversations/me/messages/{message_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_my_message_attachment(
+    message_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    parent: User = Depends(get_parent),
+) -> None:
+    conversation = await service.get_or_create_own_conversation(parent, db)
+    await service.remove_message_attachment(
+        conversation, message_id, attachment_id, parent, db
+    )
 
 
 # ── Conversations : côté admin (n'importe quel parent, par id) ────
@@ -203,11 +287,12 @@ async def list_conversation_messages(
     admin: User = Depends(get_admin),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
+    before_id: uuid.UUID | None = Query(default=None),
 ) -> MessageListResponse:
     conversation = await service.get_conversation_for_admin(
         conversation_id, admin.establishment_id, db
     )
-    return await service.list_messages(conversation, db, skip=skip, limit=limit)
+    return await service.list_messages(conversation, db, skip=skip, limit=limit, before_id=before_id)
 
 
 @router.post(
@@ -259,6 +344,80 @@ async def upload_conversation_attachment(
         conversation_id, admin.establishment_id, db
     )
     return await service.add_message_attachment(conversation, message_id, admin, file, db)
+
+
+@router.patch(
+    "/conversations/{conversation_id}/messages/{message_id}",
+    response_model=MessageResponse,
+)
+async def edit_conversation_message(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    payload: MessageUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> MessageResponse:
+    conversation = await service.get_conversation_for_admin(
+        conversation_id, admin.establishment_id, db
+    )
+    return await service.edit_message(
+        conversation, message_id, admin, payload.body, db
+    )
+
+
+@router.delete(
+    "/conversations/{conversation_id}/messages/{message_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_conversation_message(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> None:
+    conversation = await service.get_conversation_for_admin(
+        conversation_id, admin.establishment_id, db
+    )
+    await service.delete_message(conversation, message_id, admin, db)
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages/{message_id}/attachments/batch",
+    response_model=list[AttachmentResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_conversation_attachments_batch(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> list[AttachmentResponse]:
+    conversation = await service.get_conversation_for_admin(
+        conversation_id, admin.establishment_id, db
+    )
+    return await service.add_message_attachments_batch(
+        conversation, message_id, admin, files, db
+    )
+
+
+@router.delete(
+    "/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_conversation_message_attachment(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> None:
+    conversation = await service.get_conversation_for_admin(
+        conversation_id, admin.establishment_id, db
+    )
+    await service.remove_message_attachment(
+        conversation, message_id, attachment_id, admin, db
+    )
 
 
 # ── Téléchargement (authentifié, jamais de fichier servi en statique) ────

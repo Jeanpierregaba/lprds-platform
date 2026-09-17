@@ -34,9 +34,12 @@ async def list_gallery_media(
     limit: int = Query(default=50, ge=1, le=200),
 ) -> GalleryMediaListResponse:
     """
-    Admin : toute la galerie de l'établissement (rapports + messagerie).
-    Staff délégué (gallery:read) : rapports uniquement — la messagerie reste
-    hors RBAC, jamais accessible au staff (cf. claude.md, module Messagerie).
+    Admin : toute la galerie de l'établissement (rapports + messages privés +
+    diffusions). Staff délégué (gallery:read) : rapports uniquement — la
+    messagerie reste hors RBAC, jamais accessible au staff (cf. claude.md,
+    module Messagerie). Le filtre département s'applique aux rapports ET aux
+    diffusions (ciblée ou broadcast) ; enfant/groupe/auteur/type de rapport
+    n'ont de sens que pour les rapports et excluent la messagerie.
     """
     return await service.list_gallery_media(
         user.establishment_id, user, db,
@@ -72,8 +75,9 @@ async def list_my_gallery_media(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> GalleryMediaListResponse:
-    """Photos/vidéos de ses propres enfants — rapports VALIDÉS + messages de sa
-    propre conversation (jamais les diffusions, cf. claude.md)."""
+    """Photos/vidéos de ses propres enfants (rapports VALIDÉS) + messages de sa
+    propre conversation + médias des diffusions actives dans son périmètre
+    (broadcast ou ciblées vers un département de ses enfants)."""
     return await service.list_my_gallery_media(
         parent, db, source=source, child_id=child_id, skip=skip, limit=limit,
     )

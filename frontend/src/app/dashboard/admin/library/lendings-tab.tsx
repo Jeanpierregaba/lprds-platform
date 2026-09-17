@@ -26,6 +26,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { childrenApi } from '@/lib/api/children.api'
 import { libraryApi } from '@/lib/api/library.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { LENDING_STATUS_LABELS, type LendingStatus } from '@/types/library'
 
@@ -193,6 +195,9 @@ function CreateLendingDialog({
 }
 
 export function LendingsTab() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canLend = user?.role === 'admin' || permissions.has('library:lend')
   const [statusFilter, setStatusFilter] = useState<string>(ALL)
   const [skip, setSkip] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -247,10 +252,12 @@ export function LendingsTab() {
           </SelectContent>
         </Select>
 
+{canLend && (
         <Button onClick={() => setDialogOpen(true)}>
           <ArrowLeftRight className="mr-1.5 size-4" />
           Nouveau prêt
         </Button>
+        )}
       </div>
 
       <Card>
@@ -313,7 +320,7 @@ export function LendingsTab() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {lending.status !== 'returned' && (
+                      {lending.status !== 'returned' && canLend && (
                         <Button
                           variant="outline"
                           size="sm"

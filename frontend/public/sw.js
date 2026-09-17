@@ -5,12 +5,14 @@
  *  - Navigate  : network-first, repli sur le HTML en cache puis /offline.
  *  - /_next/static, /icons, /images : stale-while-revalidate / cache-first.
  *  - /api/*    : jamais caché (données authentifiées, sensibles RGPD).
+ *  - /version.json : jamais caché (sonde réseau de l'auto-update PWA —
+ *    le client y lit la version du déploiement courant).
  *
  * ⚠️ Incrémenter CACHE_VERSION à chaque changement de stratégie ou d'assets
  * pré-cachés, sinon les clients gardent l'ancienne version de ce worker.
  */
 
-const CACHE_VERSION = '2026.09'
+const CACHE_VERSION = '2026.10'
 const SHELL = 'lprds-shell@' + CACHE_VERSION
 
 const PRECACHE_URLS = [
@@ -118,6 +120,10 @@ self.addEventListener('fetch', (event) => {
 
   // API : jamais de cache (données authentifiées). WebSocket etc. ne passent pas ici.
   if (url.pathname.startsWith('/api/')) return
+
+  // Sonde de version (auto-update PWA) : toujours le réseau, jamais le cache —
+  // sinon le sondage périodique lirait une version périmée via stale-while-revalidate.
+  if (url.pathname === '/version.json') return
 
   // Navigation (pages) : network-first, repli HTML -> /offline.
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {

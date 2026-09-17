@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Button } from '@/components/ui/button'
 import { useAuthStore, useUser } from '@/lib/stores/auth.store'
 import { authApi } from '@/lib/api/auth.api'
+import { useMessagingUnread } from '@/lib/messaging/use-messaging-unread'
 import { NavList } from './nav-list'
 import { useNavItems } from './use-nav-items'
 
@@ -16,6 +17,7 @@ export function MobileNav() {
   const user = useUser()
   const router = useRouter()
   const items = useNavItems()
+  const unreadMessages = useMessagingUnread()
   const [open, setOpen] = useState(false)
   const { refreshToken, clearSession } = useAuthStore()
 
@@ -59,7 +61,18 @@ export function MobileNav() {
             />
           </SheetTitle>
         </SheetHeader>
-        <NavList items={items} onNavigate={() => setOpen(false)} />
+        <NavList
+          items={items}
+          onNavigate={() => setOpen(false)}
+          badges={
+            unreadMessages > 0
+              ? {
+                  '/dashboard/admin/messaging': unreadMessages,
+                  '/dashboard/parent/messaging': unreadMessages,
+                }
+              : undefined
+          }
+        />
         <div className="border-t border-border p-3">
           <button
             type="button"

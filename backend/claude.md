@@ -506,8 +506,12 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 | `reports:write` | Créer, modifier et soumettre des rapports |
 | `reports:validate` | Valider ou rejeter les rapports soumis |
 | `gallery:read` | Consulter la galerie de médias (photos/vidéos des rapports) |
+| `menus:read` | Consulter le menu de la semaine et son historique |
 | `menus:write` | Créer et modifier les menus de la semaine, consulter l'historique |
-| `blog:write` | Rédiger, publier, modifier et supprimer les actualités du site vitrine |
+| `blog:write` | Rédiger, publier, modifier et supprimer les actualités du site vitrine (pas de `blog:read` — la lecture interne exige l'écriture) |
+| `library:read` | Consulter le catalogue et le suivi des prêts |
+| `library:write` | Créer, modifier et désactiver les livres |
+| `library:lend` | Enregistrer prêts, retours et rappels |
 
 > **Ajouter une permission** = 1) l'ajouter à `PermissionCode` + `PERMISSION_LABELS`,
 > 2) écrire une migration qui l'insère dans `permissions`. Sans l'étape 2, toute
@@ -516,9 +520,40 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 ### Règle d'autorisation — `require_permission(*codes)`
 - **Admin** de l'établissement → autorisé d'office (tous les droits chez lui)
 - **Staff** → autorisé si ses rôles **actifs** portent **toutes** les permissions
+  listées (sémantique AND — pour un OU, voir le pattern `_read_history` du
+  module Menus ou les portails hors RBAC ci-dessous)
 - **Superadmin** → **refusé** (403). Il gère le SaaS et les établissements, pas
   les données des enfants — minimisation RGPD. C'est volontaire, pas un oubli.
-- **Parent** → refusé (le portail parent est un module à venir)
+- **Parent** → refusé (son portail dédié est hors RBAC)
+
+### Granularité bibliothèque — un geste = une permission
+Le module Bibliothèque applique le principe fin (pas de garde groupée) :
+`GET /books`, `/books/{id}`, `/lendings` → `library:read` ;
+`POST /books`, `PATCH/DELETE /books/{id}` → `library:write` ;
+`POST /lendings`, `/lendings/{id}/return`, `/reminders/run` → `library:lend`.
+Le rôle socle « Bibliothécaire » porte les 3 (accès complet inchangé) ; un
+rôle partiel (ex. lecture seule) n'ouvre que son geste. Les paramètres
+(`GET/PUT /library/settings`) restent **admin uniquement** (décision testée).
+Portails hors RBAC : `/mine/*` (parent), `/educator/books` (staff).
+
+### Portails hors RBAC (pas de permission, rôle + scope)
+Certains endpoints ne passent jamais par `require_permission`, par décision :
+- **Messagerie** : `get_admin` / `get_parent` uniquement (staff exclu partout).
+- **Socle staff** (`require_roles(STAFF)` seul, scopé au groupe mené) :
+  `GET /children/my-group`, `/attendance/daily/my-group`,
+  `/gallery/my-uploads`, `/library/educator/books`.
+- **Portails parent** : `/parents/me/children`, `/reports/mine/*`,
+  `/gallery/mine`, `/library/mine/*` (`get_parent`).
+- **Notifications push** : self-service (`get_current_user`, ses propres
+  abonnements uniquement) — aucune permission `notifications:*` n'est
+  nécessaire ; `GET /vapid-public-key` est public (clé publique uniquement).
+- **Blog public** : `/public/blog/*` sans authentification (vitrine).
+
+### Route legacy — `POST /auth/users`
+Route historique de création d'utilisateurs (`require_roles(SUPERADMIN,
+ADMIN)`), sans granularité `staff:write` / `parents:write`. Créer le
+personnel via `POST /staff` et les parents via `POST /parents` (permissions
+fines). Conservée pour compatibilité, pas pour l'usage courant.
 
 ---
 
@@ -1054,23 +1089,46 @@ PATCH  /api/v1/messaging/announcements/{id}                # admin — dont dés
 POST   /api/v1/messaging/announcements/{id}/read           # parent
 
 GET    /api/v1/messaging/conversations/me                  # parent — auto-créée si absente
-GET    /api/v1/messaging/conversations/me/messages
+GET    /api/v1/messaging/conversations/me/messages         # ?skip= &limit= &before_id= (curseur stable)
 POST   /api/v1/messaging/conversations/me/messages
 POST   /api/v1/messaging/conversations/me/read
+PATCH  /api/v1/messaging/conversations/me/messages/{msg_id}            # édition auteur, 15 min
+DELETE /api/v1/messaging/conversations/me/messages/{msg_id}            # suppression douce auteur (204, idempotent)
+POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/batch          # lot, max 15
+DELETE /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/{att_id}       # retrait auteur
 
 GET    /api/v1/messaging/conversations                     # admin — liste, triée par activité
 POST   /api/v1/messaging/conversations                     # admin — ouvre (get-or-create) une conversation
                                                            #   avec un parent {parent_id, body?} ; body = 1er
                                                            #   message d'ouverture (optionnel) — 201
-GET    /api/v1/messaging/conversations/{id}/messages       # admin — n'importe quel parent
+GET    /api/v1/messaging/conversations/{id}/messages       # admin — ?skip= &limit= &before_id=
 POST   /api/v1/messaging/conversations/{id}/messages       # admin — répond « au nom de l'administration »
 POST   /api/v1/messaging/conversations/{id}/read           # admin
+PATCH  /api/v1/messaging/conversations/{id}/messages/{msg_id}          # édition auteur, 15 min
+DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}          # suppression douce auteur
+POST   /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/batch        # lot, max 15
+DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/{att_id}     # retrait auteur
 
-POST   /api/v1/messaging/announcements/{id}/attachments                     # admin
+POST   /api/v1/messaging/announcements/{id}/attachments                     # admin — 1 média
+POST   /api/v1/messaging/announcements/{id}/attachments/batch               # admin — lot (tout ou rien)
 POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments     # parent
 POST   /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments   # admin
 GET    /api/v1/messaging/attachments/{id}                                   # admin ou parent — téléchargement
 ```
+
+### Diffusions — médias multiples (max 15, photos/vidéos/PDF)
+
+Une diffusion peut porter jusqu'à **`MAX_ANNOUNCEMENT_ATTACHMENTS = 15`**
+médias, quota imposé à l'upload unitaire comme en lot (**409** au-delà).
+L'envoi en lot (`POST .../attachments/batch`, champ multipart `files`) est
+**tout ou rien** : tous les fichiers sont lus et validés avant toute écriture
+— un fichier invalide ou le dépassement du quota rejette le lot entier, sans
+envoi partiel. Un événement temps réel `announcement_attachment` est publié
+par pièce jointe (même contrat que l'unitaire). Depuis cette évolution, la
+**vidéo est acceptée en diffusion** comme dans les conversations (plafond
+`MESSAGING_MAX_VIDEO_MB`) — le frontend propose sélection multiple +
+prévisualisation (miniatures photo, lecteur vidéo, fiche PDF) avant envoi,
+côté création comme sur une diffusion existante.
 
 Double chemin volontaire : `/me` pour le parent (toujours SA conversation,
 auto-résolue), `/{id}` pour l'admin (n'importe laquelle, par id) — les deux
@@ -1111,6 +1169,38 @@ broadcast** à tous les parents (comportement historique inchangé).
   (404 hors périmètre côté parent).
 - Validation : chaque `department_id` doit appartenir à l'établissement
   (404 sinon, doublons dédupliqués).
+
+### Conversations — édition, suppression douce, lot de médias
+
+- **Édition** (`PATCH .../messages/{msg_id}`, variantes `/me` + `/{id}`) :
+  **auteur uniquement** (403 sinon, même admin sur message parent et
+  inversement), **fenêtre de 15 min** (`MESSAGE_EDIT_WINDOW`, 409 au-delà),
+  corps revalidé (max 5000, vide accepté seulement si le message garde ≥ 1
+  pièce jointe — 422 sinon). Pose `edited_at`, publie **`message_updated`**
+  (message complet). Éditer un message supprimé → 409.
+- **Suppression** (`DELETE .../messages/{msg_id}`, auteur uniquement, tout
+  âge, **idempotente** — 204 même si déjà supprimé) : **douce** — la ligne est
+  conservée (`is_deleted=True`, corps vidé, `body=null` + `attachments=[]` en
+  réponse pour garder l'ordre et les accusés du fil), les **pièces jointes
+  sont effacées** (lignes + fichiers). Publie **`message_deleted`**
+  (`{conversation_id, message_id}`). Un message supprimé est **exclu des
+  non-lus** (`_unread_count`, liste admin) et **non téléchargeable** (404).
+- **Lot de médias** (`POST .../messages/{msg_id}/attachments/batch`, champ
+  `files`) : même contrat tout-ou-rien que les diffusions, quota
+  **`MAX_MESSAGE_ATTACHMENTS = 15` par message** (409 au-delà, y compris à
+  l'upload unitaire qui passe par le même chemin). Réservé à l'auteur, message
+  non supprimé (404 sinon). Un événement `attachment` est publié par pièce
+  jointe (même contrat que l'unitaire).
+- **Retrait d'une pièce jointe** (`DELETE .../messages/{msg_id}/attachments/{att_id}`,
+  auteur uniquement) : fichier + ligne supprimés, republie **`message_updated`**
+  (message rafraîchi — un seul type d'événement à gérer côté client). Refusé
+  en 422 si c'est le dernier média d'un message sans texte (garde l'invariant
+  « texte ou média »).
+- **Pagination curseur** : `GET .../messages` accepte `before_id` (en plus de
+  `skip/limit`, défaut 50, max 200) — messages strictement antérieurs au
+  curseur `(created_at, id)`, ordre stable déterministe, total inchangé, 404
+  sur curseur inconnu. Le verrouillage en écriture (`SELECT ... FOR UPDATE`)
+  sérialise édition/suppression/uploads concurrents sur un même message.
 
 ### Conversations — un seul niveau de lu/non-lu
 `Message.read_at` = lu **par l'autre côté**, un seul champ (pas de suivi par
@@ -1169,9 +1259,9 @@ foulée, façon WhatsApp.
   10 Mo rendrait tout envoi vidéo impossible) et type MIME — la liste blanche
   (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) est
   complétée par un sur-ensemble : **tout MIME `image/*` est accepté** (sauf
-  `image/svg+xml`) partout, et **tout MIME `video/*` est accepté UNIQUEMENT
-  dans les conversations privées** (`_validate_upload(allow_video=True)` —
-  les diffusions restent images + PDF) —
+  `image/svg+xml`) partout, et **tout MIME `video/*` est accepté dans les
+  conversations privées ET les diffusions** (`_validate_upload(allow_video=True)`,
+  plafond vidéo dédié) —
   le `content_type` déclaré par le client n'est **pas** vérifié par analyse du
   contenu (pas de sniffing des octets magiques) : simplification assumée,
   acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
@@ -1466,11 +1556,12 @@ interroge directement `report_attachments` (module Rapports) et `attachments`
 métadonnée — cohérent avec le principe déjà établi ailleurs dans le projet
 (« pas de table polymorphe / pas de FK croisée entre modules indépendants »).
 
-Deux relations ORM pures (aucune migration, pas de nouvelle colonne) ont été
+Trois relations ORM pures (aucune migration, pas de nouvelle colonne) ont été
 ajoutées pour permettre à `gallery/service.py` de remonter jusqu'à
-l'enfant/parent sans requête séparée par élément listé :
+l'enfant/parent/diffusion sans requête séparée par élément listé :
 - `ReportAttachment.report` (`reports/models.py`)
 - `Attachment.message` et `Message.conversation` (`messaging/models.py`)
+- `Attachment.announcement` (`messaging/models.py`, pour la source `announcement`)
 
 Les URL de téléchargement renvoyées par la galerie **pointent toujours vers
 les endpoints authentifiés déjà existants** de chaque module d'origine
@@ -1478,7 +1569,7 @@ les endpoints authentifiés déjà existants** de chaque module d'origine
 `/messaging/attachments/{id}`) — la galerie ne sert jamais elle-même un
 fichier, elle ne fait qu'agréger et filtrer.
 
-### Deux sources traitées différemment — décision explicite
+### Trois sources traitées différemment — décision explicite
 
 Les pièces jointes de messagerie ne sont liées **qu'à un parent** (sa
 conversation), jamais à un enfant précis (un parent peut avoir plusieurs
@@ -1497,22 +1588,30 @@ enfant/groupe/département/éducatrice :
   rapports est posé (`child_id`, `group_id`, `staff_id`, `department_id`,
   `report_type`), la messagerie est **silencieusement exclue** du résultat
   (jamais une erreur : ces filtres n'ont simplement rien à y apporter).
-- **Les diffusions (`Announcement`) sont toujours exclues** de la galerie,
-  y compris côté admin — génériques à tout l'établissement, jamais « une
-  photo de mon enfant » au sens de la demande initiale.
+- **`source=announcement`** : médias des diffusions (jamais liés à un enfant
+  précis, mais utiles établissement-wide). Filtrable par `department_id`
+  (diffusion ciblée vers ce département **ou broadcast**, visible par tous)
+  et par date ; `child_id`, `group_id`, `staff_id`, `report_type` l'excluent
+  silencieusement comme pour les messages. Chaque item expose
+  `announcement_id` + `announcement_title` (regroupement d'affichage) ; le
+  téléchargement réutilise `/messaging/attachments/{id}`, dont le contrôle de
+  périmètre existant s'applique tel quel.
 
 ### Accès — décision explicite
 
-- **Admin** : galerie complète (rapports + messagerie), toujours.
+- **Admin** : galerie complète (rapports + messages + diffusions), toujours.
 - **Staff** : nouvelle permission RBAC délégable `gallery:read` — mais
-  **rapports uniquement**, jamais la messagerie (source=message → 403), qui
-  reste hors RBAC et hors d'atteinte du staff partout ailleurs dans
-  l'application (cf. module Messagerie). Établissement entier une fois la
-  permission accordée, **pas de scoping par groupe** (contrairement à
-  `reports:read`) — modèle de délégation de confiance, comme
-  `reports:validate`, pas un outil d'auto-consultation par groupe.
-- **Parent** : ses enfants uniquement — rapports **validés** de ses enfants +
-  messages de **sa propre conversation** (jamais les diffusions).
+  **rapports uniquement**, jamais la messagerie (`source=message` ou
+  `source=announcement` → 403), qui reste hors RBAC et hors d'atteinte du
+  staff partout ailleurs dans l'application (cf. module Messagerie).
+  Établissement entier une fois la permission accordée, **pas de scoping par
+  groupe** (contrairement à `reports:read`) — modèle de délégation de
+  confiance, comme `reports:validate`, pas un outil d'auto-consultation par
+  groupe.
+- **Parent** : rapports **validés** de ses enfants + messages de **sa propre
+  conversation** + médias des diffusions **actives dans son périmètre**
+  (broadcast, ou ciblées vers un département de l'un de ses enfants — une
+  diffusion désactivée disparaît de sa galerie comme du portail).
 
 > ⚠️ **`gallery:read` n'implique pas `reports:read`.** Un membre du staff avec
 > seulement `gallery:read` voit la liste (miniatures, métadonnées), mais reçoit
@@ -1528,10 +1627,10 @@ GET /api/v1/gallery/media   # gallery:read — admin: tout ; staff: rapports uni
 GET /api/v1/gallery/mine    # parent — ses enfants (rapports validés + messagerie propre)
 ```
 
-Paramètres de `/gallery/media` : `source` (`report`/`message`), `child_id`,
-`group_id`, `staff_id`, `department_id`, `report_type`, `date_from`,
-`date_to`, `skip`, `limit`. Paramètres de `/gallery/mine` : `source`,
-`child_id`, `skip`, `limit`.
+Paramètres de `/gallery/media` : `source` (`report`/`message`/`announcement`),
+`child_id`, `group_id`, `staff_id`, `department_id`, `report_type`,
+`date_from`, `date_to`, `skip`, `limit`. Paramètres de `/gallery/mine` :
+`source`, `child_id`, `skip`, `limit`.
 
 ### Isolation
 Toutes les requêtes sont bornées à `establishment_id` — même principe que le
@@ -1764,6 +1863,44 @@ site vitrine visible).
 
 ---
 
+## Module Bibliothèque (library)
+
+Catalogue de livres multi-sections, prêts aux enfants, retours et rappels.
+Permissions fines par geste (cf. section RBAC — granularité bibliothèque) :
+lecture (`library:read`), catalogue (`library:write`), prêts (`library:lend`).
+
+### Endpoints
+```
+GET/PUT  /api/v1/library/settings                       # ADMIN uniquement (non délégable)
+POST     /api/v1/library/books                          # library:write
+GET      /api/v1/library/books                          # library:read — ?section_id= &include_inactive= &skip= &limit=
+GET      /api/v1/library/books/{id}                     # library:read
+PATCH    /api/v1/library/books/{id}                     # library:write
+DELETE   /api/v1/library/books/{id}                     # library:write — soft delete (409 si prêts en cours)
+POST     /api/v1/library/lendings                       # library:lend — {book_id, child_id, borrowed_at?, due_date?}
+GET      /api/v1/library/lendings                       # library:read — ?book_id= &child_id= &status=
+POST     /api/v1/library/lendings/{id}/return           # library:lend (409 si déjà rendu)
+POST     /api/v1/library/reminders/run                  # library:lend — relances (email + message conversation)
+
+GET    /api/v1/library/mine/books                       # parent — sections des enfants
+GET    /api/v1/library/mine/lendings                    # parent — ses prêts
+GET    /api/v1/library/educator/books                   # staff — livres de sa section (hors RBAC)
+```
+
+### Règles métier
+- **Quantités** : `available_quantity` décrémenté à chaque prêt, restauré au
+  retour ; prêt impossible sans exemplaire disponible (409), ni sur livre
+  désactivé (409) ; `due_date < borrowed_at` → 422.
+- **Rappels** (`POST /reminders/run`) : prêts en retard relancés une fois par
+  jour max (anti-doublon `last_reminded_on`) — email best-effort + message
+  injecté dans la conversation admin↔parent concernée.
+- **Rôle socle « Bibliothécaire »** : attribué automatiquement (les 3
+  permissions) — même pattern que le socle éducatrice.
+- **Isolation** : tout est borné à `establishment_id` (404 inter-établissement) ;
+  superadmin exclu (403).
+
+---
+
 ## Variables d'environnement
 
 ### Backend — `lprds-backend/.env`
@@ -1946,7 +2083,10 @@ tests/
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
+    ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
+    ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
+    │                                 #   retrait PJ, pagination curseur before_id
     └── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
 ```
 
@@ -2112,7 +2252,10 @@ Nouveau module créé avec :
 
 ### Intégration dans les modules existants
 - **Messagerie** (`app/modules/messaging/service.py`) :
-  - `send_message()` : push aux admins de l'établissement après publication
+  - `send_message()` : push au DESTINATAIRE après publication — aux admins si
+    l'expéditeur est le parent, au seul parent de la conversation
+    (`parent_ids={...}`) si l'expéditeur est un admin (aperçu du texte, ou
+    « Nouvelle pièce jointe » si corps vide)
   - `create_announcement()` : push à l'audience de la diffusion (tous les parents, ou parents des départements ciblés) après diffusion
 - **Rapports** (`app/modules/reports/service.py`) :
   - `validate_report()` : push aux parents en plus des emails après validation

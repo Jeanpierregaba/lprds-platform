@@ -21,14 +21,20 @@ export const messagingApi = {
     return apiClient.post<Attachment>(`/api/v1/messaging/announcements/${announcementId}/attachments`, form)
   },
 
+  uploadAnnouncementAttachments: (announcementId: string, files: File[]) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return apiClient.post<Attachment[]>(`/api/v1/messaging/announcements/${announcementId}/attachments/batch`, form)
+  },
+
   // ── Conversations (admin) ───────────────────────────────────
-  listConversations: (params?: { skip?: number; limit?: number }) =>
+  listConversations: (params?: { skip?: number; limit?: number; before_id?: string }) =>
     apiClient.get<ConversationListResponse>('/api/v1/messaging/conversations', { params }),
 
   startConversation: (data: ConversationStartPayload) =>
     apiClient.post<Conversation>('/api/v1/messaging/conversations', data),
 
-  listConversationMessages: (conversationId: string, params?: { skip?: number; limit?: number }) =>
+  listConversationMessages: (conversationId: string, params?: { skip?: number; limit?: number; before_id?: string }) =>
     apiClient.get<MessageListResponse>(`/api/v1/messaging/conversations/${conversationId}/messages`, { params }),
 
   sendConversationMessage: (conversationId: string, body: string) =>
@@ -46,6 +52,21 @@ export const messagingApi = {
     )
   },
 
+  editMessage: (conversationId: string, messageId: string, body: string) =>
+    apiClient.patch<Message>(`/api/v1/messaging/conversations/${conversationId}/messages/${messageId}`, { body }),
+
+  deleteMessage: (conversationId: string, messageId: string) =>
+    apiClient.delete<void>(`/api/v1/messaging/conversations/${conversationId}/messages/${messageId}`),
+
+  removeMessageAttachment: (conversationId: string, messageId: string, attachmentId: string) =>
+    apiClient.delete<void>(`/api/v1/messaging/conversations/${conversationId}/messages/${messageId}/attachments/${attachmentId}`),
+
+  uploadMessageAttachments: (conversationId: string, messageId: string, files: File[]) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return apiClient.post<Attachment[]>(`/api/v1/messaging/conversations/${conversationId}/messages/${messageId}/attachments/batch`, form)
+  },
+
   // ── Pièces jointes ──────────────────────────────────────────
   downloadAttachment: (id: string) =>
     apiClient.get<Blob>(`/api/v1/messaging/attachments/${id}`, { responseType: 'blob' }),
@@ -55,7 +76,7 @@ export const messagingApi = {
 
   getMyConversation: () => apiClient.get<Conversation>('/api/v1/messaging/conversations/me'),
 
-  listMyMessages: (params?: { skip?: number; limit?: number }) =>
+  listMyMessages: (params?: { skip?: number; limit?: number; before_id?: string }) =>
     apiClient.get<MessageListResponse>('/api/v1/messaging/conversations/me/messages', { params }),
 
   sendMyMessage: (body: string) =>
@@ -68,4 +89,19 @@ export const messagingApi = {
     form.append('file', file)
     return apiClient.post<Attachment>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments`, form)
   },
+
+  uploadMyMessageAttachments: (messageId: string, files: File[]) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return apiClient.post<Attachment[]>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments/batch`, form)
+  },
+
+  editMyMessage: (messageId: string, body: string) =>
+    apiClient.patch<Message>(`/api/v1/messaging/conversations/me/messages/${messageId}`, { body }),
+
+  deleteMyMessage: (messageId: string) =>
+    apiClient.delete<void>(`/api/v1/messaging/conversations/me/messages/${messageId}`),
+
+  removeMyMessageAttachment: (messageId: string, attachmentId: string) =>
+    apiClient.delete<void>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments/${attachmentId}`),
 }

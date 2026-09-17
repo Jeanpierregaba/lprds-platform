@@ -5,13 +5,12 @@ from app.modules.auth.models import User, UserRole
 from app.modules.rbac.dependencies import require_permission
 from app.modules.rbac.models import PermissionCode
 
-# Rôle socle bibliothécaire = les 3 permissions du module Bibliothèque.
-# L'admin de l'établissement les porte d'office via require_permission.
-require_library_admin = require_permission(
-    PermissionCode.LIBRARY_READ,
-    PermissionCode.LIBRARY_WRITE,
-    PermissionCode.LIBRARY_LEND,
-)
+# Gardes fines par geste : lecture seule, gestion du catalogue, prêts.
+# L'admin de l'établissement est autorisé d'office via require_permission.
+# Le rôle socle bibliothécaire porte les 3 (accès complet inchangé).
+require_library_read = require_permission(PermissionCode.LIBRARY_READ)
+require_library_write = require_permission(PermissionCode.LIBRARY_WRITE)
+require_library_lend = require_permission(PermissionCode.LIBRARY_LEND)
 
 
 async def get_educator(

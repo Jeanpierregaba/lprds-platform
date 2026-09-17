@@ -31,7 +31,9 @@ export default function StaffDashboardPage() {
     enabled: canValidateReports,
   })
 
-  const modules = STAFF_MODULE_ITEMS.filter((m) => m.permissions.some((p) => permissions.has(p)))
+  const modules = STAFF_MODULE_ITEMS.filter((m) =>
+    m.requireAll ? m.permissions.every((p) => permissions.has(p)) : m.permissions.some((p) => permissions.has(p))
+  )
 
   return (
     <motion.div

@@ -1,12 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Loader2, Megaphone, Paperclip, Plus } from 'lucide-react'
+import { MAX_ANNOUNCEMENT_MEDIA, MediaPicker } from '@/components/messaging/media-picker'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -22,9 +23,9 @@ import {
 } from '@/components/ui/dialog'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { organizationApi } from '@/lib/api/organization.api'
+import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { downloadBlob } from '@/lib/utils/download'
 import type { Announcement } from '@/types/messaging'
 
 const schema = z.object({
@@ -42,12 +43,11 @@ export function AnnouncementsTab() {
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Announcement | null>(null)
-  const [attachFile, setAttachFile] = useState<File | null>(null)
+  const [attachFiles, setAttachFiles] = useState<File[]>([])
   // Ciblage : coché AVANT l'envoi (rédaction d'abord, périmètre ensuite).
   // broadcast=true → department_ids=[] (tous les parents).
   const [broadcast, setBroadcast] = useState(true)
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['messaging', 'announcements', { includeInactive }],
@@ -89,7 +89,7 @@ export function AnnouncementsTab() {
 
   const openCreate = () => {
     setEditing(null)
-    setAttachFile(null)
+    setAttachFiles([])
     setBroadcast(true)
     setSelectedDeptIds([])
     reset({ title: '', body: '' })
@@ -98,7 +98,7 @@ export function AnnouncementsTab() {
 
   const openEdit = (a: Announcement) => {
     setEditing(a)
-    setAttachFile(null)
+    setAttachFiles([])
     const scoped = a.department_ids ?? []
     setBroadcast(scoped.length === 0)
     setSelectedDeptIds(scoped)
@@ -126,9 +126,9 @@ export function AnnouncementsTab() {
         announcement = created.data
         toast.success('Diffusion publiée.')
       }
-      if (attachFile) {
-        await messagingApi.uploadAnnouncementAttachment(announcement.id, attachFile)
-        if (!editing) toast.success('Pièce jointe ajoutée.')
+      if (attachFiles.length > 0) {
+        const uploaded = await messagingApi.uploadAnnouncementAttachments(announcement.id, attachFiles)
+        if (!editing) toast.success(`${uploaded.data.length} média(s) ajouté(s).`)
       }
       setDialogOpen(false)
       invalidate()
@@ -216,41 +216,8 @@ export function AnnouncementsTab() {
 
               {!editing && (
                 <div className="space-y-2">
-                  <Label>Pièce jointe (facultatif)</Label>
-                  {attachFile ? (
-                    <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-                      <Paperclip className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate text-sm">{attachFile.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAttachFile(null)}
-                        className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Retirer
-                      </button>
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Paperclip className="mr-1.5 size-3.5" />
-                      Joindre un fichier
-                    </Button>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) setAttachFile(file)
-                      e.target.value = ''
-                    }}
-                  />
+                  <Label>Médias (facultatif, max {MAX_ANNOUNCEMENT_MEDIA})</Label>
+                  <MediaPicker files={attachFiles} onChange={setAttachFiles} />
                 </div>
               )}
 
@@ -305,23 +272,21 @@ function AnnouncementCard({
   onToggleActive: () => void
 }) {
   const queryClient = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const scoped = announcement.department_ids ?? []
+  const [attachOpen, setAttachOpen] = useState(false)
+  const [attachFiles, setAttachFiles] = useState<File[]>([])
+  const remaining = MAX_ANNOUNCEMENT_MEDIA - announcement.attachments.length
 
-  const uploadMutation = useMutation({
-    mutationFn: (file: File) => messagingApi.uploadAnnouncementAttachment(announcement.id, file),
-    onSuccess: () => {
-      toast.success('Pièce jointe ajoutée.')
+  const batchMutation = useMutation({
+    mutationFn: (files: File[]) => messagingApi.uploadAnnouncementAttachments(announcement.id, files),
+    onSuccess: (res) => {
+      toast.success(`${res.data.length} média(s) ajouté(s).`)
+      setAttachFiles([])
+      setAttachOpen(false)
       queryClient.invalidateQueries({ queryKey: ['messaging', 'announcements'] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) uploadMutation.mutate(file)
-    e.target.value = ''
-  }
 
   return (
     <Card className={!announcement.is_active ? 'opacity-70' : undefined}>
@@ -352,47 +317,49 @@ function AnnouncementCard({
       <CardContent className="space-y-3">
         <p className="whitespace-pre-wrap text-sm">{announcement.body}</p>
 
-        {announcement.attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {announcement.attachments.map((att) => (
-              <Button
-                key={att.id}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const res = await messagingApi.downloadAttachment(att.id)
-                    downloadBlob(res.data, att.filename)
-                  } catch (err) {
-                    toast.error(getApiErrorMessage(err))
-                  }
-                }}
-              >
-                <Paperclip className="mr-1.5 size-3.5" />
-                {att.filename}
-              </Button>
-            ))}
-          </div>
-        )}
+        <AnnouncementMediaGrid attachments={announcement.attachments} />
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onEdit}>Modifier</Button>
           <Button variant="outline" size="sm" onClick={onToggleActive}>
             {announcement.is_active ? 'Désactiver' : 'Réactiver'}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadMutation.isPending}
-          >
-            {uploadMutation.isPending
-              ? <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-              : <Paperclip className="mr-1.5 size-3.5" />}
-            Joindre un fichier
-          </Button>
-          <input ref={fileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={onFileChange} />
+          <Dialog open={attachOpen} onOpenChange={(open) => {
+            setAttachOpen(open)
+            if (!open) setAttachFiles([])
+          }}>
+            <DialogTrigger render={
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={remaining <= 0}
+                title={remaining <= 0 ? `Limite de ${MAX_ANNOUNCEMENT_MEDIA} médias atteinte` : 'Joindre des fichiers'}
+              />
+            }>
+              <Paperclip className="mr-1.5 size-3.5" />
+              Joindre des fichiers
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Ajouter des médias</DialogTitle>
+                <DialogDescription>
+                  Photos, vidéos ou PDF — {remaining} emplacement{remaining > 1 ? 's' : ''} restant{remaining > 1 ? 's' : ''} sur {MAX_ANNOUNCEMENT_MEDIA}.
+                </DialogDescription>
+              </DialogHeader>
+              <MediaPicker files={attachFiles} onChange={setAttachFiles} max={remaining} />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => batchMutation.mutate(attachFiles)}
+                  disabled={attachFiles.length === 0 || batchMutation.isPending}
+                >
+                  {batchMutation.isPending
+                    ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Envoi...</>
+                    : `Envoyer (${attachFiles.length})`}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>

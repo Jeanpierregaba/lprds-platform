@@ -1,10 +1,18 @@
 import type { ReportType } from '@/types/reports'
 
-export type GallerySource = 'report' | 'message'
+export type GallerySource = 'report' | 'message' | 'announcement'
 
 export const GALLERY_SOURCE_LABELS: Record<GallerySource, string> = {
   report: 'Rapports',
   message: 'Messagerie',
+  announcement: 'Diffusions',
+}
+
+/** Libellé court (pastille) — singulier, contrairement au filtre. */
+export const GALLERY_SOURCE_BADGE_LABEL: Record<GallerySource, string> = {
+  report: 'Rapport',
+  message: 'Messagerie',
+  announcement: 'Diffusion',
 }
 
 export interface GalleryUserBrief {
@@ -33,6 +41,8 @@ export interface GalleryMediaItem {
   child: GalleryChildBrief | null
   report_type: ReportType | null
   conversation_parent: GalleryUserBrief | null
+  announcement_id: string | null
+  announcement_title: string | null
 }
 
 export interface GalleryMediaListResponse {

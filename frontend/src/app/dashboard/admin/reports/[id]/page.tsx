@@ -29,6 +29,7 @@ import { reportsApi } from '@/lib/api/reports.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useReportForms } from '@/lib/reports/use-report-forms'
+import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
@@ -67,6 +68,13 @@ export default function ReportDetailPage() {
   })
 
   const { dailyForm, bimensuelForm, annualForm } = useReportForms()
+
+  useAttendancePrefill({
+    active: report?.report_type === 'quotidien' && (isAdmin || report?.status === 'draft' || report?.status === 'rejected'),
+    childId: report?.child.id,
+    referenceDate: report?.period_start,
+    form: dailyForm,
+  })
 
   useEffect(() => {
     if (!report) return

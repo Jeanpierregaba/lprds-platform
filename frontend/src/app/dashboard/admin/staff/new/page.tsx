@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -33,6 +35,9 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export default function NewStaffPage() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('staff:write')
   const router = useRouter()
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } =
@@ -54,6 +59,19 @@ export default function NewStaffPage() {
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
+  }
+
+  if (!canWrite) {
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Droits insuffisants — vous n'avez pas la permission de créer un compte du personnel.
+        </p>
+        <Link href="/dashboard/admin/staff" className="text-sm text-primary hover:underline">
+          Retour à la liste
+        </Link>
+      </div>
+    )
   }
 
   return (

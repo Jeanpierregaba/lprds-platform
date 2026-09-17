@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { staffApi } from '@/lib/api/staff.api'
 import { rbacApi } from '@/lib/api/rbac.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
 
@@ -53,6 +55,9 @@ export default function StaffDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [resetOpen, setResetOpen] = useState(false)
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('staff:write')
 
   const { data: staff, isLoading } = useQuery({
     queryKey: ['staff', id],
@@ -154,6 +159,7 @@ export default function StaffDetailPage() {
           <p className="font-mono text-sm text-white font-semibold">{staff.matricule ?? '—'}</p>
         </div>
 
+{canWrite && (
         <div className="flex items-center gap-2">
           <Dialog open={resetOpen} onOpenChange={setResetOpen}>
             <DialogTrigger render={<Button variant="outline" />}>
@@ -206,12 +212,15 @@ export default function StaffDetailPage() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+        )}
       </div>
 
       <Tabs defaultValue="infos">
         <TabsList>
           <TabsTrigger value="infos">Infos</TabsTrigger>
+          {user?.role === 'admin' && (
           <TabsTrigger value="roles">Rôles RBAC</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="infos">
@@ -271,18 +280,22 @@ export default function StaffDetailPage() {
                   <Button type="button" variant="outline" onClick={() => resetInfoForm()}>
                     Annuler
                   </Button>
+                  {canWrite && (
                   <Button type="submit" disabled={isSavingInfo}>
                     {isSavingInfo ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
                   </Button>
+                  )}
                 </div>
               </form>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {user?.role === 'admin' && (
         <TabsContent value="roles">
           <StaffRolesCard staffId={id} />
         </TabsContent>
+        )}
       </Tabs>
     </motion.div>
   )

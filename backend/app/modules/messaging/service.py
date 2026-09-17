@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
@@ -41,6 +41,12 @@ from app.modules.notifications.service import (
 
 def _announcements_channel(establishment_id: uuid.UUID) -> str:
     return f"messaging:estab:{establishment_id}:announcements"
+
+
+# Nombre max de médias joints à une diffusion (photos, vidéos, PDF) — imposé
+# à l'upload unitaire comme en lot (409 au-delà).
+MAX_ANNOUNCEMENT_ATTACHMENTS = 15
+MAX_MESSAGE_ATTACHMENTS = 15
 
 
 def _admin_channel(establishment_id: uuid.UUID) -> str:
@@ -116,8 +122,19 @@ async def list_announcements(
     limit: int = 50,
 ) -> AnnouncementListResponse:
     filters = [Announcement.establishment_id == establishment_id]
-    if not include_inactive:
+    if current_user.role == UserRole.PARENT or not include_inactive:
         filters.append(Announcement.is_active.is_(True))
+    if current_user.role == UserRole.PARENT:
+        parent_depts = await _parent_department_ids(current_user.id, db)
+        targeted = select(announcement_departments.c.announcement_id).where(
+            announcement_departments.c.announcement_id == Announcement.id
+        )
+        filters.append(
+            ~targeted.exists()
+            | targeted.where(
+                announcement_departments.c.department_id.in_(parent_depts)
+            ).exists()
+        )
 
     total = await db.scalar(
         select(func.count()).select_from(Announcement).where(*filters)
@@ -125,7 +142,7 @@ async def list_announcements(
     result = await db.execute(
         select(Announcement)
         .where(*filters)
-        .order_by(Announcement.created_at.desc())
+        .order_by(Announcement.created_at.desc(), Announcement.id.desc())
         .offset(skip)
         .limit(limit)
     )
@@ -138,22 +155,13 @@ async def list_announcements(
     )
 
     if current_user.role == UserRole.PARENT:
-        # Un parent ne voit que le broadcast + les diffusions ciblant AU MOINS
-        # un département de ses enfants.
-        parent_depts = await _parent_department_ids(current_user.id, db)
-        visible = [
-            a for a in announcements
-            if not departments_map.get(a.id) or (set(departments_map[a.id]) & parent_depts)
-        ]
-        total = len(visible)
-        visible = visible[skip:skip + limit]
         read_ids = await _read_announcement_ids(current_user.id, db)
         items = [
             _announcement_response(
                 a, is_read=a.id in read_ids, attachments=attachments_map.get(a.id),
                 department_ids=departments_map.get(a.id, []),
             )
-            for a in visible
+            for a in announcements
         ]
     else:
         counts = await _read_counts({a.id for a in announcements}, db)
@@ -379,7 +387,7 @@ async def list_conversations(
 
     unread_subq = (
         select(Message.conversation_id, func.count().label("unread"))
-        .where(Message.sender_role == "parent", Message.read_at.is_(None))
+        .where(Message.sender_role == "parent", Message.read_at.is_(None), Message.is_deleted.is_(False))
         .group_by(Message.conversation_id)
         .subquery()
     )
@@ -387,7 +395,7 @@ async def list_conversations(
         select(Conversation, func.coalesce(unread_subq.c.unread, 0))
         .outerjoin(unread_subq, Conversation.id == unread_subq.c.conversation_id)
         .where(Conversation.establishment_id == establishment_id)
-        .order_by(Conversation.last_message_at.desc().nulls_last())
+        .order_by(Conversation.last_message_at.desc().nulls_last(), Conversation.id.desc())
         .offset(skip)
         .limit(limit)
     )
@@ -416,16 +424,25 @@ async def list_messages(
     *,
     skip: int = 0,
     limit: int = 50,
+    before_id: uuid.UUID | None = None,
 ) -> MessageListResponse:
     total = await db.scalar(
         select(func.count())
         .select_from(Message)
         .where(Message.conversation_id == conversation.id)
     )
+    filters = [Message.conversation_id == conversation.id]
+    if before_id is not None:
+        cursor = await db.scalar(
+            select(Message).where(Message.id == before_id, *filters)
+        )
+        if cursor is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        filters.append(tuple_(Message.created_at, Message.id) < tuple_(cursor.created_at, cursor.id))
     result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conversation.id)
-        .order_by(Message.created_at.desc())
+        .where(*filters)
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .offset(skip)
         .limit(limit)
     )
@@ -466,15 +483,107 @@ async def send_message(
     await publish_event(_conversation_channel(conversation.id), payload)
     await publish_event(_admin_channel(conversation.establishment_id), payload)
 
-    # Push notification : envoie aux admins de l'établissement
-    await send_push_to_establishment_admins(
-        conversation.establishment_id,
-        "Nouveau message",
-        f"Un nouveau message de {sender.nickname or sender.first_name} {sender.last_name or ''}".strip(),
-        db,
-        {"type": "message", "conversation_id": str(conversation.id)},
-    )
+    # Push notification au DESTINATAIRE (best-effort, comme les emails de
+    # rapport — jamais bloquant) : aux admins si l'expéditeur est le parent,
+    # au seul parent de la conversation si l'expéditeur est un admin.
+    sender_label = f"{sender.nickname or sender.first_name} {sender.last_name or ''}".strip()
+    preview = body.strip()[:120] or "Nouvelle pièce jointe"
+    if sender.role == UserRole.ADMIN:
+        await send_push_to_establishment_parents(
+            conversation.establishment_id,
+            "Nouveau message de l'établissement",
+            preview,
+            db,
+            {"type": "message", "conversation_id": str(conversation.id)},
+            parent_ids={conversation.parent_id},
+        )
+    else:
+        await send_push_to_establishment_admins(
+            conversation.establishment_id,
+            "Nouveau message",
+            f"Un nouveau message de {sender_label}",
+            db,
+            {"type": "message", "conversation_id": str(conversation.id)},
+        )
     return response
+
+
+async def edit_message(
+    conversation: Conversation,
+    message_id: uuid.UUID,
+    editor: User,
+    body: str,
+    db: AsyncSession,
+) -> MessageResponse:
+    message = await _get_owned_message(conversation, message_id, editor, db)
+    now = datetime.now(timezone.utc)
+    if message.created_at + MESSAGE_EDIT_WINDOW < now:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Délai d'édition dépassé (15 minutes)",
+        )
+    body = body.strip()
+    if len(body) > 5000 or (not body and not await _message_attachment_count(message.id, db)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Un message doit contenir un texte de 5000 caractères maximum ou un média",
+        )
+    message.body = body
+    message.edited_at = now
+    await db.flush()
+    await db.refresh(message)
+
+    attachments = await _attachments_for_messages([message.id], db)
+    response = _message_response(
+        message, attachments=_attachments_map_first(attachments, message.id)
+    )
+    payload = {"type": "message_updated", **response.model_dump(mode="json")}
+    await publish_event(_conversation_channel(conversation.id), payload)
+    await publish_event(_admin_channel(conversation.establishment_id), payload)
+    return response
+
+
+async def delete_message(
+    conversation: Conversation,
+    message_id: uuid.UUID,
+    requester: User,
+    db: AsyncSession,
+) -> None:
+    message = await _lock_message_for_update(conversation, message_id, db)
+    if not message:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+    if message.sender_id != requester.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+    if message.is_deleted:
+        return
+    keys = (
+        await db.execute(
+            select(Attachment.storage_key).where(Attachment.message_id == message.id)
+        )
+    ).scalars().all()
+    delete_stmt = delete(Attachment).where(Attachment.message_id == message.id)
+    await db.execute(delete_stmt)
+    message.body = ""
+    message.is_deleted = True
+    await db.flush()
+    for key in keys:
+        await storage.delete_file(key)
+    await publish_event(
+        _conversation_channel(conversation.id),
+        {
+            "type": "message_deleted",
+            "conversation_id": str(conversation.id),
+            "message_id": str(message.id),
+        },
+    )
+    await publish_event(
+        _admin_channel(conversation.establishment_id),
+        {
+            "type": "message_deleted",
+            "conversation_id": str(conversation.id),
+            "message_id": str(message.id),
+        },
+    )
 
 
 async def mark_conversation_read(
@@ -489,6 +598,7 @@ async def mark_conversation_read(
             Message.conversation_id == conversation.id,
             Message.sender_role == other_role,
             Message.read_at.is_(None),
+            Message.is_deleted.is_(False),
         )
     )
     now = datetime.now(timezone.utc)
@@ -515,7 +625,42 @@ async def mark_conversation_read(
     await publish_event(_admin_channel(conversation.establishment_id), payload)
 
 
+MESSAGE_EDIT_WINDOW = timedelta(minutes=15)
+
+
 # ── Helpers privés ──────────────────────────────────────────────
+async def _lock_message_for_update(
+    conversation: Conversation, message_id: uuid.UUID, db: AsyncSession
+) -> Message | None:
+    return await db.scalar(
+        select(Message)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(
+            Message.id == message_id,
+            Message.conversation_id == conversation.id,
+            Conversation.establishment_id == conversation.establishment_id,
+        )
+        .with_for_update(of=Message)
+        .execution_options(populate_existing=True)
+    )
+
+
+async def _get_owned_message(
+    conversation: Conversation,
+    message_id: uuid.UUID,
+    user: User,
+    db: AsyncSession,
+) -> Message:
+    message = await _lock_message_for_update(conversation, message_id, db)
+    if not message:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+    if message.sender_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+    if message.is_deleted:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Message supprimé")
+    return message
+
+
 async def _get_announcement_or_404(
     announcement_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
 ) -> Announcement:
@@ -676,6 +821,7 @@ async def _unread_count(
             Message.conversation_id == conversation_id,
             Message.sender_role == unread_from,
             Message.read_at.is_(None),
+            Message.is_deleted.is_(False),
         )
     ) or 0
 
@@ -724,10 +870,12 @@ def _message_response(
             nickname=message.sender.nickname,
         ),
         sender_role=message.sender_role,
-        body=message.body,
+        body=None if message.is_deleted else message.body,
+        edited_at=message.edited_at,
+        is_deleted=message.is_deleted,
         read_at=message.read_at,
         created_at=message.created_at,
-        attachments=attachments or [],
+        attachments=[] if message.is_deleted else attachments or [],
     )
 
 
@@ -771,6 +919,12 @@ def _attachment_response(attachment: Attachment) -> AttachmentResponse:
     )
 
 
+def _attachments_map_first(
+    attachments: dict[uuid.UUID, list[AttachmentResponse]], message_id: uuid.UUID
+) -> list[AttachmentResponse] | None:
+    return attachments.get(message_id)
+
+
 async def _attachments_for_messages(
     message_ids: list[uuid.UUID], db: AsyncSession
 ) -> dict[uuid.UUID, list[AttachmentResponse]]:
@@ -779,7 +933,7 @@ async def _attachments_for_messages(
     result = await db.execute(
         select(Attachment)
         .where(Attachment.message_id.in_(message_ids))
-        .order_by(Attachment.created_at)
+        .order_by(Attachment.created_at, Attachment.id)
     )
     by_message: dict[uuid.UUID, list[AttachmentResponse]] = {}
     for a in result.scalars().all():
@@ -795,7 +949,7 @@ async def _attachments_for_announcements(
     result = await db.execute(
         select(Attachment)
         .where(Attachment.announcement_id.in_(announcement_ids))
-        .order_by(Attachment.created_at)
+        .order_by(Attachment.created_at, Attachment.id)
     )
     by_announcement: dict[uuid.UUID, list[AttachmentResponse]] = {}
     for a in result.scalars().all():
@@ -806,8 +960,8 @@ async def _attachments_for_announcements(
 def _validate_upload(file: UploadFile, content: bytes, *, allow_video: bool = False) -> None:
     """Plafond : vidéo → `messaging_max_video_mb`, sinon
     `messaging_max_attachment_mb`. Types : liste blanche + tout `image/*`
-    (hors SVG) ; `video/*` uniquement si `allow_video` (messages privés —
-    les diffusions restent images + PDF)."""
+    (hors SVG) ; `video/*` uniquement si `allow_video` (messages privés ET
+    diffusions — jusqu'à `MAX_ANNOUNCEMENT_ATTACHMENTS` médias par diffusion)."""
     is_video = (file.content_type or "").startswith("video/")
     max_mb = settings.messaging_max_video_mb if is_video else settings.messaging_max_attachment_mb
     max_bytes = max_mb * 1024 * 1024
@@ -849,35 +1003,91 @@ async def add_message_attachment(
     file: UploadFile,
     db: AsyncSession,
 ) -> AttachmentResponse:
-    message = await db.scalar(
-        select(Message).where(
-            Message.id == message_id, Message.conversation_id == conversation.id
+    responses = await add_message_attachments_batch(
+        conversation, message_id, uploader, [file], db
+    )
+    return responses[0]
+
+
+async def _save_attachment_batch(
+    payloads: list[tuple[UploadFile, bytes]],
+    uploader: User,
+    db: AsyncSession,
+    *,
+    message_id: uuid.UUID | None = None,
+    announcement_id: uuid.UUID | None = None,
+) -> list[AttachmentResponse]:
+    keys: list[str] = []
+    responses: list[AttachmentResponse] = []
+    try:
+        async with db.begin_nested():
+            for file, content in payloads:
+                key = await storage.save_file("messaging", file.filename or "fichier", content)
+                keys.append(key)
+                attachment = Attachment(
+                    message_id=message_id,
+                    announcement_id=announcement_id,
+                    uploaded_by_id=uploader.id,
+                    filename=file.filename or "fichier",
+                    content_type=file.content_type or "application/octet-stream",
+                    size_bytes=len(content),
+                    storage_key=key,
+                )
+                db.add(attachment)
+                await db.flush()
+                await db.refresh(attachment)
+                responses.append(_attachment_response(attachment))
+    except BaseException:
+        for key in keys:
+            await storage.delete_file(key)
+        raise
+    return responses
+
+
+async def _announcement_attachment_count(
+    announcement_id: uuid.UUID, db: AsyncSession
+) -> int:
+    return (
+        await db.scalar(
+            select(func.count())
+            .select_from(Attachment)
+            .where(Attachment.announcement_id == announcement_id)
         )
+        or 0
     )
-    if not message:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
 
-    content = await file.read()
-    _validate_upload(file, content, allow_video=True)
-    storage_key = await storage.save_file("messaging", file.filename or "fichier", content)
 
-    attachment = Attachment(
-        message_id=message.id,
-        uploaded_by_id=uploader.id,
-        filename=file.filename or "fichier",
-        content_type=file.content_type or "application/octet-stream",
-        size_bytes=len(content),
-        storage_key=storage_key,
+async def _message_attachment_count(message_id: uuid.UUID, db: AsyncSession) -> int:
+    return (
+        await db.scalar(
+            select(func.count())
+            .select_from(Attachment)
+            .where(Attachment.message_id == message_id)
+        )
+        or 0
     )
-    db.add(attachment)
-    await db.flush()
-    await db.refresh(attachment)
 
-    response = _attachment_response(attachment)
-    payload = {"type": "attachment", "message_id": str(message.id), **response.model_dump(mode="json")}
-    await publish_event(_conversation_channel(conversation.id), payload)
-    await publish_event(_admin_channel(conversation.establishment_id), payload)
-    return response
+
+def _ensure_message_quota(existing: int, incoming: int) -> None:
+    if existing + incoming > MAX_MESSAGE_ATTACHMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Limite de {MAX_MESSAGE_ATTACHMENTS} médias par message "
+                f"atteinte ({existing} déjà joint(s))"
+            ),
+        )
+
+
+def _ensure_announcement_quota(existing: int, incoming: int) -> None:
+    if existing + incoming > MAX_ANNOUNCEMENT_ATTACHMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Limite de {MAX_ANNOUNCEMENT_ATTACHMENTS} médias par diffusion "
+                f"atteinte ({existing} déjà joint(s))"
+            ),
+        )
 
 
 async def add_announcement_attachment(
@@ -887,31 +1097,137 @@ async def add_announcement_attachment(
     file: UploadFile,
     db: AsyncSession,
 ) -> AttachmentResponse:
-    announcement = await _get_announcement_or_404(announcement_id, establishment_id, db)
-
-    content = await file.read()
-    _validate_upload(file, content)
-    storage_key = await storage.save_file("messaging", file.filename or "fichier", content)
-
-    attachment = Attachment(
-        announcement_id=announcement.id,
-        uploaded_by_id=uploader.id,
-        filename=file.filename or "fichier",
-        content_type=file.content_type or "application/octet-stream",
-        size_bytes=len(content),
-        storage_key=storage_key,
+    responses = await add_announcement_attachments_batch(
+        announcement_id, establishment_id, uploader, [file], db
     )
-    db.add(attachment)
+    return responses[0]
+
+
+async def add_announcement_attachments_batch(
+    announcement_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    uploader: User,
+    files: list[UploadFile],
+    db: AsyncSession,
+) -> list[AttachmentResponse]:
+    """Envoi en lot des médias d'une diffusion (jusqu'à 15 au total).
+
+    Tous les fichiers sont lus et validés AVANT toute écriture : soit le lot
+    entier est accepté, soit rien n'est enregistré (pas d'envoi partiel).
+    Un événement temps réel est publié par pièce jointe (même contrat que
+    l'upload unitaire — le frontend invalide sur `announcement_attachment`).
+    """
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Aucun fichier fourni",
+        )
+    announcement = await db.scalar(
+        select(Announcement)
+        .where(
+            Announcement.id == announcement_id,
+            Announcement.establishment_id == establishment_id,
+        )
+        .with_for_update(of=Announcement)
+        .execution_options(populate_existing=True)
+    )
+    if not announcement:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+    _ensure_announcement_quota(
+        await _announcement_attachment_count(announcement.id, db), len(files)
+    )
+
+    payloads: list[tuple[UploadFile, bytes]] = []
+    for file in files:
+        content = await file.read()
+        _validate_upload(file, content, allow_video=True)
+        payloads.append((file, content))
+
+    responses = await _save_attachment_batch(
+        payloads, uploader, db, announcement_id=announcement.id
+    )
+    for response in responses:
+        await publish_event(
+            _announcements_channel(establishment_id),
+            {"type": "announcement_attachment",
+             "announcement_id": str(announcement.id),
+             **response.model_dump(mode="json")},
+        )
+    return responses
+
+
+async def add_message_attachments_batch(
+    conversation: Conversation,
+    message_id: uuid.UUID,
+    uploader: User,
+    files: list[UploadFile],
+    db: AsyncSession,
+) -> list[AttachmentResponse]:
+    """Envoi en lot des médias d'un message (tout ou rien, max 15 au total)."""
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Aucun fichier fourni",
+        )
+    message = await _lock_message_for_update(conversation, message_id, db)
+    if not message or message.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+    if message.sender_id != uploader.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+    _ensure_message_quota(await _message_attachment_count(message.id, db), len(files))
+
+    payloads: list[tuple[UploadFile, bytes]] = []
+    for file in files:
+        content = await file.read()
+        _validate_upload(file, content, allow_video=True)
+        payloads.append((file, content))
+
+    responses = await _save_attachment_batch(
+        payloads, uploader, db, message_id=message.id
+    )
+    for response in responses:
+        payload = {"type": "attachment", "message_id": str(message.id), **response.model_dump(mode="json")}
+        await publish_event(_conversation_channel(conversation.id), payload)
+        await publish_event(_admin_channel(conversation.establishment_id), payload)
+    return responses
+
+
+async def remove_message_attachment(
+    conversation: Conversation,
+    message_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    requester: User,
+    db: AsyncSession,
+) -> None:
+    message = await _lock_message_for_update(conversation, message_id, db)
+    if not message or message.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+    if message.sender_id != requester.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+    attachment = await db.scalar(
+        select(Attachment).where(
+            Attachment.id == attachment_id, Attachment.message_id == message.id
+        )
+    )
+    if not attachment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+    remaining = await _message_attachment_count(message.id, db)
+    if remaining <= 1 and not message.body.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Un message doit garder au moins un média ou un texte",
+        )
+    await db.delete(attachment)
     await db.flush()
-    await db.refresh(attachment)
+    await storage.delete_file(attachment.storage_key)
 
-    response = _attachment_response(attachment)
-    await publish_event(
-        _announcements_channel(establishment_id),
-        {"type": "announcement_attachment", "announcement_id": str(announcement.id),
-         **response.model_dump(mode="json")},
+    attachments = await _attachments_for_messages([message.id], db)
+    response = _message_response(
+        message, attachments=_attachments_map_first(attachments, message.id)
     )
-    return response
+    payload = {"type": "message_updated", **response.model_dump(mode="json")}
+    await publish_event(_conversation_channel(conversation.id), payload)
+    await publish_event(_admin_channel(conversation.establishment_id), payload)
 
 
 async def get_attachment_for_download(
@@ -926,6 +1242,10 @@ async def get_attachment_for_download(
         conversation = await db.scalar(
             select(Conversation).where(Conversation.id == message.conversation_id)
         )
+        if message.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+            )
         establishment_id = conversation.establishment_id
         owner_ok = (
             current_user.role == UserRole.ADMIN

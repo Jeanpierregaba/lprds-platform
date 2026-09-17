@@ -1,5 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,6 +16,7 @@ from app.modules.notifications.schemas import (
 from app.modules.notifications.service import (
     save_subscription,
     delete_subscription,
+    send_push_to_subscription,
     get_subscriptions_by_establishment,
     send_push_to_establishment_parents,
     send_push_to_establishment_admins,

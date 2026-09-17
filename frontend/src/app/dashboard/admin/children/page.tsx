@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/dialog'
 import { childrenApi } from '@/lib/api/children.api'
 import { organizationApi } from '@/lib/api/organization.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
 import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
@@ -52,6 +54,9 @@ function downloadBlob(blob: Blob, fallbackName: string, disposition?: string) {
 
 export default function ChildrenListPage() {
   const queryClient = useQueryClient()
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('children:write')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [departmentId, setDepartmentId] = useState<string>(ALL)
@@ -166,22 +171,28 @@ export default function ChildrenListPage() {
             className="hidden"
             onChange={(e) => onFileSelected(e.target.files?.[0])}
           />
+          {canWrite && (
           <Button type="button" variant="outline" onClick={downloadTemplate} disabled={loadingTemplate}>
             {loadingTemplate ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileSpreadsheet className="mr-1.5 size-4" />}
             Modèle
           </Button>
+          )}
           <Button type="button" variant="outline" onClick={exportChildren} disabled={exporting}>
             {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
             Exporter
           </Button>
+          {canWrite && (
           <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
             {importing ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
             Importer
           </Button>
+          )}
+          {canWrite && (
           <Button render={<Link href="/dashboard/admin/children/new" />}>
             <Plus className="mr-1.5 size-4" />
             Nouvelle fiche
           </Button>
+          )}
         </div>
       </div>
 
@@ -301,7 +312,7 @@ export default function ChildrenListPage() {
                           ? 'Essayez un autre nom, prénom ou matricule.'
                           : 'Créez la première fiche pour commencer à gérer les enfants.'}
                       </p>
-                      {!debouncedSearch && (
+                      {!debouncedSearch && canWrite && (
                         <Button render={<Link href="/dashboard/admin/children/new" />} size="sm" className="mt-1">
                           <Plus className="mr-1.5 size-4" />
                           Nouvelle fiche

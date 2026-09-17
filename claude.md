@@ -258,14 +258,30 @@ principe (événements : messagerie + rapports publiés) mais non implémentée.
 - **`PwaProvider`** (`src/components/pwa/pwa-provider.tsx`, monté dans le root
   layout) : enregistre `/sw.js` (avec `registration.update()`), capture
   `beforeinstallprompt` → bouton flottant « Installer l'application »
-  (masqué une fois installé / standalone), et affiche un bandeau « hors ligne »
-  sur `offline`/`online`.
+  (masqué une fois installé / standalone), affiche un bandeau « hors ligne »
+  sur `offline`/`online`, et applique les **mises à jour automatiquement**
+  (cf. ci-dessous).
+- **Auto-update sans geste manuel** : `scripts/stamp-version.mjs` (hook
+  `prebuild`) écrit `public/version.json` au build ; le bundle embarque la
+  même version via `NEXT_PUBLIC_APP_VERSION`. Le provider sonde
+  `/version.json` (`cache: no-store`, **jamais caché** côté SW) toutes les
+  15 min + à chaque retour visible/en ligne : version différente = nouveau
+  déploiement → toast + `location.reload()` (garde anti double-reload).
+  En parallèle, `controllerchange` recharge aussi (cas d'un `sw.js` modifié —
+  le worker `skipWaiting`/`claim` déjà en place prend aussitôt le contrôle),
+  sauf à l'installation initiale. Toast « Application mise à jour. » après
+  rechargement (flag `sessionStorage`). Sans `NEXT_PUBLIC_APP_VERSION` au
+  build (dev local), le sondage est désactivé — aucun risque de boucle.
+  ⚠️ En prod Docker, penser à fixer `NEXT_PUBLIC_APP_VERSION` (ex. hash git)
+  dans `frontend/.env` **avant** `docker compose up --build` (variable lue
+  au build, pas au runtime).
 - **Page `/offline`** : repli hors-ligne stylé vitrine, publiée en statique,
   exclue des moteurs de recherche, **exclue du middleware** (elle doit rester
   accessible sans session).
 - **Middleware** (`src/middleware.ts`) : les ressources PWA
-  (`manifest.webmanifest`, `sw.js`, `offline`, icônes/images) sont exclues du
-  matcher — sans quoi un visiteur anonyme serait redirigé vers `/auth/login`.
+  (`manifest.webmanifest`, `sw.js`, `offline`, `version.json`, icônes/images)
+  sont exclues du matcher — sans quoi un visiteur anonyme serait redirigé
+  vers `/auth/login`.
 - Aucune variable d'env supplémentaire pour cette phase (les icônes sont
   dérivées de `public/images/marketing/logo.png`).
 
@@ -563,8 +579,12 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 | `reports:write` | Créer, modifier et soumettre des rapports |
 | `reports:validate` | Valider ou rejeter les rapports soumis |
 | `gallery:read` | Consulter la galerie de médias (photos/vidéos des rapports) |
+| `menus:read` | Consulter le menu de la semaine et son historique |
 | `menus:write` | Créer et modifier les menus de la semaine, consulter l'historique |
-| `blog:write` | Rédiger, publier, modifier et supprimer les actualités du site vitrine |
+| `blog:write` | Rédiger, publier, modifier et supprimer les actualités du site vitrine (pas de `blog:read` — la lecture interne exige l'écriture) |
+| `library:read` | Consulter le catalogue et le suivi des prêts |
+| `library:write` | Créer, modifier et désactiver les livres |
+| `library:lend` | Enregistrer prêts, retours et rappels |
 
 > **Ajouter une permission** = 1) l'ajouter à `PermissionCode` + `PERMISSION_LABELS`,
 > 2) écrire une migration qui l'insère dans `permissions`. Sans l'étape 2, toute
@@ -573,9 +593,36 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 ### Règle d'autorisation — `require_permission(*codes)`
 - **Admin** de l'établissement → autorisé d'office (tous les droits chez lui)
 - **Staff** → autorisé si ses rôles **actifs** portent **toutes** les permissions
+  listées (sémantique AND)
 - **Superadmin** → **refusé** (403). Il gère le SaaS et les établissements, pas
   les données des enfants — minimisation RGPD. C'est volontaire, pas un oubli.
-- **Parent** → refusé (le portail parent est un module à venir)
+- **Parent** → refusé (son portail dédié est hors RBAC)
+
+### Granularité bibliothèque — un geste = une permission
+`GET /books`, `/books/{id}`, `/lendings` → `library:read` ;
+`POST /books`, `PATCH/DELETE /books/{id}` → `library:write` ;
+`POST /lendings`, `/lendings/{id}/return`, `/reminders/run` → `library:lend`.
+Socle « Bibliothécaire » = les 3 (accès complet inchangé). Paramètres
+(`GET/PUT /library/settings`) restent **admin uniquement**. Portails hors
+RBAC : `/mine/*` (parent), `/educator/books` (staff).
+
+### Portails hors RBAC (rôle + scope, jamais `require_permission`)
+Messagerie (`get_admin`/`get_parent`, staff exclu) ; socle staff
+(`/children/my-group`, `/attendance/daily/my-group`, `/gallery/my-uploads`,
+`/library/educator/books`) ; portails parent (`/parents/me/children`,
+`/reports/mine/*`, `/gallery/mine`, `/library/mine/*`) ; notifications push
+(self-service, aucune permission `notifications:*`) ; blog public
+(`/public/blog/*`). `POST /auth/users` reste une route legacy sans
+granularité — créer via `POST /staff` / `POST /parents`.
+
+### Gating frontend (masquage, le backend fait foi)
+Codes centraux `PermissionCode` + `PERMISSION_GROUPS` (`types/rbac.ts`) ;
+sélecteur de permissions groupé par module dans la gestion des rôles ;
+`useNavItems()` + cartes `/dashboard/staff` (avec `requireAll`) ;
+`canWrite = admin || permissions.has('...:write')` sur les boutons des pages
+enfants/parents/personnel/organisation/bibliothèque/menus et les onglets
+présences ; garde anti deep-link sur les pages `new` ; galerie staff forcée
+`source=report`.
 
 ---
 
@@ -1132,14 +1179,22 @@ PATCH  /api/v1/messaging/announcements/{id}                # admin — dont dés
 POST   /api/v1/messaging/announcements/{id}/read           # parent
 
 GET    /api/v1/messaging/conversations/me                  # parent — auto-créée si absente
-GET    /api/v1/messaging/conversations/me/messages
+GET    /api/v1/messaging/conversations/me/messages         # ?skip= &limit= &before_id= (curseur stable)
 POST   /api/v1/messaging/conversations/me/messages
 POST   /api/v1/messaging/conversations/me/read
+PATCH  /api/v1/messaging/conversations/me/messages/{msg_id}            # édition auteur, 15 min
+DELETE /api/v1/messaging/conversations/me/messages/{msg_id}            # suppression douce auteur (204, idempotent)
+POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/batch          # lot, max 15
+DELETE /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/{att_id}       # retrait auteur
 
 GET    /api/v1/messaging/conversations                     # admin — liste, triée par activité
-GET    /api/v1/messaging/conversations/{id}/messages       # admin — n'importe quel parent
+GET    /api/v1/messaging/conversations/{id}/messages       # admin — ?skip= &limit= &before_id=
 POST   /api/v1/messaging/conversations/{id}/messages       # admin — répond « au nom de l'administration »
 POST   /api/v1/messaging/conversations/{id}/read           # admin
+PATCH  /api/v1/messaging/conversations/{id}/messages/{msg_id}          # édition auteur, 15 min
+DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}          # suppression douce auteur
+POST   /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/batch        # lot, max 15
+DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/{att_id}     # retrait auteur
 
 POST   /api/v1/messaging/announcements/{id}/attachments                     # admin
 POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments     # parent
@@ -1156,6 +1211,31 @@ d'endpoints proprement.
 `AnnouncementResponse` porte des champs qui n'apparaissent JAMAIS ensemble :
 - vue **parent** : `is_read` (son statut personnel)
 - vue **admin** : `read_count` / `total_parents` (« combien de parents ont vu »)
+
+### Conversations — édition, suppression douce, lot de médias
+
+- **Édition** (`PATCH .../messages/{msg_id}`, variantes `/me` + `/{id}`) :
+  **auteur uniquement** (403 sinon), **fenêtre de 15 min** (409 au-delà),
+  corps revalidé (max 5000, vide accepté seulement si ≥ 1 pièce jointe —
+  422 sinon). Pose `edited_at`, publie **`message_updated`**.
+- **Suppression** (`DELETE .../messages/{msg_id}`, auteur uniquement, tout
+  âge, **idempotente**) : **douce** — ligne conservée (`is_deleted`, corps
+  vidé, `body=null` + `attachments=[]` en réponse), **pièces jointes
+  effacées** (lignes + fichiers). Publie **`message_deleted`**. Exclue des
+  non-lus et non téléchargeable (404).
+- **Lot de médias** (`POST .../messages/{msg_id}/attachments/batch`, champ
+  `files`) : tout-ou-rien, quota **15 par message** (409 au-delà, y compris
+  à l'upload unitaire), auteur uniquement. Un événement `attachment` par pièce.
+- **Retrait d'une pièce jointe** (`DELETE .../attachments/{att_id}`,
+  auteur uniquement) : republie **`message_updated`** ; 422 si dernier média
+  d'un message sans texte.
+- **Pagination curseur** : `before_id` (+ `skip/limit`, défaut 50, max 200),
+  ordre stable `(created_at, id)`, 404 sur curseur inconnu. Écritures
+  concurrentes sérialisées (`SELECT ... FOR UPDATE`).
+- Côté UI (`useConversationThread` partagé) : historique vers le haut avec
+  ancrage, pastille « N nouveaux », `MediaPicker` (aperçu avant envoi),
+  édition inline (« modifié »), suppression (confirm, placeholder), retrait
+  de PJ, `message_updated` / `message_deleted` appliqués au cache.
 
 ### Conversations — un seul niveau de lu/non-lu
 `Message.read_at` = lu **par l'autre côté**, un seul champ (pas de suivi par
@@ -1772,6 +1852,43 @@ site vitrine visible).
 
 ---
 
+## Module Bibliothèque (library)
+
+Catalogue de livres multi-sections, prêts aux enfants, retours et rappels.
+Permissions fines par geste : lecture (`library:read`), catalogue
+(`library:write`), prêts (`library:lend`).
+
+### Endpoints
+```
+GET/PUT  /api/v1/library/settings                       # ADMIN uniquement (non délégable)
+POST     /api/v1/library/books                          # library:write
+GET      /api/v1/library/books                          # library:read — ?section_id= &include_inactive= &skip= &limit=
+GET      /api/v1/library/books/{id}                     # library:read
+PATCH    /api/v1/library/books/{id}                     # library:write
+DELETE   /api/v1/library/books/{id}                     # library:write — soft delete (409 si prêts en cours)
+POST     /api/v1/library/lendings                       # library:lend
+GET      /api/v1/library/lendings                       # library:read — ?book_id= &child_id= &status=
+POST     /api/v1/library/lendings/{id}/return           # library:lend (409 si déjà rendu)
+POST     /api/v1/library/reminders/run                  # library:lend — email + message conversation
+
+GET    /api/v1/library/mine/books                       # parent — sections des enfants
+GET    /api/v1/library/mine/lendings                    # parent — ses prêts
+GET    /api/v1/library/educator/books                   # staff — livres de sa section (hors RBAC)
+```
+
+### Règles métier
+- **Quantités** : `available_quantity` décrémenté à chaque prêt, restauré au
+  retour ; prêt impossible sans exemplaire (409) ou sur livre désactivé (409) ;
+  `due_date < borrowed_at` → 422.
+- **Rappels** : prêts en retard relancés une fois par jour max
+  (`last_reminded_on`) — email best-effort + message dans la conversation
+  admin↔parent.
+- **Rôle socle « Bibliothécaire »** : les 3 permissions, attribué
+  automatiquement.
+- **Isolation** : `establishment_id` partout (404) ; superadmin exclu (403).
+
+---
+
 ## Variables d'environnement
 
 ### Backend — `lprds-backend/.env`
@@ -1951,6 +2068,10 @@ tests/
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
+    ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend
+    ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
+    ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
+    │                                 #   retrait PJ, pagination curseur before_id
     └── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
 ```
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, MessagesSquare, Paperclip, Plus, Send } from 'lucide-react'
+import { ChevronDown, Loader2, MessagesSquare, Paperclip, Plus, Send } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,15 +15,12 @@ import {
 } from '@/components/ui/dialog'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { parentsApi } from '@/lib/api/parents.api'
-import { useMessagingEvent } from '@/lib/messaging/socket-context'
+import { MAX_MESSAGE_MEDIA, isEditable, useConversationThread } from '@/lib/messaging/use-conversation-thread'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { MessageAttachments } from '@/components/messaging/message-attachments'
+import { MessageBubble } from '@/components/messaging/message-bubble'
+import { MediaPicker } from '@/components/messaging/media-picker'
 import { cn } from '@/lib/utils'
-import type { Conversation, ConversationListResponse, Message, MessageListResponse } from '@/types/messaging'
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+import type { Conversation, ConversationListResponse } from '@/types/messaging'
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
@@ -73,12 +70,6 @@ export function ConversationsTab() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
-  const { data: messagesData, isLoading: isLoadingMessages } = useQuery({
-    queryKey: selectedId ? messagesKey(selectedId) : ['messaging', 'conversation-messages', 'none'],
-    queryFn: () => messagingApi.listConversationMessages(selectedId!).then((r) => r.data),
-    enabled: !!selectedId,
-  })
-
   const markReadMutation = useMutation({
     mutationFn: (conversationId: string) => messagingApi.markConversationRead(conversationId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: conversationsKey }),
@@ -91,33 +82,6 @@ export function ConversationsTab() {
       markReadMutation.mutate(selectedId)
     }
   }, [selectedId, conversations, markReadMutation])
-
-  useMessagingEvent((event) => {
-    if (event.type === 'message') {
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(event.conversation_id), (old) =>
-        old
-          ? old.items.some((m) => m.id === event.id)
-            ? old
-            : { total: old.total + 1, items: [...old.items, event] }
-          : old
-      )
-      queryClient.invalidateQueries({ queryKey: conversationsKey })
-      if (event.conversation_id === selectedId && event.sender_role !== 'admin') {
-        markedReadRef.current.delete(event.conversation_id)
-      }
-    } else if (event.type === 'read_receipt') {
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(event.conversation_id), (old) =>
-        old
-          ? { ...old, items: old.items.map((m) => (event.message_ids.includes(m.id) ? { ...m, read_at: event.read_at } : m)) }
-          : old
-      )
-      queryClient.invalidateQueries({ queryKey: conversationsKey })
-    } else if (event.type === 'attachment') {
-      queryClient.invalidateQueries({
-        predicate: (q) => q.queryKey[0] === 'messaging' && q.queryKey[1] === 'conversation-messages',
-      })
-    }
-  })
 
   const conversationItems = conversations?.items ?? []
   const selectedConversation = conversationItems.find((c) => c.id === selectedId) ?? null
@@ -185,11 +149,7 @@ export function ConversationsTab() {
           <p className="text-sm">Sélectionnez une conversation.</p>
         </CardContent>
       ) : (
-        <ConversationThread
-          conversation={selectedConversation}
-          messages={messagesData?.items ?? []}
-          isLoading={isLoadingMessages}
-        />
+        <ConversationThread conversation={selectedConversation} markedReadRef={markedReadRef} />
       )}
     </Card>
   )
@@ -286,63 +246,29 @@ export function ConversationsTab() {
 }
 
 function ConversationThread({
-  conversation, messages, isLoading,
-}: { conversation: Conversation; messages: Message[]; isLoading: boolean }) {
+  conversation, markedReadRef,
+}: {
+  conversation: Conversation
+  markedReadRef: React.RefObject<Set<string>>
+}) {
   const queryClient = useQueryClient()
-  const [body, setBody] = useState('')
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const composeFileRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
-  }, [messages.length])
-
-  const sendMutation = useMutation({
-    mutationFn: (text: string) => messagingApi.sendConversationMessage(conversation.id, text).then((r) => r.data),
-    onSuccess: (message) => {
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(conversation.id), (old) =>
-        old
-          ? old.items.some((m) => m.id === message.id)
-            ? old
-            : { total: old.total + 1, items: [...old.items, message] }
-          : old
-      )
-      queryClient.invalidateQueries({ queryKey: conversationsKey })
-      setBody('')
+  const thread = useConversationThread({
+    messagesKey: messagesKey(conversation.id),
+    conversationId: conversation.id,
+    ownRole: 'admin',
+    api: {
+      list: (params) => messagingApi.listConversationMessages(conversation.id, params).then((r) => r.data),
+      send: (text) => messagingApi.sendConversationMessage(conversation.id, text).then((r) => r.data),
+      uploadBatch: (messageId, files) =>
+        messagingApi.uploadMessageAttachments(conversation.id, messageId, files).then((r) => r.data),
+      edit: (messageId, text) => messagingApi.editMessage(conversation.id, messageId, text).then((r) => r.data),
+      remove: (messageId) => messagingApi.deleteMessage(conversation.id, messageId).then(() => undefined),
+      removeAttachment: (messageId, attachmentId) =>
+        messagingApi.removeMessageAttachment(conversation.id, messageId, attachmentId).then(() => undefined),
     },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
+    onThreadChanged: () => queryClient.invalidateQueries({ queryKey: conversationsKey }),
+    onIncomingFromOther: () => markedReadRef.current?.delete(conversation.id),
   })
-
-  // Envoi « comme un message » : le fichier choisi dans la barre de saisie crée
-  // un message (texte éventuel + corps vide sinon) puis y attache le média.
-  const sendMediaMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const message = await messagingApi
-        .sendConversationMessage(conversation.id, body.trim())
-        .then((r) => r.data)
-      await messagingApi.uploadConversationAttachment(conversation.id, message.id, file)
-      return message
-    },
-    onSuccess: (message) => {
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey(conversation.id), (old) =>
-        old
-          ? old.items.some((m) => m.id === message.id)
-            ? old
-            : { total: old.total + 1, items: [...old.items, message] }
-          : old
-      )
-      queryClient.invalidateQueries({ queryKey: conversationsKey })
-      setBody('')
-      queryClient.invalidateQueries({ queryKey: messagesKey(conversation.id) })
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
-  })
-
-  const onSend = () => {
-    const trimmed = body.trim()
-    if (!trimmed) return
-    sendMutation.mutate(trimmed)
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -352,47 +278,73 @@ function ConversationThread({
         </p>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-2/3" />)}
-          </div>
-        ) : messages.length === 0 ? (
-          <p className="text-center text-sm text-muted-foreground">Aucun message pour l&apos;instant.</p>
-        ) : (
-          messages.map((msg) => {
-            const isAdmin = msg.sender_role === 'admin'
-            return (
-              <div key={msg.id} className={cn('flex flex-col', isAdmin ? 'items-end' : 'items-start')}>
-                <div
-                  className={cn(
-                    'max-w-[75%] rounded-lg px-3 py-2 text-sm',
-                    isAdmin ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                  )}
-                >
-                  {msg.body ? <p className="whitespace-pre-wrap">{msg.body}</p> : null}
-                  <MessageAttachments attachments={msg.attachments} highlight={isAdmin} />
+      <div className="relative flex-1 overflow-hidden">
+        <div ref={thread.scrollRef} onScroll={thread.handleScroll} className="h-full space-y-3 overflow-y-auto p-4">
+          {thread.isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-2/3" />)}
+            </div>
+          ) : (
+            <>
+              {thread.isLoadingOlder && (
+                <div className="flex justify-center py-1">
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
                 </div>
-                <div className="mt-0.5 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
-                  <span>{formatTime(msg.created_at)}</span>
-                  {isAdmin && msg.read_at && <span>· Vu</span>}
-                </div>
-              </div>
-            )
-          })
+              )}
+              {thread.messages.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground">Aucun message pour l&apos;instant.</p>
+              ) : (
+                thread.messages.map((msg) => (
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    isMine={msg.sender_role === 'admin'}
+                    editable={msg.sender_role === 'admin' && isEditable(msg)}
+                    editing={thread.editingId === msg.id}
+                    draft={thread.draft}
+                    onDraftChange={thread.setDraft}
+                    onStartEdit={() => thread.startEdit(msg)}
+                    onCancelEdit={thread.cancelEdit}
+                    onSaveEdit={thread.saveEdit}
+                    editPending={thread.editPending}
+                    onDelete={() => thread.deleteMessage(msg.id)}
+                    deletePending={thread.deletingIds.includes(msg.id)}
+                    onRemoveAttachment={(attachmentId) => thread.removeAttachment(msg.id, attachmentId)}
+                    removingAttachmentId={thread.removingAttachmentId}
+                  />
+                ))
+              )}
+            </>
+          )}
+        </div>
+        {thread.newCount > 0 && (
+          <button
+            type="button"
+            onClick={thread.jumpToBottom}
+            className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lg transition hover:bg-primary/90"
+          >
+            <ChevronDown className="size-3.5" />
+            {thread.newCount} nouveau{thread.newCount > 1 ? 'x' : ''} message{thread.newCount > 1 ? 's' : ''}
+          </button>
         )}
       </div>
+
+      {thread.pickerOpen && (
+        <div className="border-t border-border p-3 pb-0">
+          <MediaPicker files={thread.picked} onChange={thread.setPicked} max={MAX_MESSAGE_MEDIA} disabled={thread.busy} />
+        </div>
+      )}
 
       <div className="flex items-end gap-2 border-t border-border p-3">
         <Textarea
           placeholder="Répondre au nom de l'administration..."
           rows={2}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
+          value={thread.body}
+          onChange={(e) => thread.setBody(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
-              onSend()
+              thread.onSend()
             }
           }}
           className="flex-1 resize-none"
@@ -400,32 +352,21 @@ function ConversationThread({
         <div className="flex flex-col items-center gap-1">
           <Button
             type="button"
-            variant="ghost"
+            variant={thread.pickerOpen ? 'secondary' : 'ghost'}
             size="icon"
-            aria-label="Envoyer une photo ou une vidéo"
-            title="Envoyer une photo ou une vidéo"
-            onClick={() => composeFileRef.current?.click()}
-            disabled={sendMediaMutation.isPending}
+            aria-label="Joindre des photos ou vidéos"
+            title="Joindre des photos ou vidéos (avec aperçu avant envoi)"
+            onClick={() => thread.setPickerOpen((v) => !v)}
+            disabled={thread.busy}
           >
-            {sendMediaMutation.isPending
+            {thread.busy
               ? <Loader2 className="size-4 animate-spin" />
               : <Paperclip className="size-4" />}
           </Button>
-          <Button type="button" onClick={onSend} disabled={sendMutation.isPending || !body.trim()}>
-            {sendMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          <Button type="button" onClick={thread.onSend} disabled={!thread.canSend}>
+            {thread.busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </Button>
         </div>
-        <input
-          ref={composeFileRef}
-          type="file"
-          accept="image/*,video/*,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) sendMediaMutation.mutate(file)
-            e.target.value = ''
-          }}
-        />
       </div>
     </div>
   )

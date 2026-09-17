@@ -1,17 +1,14 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { Megaphone, Paperclip } from 'lucide-react'
+import { Megaphone } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
-import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { downloadBlob } from '@/lib/utils/download'
 import type { Announcement } from '@/types/messaging'
 
 const key = ['parent', 'announcements'] as const
@@ -89,31 +86,9 @@ function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement
       <CardContent className="space-y-3">
         <p className="whitespace-pre-wrap text-sm">{announcement.body}</p>
 
-        {announcement.attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {announcement.attachments.map((att) => (
-              <Button
-                key={att.id}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  try {
-                    const res = await messagingApi.downloadAttachment(att.id)
-                    downloadBlob(res.data, att.filename)
-                  } catch (err) {
-                    toast.error(getApiErrorMessage(err))
-                  }
-                }}
-                className="max-w-full overflow-hidden"
-              >
-                <Paperclip className="mr-1.5 size-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{att.filename}</span>
-              </Button>
-            ))}
-          </div>
-        )}
+        <div onClick={(e) => e.stopPropagation()}>
+          <AnnouncementMediaGrid attachments={announcement.attachments} />
+        </div>
       </CardContent>
     </Card>
   )

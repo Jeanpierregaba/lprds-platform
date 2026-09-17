@@ -1,6 +1,7 @@
 import { LayoutDashboard, Building2, Settings, Network, ShieldCheck, UserRound, Baby, Users, ClipboardCheck, MessageCircle, FileText, UtensilsCrossed, Images, Newspaper, BookOpen } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '@/types/auth'
+import type { PermissionCode } from '@/types/rbac'
 
 export interface NavItem {
   label: string
@@ -75,7 +76,7 @@ export const STAFF_BASELINE_ITEMS: NavItem[] = [
  * uniquement) ni Rôles & permissions (réservé à l'admin).
  */
 export const STAFF_MODULE_ITEMS: (NavItem & {
-  permissions: string[]
+  permissions: PermissionCode[]
   /** true = TOUTES les permissions requises (défaut : AU MOINS UNE). */
   requireAll?: boolean
 })[] = [

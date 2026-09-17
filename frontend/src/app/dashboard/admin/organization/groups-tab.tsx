@@ -21,6 +21,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { organizationApi } from '@/lib/api/organization.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { staffApi } from '@/lib/api/staff.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
@@ -37,6 +39,9 @@ const ALL = '__all__'
 
 export function GroupsTab() {
   const queryClient = useQueryClient()
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('organization:write')
   const [filterSectionId, setFilterSectionId] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -191,10 +196,12 @@ export function GroupsTab() {
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          {canWrite && (
           <DialogTrigger render={<Button onClick={openCreate} disabled={!hasSections || !hasEducatrices} />}>
             <Plus className="mr-1.5 size-4" />
             Nouveau groupe
           </DialogTrigger>
+          )}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editing ? 'Modifier le groupe' : 'Nouveau groupe'}</DialogTitle>
@@ -324,10 +331,12 @@ export function GroupsTab() {
                       {group.educatrice.nickname || `${group.educatrice.first_name} ${group.educatrice.last_name}`}
                     </TableCell>
                     <TableCell>
+                      {canWrite && (
                       <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => openManage(group)}>
                         <Users className="size-3.5" />
                         {group.children.length}
                       </Button>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={group.is_active ? 'default' : 'outline'}>
@@ -335,6 +344,7 @@ export function GroupsTab() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      {canWrite && (
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(group)} aria-label={`Modifier ${group.name}`}>
                           <Pencil className="size-4" />
@@ -343,6 +353,7 @@ export function GroupsTab() {
                           {group.is_active ? 'Désactiver' : 'Réactiver'}
                         </Button>
                       </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

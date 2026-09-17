@@ -3,9 +3,19 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { type NavItem } from './nav-items'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-export function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
+export function NavList({
+  items,
+  onNavigate,
+  badges,
+}: {
+  items: NavItem[]
+  onNavigate?: () => void
+  /** Pastilles de comptage par href (ex. non-lus messagerie) — masquées à 0. */
+  badges?: Record<string, number>
+}) {
   const pathname = usePathname()
 
   const activeHref = (() => {
@@ -23,6 +33,7 @@ export function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: 
       {items.map((item) => {
         const isActive = item.href === activeHref
         const Icon = item.icon
+        const count = badges?.[item.href] ?? 0
         return (
           <Link
             key={item.href}
@@ -37,6 +48,11 @@ export function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: 
           >
             <Icon className="size-4 shrink-0" />
             <span className="truncate">{item.label}</span>
+            {count > 0 && (
+              <Badge variant="secondary" className="ml-auto shrink-0">
+                {count}
+              </Badge>
+            )}
           </Link>
         )
       })}

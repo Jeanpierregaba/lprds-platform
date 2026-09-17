@@ -5,7 +5,7 @@ import { Megaphone, MessagesSquare, Wifi, WifiOff } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { MessagingSocketProvider, useMessagingSocketStatus } from '@/lib/messaging/socket-context'
+import { useMessagingSocketStatus } from '@/lib/messaging/socket-context'
 import { AnnouncementsTab } from './announcements-tab'
 import { ConversationsTab } from './conversations-tab'
 
@@ -29,7 +29,6 @@ function ConnectionBadge() {
 
 export default function MessagingPage() {
   return (
-    <MessagingSocketProvider>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -64,6 +63,5 @@ export default function MessagingPage() {
           </TabsContent>
         </Tabs>
       </motion.div>
-    </MessagingSocketProvider>
   )
 }

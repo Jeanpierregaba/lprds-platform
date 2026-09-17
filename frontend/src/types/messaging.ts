@@ -57,7 +57,9 @@ export interface Message {
   conversation_id: string
   sender:          UserBrief
   sender_role:     string
-  body:            string
+  body:            string | null
+  edited_at:       string | null
+  is_deleted:      boolean
   read_at:         string | null
   created_at:      string
   attachments:     Attachment[]
@@ -113,6 +115,8 @@ export type MessagingWSEvent =
   | WSAnnouncementEvent
   | WSAnnouncementReadEvent
   | WSMessageEvent
+  | (Message & { type: 'message_updated' })
+  | { type: 'message_deleted'; conversation_id: string; message_id: string }
   | WSReadReceiptEvent
   | WSAttachmentEvent
   | WSAnnouncementAttachmentEvent

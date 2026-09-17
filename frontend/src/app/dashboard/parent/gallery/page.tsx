@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AuthMedia } from '@/components/media/auth-media'
 import { galleryApi } from '@/lib/api/gallery.api'
-import { GALLERY_SOURCE_LABELS, isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { GALLERY_SOURCE_BADGE_LABEL, GALLERY_SOURCE_LABELS, isVideo, type GalleryMediaItem } from '@/types/gallery'
 import { MediaLightbox } from '@/app/dashboard/admin/gallery/media-lightbox'
 import { useMyChildren } from '../use-my-children'
 
@@ -110,7 +110,7 @@ export default function ParentGalleryPage() {
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
                 <Badge variant="secondary" className="text-[10px]">
-                  {item.source === 'report' ? 'Rapport' : 'Messagerie'}
+                  {GALLERY_SOURCE_BADGE_LABEL[item.source]}
                 </Badge>
               </div>
             </button>

@@ -25,6 +25,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { parentsApi } from '@/lib/api/parents.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
@@ -53,6 +55,9 @@ function formatDateTime(iso: string | null) {
 export default function ParentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('parents:write')
   const [resetOpen, setResetOpen] = useState(false)
   const [children, setChildren] = useState<ParentChildBrief[]>([])
   const [childrenError, setChildrenError] = useState<string | null>(null)
@@ -167,6 +172,7 @@ export default function ParentDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {canWrite && (
           <Dialog open={resetOpen} onOpenChange={setResetOpen}>
             <DialogTrigger render={<Button variant="outline" />}>
               <KeyRound className="mr-1.5 size-4" />
@@ -193,7 +199,9 @@ export default function ParentDetailPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
 
+          {canWrite && (
           <AlertDialog>
             <AlertDialogTrigger render={<Button variant={parent.is_active ? 'destructive' : 'outline'} />}>
               <Trash2 className="mr-1.5 size-4 text-white" />
@@ -218,6 +226,7 @@ export default function ParentDetailPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          )}
         </div>
       </div>
 
@@ -271,9 +280,11 @@ export default function ParentDetailPage() {
               >
                 Annuler
               </Button>
+              {canWrite && (
               <Button type="submit" disabled={isSavingInfo}>
                 {isSavingInfo ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
               </Button>
+              )}
             </div>
           </form>
         </CardContent>

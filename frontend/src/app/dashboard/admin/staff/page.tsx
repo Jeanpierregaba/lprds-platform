@@ -16,12 +16,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { staffApi } from '@/lib/api/staff.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
 
 export default function StaffListPage() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('staff:write')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [staffType, setStaffType] = useState<string>(ALL)
@@ -66,10 +71,12 @@ export default function StaffListPage() {
           <h1 className="text-2xl font-bold">Personnel</h1>
           <p className="text-muted-foreground">Gérer les comptes de votre personnel.</p>
         </div>
+{canWrite && (
         <Button render={<Link href="/dashboard/admin/staff/new" />}>
           <Plus className="mr-1.5 size-4" />
           Nouveau membre
         </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -141,7 +148,7 @@ export default function StaffListPage() {
                           ? 'Essayez un autre nom, surnom, email ou matricule.'
                           : 'Créez le premier compte pour commencer à gérer votre personnel.'}
                       </p>
-                      {!debouncedSearch && (
+                      {!debouncedSearch && canWrite && (
                         <Button render={<Link href="/dashboard/admin/staff/new" />} size="sm" className="mt-1">
                           <Plus className="mr-1.5 size-4" />
                           Nouveau membre

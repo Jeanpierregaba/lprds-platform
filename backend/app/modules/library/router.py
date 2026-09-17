@@ -8,7 +8,9 @@ from app.modules.auth.models import User, UserRole
 from app.modules.library import service as library_service
 from app.modules.library.dependencies import (
     get_educator,
-    require_library_admin,
+    require_library_lend,
+    require_library_read,
+    require_library_write,
 )
 from app.modules.library.schemas import (
     BookCreateRequest,
@@ -51,7 +53,7 @@ async def update_settings(
 @router.post("/books", response_model=BookResponse, status_code=201)
 async def create_book(
     payload: BookCreateRequest,
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_write),
     db: AsyncSession = Depends(get_db),
 ) -> BookResponse:
     return await library_service.create_book(
@@ -65,7 +67,7 @@ async def list_books(
     include_inactive: bool = Query(default=False),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_read),
     db: AsyncSession = Depends(get_db),
 ) -> BookListResponse:
     return await library_service.list_books(
@@ -81,7 +83,7 @@ async def list_books(
 @router.get("/books/{book_id}", response_model=BookResponse)
 async def get_book(
     book_id: uuid.UUID,
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_read),
     db: AsyncSession = Depends(get_db),
 ) -> BookResponse:
     return await library_service.get_book(book_id, current_user.establishment_id, db)
@@ -91,7 +93,7 @@ async def get_book(
 async def update_book(
     book_id: uuid.UUID,
     payload: BookUpdateRequest,
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_write),
     db: AsyncSession = Depends(get_db),
 ) -> BookResponse:
     return await library_service.update_book(
@@ -102,7 +104,7 @@ async def update_book(
 @router.delete("/books/{book_id}", response_model=BookResponse)
 async def deactivate_book(
     book_id: uuid.UUID,
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_write),
     db: AsyncSession = Depends(get_db),
 ) -> BookResponse:
     return await library_service.deactivate_book(
@@ -114,7 +116,7 @@ async def deactivate_book(
 @router.post("/lendings", response_model=LendingResponse, status_code=201)
 async def create_lending(
     payload: LendingCreateRequest,
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_lend),
     db: AsyncSession = Depends(get_db),
 ) -> LendingResponse:
     return await library_service.create_lending(
@@ -129,7 +131,7 @@ async def list_lendings(
     status_filter: str | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_read),
     db: AsyncSession = Depends(get_db),
 ) -> LendingListResponse:
     return await library_service.list_lendings(
@@ -146,7 +148,7 @@ async def list_lendings(
 @router.post("/lendings/{lending_id}/return", response_model=LendingResponse)
 async def return_lending(
     lending_id: uuid.UUID,
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_lend),
     db: AsyncSession = Depends(get_db),
 ) -> LendingResponse:
     return await library_service.return_lending(
@@ -157,7 +159,7 @@ async def return_lending(
 # ── Rappels ─────────────────────────────────────────────────────
 @router.post("/reminders/run", response_model=ReminderResultResponse)
 async def run_reminders(
-    current_user: User = Depends(require_library_admin),
+    current_user: User = Depends(require_library_lend),
     db: AsyncSession = Depends(get_db),
 ) -> ReminderResultResponse:
     return await library_service.send_due_reminders(

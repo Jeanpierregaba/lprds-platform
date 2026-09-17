@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { rbacApi } from '@/lib/api/rbac.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { PERMISSION_GROUPS } from '@/types/rbac'
 import type { Role } from '@/types/rbac'
 
 const schema = z.object({
@@ -145,29 +146,61 @@ export function RolesTab() {
                 <Controller
                   control={control}
                   name="permissions"
-                  render={({ field }) => (
-                    <div className="grid gap-2.5 rounded-md border border-border p-3 sm:grid-cols-2">
-                      {permissions?.map((perm) => {
-                        const checked = field.value.includes(perm.code)
-                        return (
-                          <label key={perm.id} className="flex items-start gap-2 text-sm">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(next) => {
-                                field.onChange(
-                                  next
-                                    ? [...field.value, perm.code]
-                                    : field.value.filter((c) => c !== perm.code)
-                                )
-                              }}
-                              className="mt-0.5"
-                            />
-                            <span>{perm.label}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  )}
+                  render={({ field }) => {
+                    const toggle = (code: string, next: boolean | string) => {
+                      field.onChange(
+                        next === true
+                          ? [...field.value, code]
+                          : field.value.filter((c) => c !== code)
+                      )
+                    }
+                    const checkbox = (code: string, label: string) => {
+                      const checked = field.value.includes(code)
+                      return (
+                        <label key={code} className="flex items-start gap-2 text-sm">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(next) => toggle(code, next)}
+                            className="mt-0.5"
+                          />
+                          <span>{label}</span>
+                        </label>
+                      )
+                    }
+                    const byCode = new Map((permissions ?? []).map((p) => [p.code, p]))
+                    const grouped: Set<string> = new Set(PERMISSION_GROUPS.flatMap((g) => g.codes))
+                    const ungrouped = (permissions ?? []).filter((p) => !grouped.has(p.code))
+                    return (
+                      <div className="space-y-3 rounded-md border border-border p-3">
+                        {PERMISSION_GROUPS.map((group) => {
+                          const items = group.codes
+                            .map((code) => byCode.get(code))
+                            .filter((p) => p !== undefined)
+                          if (items.length === 0) return null
+                          return (
+                            <fieldset key={group.module} className="space-y-1.5">
+                              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {group.module}
+                              </legend>
+                              <div className="grid gap-2.5 sm:grid-cols-2">
+                                {items.map((perm) => checkbox(perm.code, perm.label))}
+                              </div>
+                            </fieldset>
+                          )
+                        })}
+                        {ungrouped.length > 0 && (
+                          <fieldset className="space-y-1.5">
+                            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Autres
+                            </legend>
+                            <div className="grid gap-2.5 sm:grid-cols-2">
+                              {ungrouped.map((perm) => checkbox(perm.code, perm.label))}
+                            </div>
+                          </fieldset>
+                        )}
+                      </div>
+                    )
+                  }}
                 />
               </div>
               <DialogFooter>

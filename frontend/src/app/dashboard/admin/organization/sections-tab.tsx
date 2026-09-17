@@ -22,6 +22,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { organizationApi } from '@/lib/api/organization.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import type { Section } from '@/types/organization'
 
@@ -36,6 +38,9 @@ const ALL = '__all__'
 
 export function SectionsTab() {
   const queryClient = useQueryClient()
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('organization:write')
   const [filterDepartmentId, setFilterDepartmentId] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -139,10 +144,12 @@ export function SectionsTab() {
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          {canWrite && (
           <DialogTrigger render={<Button onClick={openCreate} disabled={!hasDepartments} />}>
             <Plus className="mr-1.5 size-4" />
             Nouvelle section
           </DialogTrigger>
+          )}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editing ? 'Modifier la section' : 'Nouvelle section'}</DialogTitle>
@@ -243,6 +250,7 @@ export function SectionsTab() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      {canWrite && (
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(section)} aria-label={`Modifier ${section.name}`}>
                           <Pencil className="size-4" />
@@ -251,6 +259,7 @@ export function SectionsTab() {
                           {section.is_active ? 'Désactiver' : 'Réactiver'}
                         </Button>
                       </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

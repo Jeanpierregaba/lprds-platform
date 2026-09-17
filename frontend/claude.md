@@ -506,8 +506,12 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 | `reports:write` | Créer, modifier et soumettre des rapports |
 | `reports:validate` | Valider ou rejeter les rapports soumis |
 | `gallery:read` | Consulter la galerie de médias (photos/vidéos des rapports) |
+| `menus:read` | Consulter le menu de la semaine et son historique |
 | `menus:write` | Créer et modifier les menus de la semaine, consulter l'historique |
-| `blog:write` | Rédiger, publier, modifier et supprimer les actualités du site vitrine |
+| `blog:write` | Rédiger, publier, modifier et supprimer les actualités du site vitrine (pas de `blog:read` — la lecture interne exige l'écriture) |
+| `library:read` | Consulter le catalogue et le suivi des prêts |
+| `library:write` | Créer, modifier et désactiver les livres |
+| `library:lend` | Enregistrer prêts, retours et rappels |
 
 > **Ajouter une permission** = 1) l'ajouter à `PermissionCode` + `PERMISSION_LABELS`,
 > 2) écrire une migration qui l'insère dans `permissions`. Sans l'étape 2, toute
@@ -521,6 +525,35 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 - **Parent** → refusé (le portail parent est un module à venir)
 
 ---
+
+### Gating côté frontend (masquage, jamais une sécurité)
+
+Le backend reste la seule autorité (un staff en deep-link sur une page
+interdite reçoit 403). Le frontend masque pour éviter les impasses :
+
+- **Codes centraux** : `PermissionCode` + `PERMISSION_GROUPS`
+  (`types/rbac.ts`, miroir du backend) — jamais de littéral en dur dans le
+  nouveau code ; le dialogue de création de rôle groupe les permissions par
+  module (avec repli « Autres » pour tout code backend inconnu d'ici).
+- **Navigation staff** : `STAFF_MODULE_ITEMS` (`components/dashboard/nav-items.ts`,
+  `permissions: PermissionCode[]`, `requireAll?`) filtrée dans
+  `useNavItems()` — même logique réutilisée sur `/dashboard/staff`
+  (cartes modules, avec `requireAll` respecté partout).
+- **Pattern de page** : `const canWrite = user?.role === 'admin' ||
+  permissions.has('...:write')` (`useMyPermissions()` — l'admin reçoit tout
+  le catalogue via `GET /rbac/me`, donc le test couvre les deux rôles).
+  Appliqué aux boutons créer/modifier/désactiver des pages enfants, parents,
+  personnel (dont l'onglet « Rôles RBAC », **admin uniquement**), organisation,
+  bibliothèque (write/lend séparés, paramètres admin uniquement), menus
+  (`menus:write` sur les cellules + boutons) et aux onglets présences
+  (dashboard/journal/export → `attendance:read`, QR → `:write`, scanner →
+  `:scan`, onglet par défaut = premier permis).
+- **Pages `new`** (enfants/parents/personnel) : garde anti deep-link —
+  message « Droits insuffisants » au lieu du formulaire.
+- **Galerie staff** : `source` forcée à `report`, sélecteur masqué (la
+  messagerie reste hors RBAC, 403 sinon).
+- **Ne pas gater** : portails parent (`/mine/*`, hors RBAC), socle staff,
+  messagerie (admin/parent par rôle), pages publiques.
 
 ## Module Organisation (départements, sections & groupes)
 
@@ -993,6 +1026,32 @@ Client ← WS (relais transparent) ←──────────── tous 
   | Parent | `messaging:estab:{id}:announcements` + `messaging:conv:{sa_conversation_id}` |
   | Admin | `messaging:estab:{id}:announcements` + `messaging:estab:{id}:admin` (agrégé : tous les messages de toutes les conversations, pour rafraîchir la liste en direct) |
 
+### Notifications à la réception (conversations privées)
+
+- **Push Web au destinataire** (`send_message`, best-effort) : aux admins si
+  l'expéditeur est le parent, au seul parent de la conversation
+  (`parent_ids={...}`) si l'expéditeur est un admin — couvre l'app fermée.
+- **Temps réel applicatif** : `MessagingSocketProvider` est monté dans
+  `dashboard/layout.tsx` (admin/parent uniquement — le serveur rejetterait les
+  autres rôles), plus seulement sur les pages messagerie. `MessagingNotifier`
+  (même niveau) affiche un **toast au destinataire** à chaque message reçu
+  (nom + extrait, silence pour ses propres messages multi-onglets), sauf sur
+  sa page messagerie où le fil est déjà en direct — et invalide les requêtes
+  de compteurs pour garder les pastilles fraîches hors page messagerie.
+- **Pastilles de non-lus** : par conversation côté admin (existait déjà) +
+  sur l'entrée **Messagerie** de la navigation (sidebar + mobile) via
+  `useMessagingUnread()` (somme côté admin, conversation unique côté parent,
+  mêmes clés react-query que les onglets — aucune requête en double).
+  `NavList` accepte `badges: Record<href, count>` (masquées à 0).
+- **Fil de conversation** (`useConversationThread`, partagé admin/parent) :
+  historique paginé vers le haut (`before_id`, ancrage du scroll, pastille
+  « N nouveaux » quand on n'est pas en bas), `MediaPicker` multi-médias
+  (max 15) avec aperçu avant envoi, édition inline de ses messages (fenêtre
+  15 min, mention « modifié »), suppression douce (confirm `AlertDialog`,
+  placeholder « Message supprimé »), retrait de ses pièces jointes (croix),
+  temps réel `message_updated` / `message_deleted` appliqués au cache.
+  `MessageBubble` rend la bulle + menu (survol) dans les deux portails.
+
 ### Endpoints REST
 ```
 POST   /api/v1/messaging/announcements                     # admin
@@ -1002,14 +1061,22 @@ PATCH  /api/v1/messaging/announcements/{id}                # admin — dont dés
 POST   /api/v1/messaging/announcements/{id}/read           # parent
 
 GET    /api/v1/messaging/conversations/me                  # parent — auto-créée si absente
-GET    /api/v1/messaging/conversations/me/messages
+GET    /api/v1/messaging/conversations/me/messages         # curseur before_id pour l'historique
 POST   /api/v1/messaging/conversations/me/messages
 POST   /api/v1/messaging/conversations/me/read
+PATCH  /api/v1/messaging/conversations/me/messages/{msg_id}
+DELETE /api/v1/messaging/conversations/me/messages/{msg_id}
+POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/batch
+DELETE /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/{att_id}
 
 GET    /api/v1/messaging/conversations                     # admin — liste, triée par activité
-GET    /api/v1/messaging/conversations/{id}/messages       # admin — n'importe quel parent
+GET    /api/v1/messaging/conversations/{id}/messages       # admin — curseur before_id pour l'historique
 POST   /api/v1/messaging/conversations/{id}/messages       # admin — répond « au nom de l'administration »
 POST   /api/v1/messaging/conversations/{id}/read           # admin
+PATCH  /api/v1/messaging/conversations/{id}/messages/{msg_id}
+DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}
+POST   /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/batch
+DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/{att_id}
 
 POST   /api/v1/messaging/announcements/{id}/attachments                     # admin
 POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments     # parent
@@ -1195,6 +1262,13 @@ dernier scan `departure` du jour, convertis dans le **fuseau horaire configuré*
 de l'établissement (`AttendanceSettings.timezone`, même mécanisme que le
 module Présences — UTC par défaut si non configuré). **Le client reste
 prioritaire** : une valeur fournie n'est jamais écrasée.
+
+Côté formulaire, le remplissage est aussi **visible avant soumission** :
+`useAttendancePrefill` (`lib/reports/`, création + édition d'un brouillon)
+interroge `GET /attendance/daily/children?date=` (ou `/daily/my-group` pour
+une éducatrice sans `attendance:read`) dès que l'enfant et la date sont
+choisis, et renseigne les champs `time` encore vides — une seule fois par
+couple enfant/date, jamais d'écrasement d'une saisie manuelle.
 
 ### Pièces jointes (photos / vidéos)
 
@@ -1821,6 +1895,7 @@ tests/
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
+    ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend
     └── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
 ```
 

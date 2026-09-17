@@ -24,6 +24,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { libraryApi } from '@/lib/api/library.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import type { Book } from '@/types/library'
@@ -33,6 +35,9 @@ const PAGE_SIZE = 20
 const ALL = '__all__'
 
 export function CatalogueTab() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('library:write')
   const [sectionId, setSectionId] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [skip, setSkip] = useState(0)
@@ -106,6 +111,7 @@ export function CatalogueTab() {
           </div>
         </div>
 
+{canWrite && (
         <Button
           onClick={() => {
             setEditingBook(null)
@@ -115,6 +121,7 @@ export function CatalogueTab() {
           <Plus className="mr-1.5 size-4" />
           Nouveau livre
         </Button>
+        )}
       </div>
 
       <Card>
@@ -180,6 +187,7 @@ export function CatalogueTab() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+{canWrite && (
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
@@ -199,6 +207,7 @@ export function CatalogueTab() {
                           </Button>
                         )}
                       </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

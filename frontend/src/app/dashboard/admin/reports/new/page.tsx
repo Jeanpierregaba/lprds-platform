@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { childrenApi } from '@/lib/api/children.api'
 import { reportsApi } from '@/lib/api/reports.api'
 import { useReportForms } from '@/lib/reports/use-report-forms'
+import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
 import { toDailyContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { useUser } from '@/lib/stores/auth.store'
@@ -115,6 +116,14 @@ export default function NewReportPage() {
   })
 
   const { dailyForm, bimensuelForm, annualForm } = useReportForms()
+
+  useAttendancePrefill({
+    active: reportType === 'quotidien',
+    childId: selectedChild?.id,
+    referenceDate,
+    form: dailyForm,
+    departmentId: selectedChild?.department?.id ?? undefined,
+  })
 
   const activeForm = reportType === 'quotidien' ? dailyForm : reportType === 'bi_mensuel' ? bimensuelForm : reportType === 'annuel' ? annualForm : null
 

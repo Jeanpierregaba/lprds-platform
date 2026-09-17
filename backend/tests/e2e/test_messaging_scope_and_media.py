@@ -5,8 +5,8 @@ Couverture :
 - visibilité parent (404 hors périmètre, jamais 403 — on ne révèle rien) ;
 - compteur admin X/Y calculé sur l'audience réelle, pas tous les parents ;
 - changement de périmètre au PATCH + élagage des lectures hors périmètre ;
-- vidéo acceptée dans les conversations (parent ET admin), refusée en
-  diffusion (images + PDF uniquement) ;
+- vidéo acceptée dans les conversations (parent ET admin) comme en diffusion ;
+- envoi en lot des médias de diffusion (tout ou rien) + quota de 15 ;
 - téléchargement d'une pièce jointe de diffusion ciblée : 404 hors périmètre.
 """
 from tests.helpers import PNG, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
@@ -186,12 +186,12 @@ def test_conversation_video_and_scoped_attachment_download(client):
                files={"file": ("rep.mp4", VIDEO, "video/mp4")}, headers=adm)
     ck("Vidéo admin → 201", r.status_code, 201)
 
-    # La vidéo reste interdite en diffusion (images + PDF uniquement).
+    # La vidéo est acceptée en diffusion (photos, vidéos, PDF).
     ann = c.post("/messaging/announcements", json={"title": "T", "body": "B"},
                  headers=adm).json()
-    ck("Vidéo en diffusion → 422", c.post(
+    ck("Vidéo en diffusion → 201", c.post(
         f"/messaging/announcements/{ann['id']}/attachments",
-        files={"file": ("x.mp4", VIDEO, "video/mp4")}, headers=adm).status_code, 422)
+        files={"file": ("x.mp4", VIDEO, "video/mp4")}, headers=adm).status_code, 201)
 
     # Pièce jointe d'une diffusion ciblée : 404 hors périmètre, 200 dedans.
     scoped = c.post("/messaging/announcements",
@@ -203,3 +203,47 @@ def test_conversation_video_and_scoped_attachment_download(client):
        c.get(f"/messaging/attachments/{up['id']}", headers=par_p).status_code, 404)
     ck("PJ diffusion dans le périmètre → 200",
        c.get(f"/messaging/attachments/{up['id']}", headers=par_m).status_code, 200)
+
+
+def test_announcement_attachments_batch_and_quota(client):
+    """Envoi en lot des médias d'une diffusion (photos/vidéos) : tout ou
+    rien, quota de 15 médias max."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    ann = c.post("/messaging/announcements", json={"title": "Fête", "body": "Photos !"},
+                 headers=adm).json()
+    aid = ann["id"]
+
+    r = c.post(f"/messaging/announcements/{aid}/attachments/batch", files=[
+        ("files", ("a.png", PNG, "image/png")),
+        ("files", ("b.png", PNG, "image/png")),
+        ("files", ("c.mp4", VIDEO, "video/mp4")),
+    ], headers=adm)
+    ck("Lot de 3 médias → 201", r.status_code, 201)
+    ck("  3 pièces jointes retournées", len(r.json()), 3)
+    detail = c.get(f"/messaging/announcements/{aid}", headers=adm).json()
+    ck("  3 médias listés sur la diffusion", len(detail["attachments"]), 3)
+
+    # Tout ou rien : un fichier invalide rejette le lot entier, sans ajout.
+    r = c.post(f"/messaging/announcements/{aid}/attachments/batch", files=[
+        ("files", ("ok.png", PNG, "image/png")),
+        ("files", ("ko.svg", b"<svg/>", "image/svg+xml")),
+    ], headers=adm)
+    ck("Lot avec un SVG → 422", r.status_code, 422)
+    detail = c.get(f"/messaging/announcements/{aid}", headers=adm).json()
+    ck("  rien n'a été ajouté (toujours 3)", len(detail["attachments"]), 3)
+
+    # Quota : 3 déjà joints → un lot de 13 dépasserait 15.
+    too_many = [("files", (f"p{i}.png", PNG, "image/png")) for i in range(13)]
+    ck("Lot dépassant le quota → 409",
+       c.post(f"/messaging/announcements/{aid}/attachments/batch",
+              files=too_many, headers=adm).status_code, 409)
+    ok_many = [("files", (f"p{i}.png", PNG, "image/png")) for i in range(12)]
+    ck("Lot complétant à 15 → 201",
+       c.post(f"/messaging/announcements/{aid}/attachments/batch",
+              files=ok_many, headers=adm).status_code, 201)
+    ck("Upload unitaire au-delà du quota → 409", c.post(
+        f"/messaging/announcements/{aid}/attachments",
+        files={"file": ("extra.png", PNG, "image/png")}, headers=adm).status_code, 409)

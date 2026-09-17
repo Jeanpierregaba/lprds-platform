@@ -91,8 +91,10 @@ export const config = {
     // `/api/*` est exclu : le rewrite next.config proximise vers le backend,
     // qui applique SA propre authentification. Seul le blog public
     // (/api/v1/public/blog/...) est volontairement sans token (cf. module Blog).
-    // Les ressources PWA (manifest, service worker, page /offline, icônes) sont
-    // aussi exclues : elles doivent rester accessibles sans session.
-    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|offline).*)',
+    // Les ressources PWA (manifest, service worker, page /offline, icônes,
+    // sonde de version) sont aussi exclues : elles doivent rester accessibles
+    // sans session — /version.json est sondé par l'auto-update y compris
+    // visiteur anonyme.
+    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|offline|version.json).*)',
   ],
 }

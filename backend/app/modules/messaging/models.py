@@ -201,6 +201,10 @@ class Message(Base):
     # l'expéditeur, et permet de filtrer qui-doit-marquer-lu sans jointure.
     sender_role: Mapped[str] = mapped_column(String(10), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
     # Lu "par l'autre côté" — cf. docstring du module : un seul niveau, pas de
     # suivi par admin individuel.
     read_at: Mapped[datetime | None] = mapped_column(
@@ -264,10 +268,11 @@ class Attachment(Base):
     )
 
     uploaded_by: Mapped["User"] = relationship(lazy="selectin")
-    # Ajoutée pour le module Galerie — uniquement le volet message (jamais les
-    # diffusions, exclues de la galerie : cf. claude.md, "pas liées à un enfant
-    # précis, diffusion générique à tout l'établissement").
+    # Ajoutées pour le module Galerie (relations ORM pures, aucune migration) —
+    # `message` pour les conversations privées, `announcement` pour les
+    # diffusions (médias visibles établissement-wide, cf. galerie).
     message: Mapped["Message | None"] = relationship(lazy="selectin")
+    announcement: Mapped["Announcement | None"] = relationship(lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Attachment {self.filename}>"

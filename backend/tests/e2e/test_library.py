@@ -213,3 +213,75 @@ def test_library(client):
        "/library/books", headers=su).status_code, 403)
     ck("Superadmin : GET /library/settings → 403", c.get(
        "/library/settings", headers=su).status_code, 403)
+
+
+def _staff_with_permissions(c, adm, email, permissions):
+    c.post("/staff", json={
+        "first_name": "S", "last_name": email.split("@")[0], "nickname": "S",
+        "phone": "+229", "email": email, "password": "Staff2026",
+        "staff_type": "secretaire",
+    }, headers=adm)
+    h = login(c, email, "Staff2026")
+    c.post("/auth/password-change", json={"current_password": "Staff2026",
+           "new_password": "StaffNew2026"}, headers=h)
+    headers = login(c, email, "StaffNew2026")
+    staff_id = c.get(f"/staff?search={email}", headers=adm).json()["items"][0]["id"]
+    role = c.post("/rbac/roles", json={"name": f"Rôle {email}",
+          "permissions": permissions}, headers=adm).json()
+    c.post(f"/rbac/staff/{staff_id}/roles/{role['id']}", headers=adm)
+    return headers
+
+
+def test_library_permission_granularity(client):
+    """Chaque permission bibliothèque ouvre son seul geste : lecture seule,
+    gestion du catalogue, prêts — sans exiger les deux autres."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    dep = c.post("/departments", json={"name": "Maternelle"}, headers=adm).json()
+    sec = c.post("/sections", json={"department_id": dep["id"], "name": "PS"},
+                 headers=adm).json()
+    child = _create_child(c, adm, dep["id"], sec["id"])
+    book = c.post("/library/books", json={
+        "title": "T", "author": "A", "total_quantity": 1,
+        "section_ids": [sec["id"]],
+    }, headers=adm).json()
+
+    reader = _staff_with_permissions(c, adm, "reader@a.fr", ["library:read"])
+    ck("Lecture seule : catalogue → 200",
+       c.get("/library/books", headers=reader).status_code, 200)
+    ck("Lecture seule : prêts → 200",
+       c.get("/library/lendings", headers=reader).status_code, 200)
+    ck("Lecture seule : création livre → 403",
+       c.post("/library/books", json={"title": "X", "author": "Y",
+              "total_quantity": 1}, headers=reader).status_code, 403)
+    ck("Lecture seule : prêt → 403",
+       c.post("/library/lendings", json={"book_id": book["id"],
+              "child_id": child["id"]}, headers=reader).status_code, 403)
+    ck("Lecture seule : paramètres → 403",
+       c.get("/library/settings", headers=reader).status_code, 403)
+
+    lender = _staff_with_permissions(c, adm, "lender@a.fr", ["library:lend"])
+    ck("Prêts seuls : catalogue → 403",
+       c.get("/library/books", headers=lender).status_code, 403)
+    ck("Prêts seuls : création livre → 403",
+       c.post("/library/books", json={"title": "X", "author": "Y",
+              "total_quantity": 1}, headers=lender).status_code, 403)
+    r = c.post("/library/lendings", json={"book_id": book["id"],
+               "child_id": child["id"]}, headers=lender)
+    ck("Prêts seuls : prêt → 201", r.status_code, 201)
+    ck("Prêts seuls : retour → 200", c.post(
+       f"/library/lendings/{r.json()['id']}/return", headers=lender).status_code, 200)
+    ck("Prêts seuls : rappels → 200",
+       c.post("/library/reminders/run", headers=lender).status_code, 200)
+
+    writer = _staff_with_permissions(c, adm, "writer@a.fr", ["library:write"])
+    ck("Catalogue seul : création livre → 201",
+       c.post("/library/books", json={"title": "W", "author": "Y",
+              "total_quantity": 1}, headers=writer).status_code, 201)
+    ck("Catalogue seul : catalogue → 403",
+       c.get("/library/books", headers=writer).status_code, 403)
+    ck("Catalogue seul : prêt → 403",
+       c.post("/library/lendings", json={"book_id": book["id"],
+              "child_id": child["id"]}, headers=writer).status_code, 403)

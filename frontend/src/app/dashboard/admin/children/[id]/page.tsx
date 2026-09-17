@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { organizationApi } from '@/lib/api/organization.api'
 import { childrenApi } from '@/lib/api/children.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import type { Child, ChildDocument } from '@/types/children'
@@ -76,6 +78,10 @@ type ContactsForm = z.infer<typeof contactsSchema>
 export default function ChildDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('children:write')
+  const canArchive = user?.role === 'admin' || permissions.has('children:archive')
 
   const { data: child, isLoading } = useQuery({
     queryKey: ['child', id],
@@ -132,6 +138,7 @@ export default function ChildDetailPage() {
           <p className="font-mono text-sm text-white">{child.matricule}</p>
         </div>
 
+        {canArchive && (
         <AlertDialog>
           <AlertDialogTrigger render={<Button variant={child.is_active ? 'destructive' : 'outline'} />}>
             {child.is_active ? 'Désactiver' : 'Réactiver'}
@@ -155,6 +162,7 @@ export default function ChildDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        )}
       </div>
 
       <Tabs defaultValue="infos">
@@ -167,28 +175,28 @@ export default function ChildDetailPage() {
         </TabsList>
 
         <TabsContent value="infos">
-          <InfoTab childId={id} child={child} onSaved={invalidate} />
+          <InfoTab childId={id} child={child} onSaved={invalidate} canWrite={canWrite} />
         </TabsContent>
         <TabsContent value="behavior">
-          <BehaviorTab childId={id} child={child} onSaved={invalidate} />
+          <BehaviorTab childId={id} child={child} onSaved={invalidate} canWrite={canWrite} />
         </TabsContent>
         <TabsContent value="medical">
-          <MedicalTab childId={id} child={child} onSaved={invalidate} />
+          <MedicalTab childId={id} child={child} onSaved={invalidate} canWrite={canWrite} />
         </TabsContent>
         <TabsContent value="contacts">
-          <ContactsTab childId={id} child={child} onSaved={invalidate} />
+          <ContactsTab childId={id} child={child} onSaved={invalidate} canWrite={canWrite} />
         </TabsContent>
         <TabsContent value="documents">
-          <DocumentsTab childId={id} child={child} onSaved={invalidate} />
+          <DocumentsTab childId={id} child={child} onSaved={invalidate} canWrite={canWrite} />
         </TabsContent>
       </Tabs>
     </motion.div>
   )
 }
 
-type TabProps = { childId: string; child: Child; onSaved: () => void }
+type TabProps = { childId: string; child: Child; onSaved: () => void; canWrite: boolean }
 
-function InfoTab({ childId, child, onSaved }: TabProps) {
+function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
   const { data: departments } = useQuery({
     queryKey: ['departments', { includeInactive: false }],
     queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
@@ -317,9 +325,11 @@ function InfoTab({ childId, child, onSaved }: TabProps) {
             </div>
           </div>
           <div className="flex justify-end">
+            {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
             </Button>
+          )}
           </div>
         </form>
       </CardContent>
@@ -327,7 +337,7 @@ function InfoTab({ childId, child, onSaved }: TabProps) {
   )
 }
 
-function BehaviorTab({ childId, child, onSaved }: TabProps) {
+function BehaviorTab({ childId, child, onSaved, canWrite }: TabProps) {
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<BehaviorForm>({
     resolver: zodResolver(behaviorSchema),
     defaultValues: {
@@ -362,9 +372,11 @@ function BehaviorTab({ childId, child, onSaved }: TabProps) {
             <Textarea id="preferences" rows={4} {...register('preferences')} />
           </div>
           <div className="flex justify-end">
+            {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
             </Button>
+          )}
           </div>
         </form>
       </CardContent>
@@ -372,7 +384,7 @@ function BehaviorTab({ childId, child, onSaved }: TabProps) {
   )
 }
 
-function MedicalTab({ childId, child, onSaved }: TabProps) {
+function MedicalTab({ childId, child, onSaved, canWrite }: TabProps) {
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<MedicalForm>({
     resolver: zodResolver(medicalSchema),
     defaultValues: {
@@ -427,9 +439,11 @@ function MedicalTab({ childId, child, onSaved }: TabProps) {
             </div>
           </div>
           <div className="flex justify-end">
+            {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
             </Button>
+          )}
           </div>
         </form>
       </CardContent>
@@ -437,7 +451,7 @@ function MedicalTab({ childId, child, onSaved }: TabProps) {
   )
 }
 
-function ContactsTab({ childId, child, onSaved }: TabProps) {
+function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<ContactsForm>({
     resolver: zodResolver(contactsSchema),
     defaultValues: {
@@ -593,9 +607,11 @@ function ContactsTab({ childId, child, onSaved }: TabProps) {
           </div>
 
           <div className="flex justify-end">
+            {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
             </Button>
+          )}
           </div>
         </form>
       </CardContent>
@@ -622,7 +638,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR')
 }
 
-function DocumentsTab({ childId, child, onSaved }: TabProps) {
+function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const uploadMutation = useMutation({
@@ -669,6 +685,7 @@ function DocumentsTab({ childId, child, onSaved }: TabProps) {
   return (
     <Card>
       <CardContent className="space-y-4 pt-6">
+        {canWrite && (
         <div className="rounded-md border border-dashed border-border p-6 text-center">
           <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
           <Label htmlFor="document" className="cursor-pointer text-sm font-medium text-primary">
@@ -697,6 +714,7 @@ function DocumentsTab({ childId, child, onSaved }: TabProps) {
             Choisir un fichier
           </Button>
         </div>
+        )}
 
         {child.documents.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun document.</p>
@@ -715,6 +733,7 @@ function DocumentsTab({ childId, child, onSaved }: TabProps) {
                     <Download className="mr-1.5 size-3.5" />
                     Télécharger
                   </Button>
+                  {canWrite && (
                   <AlertDialog>
                     <AlertDialogTrigger
                       render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Supprimer ${doc.filename}`} />}
@@ -736,6 +755,7 @@ function DocumentsTab({ childId, child, onSaved }: TabProps) {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  )}
                 </div>
               </li>
             ))}

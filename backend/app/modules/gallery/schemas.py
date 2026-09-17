@@ -8,8 +8,9 @@ from app.modules.reports.models import ReportType
 
 
 class GallerySource(StrEnum):
-    REPORT  = "report"
-    MESSAGE = "message"
+    REPORT       = "report"
+    MESSAGE      = "message"
+    ANNOUNCEMENT = "announcement"
 
 
 class UserBrief(BaseModel):
@@ -50,6 +51,11 @@ class GalleryMediaItem(BaseModel):
     # Présent seulement si source == "message", vue admin (le parent n'a pas
     # besoin qu'on lui rappelle qu'il s'agit de sa propre conversation)
     conversation_parent: UserBrief | None = None
+
+    # Présents seulement si source == "announcement" (la diffusion d'origine —
+    # jamais liée à un enfant précis, mais utile pour regrouper l'affichage)
+    announcement_id: uuid.UUID | None = None
+    announcement_title: str | None = None
 
 
 class GalleryMediaListResponse(BaseModel):

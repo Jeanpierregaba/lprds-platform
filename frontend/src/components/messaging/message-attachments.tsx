@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Download, Paperclip, Share } from 'lucide-react'
+import { Download, Loader2, Paperclip, Share, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { messagingApi } from '@/lib/api/messaging.api'
@@ -20,25 +20,46 @@ import type { Attachment } from '@/types/messaging'
 export function MessageAttachments({
   attachments,
   highlight,
+  onRemove,
+  removingId,
 }: {
   attachments: Attachment[]
   /** true quand la bulle du message est en couleur (message de l'utilisateur). */
   highlight: boolean
+  /** Défini = l'auteur peut retirer ses médias (croix sur chaque pièce jointe). */
+  onRemove?: (attachmentId: string) => void
+  removingId?: string | null
 }) {
   return (
     <>
-      {attachments.map((att) =>
-        att.content_type.startsWith('video/') || att.content_type.startsWith('image/') ? (
-          <MediaPreview key={att.id} attachment={att} />
-        ) : (
-          <FileDownloadButton key={att.id} attachment={att} highlight={highlight} />
-        )
-      )}
+      {attachments.map((att) => (
+        <span key={att.id} className={cn(onRemove && 'relative block')}>
+          {att.content_type.startsWith('video/') || att.content_type.startsWith('image/') ? (
+            <MediaPreview attachment={att} />
+          ) : (
+            <FileDownloadButton attachment={att} highlight={highlight} />
+          )}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(att.id)}
+              disabled={removingId === att.id}
+              aria-label={`Retirer ${att.filename}`}
+              title="Retirer cette pièce jointe"
+              className="absolute left-1 top-2.5 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive disabled:opacity-60"
+            >
+              {removingId === att.id
+                ? <Loader2 className="size-3.5 animate-spin" />
+                : <X className="size-3.5" />}
+            </button>
+          )}
+        </span>
+      ))}
     </>
   )
 }
 
-function FileDownloadButton({
+export function FileDownloadButton({
   attachment: att,
   highlight,
 }: {

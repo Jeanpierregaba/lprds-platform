@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { libraryApi } from '@/lib/api/library.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 
 const formSchema = z.object({
@@ -34,6 +36,10 @@ type FormValues = z.infer<typeof formSchema>
 
 export function SettingsTab() {
   const queryClient = useQueryClient()
+  const user = useUser()
+  const isAdmin = user?.role === 'admin'
+  const { permissions } = useMyPermissions()
+  const canLend = isAdmin || permissions.has('library:lend')
 
   const { data: settings } = useQuery({
     queryKey: ['library-settings'],
@@ -141,10 +147,12 @@ export function SettingsTab() {
               </div>
             </div>
 
+{isAdmin && (
             <Button type="submit" disabled={isSubmitting || !settings}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
               Enregistrer
             </Button>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -160,10 +168,12 @@ export function SettingsTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {canLend && (
           <Button variant="outline" disabled={remindersMutation.isPending} onClick={() => remindersMutation.mutate()}>
             {remindersMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
             Envoyer les rappels maintenant
           </Button>
+          )}
         </CardContent>
       </Card>
     </div>

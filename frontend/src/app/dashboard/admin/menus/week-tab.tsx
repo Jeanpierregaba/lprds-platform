@@ -18,6 +18,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { menusApi } from '@/lib/api/menus.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { addDays, mondayOf, parseIsoDate, toIsoDate } from '@/lib/utils/dates'
 import { cn } from '@/lib/utils'
@@ -138,6 +140,9 @@ export function WeekTab({
   }
 
   const isEditable = !isPast && !!departmentId
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('menus:write')
   const isSaving = createMutation.isPending || updateMutation.isPending
   const showEmptyPastState = !menu && isPast && !isLoading
 
@@ -230,7 +235,7 @@ export function WeekTab({
                               <Input
                                 value={content[day][slot] ?? ''}
                                 onChange={(e) => setCell(day, slot, e.target.value)}
-                                disabled={!isEditable}
+                                disabled={!isEditable || !canWrite}
                                 placeholder="—"
                                 className="min-w-36"
                               />
@@ -265,7 +270,7 @@ export function WeekTab({
                               <Input
                                 value={content[day][slot] ?? ''}
                                 onChange={(e) => setCell(day, slot, e.target.value)}
-                                disabled={!isEditable}
+                                disabled={!isEditable || !canWrite}
                                 placeholder="—"
                               />
                             </div>
@@ -281,7 +286,7 @@ export function WeekTab({
         </CardContent>
       </Card>
 
-      {isEditable && !showEmptyPastState && !isLoading && (
+      {isEditable && canWrite && !showEmptyPastState && !isLoading && (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"

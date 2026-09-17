@@ -12,7 +12,7 @@ import { galleryApi } from '@/lib/api/gallery.api'
 import { downloadBlob } from '@/lib/utils/download'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { REPORT_TYPE_LABELS } from '@/types/reports'
-import type { GalleryMediaItem } from '@/types/gallery'
+import { GALLERY_SOURCE_BADGE_LABEL, type GalleryMediaItem } from '@/types/gallery'
 import { toast } from 'sonner'
 import { useState } from 'react'
 
@@ -50,8 +50,9 @@ export function MediaLightbox({
         <MediaThumb item={item} controls className="max-h-[60vh] w-full rounded-md" />
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="secondary">{item.source === 'report' ? 'Rapport' : 'Messagerie'}</Badge>
+          <Badge variant="secondary">{GALLERY_SOURCE_BADGE_LABEL[item.source]}</Badge>
           {item.report_type && <Badge variant="outline">{REPORT_TYPE_LABELS[item.report_type]}</Badge>}
+          {item.announcement_title && <Badge variant="outline">Diffusion : {item.announcement_title}</Badge>}
           {item.child && <Badge variant="outline">{item.child.first_names} {item.child.last_name}</Badge>}
           {item.conversation_parent && (
             <Badge variant="outline">Parent : {item.conversation_parent.first_name} {item.conversation_parent.last_name}</Badge>

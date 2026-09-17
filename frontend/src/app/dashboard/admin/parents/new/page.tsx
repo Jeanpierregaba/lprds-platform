@@ -8,6 +8,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -33,6 +35,9 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export default function NewParentPage() {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('parents:write')
   const router = useRouter()
   const [children, setChildren] = useState<ParentChildBrief[]>([])
   const [childrenError, setChildrenError] = useState<string | null>(null)
@@ -61,6 +66,19 @@ export default function NewParentPage() {
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
+  }
+
+  if (!canWrite) {
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Droits insuffisants — vous n'avez pas la permission de créer un compte parent.
+        </p>
+        <Link href="/dashboard/admin/parents" className="text-sm text-primary hover:underline">
+          Retour à la liste
+        </Link>
+      </div>
+    )
   }
 
   return (

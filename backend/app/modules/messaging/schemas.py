@@ -84,12 +84,20 @@ class MessageCreateRequest(BaseModel):
     body: str = Field(default="", max_length=5000)
 
 
+class MessageUpdateRequest(BaseModel):
+    model_config = {"str_strip_whitespace": True}
+
+    body: str = Field(max_length=5000)
+
+
 class MessageResponse(BaseModel):
     id:              uuid.UUID
     conversation_id: uuid.UUID
     sender:          UserBrief
     sender_role:     str
-    body:            str
+    body:            str | None
+    edited_at:       datetime | None = None
+    is_deleted:      bool = False
     read_at:         datetime | None
     created_at:      datetime
     attachments:     list[AttachmentResponse] = []

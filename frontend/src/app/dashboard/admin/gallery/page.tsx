@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { galleryApi } from '@/lib/api/gallery.api'
-import { isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { useUser } from '@/lib/stores/auth.store'
+import { GALLERY_SOURCE_BADGE_LABEL, isVideo, type GalleryMediaItem } from '@/types/gallery'
 import { GalleryFilters, EMPTY_FILTERS, toParams, type GalleryFilterState } from './gallery-filters'
 import { MediaThumb } from './media-thumb'
 import { MediaLightbox } from './media-lightbox'
@@ -17,15 +18,19 @@ import { MediaLightbox } from './media-lightbox'
 const PAGE_SIZE = 30
 
 export default function GalleryPage() {
+  const user = useUser()
+  const staffReportsOnly = user?.role === 'staff'
   const [filters, setFilters] = useState<GalleryFilterState>(EMPTY_FILTERS)
   const [skip, setSkip] = useState(0)
   const [selected, setSelected] = useState<GalleryMediaItem | null>(null)
 
   useEffect(() => setSkip(0), [filters])
 
+  const effectiveFilters = staffReportsOnly ? { ...filters, source: 'report' } : filters
+
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['gallery', 'media', filters, skip],
-    queryFn: () => galleryApi.list({ ...toParams(filters), skip, limit: PAGE_SIZE }).then((r) => r.data),
+    queryKey: ['gallery', 'media', effectiveFilters, skip],
+    queryFn: () => galleryApi.list({ ...toParams(effectiveFilters), skip, limit: PAGE_SIZE }).then((r) => r.data),
   })
 
   const total = data?.total ?? 0
@@ -45,7 +50,7 @@ export default function GalleryPage() {
         <p className="text-muted-foreground">Photos et vidéos issues des rapports et de la messagerie.</p>
       </div>
 
-      <GalleryFilters filters={filters} onChange={setFilters} />
+      <GalleryFilters filters={filters} onChange={setFilters} hideSource={staffReportsOnly} />
 
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -74,7 +79,7 @@ export default function GalleryPage() {
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
                 <Badge variant="secondary" className="text-[10px]">
-                  {item.source === 'report' ? 'Rapport' : 'Messagerie'}
+                  {GALLERY_SOURCE_BADGE_LABEL[item.source]}
                 </Badge>
               </div>
             </button>

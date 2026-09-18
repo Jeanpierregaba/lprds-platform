@@ -14,7 +14,6 @@ import { ArrowLeft, KeyRound, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -28,6 +27,7 @@ import { parentsApi } from '@/lib/api/parents.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 
@@ -162,9 +162,14 @@ export default function ParentDetailPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{parent.nickname || `${parent.first_name} ${parent.last_name}`}</h1>
-            <Badge variant={parent.is_active ? 'default' : 'outline'}>
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                parent.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+              )}
+            >
               {parent.is_active ? 'Actif' : 'Inactif'}
-            </Badge>
+            </span>
           </div>
           <p className="text-sm text-white">
             Dernière connexion : {formatDateTime(parent.last_login_at)}

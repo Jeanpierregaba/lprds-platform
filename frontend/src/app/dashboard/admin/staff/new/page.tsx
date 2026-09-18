@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,7 +9,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ export default function NewStaffPage() {
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
   const router = useRouter()
+  const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(schema), defaultValues: { staff_type: '' } })
@@ -83,10 +85,10 @@ export default function NewStaffPage() {
     >
       <Link
         href="/dashboard/admin/staff"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm text-white"
       >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
+        <ArrowLeft className="size-4 text-white font-semibold" />
+        <span className="text-white font-semibold">Retour à la liste</span>
       </Link>
 
       <Card>
@@ -157,7 +159,25 @@ export default function NewStaffPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Mot de passe temporaire</Label>
-              <Input id="password" type="password" {...register('password')} aria-invalid={!!errors.password} />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  {...register('password')}
+                  aria-invalid={!!errors.password}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
               <p className="text-xs text-muted-foreground">
                 8 caractères minimum · 1 majuscule · 1 chiffre — envoyé par email avec le matricule.

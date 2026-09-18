@@ -2,21 +2,28 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Plus, Search, Users } from 'lucide-react'
+import { toast } from 'sonner'
+import { Eye, LayoutGrid, List, Loader2, Plus, Search, UserCheck, Users, UserX } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { parentsApi } from '@/lib/api/parents.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
+import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
+import type { ParentListItem } from '@/types/parents'
 
 const PAGE_SIZE = 20
 
@@ -28,6 +35,7 @@ export default function ParentsListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
   const [skip, setSkip] = useState(0)
+  const [view, setView] = useState<'table' | 'cards'>('cards')
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -61,12 +69,14 @@ export default function ParentsListPage() {
           <h1 className="text-2xl font-bold">Parents</h1>
           <p className="text-muted-foreground">Gérer les comptes parents connectables.</p>
         </div>
-        {canWrite && (
-        <Button render={<Link href="/dashboard/admin/parents/new" />}>
-          <Plus className="mr-1.5 size-4" />
-          Nouveau compte parent
-        </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canWrite && (
+          <Button render={<Link href="/dashboard/admin/parents/new" />}>
+            <Plus className="mr-1.5 size-4" />
+            Nouveau compte parent
+          </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -83,29 +93,59 @@ export default function ParentsListPage() {
           <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
           <Label htmlFor="include-inactive" className="text-sm text-white font-semibold">Inclure les comptes inactifs</Label>
         </div>
+
+        <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5 bg-accent">
+          <Button
+            type="button"
+            variant={view === 'table' ? 'default' : 'ghost'}
+            size="icon-sm"
+            aria-label="Vue en liste"
+            aria-pressed={view === 'table'}
+            onClick={() => setView('table')}
+          >
+            <List className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={view === 'cards' ? 'default' : 'ghost'}
+            size="icon-sm"
+            aria-label="Vue en cartes"
+            aria-pressed={view === 'cards'}
+            onClick={() => setView('cards')}
+          >
+            <LayoutGrid className="size-4" />
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      {view === 'cards' ? (
+        <ParentsCardGrid
+          items={items}
+          isLoading={isLoading}
+          hasSearch={!!debouncedSearch}
+        />
+      ) : (
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Téléphone</TableHead>
-                <TableHead>Enfants</TableHead>
-                <TableHead>Statut</TableHead>
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Email</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Téléphone</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfants</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -134,32 +174,37 @@ export default function ParentsListPage() {
                 </TableRow>
               ) : (
                 items.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block p-2 font-medium">
+                  <TableRow key={p.id} className={cn(!p.is_active && 'opacity-70')}>
+                    <TableCell className="px-5 py-4">
+                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block font-medium">
                         {p.nickname ?? `${p.first_name} ${p.last_name}`}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block p-2 text-muted-foreground">
+                    <TableCell className="px-5 py-4">
+                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block text-muted-foreground">
                         {p.email}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block p-2 text-muted-foreground">
+                    <TableCell className="px-5 py-4">
+                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block text-muted-foreground">
                         {p.phone ?? '—'}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block p-2 text-muted-foreground">
+                    <TableCell className="px-5 py-4">
+                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block text-muted-foreground">
                         {p.children_count}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block p-2">
-                        <Badge variant={p.is_active ? 'default' : 'outline'}>
+                    <TableCell className="px-5 py-4">
+                      <Link href={`/dashboard/admin/parents/${p.id}`} className="block">
+                        <span
+                          className={cn(
+                            'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                            p.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                          )}
+                        >
                           {p.is_active ? 'Actif' : 'Inactif'}
-                        </Badge>
+                        </span>
                       </Link>
                     </TableCell>
                   </TableRow>
@@ -169,6 +214,7 @@ export default function ParentsListPage() {
           </Table>
         </CardContent>
       </Card>
+      )}
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
@@ -184,5 +230,154 @@ export default function ParentsListPage() {
         </div>
       </div>
     </motion.div>
+  )
+}
+
+function ParentsCardGrid({
+  items, isLoading, hasSearch,
+}: { items: ParentListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canWrite = user?.role === 'admin' || permissions.has('parents:write')
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="space-y-2 p-5">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-24" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex h-56 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+            <Users className="size-5" />
+          </div>
+          <p className="font-medium text-foreground">
+            {hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun compte parent pour le moment.'}
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {items.map((parent, i) => (
+        <motion.div
+          key={parent.id}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
+        >
+          <ParentCard parent={parent} canWrite={canWrite} />
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+
+function ParentCard({
+  parent, canWrite,
+}: {
+  parent: ParentListItem
+  canWrite: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [confirmToggle, setConfirmToggle] = useState(false)
+
+  const toggleMutation = useMutation({
+    mutationFn: () => parentsApi.update(parent.id, { is_active: !parent.is_active }),
+    onSuccess: () => {
+      toast.success(parent.is_active ? 'Compte désactivé.' : 'Compte réactivé.')
+      queryClient.invalidateQueries({ queryKey: ['parents'] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  return (
+    <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !parent.is_active && 'opacity-75')}>
+      <CardContent className="space-y-1.5 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="font-display text-xl font-semibold leading-tight">
+            {parent.nickname ?? `${parent.first_name} ${parent.last_name}`}
+          </p>
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
+              parent.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+            )}
+          >
+            {parent.is_active ? 'Actif' : 'Inactif'}
+          </span>
+        </div>
+        <p className="truncate text-sm text-muted-foreground">{parent.email}</p>
+        <p className="text-sm">
+          <span className="font-medium">Téléphone:</span> {parent.phone ?? '—'}
+        </p>
+        <p className="text-sm">
+          <span className="font-medium">Enfants:</span> {parent.children_count}
+        </p>
+
+        <div className="flex flex-wrap gap-2 pt-3">
+          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/parents/${parent.id}`} />}>
+            <Eye className="mr-1.5 size-4" />
+            Voir
+          </Button>
+          {canWrite && (
+            parent.is_active ? (
+              <Button
+                size="sm"
+                className="rounded-xl bg-warning text-warning-foreground hover:brightness-95"
+                onClick={() => setConfirmToggle(true)}
+              >
+                <UserX className="mr-1.5 size-4" />
+                Désactiver
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => toggleMutation.mutate()} disabled={toggleMutation.isPending}>
+                {toggleMutation.isPending
+                  ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+                  : <UserCheck className="mr-1.5 size-4" />}
+                Réactiver
+              </Button>
+            )
+          )}
+        </div>
+      </CardContent>
+
+      <AlertDialog open={confirmToggle} onOpenChange={setConfirmToggle}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Désactiver ce compte ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {parent.nickname ?? `${parent.first_name} ${parent.last_name}`} ne pourra plus
+              se connecter (réversible depuis sa fiche).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmToggle(false)
+                toggleMutation.mutate()
+              }}
+            >
+              Désactiver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   )
 }

@@ -14,7 +14,6 @@ import { ArrowLeft, KeyRound, Loader2, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -31,6 +30,7 @@ import { rbacApi } from '@/lib/api/rbac.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
 
 const infoSchema = z.object({
@@ -152,9 +152,14 @@ export default function StaffDetailPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{staff.nickname || `${staff.first_name} ${staff.last_name}`}</h1>
-            <Badge variant={staff.is_active ? 'default' : 'outline'}>
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                staff.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+              )}
+            >
               {staff.is_active ? 'Actif' : 'Inactif'}
-            </Badge>
+            </span>
           </div>
           <p className="font-mono text-sm text-white font-semibold">{staff.matricule ?? '—'}</p>
         </div>

@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -29,6 +28,7 @@ import { childrenApi } from '@/lib/api/children.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import { downloadBlob } from '@/lib/utils/download'
 import type { Child, ChildDocument } from '@/types/children'
 
@@ -131,9 +131,14 @@ export default function ChildDetailPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{child.first_names} {child.last_name}</h1>
-            <Badge variant={child.is_active ? 'default' : 'outline'}>
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+              )}
+            >
               {child.is_active ? 'Actif' : 'Inactif'}
-            </Badge>
+            </span>
           </div>
           <p className="font-mono text-sm text-white">{child.matricule}</p>
         </div>

@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Baby, Download, FileSpreadsheet, FileUp, LayoutGrid, List, Loader2, Plus, Search } from 'lucide-react'
+import { Baby, Download, Eye, FileSpreadsheet, FileUp, LayoutGrid, List, Loader2, Plus, QrCode, Search, UserCheck, UserX } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,24 +13,24 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { childrenApi } from '@/lib/api/children.api'
+import { attendanceApi } from '@/lib/api/attendance.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
 import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
-
-function initials(firstNames: string, lastName: string) {
-  return `${firstNames[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
-}
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
@@ -63,7 +63,7 @@ export default function ChildrenListPage() {
   const [sectionId, setSectionId] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<'table' | 'cards'>('table')
+  const [view, setView] = useState<'table' | 'cards'>('cards')
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
@@ -272,29 +272,29 @@ export default function ChildrenListPage() {
           hasSearch={!!debouncedSearch}
         />
       ) : (
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Matricule</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Naissance</TableHead>
-                <TableHead>Département</TableHead>
-                <TableHead>Section</TableHead>
-                <TableHead>Statut</TableHead>
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Matricule</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Naissance</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Département</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Section</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-4 py-3.5"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -323,37 +323,42 @@ export default function ChildrenListPage() {
                 </TableRow>
               ) : (
                 items.map((child) => (
-                  <TableRow key={child.id}>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2 font-mono text-xs">
+                  <TableRow key={child.id} className={cn(!child.is_active && 'opacity-70')}>
+                    <TableCell className="px-4 py-3.5">
+                      <Link href={`/dashboard/admin/children/${child.id}`} className="block font-mono text-xs">
                         {child.matricule}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2 font-medium">
+                    <TableCell className="px-4 py-3.5">
+                      <Link href={`/dashboard/admin/children/${child.id}`} className="block font-medium">
                         {child.first_names} {child.last_name}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2 text-muted-foreground">
+                    <TableCell className="px-4 py-3.5">
+                      <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
                         {formatDate(child.birth_date)}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2 text-muted-foreground">
+                    <TableCell className="px-4 py-3.5">
+                      <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
                         {child.department?.name ?? '—'}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2 text-muted-foreground">
+                    <TableCell className="px-4 py-3.5">
+                      <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
                         {child.section?.name ?? '—'}
                       </Link>
                     </TableCell>
-                    <TableCell className="p-0">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block p-2">
-                        <Badge variant={child.is_active ? 'secondary' : 'outline'}>
+                    <TableCell className="px-4 py-3.5">
+                      <Link href={`/dashboard/admin/children/${child.id}`} className="block">
+                        <span
+                          className={cn(
+                            'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                            child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                          )}
+                        >
                           {child.is_active ? 'Actif' : 'Inactif'}
-                        </Badge>
+                        </span>
                       </Link>
                     </TableCell>
                   </TableRow>
@@ -421,17 +426,20 @@ export default function ChildrenListPage() {
 function ChildrenCardGrid({
   items, isLoading, hasSearch,
 }: { items: ChildListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  const canArchive = user?.role === 'admin' || permissions.has('children:archive')
+  const canQr = user?.role === 'admin' || permissions.has('attendance:write')
+
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <Skeleton className="size-10 shrink-0 rounded-full" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-20" />
-              </div>
+            <CardContent className="space-y-2 p-5">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-40" />
             </CardContent>
           </Card>
         ))}
@@ -455,40 +463,159 @@ function ChildrenCardGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((child) => (
-        <Link key={child.id} href={`/dashboard/admin/children/${child.id}`}>
-          <Card className={cn('h-full transition-colors hover:bg-muted/50', !child.is_active && 'opacity-70')}>
-            <CardContent className="flex items-start gap-3 p-4">
-              <Avatar size="lg">
-                <AvatarFallback>{initials(child.first_names, child.last_name)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="truncate font-medium">{child.first_names} {child.last_name}</p>
-                  <Badge variant={child.is_active ? 'default' : 'outline'} className="shrink-0">
-                    {child.is_active ? 'Actif' : 'Inactif'}
-                  </Badge>
-                </div>
-                <p className="font-mono text-xs text-muted-foreground">{child.matricule}</p>
-                <p className="text-xs text-muted-foreground">
-                  Né(e) le {new Date(child.birth_date).toLocaleDateString('fr-FR')}
-                </p>
-                {(child.department || child.section) && (
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {child.department && (
-                      <Badge variant="outline" className="font-normal">{child.department.name}</Badge>
-                    )}
-                    {child.section && (
-                      <Badge variant="outline" className="font-normal">{child.section.name}</Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {items.map((child, i) => (
+        <motion.div
+          key={child.id}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
+        >
+          <ChildCard child={child} canArchive={canArchive} canQr={canQr} />
+        </motion.div>
       ))}
     </div>
+  )
+}
+
+function childAgeLabel(birthIso: string): string {
+  const birth = new Date(birthIso)
+  const now = new Date()
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
+  if (now.getDate() < birth.getDate()) months -= 1
+  if (months < 1) {
+    const days = Math.max(0, Math.floor((now.getTime() - birth.getTime()) / 86400000))
+    return `${days} jour${days > 1 ? 's' : ''}`
+  }
+  const years = Math.floor(months / 12)
+  const rest = months % 12
+  if (years === 0) return `${months} mois`
+  return rest === 0 ? `${years} an${years > 1 ? 's' : ''}` : `${years} an${years > 1 ? 's' : ''} ${rest} mois`
+}
+
+function ChildCard({
+  child, canArchive, canQr,
+}: {
+  child: ChildListItem
+  canArchive: boolean
+  canQr: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [qrOpen, setQrOpen] = useState(false)
+  const [confirmToggle, setConfirmToggle] = useState(false)
+
+  const toggleMutation = useMutation({
+    mutationFn: () => childrenApi.setStatus(child.id, !child.is_active),
+    onSuccess: () => {
+      toast.success(child.is_active ? 'Fiche désactivée.' : 'Fiche réactivée.')
+      queryClient.invalidateQueries({ queryKey: ['children'] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const { data: qr, isLoading: loadingQr } = useQuery({
+    queryKey: ['attendance', 'qr-child', child.id],
+    queryFn: () => attendanceApi.getChildQrcode(child.id).then((r) => r.data),
+    enabled: qrOpen,
+  })
+
+  return (
+    <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !child.is_active && 'opacity-75')}>
+      <CardContent className="space-y-1.5 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="font-display text-xl font-semibold leading-tight">
+            {child.first_names} {child.last_name}
+          </p>
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
+              child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+            )}
+          >
+            {child.is_active ? 'Actif' : 'Inactif'}
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Code: <span className="font-mono">{child.matricule}</span>
+        </p>
+        <p className="text-sm">
+          <span className="font-medium">Âge:</span> {childAgeLabel(child.birth_date)}
+        </p>
+        <p className="text-sm">
+          <span className="font-medium">Section:</span>{' '}
+          {child.section?.name ?? child.department?.name ?? '—'}
+        </p>
+
+        <div className="flex flex-wrap gap-2 pt-3">
+          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/children/${child.id}`} />}>
+            <Eye className="mr-1.5 size-4" />
+            Voir
+          </Button>
+          {canQr && (
+            <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={() => setQrOpen(true)}>
+              <QrCode className="mr-1.5 size-4" />
+              QR Code
+            </Button>
+          )}
+          {canArchive && (
+            child.is_active ? (
+              <Button
+                size="sm"
+                className="rounded-xl bg-warning text-warning-foreground hover:brightness-95"
+                onClick={() => setConfirmToggle(true)}
+              >
+                <UserX className="mr-1.5 size-4" />
+                Désactiver
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => toggleMutation.mutate()} disabled={toggleMutation.isPending}>
+                <UserCheck className="mr-1.5 size-4" />
+                Réactiver
+              </Button>
+            )
+          )}
+        </div>
+      </CardContent>
+
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="font-display">Badge de {child.first_names}</DialogTitle>
+            <DialogDescription className="font-mono text-xs">{child.matricule}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-2">
+            {loadingQr || !qr ? (
+              <Skeleton className="size-48 rounded-xl" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qr.qr_image} alt={`QR ${child.matricule}`} className="size-48 rounded-xl ring-1 ring-border" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmToggle} onOpenChange={setConfirmToggle}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Désactiver cette fiche ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {child.first_names} {child.last_name} ne comptera plus parmi les enfants actifs
+              (réversible depuis sa fiche).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmToggle(false)
+                toggleMutation.mutate()
+              }}
+            >
+              Désactiver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   )
 }

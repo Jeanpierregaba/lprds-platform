@@ -17,6 +17,7 @@ from app.modules.attendance.schemas import (
     DepartmentAttendanceSettingsResponse,
     ExportFileFormat,
     ExportPersonType,
+    ManualEventRequest,
     QRCodeResponse,
     ScanRequest,
     StaffDailyStatusListResponse,
@@ -24,6 +25,7 @@ from app.modules.attendance.schemas import (
     StaffExemptionResponse,
     StaffScheduleRequest,
     StaffScheduleResponse,
+    UpdateEventRequest,
     VerifyQrRequest,
     VerifyQrResponse,
 )
@@ -83,6 +85,27 @@ async def scan(
 
 
 # ── Journal des événements ────────────────────────────────────────
+@router.post("/events/manual", response_model=AttendanceEventResponse, status_code=status.HTTP_201_CREATED)
+async def create_manual_event(
+    payload: ManualEventRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> AttendanceEventResponse:
+    """Saisie manuelle d'une arrivée/départ (scan faux ou jamais scanné)."""
+    return await service.create_manual_event(payload, user.establishment_id, user, db)
+
+
+@router.patch("/events/{event_id}", response_model=AttendanceEventResponse)
+async def update_event(
+    event_id: uuid.UUID,
+    payload: UpdateEventRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> AttendanceEventResponse:
+    """Rectifie l'heure d'une ligne existante (type et personne inchangés)."""
+    return await service.update_event(event_id, payload, user.establishment_id, db)
+
+
 @router.get("/events", response_model=AttendanceEventListResponse)
 async def list_events(
     db: AsyncSession = Depends(get_db),

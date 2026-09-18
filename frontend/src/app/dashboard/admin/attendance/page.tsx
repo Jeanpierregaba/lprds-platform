@@ -38,33 +38,48 @@ export default function AttendancePage() {
       </div>
 
       <Tabs defaultValue={defaultTab}>
-        <TabsList>
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border">
           {showRead && (
-            <TabsTrigger value="dashboard">
+            <TabsTrigger
+              value="dashboard"
+              className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+            >
               <LayoutDashboard className="mr-1.5 size-4" />
               Tableau de bord
             </TabsTrigger>
           )}
           {showRead && (
-            <TabsTrigger value="journal">
+            <TabsTrigger
+              value="journal"
+              className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
+            >
               <ScrollText className="mr-1.5 size-4" />
               Journal
             </TabsTrigger>
           )}
           {showWrite && (
-            <TabsTrigger value="qrcodes">
+            <TabsTrigger
+              value="qrcodes"
+              className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-orange data-active:text-navy data-active:shadow-md"
+            >
               <QrCode className="mr-1.5 size-4" />
               QR codes
             </TabsTrigger>
           )}
           {showScan && (
-            <TabsTrigger value="scan">
+            <TabsTrigger
+              value="scan"
+              className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+            >
               <ScanLine className="mr-1.5 size-4" />
               Scanner
             </TabsTrigger>
           )}
           {showRead && (
-            <TabsTrigger value="export">
+            <TabsTrigger
+              value="export"
+              className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-navy data-active:text-white data-active:shadow-md"
+            >
               <FileDown className="mr-1.5 size-4" />
               Export
             </TabsTrigger>
@@ -73,30 +88,52 @@ export default function AttendancePage() {
 
         {showRead && (
           <TabsContent value="dashboard">
-            <DashboardTab />
+            <TabPanel value="dashboard">
+              <DashboardTab />
+            </TabPanel>
           </TabsContent>
         )}
         {showRead && (
           <TabsContent value="journal">
-            <JournalTab />
+            <TabPanel value="journal">
+              <JournalTab />
+            </TabPanel>
           </TabsContent>
         )}
         {showWrite && (
           <TabsContent value="qrcodes">
-            <QrCodesTab />
+            <TabPanel value="qrcodes">
+              <QrCodesTab />
+            </TabPanel>
           </TabsContent>
         )}
         {showScan && (
           <TabsContent value="scan">
-            <ScanTab />
+            <TabPanel value="scan">
+              <ScanTab />
+            </TabPanel>
           </TabsContent>
         )}
         {showRead && (
           <TabsContent value="export">
-            <ExportTab />
+            <TabPanel value="export">
+              <ExportTab />
+            </TabPanel>
           </TabsContent>
         )}
       </Tabs>
+    </motion.div>
+  )
+}
+
+function TabPanel({ value, children }: { value: string; children: React.ReactNode }) {  return (
+    <motion.div
+      key={value}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
+      {children}
     </motion.div>
   )
 }

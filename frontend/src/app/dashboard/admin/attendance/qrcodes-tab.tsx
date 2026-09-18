@@ -14,26 +14,47 @@ import { childrenApi } from '@/lib/api/children.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { CardPreviewModal } from '@/components/card-preview-modal'
+import { TabFade } from './dashboard-tab'
+
+/** Nom de fichier à partir du nom affiché : « Tata Victoire » → « tata-victoire ». */
+function slugifyName(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
 export function QrCodesTab() {
   return (
     <div className="pt-2">
       <Tabs defaultValue="children">
-        <TabsList>
-          <TabsTrigger value="children">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="children"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <Baby className="mr-1.5 size-4" />
             Enfants
           </TabsTrigger>
-          <TabsTrigger value="staff">
+          <TabsTrigger
+            value="staff"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <UserRound className="mr-1.5 size-4" />
             Personnel
           </TabsTrigger>
         </TabsList>
         <TabsContent value="children">
-          <PersonQrCode personType="child" />
+          <TabFade value="children">
+            <PersonQrCode personType="child" />
+          </TabFade>
         </TabsContent>
         <TabsContent value="staff">
-          <PersonQrCode personType="staff" />
+          <TabFade value="staff">
+            <PersonQrCode personType="staff" />
+          </TabFade>
         </TabsContent>
       </Tabs>
     </div>
@@ -174,7 +195,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                 className="size-48 rounded-md border border-border bg-white p-2"
               />
               <p className="font-mono text-sm text-muted-foreground">{qrcode.matricule}</p>
-              <Button variant="outline" size="sm" render={<a href={qrcode.qr_image} download={`qr-${qrcode.matricule}.png`} />}>
+              <Button variant="outline" size="sm" render={<a href={qrcode.qr_image} download={personType === 'staff' && selected ? `qr-${slugifyName(selected.label)}.png` : `qr-${qrcode.matricule}.png`} />}>
                 <Download className="mr-1.5 size-4" />
                 Télécharger
               </Button>

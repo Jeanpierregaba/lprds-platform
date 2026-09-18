@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { DailyStatusValue } from '@/types/attendance'
 
@@ -11,18 +10,17 @@ const STATUS_LABELS: Record<DailyStatusValue, string> = {
 }
 
 const STATUS_CLASSNAMES: Record<DailyStatusValue, string> = {
-  present: '',
-  late: 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  absent: '',
-  not_expected: '',
-  exempt: '',
+  present: 'border-transparent bg-pale-green text-white',
+  late: 'border-transparent bg-warning text-warning-foreground',
+  absent: 'border-transparent bg-destructive text-white',
+  not_expected: 'bg-muted text-muted-foreground',
+  exempt: 'bg-muted text-muted-foreground',
 }
 
 export function StatusBadge({ status }: { status: DailyStatusValue }) {
-  const variant = status === 'present' ? 'default' : status === 'absent' ? 'destructive' : 'outline'
   return (
-    <Badge variant={variant} className={cn(STATUS_CLASSNAMES[status])}>
+    <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_CLASSNAMES[status])}>
       {STATUS_LABELS[status]}
-    </Badge>
+    </span>
   )
 }

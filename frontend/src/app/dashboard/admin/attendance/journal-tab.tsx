@@ -7,12 +7,12 @@ import { ScrollText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
+import { cn } from '@/lib/utils/cn'
 import type { PersonType } from '@/types/attendance'
 
 const PAGE_SIZE = 25
@@ -27,6 +27,17 @@ const EVENT_LABELS: Record<string, string> = {
 const PERSON_TYPE_LABELS: Record<string, string> = {
   child: 'Enfant',
   staff: 'Personnel',
+}
+
+const EVENT_PILLS: Record<string, string> = {
+  arrival: 'bg-pale-green text-white',
+  departure: 'bg-navy text-white',
+  meal: 'bg-warning text-warning-foreground',
+}
+
+const PERSON_TYPE_PILLS: Record<string, string> = {
+  child: 'bg-sky text-white',
+  staff: 'bg-teal text-white',
 }
 
 function formatDateTime(iso: string) {
@@ -63,14 +74,14 @@ export function JournalTab() {
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label className="text-white font-semibold text-sm">Type</Label>
           <Select
             items={{ [ALL]: 'Tous', child: 'Enfants', staff: 'Personnel' }}
             value={personType}
             onValueChange={(v) => setPersonType(v ?? ALL)}
           >
-            <SelectTrigger className="w-full sm:w-40">
+            <SelectTrigger className="h-9 w-full sm:w-44">
               <SelectValue placeholder="Tous" />
             </SelectTrigger>
             <SelectContent>
@@ -80,39 +91,39 @@ export function JournalTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="date_from" className="text-white font-semibold text-sm">Du</Label>
           <Input id="date_from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-44" />
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="date_to" className="text-white font-semibold text-sm">Au</Label>
           <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full sm:w-44" />
         </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Horodatage</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Événement</TableHead>
-                <TableHead>Personne</TableHead>
-                <TableHead>Scanné par</TableHead>
-                <TableHead>Accompagnateur</TableHead>
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Horodatage</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Type</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Événement</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Personne</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Scanné par</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Accompagnateur</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -134,16 +145,22 @@ export function JournalTab() {
                     : '—'
                   return (
                     <TableRow key={event.id}>
-                      <TableCell className="text-muted-foreground">{formatDateTime(event.scanned_at)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal">{PERSON_TYPE_LABELS[event.person_type]}</Badge>
+                      <TableCell className="px-5 py-4 text-muted-foreground">{formatDateTime(event.scanned_at)}</TableCell>
+                      <TableCell className="px-5 py-4">
+                        <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', PERSON_TYPE_PILLS[event.person_type])}>
+                          {PERSON_TYPE_LABELS[event.person_type]}
+                        </span>
                       </TableCell>
-                      <TableCell>{EVENT_LABELS[event.event_type] ?? event.event_type}</TableCell>
-                      <TableCell className="font-medium">{personName}</TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="px-5 py-4">
+                        <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', EVENT_PILLS[event.event_type])}>
+                          {EVENT_LABELS[event.event_type] ?? event.event_type}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 font-medium">{personName}</TableCell>
+                      <TableCell className="px-5 py-4 text-muted-foreground">
                         {event.scanned_by.first_name} {event.scanned_by.last_name}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="px-5 py-4 text-muted-foreground">
                         {event.companion_name ? `${event.companion_name}${event.companion_phone ? ` · ${event.companion_phone}` : ''}` : '—'}
                       </TableCell>
                     </TableRow>

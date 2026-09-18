@@ -39,6 +39,31 @@ class ScanRequest(BaseModel):
     companion_phone: str | None = Field(default=None, max_length=20)
 
 
+# ── Correction manuelle (admin ou attendance:write) ───────────────
+class ManualEventRequest(BaseModel):
+    """Saisie manuelle d'une arrivée/départ quand le scan est faux ou absent.
+
+    `date` + `time` sont interprétés dans le fuseau horaire configuré de
+    l'établissement (UTC par défaut). `scanned_by` = l'auteur de la correction.
+    """
+
+    person_type: PersonType
+    child_id: uuid.UUID | None = None
+    staff_id: uuid.UUID | None = None
+    event_type: EventType = Field(description="arrival ou departure — jamais meal")
+    date: date_
+    time: time
+    companion_name:  str | None = Field(default=None, max_length=200)
+    companion_phone: str | None = Field(default=None, max_length=20)
+
+
+class UpdateEventRequest(BaseModel):
+    """Rectification d'une ligne existante — seule l'heure change, jamais le
+    type d'événement ni la personne (cohérence du journal préservée)."""
+
+    scanned_at: datetime = Field(description="Nouvelle heure (aware de préférence ; naïve = fuseau établissement)")
+
+
 class VerifyQrRequest(BaseModel):
     """Validation du QR au moment du scan — aucun événement créé ici.
 

@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   AlarmClock, Baby, ChevronLeft, ChevronRight, Search, UserRound, UserCheck, Users, UserX,
 } from 'lucide-react'
@@ -9,19 +11,22 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { organizationApi } from '@/lib/api/organization.api'
+import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { useUser } from '@/lib/stores/auth.store'
+import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import { StatusBadge } from './status-badge'
-import type { DailyStatusValue } from '@/types/attendance'
+import type { AttendanceEvent, DailyStatusValue, PersonType } from '@/types/attendance'
 
 const ALL = '__all__'
 const PAGE_SIZE = 15
@@ -35,6 +40,12 @@ function todayIso() {
 
 function formatTime(iso: string | null) {
   if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** « HH:MM » depuis un ISO (pour pré-remplir les champs time), '' si absent. */
+function toHHMM(iso: string | null) {
+  if (!iso) return ''
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
@@ -57,6 +68,10 @@ function normalizeName(value: string) {
 
 export function DashboardTab() {
   const [date, setDate] = useState(todayIso())
+  const user = useUser()
+  const { permissions } = useMyPermissions()
+  // Correction manuelle : admin d'office, ou staff porteur de attendance:write.
+  const canCorrect = user?.role === 'admin' || permissions.has('attendance:write')
 
   return (
     <div className="space-y-4 pt-2">
@@ -66,22 +81,32 @@ export function DashboardTab() {
       </div>
 
       <Tabs defaultValue="children">
-        <TabsList>
-          <TabsTrigger value="children">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="children"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <Baby className="mr-1.5 size-4" />
             Enfants
           </TabsTrigger>
-          <TabsTrigger value="staff">
+          <TabsTrigger
+            value="staff"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <UserRound className="mr-1.5 size-4" />
             Personnel
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="children">
-          <ChildrenDaily date={date} />
+          <TabFade value="children">
+            <ChildrenDaily date={date} canCorrect={canCorrect} />
+          </TabFade>
         </TabsContent>
         <TabsContent value="staff">
-          <StaffDaily date={date} />
+          <TabFade value="staff">
+            <StaffDaily date={date} canCorrect={canCorrect} />
+          </TabFade>
         </TabsContent>
       </Tabs>
     </div>
@@ -90,6 +115,19 @@ export function DashboardTab() {
 
 // ── Blocs partagés : 4 cards stats cliquables + pagination + modale ──
 
+export function TabFade({ value, children }: { value: string; children: React.ReactNode }) {
+  return (
+    <motion.div
+      key={value}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 interface StatCounts {
   total: number
   present: number
@@ -97,38 +135,192 @@ interface StatCounts {
   late: number
 }
 
-const STAT_DEFS: { key: StatKey; label: string; icon: typeof Users }[] = [
-  { key: 'total', label: 'Total', icon: Users },
-  { key: 'present', label: 'Présents', icon: UserCheck },
-  { key: 'absent', label: 'Absents', icon: UserX },
-  { key: 'late', label: 'En retard', icon: AlarmClock },
+// ── Correction manuelle des heures (lignes cliquables) ──────────
+interface CorrectionTarget {
+  personType: PersonType
+  personId: string
+  displayName: string
+  initialArrival: string | null     // ISO du jour (1re arrivée), null si aucun scan
+  initialDeparture: string | null   // ISO du jour (dernier départ), null si aucun scan
+}
+
+function CorrectionDialog({
+  target, date, onClose,
+}: {
+  target: CorrectionTarget
+  date: string
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const personFilter = target.personType === 'child'
+    ? { child_id: target.personId }
+    : { staff_id: target.personId }
+
+  // Lignes du jour : la 1re arrivée et le dernier départ portent le statut
+  // affiché (même règle que le calcul backend) — ce sont elles qu'on corrige.
+  const { data, isLoading } = useQuery({
+    queryKey: ['attendance', 'events', { personType: target.personType, personId: target.personId, date }],
+    queryFn: () => attendanceApi.listEvents({
+      person_type: target.personType, ...personFilter, date_from: date, date_to: date, limit: 100,
+    }).then((r) => r.data),
+  })
+  const dayItems: AttendanceEvent[] = data?.items ?? []
+  const arrivalEvent = dayItems
+    .filter((e) => e.event_type === 'arrival')
+    .sort((a, b) => a.scanned_at.localeCompare(b.scanned_at))[0]
+  const departureEvent = dayItems
+    .filter((e) => e.event_type === 'departure')
+    .sort((a, b) => b.scanned_at.localeCompare(a.scanned_at))[0]
+
+  const initialArrivalHHMM = toHHMM(target.initialArrival)
+  const initialDepartureHHMM = toHHMM(target.initialDeparture)
+  const [arrival, setArrival] = useState(initialArrivalHHMM)
+  const [departure, setDeparture] = useState(initialDepartureHHMM)
+
+  const arrivalDirty = arrival !== '' && arrival !== initialArrivalHHMM
+  const departureDirty = departure !== '' && departure !== initialDepartureHHMM
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const ops: Promise<unknown>[] = []
+      const personBody = target.personType === 'child'
+        ? { child_id: target.personId }
+        : { staff_id: target.personId }
+      if (arrivalDirty) {
+        ops.push(arrivalEvent
+          ? attendanceApi.updateEvent(arrivalEvent.id, { scanned_at: `${date}T${arrival}` })
+          : attendanceApi.createManualEvent({
+              person_type: target.personType, ...personBody, event_type: 'arrival', date, time: arrival,
+            }))
+      }
+      if (departureDirty) {
+        ops.push(departureEvent
+          ? attendanceApi.updateEvent(departureEvent.id, { scanned_at: `${date}T${departure}` })
+          : attendanceApi.createManualEvent({
+              person_type: target.personType, ...personBody, event_type: 'departure', date, time: departure,
+            }))
+      }
+      await Promise.all(ops)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] })
+      toast.success('Heures corrigées.')
+      onClose()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const prettyDate = new Date(`${date}T00:00`).toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Corriger les heures</DialogTitle>
+          <DialogDescription>
+            {target.displayName} — {prettyDate}
+          </DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="space-y-3 py-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="correct-arrival">Arrivée</Label>
+              <Input
+                id="correct-arrival"
+                type="time"
+                value={arrival}
+                onChange={(e) => setArrival(e.target.value)}
+              />
+              {!arrivalEvent && (
+                <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="correct-departure">Départ</Label>
+              <Input
+                id="correct-departure"
+                type="time"
+                value={departure}
+                onChange={(e) => setDeparture(e.target.value)}
+              />
+              {!departureEvent && (
+                <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
+              )}
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Seules les heures modifiées sont enregistrées. Une heure sans scan crée
+          la ligne correspondante.
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Annuler</Button>
+          <Button
+            onClick={() => save.mutate()}
+            disabled={!(arrivalDirty || departureDirty) || save.isPending || isLoading}
+          >
+            {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+const STAT_DEFS: { key: StatKey; label: string; icon: typeof Users; tint: string }[] = [
+  { key: 'total', label: 'Total', icon: Users, tint: 'bg-sky text-white' },
+  { key: 'present', label: 'Présents', icon: UserCheck, tint: 'bg-pale-green text-white' },
+  { key: 'absent', label: 'Absents', icon: UserX, tint: 'bg-destructive text-white' },
+  { key: 'late', label: 'En retard', icon: AlarmClock, tint: 'bg-warning text-warning-foreground' },
 ]
 
 function StatCards({
-  counts, totalLabel, onSelect,
+  counts, totalLabel, onSelect, selected,
 }: {
   counts: StatCounts
   totalLabel: string
   onSelect: (key: StatKey) => void
+  selected?: StatKey | null
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {STAT_DEFS.map(({ key, label, icon: Icon }) => (
-        <button key={key} type="button" onClick={() => onSelect(key)} className="text-left">
-          <Card className="transition hover:border-primary/50 hover:shadow-sm">
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
-                <Icon className="size-5 text-muted-foreground" />
+      {STAT_DEFS.map(({ key, label, icon: Icon, tint }, i) => (
+        <motion.button
+          key={key}
+          type="button"
+          onClick={() => onSelect(key)}
+          className="text-left"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: i * 0.06 }}
+        >
+          <Card
+            className={cn(
+              'relative overflow-hidden transition hover:-translate-y-0.5 hover:shadow-soft',
+              selected === key && 'ring-2 ring-primary',
+            )}
+          >
+            <div className={cn('pointer-events-none absolute inset-x-0 top-0 h-1.5', tint)} />
+            <CardContent className="flex items-center gap-3 p-4 pt-5">
+              <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-sm', tint)}>
+                <Icon className="size-5" />
               </span>
               <span>
-                <span className="block text-2xl font-bold leading-none">{counts[key]}</span>
+                <span className="block font-display text-2xl font-semibold leading-none">{counts[key]}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {key === 'total' ? totalLabel : label}
                 </span>
               </span>
             </CardContent>
           </Card>
-        </button>
+        </motion.button>
       ))}
     </div>
   )
@@ -204,7 +396,7 @@ const STAT_TITLES: Record<StatKey, string> = {
   late: 'En retard',
 }
 
-function ChildrenDaily({ date }: { date: string }) {
+function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
   const [departmentId, setDepartmentId] = useState<string>(ALL)
   const [sectionId, setSectionId] = useState<string>(ALL)
 
@@ -246,6 +438,7 @@ function ChildrenDaily({ date }: { date: string }) {
   const [modal, setModal] = useState<StatKey | null>(null)
   const [modalPage, setModalPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [correcting, setCorrecting] = useState<CorrectionTarget | null>(null)
   useEffect(() => { setPage(1); setModal(null); setModalPage(1) }, [date, departmentId, sectionId, search])
 
   // La recherche ne filtre que le tableau (retrouver vite une ligne) : les
@@ -272,7 +465,7 @@ function ChildrenDaily({ date }: { date: string }) {
 
   return (
     <div className="space-y-4 pt-2">
-      <StatCards counts={counts} totalLabel="Enfants actifs" onSelect={openModal} />
+      <StatCards counts={counts} totalLabel="Enfants actifs" onSelect={openModal} selected={modal} />
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="relative w-full sm:w-64">
@@ -314,27 +507,27 @@ function ChildrenDaily({ date }: { date: string }) {
         </Select>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Enfant</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Arrivée</TableHead>
-                <TableHead>Départ</TableHead>
-                <TableHead>Retard</TableHead>
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfant</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Arrivée</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Départ</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retard</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
                   </TableRow>
                 ))
               ) : visibleItems.length === 0 ? (
@@ -345,14 +538,25 @@ function ChildrenDaily({ date }: { date: string }) {
                 </TableRow>
               ) : (
                 pageItems.map((item) => (
-                  <TableRow key={item.child.id}>
-                    <TableCell className="font-medium">
+                  <TableRow
+                    key={item.child.id}
+                    onClick={canCorrect ? () => setCorrecting({
+                      personType: 'child',
+                      personId: item.child.id,
+                      displayName: `${item.child.first_names} ${item.child.last_name}`,
+                      initialArrival: item.arrival_time,
+                      initialDeparture: item.departure_time,
+                    }) : undefined}
+                    className={canCorrect ? 'cursor-pointer' : undefined}
+                    title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
+                  >
+                    <TableCell className="px-5 py-4 font-medium">
                       {item.child.first_names} {item.child.last_name}
                     </TableCell>
-                    <TableCell><StatusBadge status={item.status} /></TableCell>
-                    <TableCell className="text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="px-5 py-4"><StatusBadge status={item.status} /></TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">
                       {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                     </TableCell>
                   </TableRow>
@@ -386,11 +590,15 @@ function ChildrenDaily({ date }: { date: string }) {
           </>
         )}
       </StatusModal>
+
+      {correcting && (
+        <CorrectionDialog target={correcting} date={date} onClose={() => setCorrecting(null)} />
+      )}
     </div>
   )
 }
 
-function StaffDaily({ date }: { date: string }) {
+function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
   const { data, isLoading } = useQuery({
     queryKey: ['attendance', 'daily', 'staff', { date }],
     queryFn: () => attendanceApi.getStaffDaily({ date }).then((r) => r.data),
@@ -410,6 +618,7 @@ function StaffDaily({ date }: { date: string }) {
   const [modal, setModal] = useState<StatKey | null>(null)
   const [modalPage, setModalPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [correcting, setCorrecting] = useState<CorrectionTarget | null>(null)
   useEffect(() => { setPage(1); setModal(null); setModalPage(1) }, [date, search])
 
   // La recherche ne filtre que le tableau : cards et modales portent sur l'ensemble du jour.
@@ -437,7 +646,7 @@ function StaffDaily({ date }: { date: string }) {
 
   return (
     <div className="space-y-4 pt-2">
-      <StatCards counts={counts} totalLabel="Personnel actif" onSelect={openModal} />
+      <StatCards counts={counts} totalLabel="Personnel actif" onSelect={openModal} selected={modal} />
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="relative w-full sm:w-64">
@@ -453,29 +662,29 @@ function StaffDaily({ date }: { date: string }) {
         </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Personnel</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Arrivée</TableHead>
-                <TableHead>Départ</TableHead>
-                <TableHead>Retard</TableHead>
-                <TableHead>Cantine</TableHead>
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Personnel</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Arrivée</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Départ</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retard</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Cantine</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
                   </TableRow>
                 ))
               ) : visibleItems.length === 0 ? (
@@ -486,18 +695,31 @@ function StaffDaily({ date }: { date: string }) {
                 </TableRow>
               ) : (
                 pageItems.map((item) => (
-                  <TableRow key={item.staff.id}>
-                    <TableCell className="font-medium">
+                  <TableRow
+                    key={item.staff.id}
+                    onClick={canCorrect ? () => setCorrecting({
+                      personType: 'staff',
+                      personId: item.staff.id,
+                      displayName: item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`,
+                      initialArrival: item.arrival_time,
+                      initialDeparture: item.departure_time,
+                    }) : undefined}
+                    className={canCorrect ? 'cursor-pointer' : undefined}
+                    title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
+                  >
+                    <TableCell className="px-5 py-4 font-medium">
                       {item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
                     </TableCell>
-                    <TableCell><StatusBadge status={item.status} /></TableCell>
-                    <TableCell className="text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="px-5 py-4"><StatusBadge status={item.status} /></TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">
                       {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                     </TableCell>
-                    <TableCell>
-                      {item.meal_taken ? <Badge variant="default">Oui</Badge> : <Badge variant="outline">Non</Badge>}
+                    <TableCell className="px-5 py-4">
+                      {item.meal_taken
+                        ? <span className="inline-block rounded-full bg-pale-green px-3 py-1 text-xs font-semibold text-white">Oui</span>
+                        : <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">Non</span>}
                     </TableCell>
                   </TableRow>
                 ))
@@ -530,6 +752,10 @@ function StaffDaily({ date }: { date: string }) {
           </>
         )}
       </StatusModal>
+
+      {correcting && (
+        <CorrectionDialog target={correcting} date={date} onClose={() => setCorrecting(null)} />
+      )}
     </div>
   )
 }

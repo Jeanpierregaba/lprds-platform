@@ -2,8 +2,8 @@ import { apiClient } from './client'
 import type {
   AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
   AttendanceSettingsPayload, ChildDailyStatusListResponse, DepartmentAttendanceSettings, EventType,
-  PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
-  AttendanceExportParams,
+  ManualEventPayload, PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
+  AttendanceExportParams, UpdateEventPayload,
   VerifyQrResponse,
 } from '@/types/attendance'
 
@@ -83,4 +83,11 @@ export const attendanceApi = {
   // ── Export des présences (PDF / Excel) ──
   exportAttendance: (params: AttendanceExportParams) =>
     apiClient.get<Blob>('/api/v1/attendance/export', { params, responseType: 'blob' }),
+
+  // ── Correction manuelle (admin ou attendance:write) ──
+  createManualEvent: (data: ManualEventPayload) =>
+    apiClient.post<AttendanceEvent>('/api/v1/attendance/events/manual', data),
+
+  updateEvent: (eventId: string, data: UpdateEventPayload) =>
+    apiClient.patch<AttendanceEvent>(`/api/v1/attendance/events/${eventId}`, data),
 }

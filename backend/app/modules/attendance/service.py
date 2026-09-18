@@ -32,6 +32,7 @@ from app.modules.attendance.schemas import (
     DepartmentAttendanceSettingsResponse,
     ExportFileFormat,
     ExportPersonType,
+    ManualEventRequest,
     PersonBrief,
     QRCodeResponse,
     ScanRequest,
@@ -41,6 +42,7 @@ from app.modules.attendance.schemas import (
     StaffExemptionResponse,
     StaffScheduleRequest,
     StaffScheduleResponse,
+    UpdateEventRequest,
     VerifyQrRequest,
     VerifyQrResponse,
 )
@@ -119,6 +121,112 @@ async def scan(
         )
 
     db.add(event)
+    await db.flush()
+    await db.refresh(event)
+    return await _to_event_response(event, db)
+
+
+# ── Correction manuelle (admin ou attendance:write) ───────────────
+async def create_manual_event(
+    payload: ManualEventRequest,
+    establishment_id: uuid.UUID,
+    corrected_by: User,
+    db: AsyncSession,
+) -> AttendanceEventResponse:
+    """Saisie manuelle d'une arrivée/départ : scan faux ou jamais scanné.
+
+    Mêmes gardes que le scan (personne active de l'établissement, pas de
+    cantine pour un enfant, pas d'accompagnateur pour le staff) + refus d'une
+    heure dans le futur. La ligne porte `scanned_by` = l'auteur de la
+    correction, pas un scanneur QR."""
+    if payload.event_type == EventType.MEAL:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Pas de cantine pour les enfants",
+        )
+    tz = await _get_timezone(establishment_id, db)
+    scanned_at = datetime.combine(payload.date, payload.time, tzinfo=tz)
+    if scanned_at > datetime.now(tz=tz):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="L'heure corrigée ne peut pas être dans le futur",
+        )
+
+    if payload.person_type == PersonType.CHILD:
+        if not payload.child_id or payload.staff_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="child_id requis pour une correction enfant",
+            )
+        child = await _get_active_child_or_404(
+            payload.child_id, establishment_id, db
+        )
+        event = AttendanceEvent(
+            establishment_id=establishment_id,
+            person_type=str(PersonType.CHILD),
+            child_id=child.id,
+            event_type=str(payload.event_type),
+            scanned_at=scanned_at,
+            scanned_by_id=corrected_by.id,
+            companion_name=payload.companion_name,
+            companion_phone=payload.companion_phone,
+        )
+    else:
+        if not payload.staff_id or payload.child_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="staff_id requis pour une correction personnel",
+            )
+        if payload.companion_name or payload.companion_phone:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Un accompagnateur n'est pas applicable pour un membre du personnel",
+            )
+        staff = await _get_active_staff_or_404(
+            payload.staff_id, establishment_id, db
+        )
+        event = AttendanceEvent(
+            establishment_id=establishment_id,
+            person_type=str(PersonType.STAFF),
+            staff_id=staff.id,
+            event_type=str(payload.event_type),
+            scanned_at=scanned_at,
+            scanned_by_id=corrected_by.id,
+        )
+
+    db.add(event)
+    await db.flush()
+    await db.refresh(event)
+    return await _to_event_response(event, db)
+
+
+async def update_event(
+    event_id: uuid.UUID,
+    payload: UpdateEventRequest,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> AttendanceEventResponse:
+    """Rectifie l'heure d'une ligne existante. Type d'événement et personne
+    inchangés — seule l'heure est corrigée (décision produit)."""
+    event = await db.scalar(
+        select(AttendanceEvent).where(
+            AttendanceEvent.id == event_id,
+            AttendanceEvent.establishment_id == establishment_id,
+        )
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Événement introuvable")
+
+    scanned_at = payload.scanned_at
+    if scanned_at.tzinfo is None:
+        tz = await _get_timezone(establishment_id, db)
+        scanned_at = scanned_at.replace(tzinfo=tz)
+    if scanned_at > datetime.now(tz=timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="L'heure corrigée ne peut pas être dans le futur",
+        )
+    event.scanned_at = scanned_at
     await db.flush()
     await db.refresh(event)
     return await _to_event_response(event, db)

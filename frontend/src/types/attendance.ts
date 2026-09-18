@@ -79,6 +79,19 @@ export interface VerifyQrResponse {
   has_meal:     boolean
 }
 
+export interface ManualEventPayload {
+  person_type: PersonType
+  child_id?:   string
+  staff_id?:   string
+  event_type:  'arrival' | 'departure'
+  date:        string
+  time:        string
+}
+
+export interface UpdateEventPayload {
+  scanned_at: string
+}
+
 export interface AttendanceSettingsPayload {
   expected_arrival_time:   string
   expected_departure_time: string

@@ -907,7 +907,10 @@ l'admin authentifié (impression lisible sur le badge à côté du QR), mais n'e
 ```
 GET  /api/v1/attendance/qrcode/child/{id}         # Jeton chiffré + image PNG (attendance:write)
 GET  /api/v1/attendance/qrcode/staff/{id}         # Jeton chiffré + image PNG (attendance:write)
+POST /api/v1/attendance/scan/verify               # Valide un QR + état du jour, sans écrire (attendance:scan)
 POST /api/v1/attendance/scan                      # Enregistre un scan (attendance:scan)
+POST /api/v1/attendance/events/manual             # Saisie manuelle arrivée/départ (attendance:write)
+PATCH /api/v1/attendance/events/{event_id}        # Rectifie l'heure d'une ligne (attendance:write)
 GET  /api/v1/attendance/events                    # Journal (attendance:read)
 GET  /api/v1/attendance/daily/children            # ?date= &department_id= &section_id=
 GET  /api/v1/attendance/daily/staff                # ?date=
@@ -923,6 +926,29 @@ Export agrégé PDF/Excel (statut par personne × jour, max 366 jours) :
 `child_id` / `staff_id` (exclusifs, 422 sinon) restreignent à UNE personne
 précise — 404 si hors établissement — et priment sur `person_type` /
 département / section.
+
+### Correction manuelle — édition directe de la ligne (décision produit)
+
+Le journal reste append-only **pour les scans** (jamais d'UPDATE sur ce chemin),
+mais une heure fausse ou un scan manquant se corrige **en touchant la ligne** —
+décision explicite (alternative « nouvel event manuel avec flag » écartée) :
+
+- `POST /events/manual` (`attendance:write`) : crée une arrivée/départ avec
+  `{person_type, child_id|staff_id, event_type (jamais meal), date, time}` —
+  `date`+`time` interprétés dans le **fuseau de l'établissement**, heure future
+  refusée (422). `scanned_by` = l'auteur de la correction. Mêmes gardes qu'au
+  scan (personne active, pas de cantine enfant, pas d'accompagnateur staff).
+- `PATCH /events/{event_id}` (`attendance:write`) : ne change que `scanned_at`
+  (naïf = fuseau établissement, futur = 422) — **type et personne inchangés**,
+  la cohérence du journal est préservée. 404 inter-établissement.
+- Pas de suppression de ligne : une heure ne s'efface pas, elle se rectifie.
+- Le statut du jour étant calculé à la volée, la correction est **visible
+  immédiatement** (dashboard, export, pré-remplissage des rapports quotidiens).
+- Côté UI (`dashboard-tab.tsx`) : lignes cliquables (admin ou
+  `attendance:write` uniquement — le dashboard reste lisible avec
+  `attendance:read` seul), dialogue arrivée/départ pré-rempli (1re arrivée /
+  dernier départ, même règle que le backend), PATCH si la ligne existe sinon
+  création manuelle, vide = inchangé.
 
 ### Permissions — trois, pas deux
 
@@ -2076,6 +2102,7 @@ tests/
     ├── test_smoke.py                    # santé de l'infra elle-même
     ├── test_core_modules_smoke.py       # golden path : auth, RBAC, organisation,
     │                                     #   enfants, parents, staff, présences, messagerie
+    ├── test_attendance_correction.py      # correction manuelle (PATCH ligne + saisie manuelle, 403 sans write)
     ├── test_reports_workflow.py         # cycle de vie complet (soumission/validation/rejet)
     ├── test_reports_daily_content.py    # contenu structuré quotidien + pièces jointes
     ├── test_reports_bimensuel_content.py

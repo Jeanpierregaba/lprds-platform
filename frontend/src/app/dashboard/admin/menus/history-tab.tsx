@@ -50,14 +50,14 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
 
   return (
     <div className="space-y-4 pt-2">
-      <div className="w-full space-y-1.5 sm:w-52">
+      <div className="flex w-full flex-col gap-1.5 sm:w-52">
         <Label htmlFor="history-department">Département</Label>
         <Select
           items={{ [ALL]: 'Tous les départements', ...Object.fromEntries(departments.map((d) => [d.id, d.name])) }}
           value={departmentId}
           onValueChange={(v) => v && setDepartmentId(v)}
         >
-          <SelectTrigger id="history-department" className="w-full">
+          <SelectTrigger id="history-department" className="h-9 w-full">
             <SelectValue placeholder="Tous les départements" />
           </SelectTrigger>
           <SelectContent>
@@ -69,25 +69,25 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
         </Select>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Semaine</TableHead>
-                <TableHead>Département</TableHead>
-                <TableHead>Dernière modification</TableHead>
-                <TableHead className="w-10" />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Semaine</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Département</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Dernière modification</TableHead>
+                <TableHead className="w-10 px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -103,15 +103,20 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
                 </TableRow>
               ) : (
                 items.map((menu) => (
-                  <TableRow key={menu.id}>
-                    <TableCell className="font-medium">
+                  <TableRow
+                    key={menu.id}
+                    className="cursor-pointer"
+                    onClick={() => onSelectMenu(menu.week_start, menu.department_id)}
+                    title="Voir ce menu"
+                  >
+                    <TableCell className="px-5 py-4 font-medium">
                       {formatDate(menu.week_start)} — {formatDate(menu.week_end)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="px-5 py-4 text-muted-foreground">
                       {menu.department_name ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDateTime(menu.updated_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDateTime(menu.updated_at)}</TableCell>
+                    <TableCell className="px-5 py-4">
                       <Button variant="ghost" size="sm" onClick={() => onSelectMenu(menu.week_start, menu.department_id)}>
                         Voir
                       </Button>

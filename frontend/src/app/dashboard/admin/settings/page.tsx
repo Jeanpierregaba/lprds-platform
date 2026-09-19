@@ -46,27 +46,39 @@ function SettingsTabs() {
 
   return (
     <Tabs value={active} onValueChange={(v) => v && setTab(v)}>
-      <TabsList>
+      <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
         {visible.includes('profil') && (
-          <TabsTrigger value="profil">
+          <TabsTrigger
+            value="profil"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <User className="mr-1.5 size-4" />
             Profil
           </TabsTrigger>
         )}
         {visible.includes('presences') && (
-          <TabsTrigger value="presences">
+          <TabsTrigger
+            value="presences"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <ClipboardCheck className="mr-1.5 size-4" />
             Présences
           </TabsTrigger>
         )}
         {visible.includes('rapports') && (
-          <TabsTrigger value="rapports">
+          <TabsTrigger
+            value="rapports"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
+          >
             <FileText className="mr-1.5 size-4" />
             Rapports
           </TabsTrigger>
         )}
         {visible.includes('bibliotheque') && (
-          <TabsTrigger value="bibliotheque">
+          <TabsTrigger
+            value="bibliotheque"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-navy data-active:text-white data-active:shadow-md"
+          >
             <BookOpen className="mr-1.5 size-4" />
             Bibliothèque
           </TabsTrigger>
@@ -74,24 +86,52 @@ function SettingsTabs() {
       </TabsList>
       {visible.includes('profil') && (
         <TabsContent value="profil">
-          <div className="max-w-2xl">
-            <ProfileSettingsTab />
-          </div>
+          <motion.div
+            key="profil"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <div className="max-w-2xl">
+              <ProfileSettingsTab />
+            </div>
+          </motion.div>
         </TabsContent>
       )}
       {visible.includes('presences') && (
         <TabsContent value="presences">
-          <AttendanceSettingsTab />
+          <motion.div
+            key="presences"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <AttendanceSettingsTab />
+          </motion.div>
         </TabsContent>
       )}
       {visible.includes('rapports') && (
         <TabsContent value="rapports">
-          <ReportsSettingsTab />
+          <motion.div
+            key="rapports"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <ReportsSettingsTab />
+          </motion.div>
         </TabsContent>
       )}
       {visible.includes('bibliotheque') && (
         <TabsContent value="bibliotheque">
-          <LibrarySettingsTab />
+          <motion.div
+            key="bibliotheque"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <LibrarySettingsTab />
+          </motion.div>
         </TabsContent>
       )}
     </Tabs>

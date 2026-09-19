@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -23,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { rbacApi } from '@/lib/api/rbac.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import { PERMISSION_GROUPS } from '@/types/rbac'
 import type { Role } from '@/types/rbac'
 
@@ -215,25 +215,25 @@ export function RolesTab() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Permissions</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="w-10" />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Permissions</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="w-10 px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -253,34 +253,39 @@ export function RolesTab() {
               ) : (
                 items.map((role) => (
                   <TableRow key={role.id}>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       <div className="font-medium">{role.name}</div>
                       {role.description && (
                         <div className="text-xs text-muted-foreground">{role.description}</div>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       <div className="flex flex-wrap gap-1">
                         {role.permissions.length === 0 ? (
                           <span className="text-muted-foreground">Aucune</span>
                         ) : (
                           role.permissions.slice(0, 4).map((p) => (
-                            <Badge key={p.id} variant="outline" className="font-normal">{p.code}</Badge>
+                            <span key={p.id} className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{p.code}</span>
                           ))
                         )}
                         {role.permissions.length > 4 && (
-                          <Badge variant="outline" className="font-normal">
+                          <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
                             +{role.permissions.length - 4}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={role.is_active ? 'default' : 'outline'}>
+                    <TableCell className="px-5 py-4">
+                      <span
+                        className={cn(
+                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                          role.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         {role.is_active ? 'Actif' : 'Inactif'}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(role)} aria-label={`Modifier ${role.name}`}>
                           <Pencil className="size-4" />

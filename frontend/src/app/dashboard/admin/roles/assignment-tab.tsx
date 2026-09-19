@@ -7,7 +7,6 @@ import { Loader2, Search, UserCog, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { rbacApi } from '@/lib/api/rbac.api'
@@ -113,9 +112,9 @@ export function AssignmentTab() {
                       <div className="text-xs text-muted-foreground">{staff.email}</div>
                     </div>
                     {staff.staff_type && (
-                      <Badge variant="outline" className="font-normal">
+                      <span className="inline-block shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
                         {STAFF_TYPE_LABELS[staff.staff_type]}
-                      </Badge>
+                      </span>
                     )}
                   </button>
                 ))

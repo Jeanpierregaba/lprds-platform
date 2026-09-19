@@ -27,27 +27,47 @@ export default function MenusPage() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
-        <TabsList>
-          <TabsTrigger value="week">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="week"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <CalendarDays className="mr-1.5 size-4" />
             Semaine
           </TabsTrigger>
-          <TabsTrigger value="history">
+          <TabsTrigger
+            value="history"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <History className="mr-1.5 size-4" />
             Historique
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="week">
-          <WeekTab
-            weekStart={weekStart} onWeekStartChange={setWeekStart}
-            departmentId={departmentId} onDepartmentChange={setDepartmentId}
-          />
+          <motion.div
+            key="week"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <WeekTab
+              weekStart={weekStart} onWeekStartChange={setWeekStart}
+              departmentId={departmentId} onDepartmentChange={setDepartmentId}
+            />
+          </motion.div>
         </TabsContent>
         <TabsContent value="history">
-          <HistoryTab
-            onSelectMenu={(ws, dep) => { setWeekStart(ws); setDepartmentId(dep); setTab('week') }}
-          />
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <HistoryTab
+              onSelectMenu={(ws, dep) => { setWeekStart(ws); setDepartmentId(dep); setTab('week') }}
+            />
+          </motion.div>
         </TabsContent>
       </Tabs>
     </motion.div>

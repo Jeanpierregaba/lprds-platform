@@ -90,23 +90,23 @@ export function TagsTab() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Créée le</TableHead>
-                <TableHead className="w-24" />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Créée le</TableHead>
+                <TableHead className="w-24 px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-32 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : !tags || tags.length === 0 ? (
@@ -123,9 +123,13 @@ export function TagsTab() {
               ) : (
                 tags.map((tag) => (
                   <TableRow key={tag.id}>
-                    <TableCell className="font-medium">{tag.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(tag.created_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
+                      <span className="inline-block rounded-full bg-teal px-3 py-1 text-xs font-semibold text-white">
+                        {tag.name}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(tag.created_at)}</TableCell>
+                    <TableCell className="px-5 py-4">
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"

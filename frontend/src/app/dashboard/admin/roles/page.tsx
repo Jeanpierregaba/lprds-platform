@@ -23,22 +23,42 @@ export default function RolesPage() {
       </div>
 
       <Tabs defaultValue="roles">
-        <TabsList>
-          <TabsTrigger value="roles">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="roles"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <ShieldCheck className="mr-1.5 size-4" />
             Rôles
           </TabsTrigger>
-          <TabsTrigger value="assignment">
+          <TabsTrigger
+            value="assignment"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <UserCog className="mr-1.5 size-4" />
             Attribution
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="roles">
-          <RolesTab />
+          <motion.div
+            key="roles"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <RolesTab />
+          </motion.div>
         </TabsContent>
         <TabsContent value="assignment">
-          <AssignmentTab />
+          <motion.div
+            key="assignment"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <AssignmentTab />
+          </motion.div>
         </TabsContent>
       </Tabs>
     </motion.div>

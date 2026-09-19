@@ -96,7 +96,7 @@ export default function ReportDetailPage() {
   const saveMutation = useMutation({
     mutationFn: (content: Record<string, unknown>) =>
       reportsApi.update(id, { content }),
-    onSuccess: () => { toast.success('Rapport enregistré.'); invalidate() },
+    onSuccess: () => { toast.success('Rapport enregistré.'); invalidate(); router.push('/dashboard/admin/reports') },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -131,7 +131,7 @@ export default function ReportDetailPage() {
 
   const validateMutation = useMutation({
     mutationFn: () => reportsApi.validate(id),
-    onSuccess: () => { toast.success('Rapport validé et publié au parent.'); invalidate() },
+    onSuccess: () => { toast.success('Rapport validé et publié au parent.'); invalidate(); router.push('/dashboard/admin/reports') },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 

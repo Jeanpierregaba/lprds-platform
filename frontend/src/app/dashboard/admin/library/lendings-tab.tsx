@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -29,15 +28,16 @@ import { libraryApi } from '@/lib/api/library.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import { LENDING_STATUS_LABELS, type LendingStatus } from '@/types/library'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
 
-const STATUS_BADGE_VARIANT: Record<LendingStatus, 'default' | 'outline' | 'destructive'> = {
-  active: 'default',
-  overdue: 'destructive',
-  returned: 'outline',
+const STATUS_PILLS: Record<LendingStatus, string> = {
+  active: 'bg-sky text-white',
+  overdue: 'bg-destructive text-white',
+  returned: 'bg-muted text-muted-foreground',
 }
 
 function formatDate(iso: string) {
@@ -241,7 +241,7 @@ export function LendingsTab() {
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v ?? ALL)}
         >
-          <SelectTrigger className="w-full sm:w-44">
+          <SelectTrigger className="h-9 w-full sm:w-44">
             <SelectValue placeholder="Tous les statuts" />
           </SelectTrigger>
           <SelectContent>
@@ -260,29 +260,29 @@ export function LendingsTab() {
         )}
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Livre</TableHead>
-                <TableHead>Enfant</TableHead>
-                <TableHead>Emprunté le</TableHead>
-                <TableHead>Retour prévu</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Livre</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfant</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Emprunté le</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retour prévu</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -299,27 +299,27 @@ export function LendingsTab() {
               ) : (
                 items.map((lending) => (
                   <TableRow key={lending.id}>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       <div className="font-medium">{lending.book_title}</div>
                       <div className="text-xs text-muted-foreground">{lending.author}</div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       <div className="font-medium">{lending.child_name}</div>
                       <div className="text-xs text-muted-foreground">{lending.child_matricule}</div>
                     </TableCell>
-                    <TableCell>{formatDate(lending.borrowed_at)}</TableCell>
-                    <TableCell>{formatDate(lending.due_date)}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_BADGE_VARIANT[lending.status]}>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(lending.borrowed_at)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(lending.due_date)}</TableCell>
+                    <TableCell className="px-5 py-4">
+                      <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[lending.status])}>
                         {LENDING_STATUS_LABELS[lending.status]}
-                      </Badge>
+                      </span>
                       {lending.overdue_days != null && (
                         <div className="mt-0.5 text-xs text-destructive">
                           {lending.overdue_days} j de retard
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       {lending.status !== 'returned' && canLend && (
                         <Button
                           variant="outline"

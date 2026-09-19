@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -501,6 +502,8 @@ function ChildCard({
   canQr: boolean
 }) {
   const queryClient = useQueryClient()
+  const router = useRouter()
+  const detailHref = `/dashboard/admin/children/${child.id}`
   const [qrOpen, setQrOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
 
@@ -520,7 +523,15 @@ function ChildCard({
   })
 
   return (
-    <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !child.is_active && 'opacity-75')}>
+    <>
+      <Card
+        className={cn('cursor-pointer rounded-2xl shadow-soft transition hover:-translate-y-0.5', !child.is_active && 'opacity-75')}
+        onClick={() => router.push(detailHref)}
+        onKeyDown={(e) => { if (e.key === 'Enter') router.push(detailHref) }}
+        tabIndex={0}
+        role="link"
+        aria-label={`Ouvrir la fiche de ${child.first_names} ${child.last_name}`}
+      >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-xl font-semibold leading-tight">
@@ -552,7 +563,7 @@ function ChildCard({
             Voir
           </Button>
           {canQr && (
-            <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={() => setQrOpen(true)}>
+            <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={(e) => { e.stopPropagation(); setQrOpen(true) }}>
               <QrCode className="mr-1.5 size-4" />
               QR Code
             </Button>
@@ -562,13 +573,13 @@ function ChildCard({
               <Button
                 size="sm"
                 className="rounded-xl bg-warning text-warning-foreground hover:brightness-95"
-                onClick={() => setConfirmToggle(true)}
+                onClick={(e) => { e.stopPropagation(); setConfirmToggle(true) }}
               >
                 <UserX className="mr-1.5 size-4" />
                 Désactiver
               </Button>
             ) : (
-              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => toggleMutation.mutate()} disabled={toggleMutation.isPending}>
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={(e) => { e.stopPropagation(); toggleMutation.mutate() }} disabled={toggleMutation.isPending}>
                 <UserCheck className="mr-1.5 size-4" />
                 Réactiver
               </Button>
@@ -576,6 +587,7 @@ function ChildCard({
           )}
         </div>
       </CardContent>
+      </Card>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="sm:max-w-xs">
@@ -616,6 +628,6 @@ function ChildCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </>
   )
 }

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Newspaper, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,15 +14,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { blogApi } from '@/lib/api/blog.api'
+import { cn } from '@/lib/utils/cn'
 import { AuthMedia } from './auth-media'
 import { ARTICLE_STATUS_LABELS, type ArticleStatus } from '@/types/blog'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
 
-const STATUS_BADGE_VARIANT: Record<ArticleStatus, 'default' | 'outline'> = {
-  draft: 'outline',
-  published: 'default',
+const STATUS_PILLS: Record<ArticleStatus, string> = {
+  draft: 'bg-muted text-muted-foreground',
+  published: 'bg-pale-green text-white',
 }
 
 function formatDate(iso: string | null) {
@@ -30,6 +31,7 @@ function formatDate(iso: string | null) {
 }
 
 export function ArticlesTab() {
+  const router = useRouter()
   const [status, setStatus] = useState<string>(ALL)
   const [tagId, setTagId] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -72,7 +74,7 @@ export function ArticlesTab() {
             value={status}
             onValueChange={(v) => setStatus(v ?? ALL)}
           >
-            <SelectTrigger className="w-full sm:w-44">
+            <SelectTrigger className="h-9 w-full sm:w-44">
               <SelectValue placeholder="Tous les statuts" />
             </SelectTrigger>
             <SelectContent>
@@ -84,7 +86,7 @@ export function ArticlesTab() {
           </Select>
 
           <Select items={tagItems} value={tagId} onValueChange={(v) => setTagId(v ?? ALL)}>
-            <SelectTrigger className="w-full sm:w-44">
+            <SelectTrigger className="h-9 w-full sm:w-44">
               <SelectValue placeholder="Toutes les étiquettes" />
             </SelectTrigger>
             <SelectContent>
@@ -106,29 +108,29 @@ export function ArticlesTab() {
         </Button>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Image</TableHead>
-                <TableHead>Titre</TableHead>
-                <TableHead>Étiquette</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Publié le</TableHead>
-                <TableHead />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="w-16 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Image</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Titre</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Étiquette</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Publié le</TableHead>
+                <TableHead className="px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="size-10 rounded" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="size-10 rounded" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-24 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
@@ -144,8 +146,13 @@ export function ArticlesTab() {
                 </TableRow>
               ) : (
                 items.map((article) => (
-                  <TableRow key={article.id} className={!article.is_active ? 'opacity-50' : undefined}>
-                    <TableCell>
+                  <TableRow
+                    key={article.id}
+                    className={!article.is_active ? 'cursor-pointer opacity-50' : 'cursor-pointer'}
+                    onClick={() => router.push(`/dashboard/admin/blog/${article.id}`)}
+                    title="Ouvrir cet article"
+                  >
+                    <TableCell className="px-5 py-4">
                       {article.cover_url ? (
                         <AuthMedia
                           queryKey={['blog', 'cover-thumb', article.id]}
@@ -160,18 +167,24 @@ export function ArticlesTab() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/dashboard/admin/blog/${article.id}`} className="hover:underline">
-                        {article.title}
-                      </Link>
-                      {!article.is_active && <span className="ml-2 text-xs text-muted-foreground">(supprimé)</span>}
+                    <TableCell className="px-5 py-4 font-medium">
+                      {article.title}
+                      {!article.is_active && <span className="ml-2 text-xs font-normal text-muted-foreground">(supprimé)</span>}
                     </TableCell>
-                    <TableCell>{article.tag ? <Badge variant="outline">{article.tag.name}</Badge> : '—'}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_BADGE_VARIANT[article.status]}>{ARTICLE_STATUS_LABELS[article.status]}</Badge>
+                    <TableCell className="px-5 py-4">
+                      {article.tag ? (
+                        <span className="inline-block rounded-full bg-teal px-3 py-1 text-xs font-semibold text-white">
+                          {article.tag.name}
+                        </span>
+                      ) : '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(article.published_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
+                      <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[article.status])}>
+                        {ARTICLE_STATUS_LABELS[article.status]}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(article.published_at)}</TableCell>
+                    <TableCell className="px-5 py-4">
                       <Button variant="ghost" size="sm" render={<Link href={`/dashboard/admin/blog/${article.id}`} />}>
                         Voir
                       </Button>

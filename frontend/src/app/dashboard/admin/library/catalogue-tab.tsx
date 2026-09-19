@@ -2,17 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +27,7 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import type { Book } from '@/types/library'
 import { BookFormDialog } from './book-form-dialog'
 
@@ -124,98 +124,13 @@ export function CatalogueTab() {
         )}
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Titre</TableHead>
-                <TableHead>Auteur</TableHead>
-                <TableHead>Sections</TableHead>
-                <TableHead>Disponibilité</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell />
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <BookOpen className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun livre dans le catalogue.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((book) => (
-                  <TableRow key={book.id} className={!book.is_active ? 'opacity-50' : undefined}>
-                    <TableCell className="font-medium">{book.title}</TableCell>
-                    <TableCell className="text-muted-foreground">{book.author}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {book.sections.length === 0 ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          book.sections.map((s) => (
-                            <Badge key={s.id} variant="outline">{s.name}</Badge>
-                          ))
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className={book.available_quantity === 0 ? 'font-medium text-destructive' : undefined}>
-                        {book.available_quantity}/{book.total_quantity}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={book.is_active ? 'default' : 'outline'}>
-                        {book.is_active ? 'Actif' : 'Désactivé'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-{canWrite && (
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingBook(book)
-                            setDialogOpen(true)
-                          }}
-                        >
-                          <Pencil className="mr-1.5 size-4" />
-                          Modifier
-                        </Button>
-                        {book.is_active && (
-                          <Button variant="ghost" size="sm" onClick={() => setDeletingBook(book)}>
-                            <Trash2 className="mr-1.5 size-4" />
-                            Désactiver
-                          </Button>
-                        )}
-                      </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <BooksCardGrid
+        items={items}
+        isLoading={isLoading}
+        canWrite={canWrite}
+        onEdit={(book) => { setEditingBook(book); setDialogOpen(true) }}
+        onDeactivate={setDeletingBook}
+      />
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -261,6 +176,106 @@ export function CatalogueTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+function BooksCardGrid({
+  items, isLoading, canWrite, onEdit, onDeactivate,
+}: {
+  items: Book[]
+  isLoading: boolean
+  canWrite: boolean
+  onEdit: (book: Book) => void
+  onDeactivate: (book: Book) => void
+}) {
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="space-y-2 p-5">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-40" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+            <BookOpen className="size-5" />
+          </div>
+          <p className="font-medium text-foreground">Aucun livre dans le catalogue.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {items.map((book, i) => (
+        <motion.div
+          key={book.id}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
+        >
+          <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !book.is_active && 'opacity-75')}>
+            <CardContent className="space-y-1.5 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-display text-xl font-semibold leading-tight">{book.title}</p>
+                <span
+                  className={cn(
+                    'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
+                    book.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {book.is_active ? 'Actif' : 'Désactivé'}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">par {book.author}</p>
+              <div className="flex flex-wrap gap-1">
+                {book.sections.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">Aucune section</span>
+                ) : (
+                  book.sections.map((s) => (
+                    <span key={s.id} className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                      {s.name}
+                    </span>
+                  ))
+                )}
+              </div>
+              <p className="text-sm">
+                <span className="font-medium">Disponibles :</span>{' '}
+                <span className={book.available_quantity === 0 ? 'font-semibold text-destructive' : undefined}>
+                  {book.available_quantity}/{book.total_quantity}
+                </span>
+              </p>
+              {canWrite && (
+                <div className="flex flex-wrap gap-2 pt-3">
+                  <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={() => onEdit(book)}>
+                    <Pencil className="mr-1.5 size-4" />
+                    Modifier
+                  </Button>
+                  {book.is_active && (
+                    <Button variant="ghost" size="sm" onClick={() => onDeactivate(book)}>
+                      <Trash2 className="mr-1.5 size-4" />
+                      Désactiver
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
     </div>
   )
 }

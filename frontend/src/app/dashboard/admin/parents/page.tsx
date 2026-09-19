@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -294,6 +295,8 @@ function ParentCard({
   canWrite: boolean
 }) {
   const queryClient = useQueryClient()
+  const router = useRouter()
+  const detailHref = `/dashboard/admin/parents/${parent.id}`
   const [confirmToggle, setConfirmToggle] = useState(false)
 
   const toggleMutation = useMutation({
@@ -306,7 +309,15 @@ function ParentCard({
   })
 
   return (
-    <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !parent.is_active && 'opacity-75')}>
+    <>
+      <Card
+        className={cn('cursor-pointer rounded-2xl shadow-soft transition hover:-translate-y-0.5', !parent.is_active && 'opacity-75')}
+        onClick={() => router.push(detailHref)}
+        onKeyDown={(e) => { if (e.key === 'Enter') router.push(detailHref) }}
+        tabIndex={0}
+        role="link"
+        aria-label={`Ouvrir le compte de ${parent.nickname ?? `${parent.first_name} ${parent.last_name}`}`}
+      >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-xl font-semibold leading-tight">
@@ -339,13 +350,13 @@ function ParentCard({
               <Button
                 size="sm"
                 className="rounded-xl bg-warning text-warning-foreground hover:brightness-95"
-                onClick={() => setConfirmToggle(true)}
+                onClick={(e) => { e.stopPropagation(); setConfirmToggle(true) }}
               >
                 <UserX className="mr-1.5 size-4" />
                 Désactiver
               </Button>
             ) : (
-              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => toggleMutation.mutate()} disabled={toggleMutation.isPending}>
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={(e) => { e.stopPropagation(); toggleMutation.mutate() }} disabled={toggleMutation.isPending}>
                 {toggleMutation.isPending
                   ? <Loader2 className="mr-1.5 size-4 animate-spin" />
                   : <UserCheck className="mr-1.5 size-4" />}
@@ -355,6 +366,7 @@ function ParentCard({
           )}
         </div>
       </CardContent>
+      </Card>
 
       <AlertDialog open={confirmToggle} onOpenChange={setConfirmToggle}>
         <AlertDialogContent>
@@ -378,6 +390,6 @@ function ParentCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </>
   )
 }

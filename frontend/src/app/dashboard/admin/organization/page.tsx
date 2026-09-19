@@ -24,29 +24,59 @@ export default function OrganizationPage() {
       </div>
 
       <Tabs defaultValue="departments">
-        <TabsList>
-          <TabsTrigger value="departments">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="departments"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <Building className="mr-1.5 size-4" />
             Départements
           </TabsTrigger>
-          <TabsTrigger value="sections">
+          <TabsTrigger
+            value="sections"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <LayoutGrid className="mr-1.5 size-4" />
             Sections
           </TabsTrigger>
-          <TabsTrigger value="groups">
+          <TabsTrigger
+            value="groups"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
+          >
             <Users className="mr-1.5 size-4" />
             Groupes
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="departments">
-          <DepartmentsTab />
+          <motion.div
+            key="departments"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <DepartmentsTab />
+          </motion.div>
         </TabsContent>
         <TabsContent value="sections">
-          <SectionsTab />
+          <motion.div
+            key="sections"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <SectionsTab />
+          </motion.div>
         </TabsContent>
         <TabsContent value="groups">
-          <GroupsTab />
+          <motion.div
+            key="groups"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <GroupsTab />
+          </motion.div>
         </TabsContent>
       </Tabs>
     </motion.div>

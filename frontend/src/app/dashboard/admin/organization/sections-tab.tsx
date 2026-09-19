@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,6 +24,7 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import type { Section } from '@/types/organization'
 
 const schema = z.object({
@@ -202,27 +202,27 @@ export function SectionsTab() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Département</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="w-10" />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Département</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Description</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="w-10 px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : sections.length === 0 ? (
@@ -241,15 +241,20 @@ export function SectionsTab() {
               ) : (
                 sections.map((section) => (
                   <TableRow key={section.id}>
-                    <TableCell className="font-medium">{section.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{departmentName(section.department_id)}</TableCell>
-                    <TableCell className="text-muted-foreground">{section.description ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge variant={section.is_active ? 'default' : 'outline'}>
+                    <TableCell className="px-5 py-4 font-medium">{section.name}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{departmentName(section.department_id)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{section.description ?? '—'}</TableCell>
+                    <TableCell className="px-5 py-4">
+                      <span
+                        className={cn(
+                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                          section.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         {section.is_active ? 'Actif' : 'Inactif'}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       {canWrite && (
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(section)} aria-label={`Modifier ${section.name}`}>

@@ -11,7 +11,6 @@ import { Loader2, Pencil, Plus, Search, UserMinus, UserPlus, Users } from 'lucid
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
@@ -26,6 +25,7 @@ import { useUser } from '@/lib/stores/auth.store'
 import { staffApi } from '@/lib/api/staff.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { cn } from '@/lib/utils/cn'
 import type { Group } from '@/types/organization'
 
 const schema = z.object({
@@ -280,29 +280,29 @@ export function GroupsTab() {
         </Dialog>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Section</TableHead>
-                <TableHead>Éducatrice</TableHead>
-                <TableHead>Enfants</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="w-10" />
+          <Table className="border-collapse">
+            <TableHeader className="bg-primary [&_tr]:border-transparent">
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Section</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Éducatrice</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfants</TableHead>
+                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                <TableHead className="w-10 px-5 py-4" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell />
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell className="px-5 py-4" />
                   </TableRow>
                 ))
               ) : groups.length === 0 ? (
@@ -325,12 +325,12 @@ export function GroupsTab() {
               ) : (
                 groups.map((group) => (
                   <TableRow key={group.id}>
-                    <TableCell className="font-medium">{group.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{sectionLabel(group.section_id)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="px-5 py-4 font-medium">{group.name}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">{sectionLabel(group.section_id)}</TableCell>
+                    <TableCell className="px-5 py-4 text-muted-foreground">
                       {group.educatrice.nickname || `${group.educatrice.first_name} ${group.educatrice.last_name}`}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       {canWrite && (
                       <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => openManage(group)}>
                         <Users className="size-3.5" />
@@ -338,12 +338,17 @@ export function GroupsTab() {
                       </Button>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={group.is_active ? 'default' : 'outline'}>
+                    <TableCell className="px-5 py-4">
+                      <span
+                        className={cn(
+                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                          group.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         {group.is_active ? 'Actif' : 'Inactif'}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-5 py-4">
                       {canWrite && (
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(group)} aria-label={`Modifier ${group.name}`}>

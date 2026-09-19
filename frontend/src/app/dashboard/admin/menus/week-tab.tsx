@@ -22,7 +22,6 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { addDays, mondayOf, parseIsoDate, toIsoDate } from '@/lib/utils/dates'
-import { cn } from '@/lib/utils'
 import {
   MEAL_SLOTS, MEAL_SLOT_LABELS, WEEKDAYS, WEEKDAY_LABELS, emptyWeek,
   type DayMenu, type MealSlot, type Weekday, type WeekContent,
@@ -149,14 +148,14 @@ export function WeekTab({
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="menu-department">Département</Label>
           <Select
             items={Object.fromEntries(departments.map((d) => [d.id, d.name]))}
             value={departmentId}
             onValueChange={(v) => v && onDepartmentChange(v)}
           >
-            <SelectTrigger id="menu-department" className="w-full sm:w-52">
+            <SelectTrigger id="menu-department" className="h-9 w-full sm:w-52">
               <SelectValue placeholder="Choisir un département" />
             </SelectTrigger>
             <SelectContent>
@@ -192,7 +191,7 @@ export function WeekTab({
       )}
       {departments.length > 0 && (
       <>
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="space-y-2 p-4">
@@ -203,17 +202,17 @@ export function WeekTab({
           ) : (
             <>
               <div className="hidden lg:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-40">Repas</TableHead>
+                <Table className="border-collapse">
+                  <TableHeader className="bg-primary [&_tr]:border-transparent">
+                    <TableRow className="bg-primary hover:bg-primary">
+                      <TableHead className="w-40 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Repas</TableHead>
                       {WEEKDAYS.map((day) => {
                         const isToday = dayDates[day] === today
                         return (
-                          <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
+                          <TableHead key={day} className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wide text-primary-foreground">
                             <div>{WEEKDAY_LABELS[day]}</div>
-                            <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
-                            {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
+                            <div className="text-xs font-normal normal-case text-primary-foreground/70">{formatShortDate(dayDates[day])}</div>
+                            {isToday && <Badge className="mt-1 border-transparent bg-navy text-white">Aujourd&apos;hui</Badge>}
                           </TableHead>
                         )
                       })}
@@ -224,14 +223,14 @@ export function WeekTab({
                       const Icon = MEAL_SLOT_ICONS[slot]
                       return (
                         <TableRow key={slot}>
-                          <TableCell className="font-medium">
+                          <TableCell className="px-5 py-4 font-medium">
                             <div className="flex items-center gap-1.5 text-muted-foreground">
                               <Icon className="size-4" />
                               <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
                             </div>
                           </TableCell>
                           {WEEKDAYS.map((day) => (
-                            <TableCell key={day} className="whitespace-normal">
+                            <TableCell key={day} className="whitespace-normal px-5 py-4">
                               <Input
                                 value={content[day][slot] ?? ''}
                                 onChange={(e) => setCell(day, slot, e.target.value)}

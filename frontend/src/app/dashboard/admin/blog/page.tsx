@@ -22,29 +22,59 @@ export default function BlogPage() {
       </div>
 
       <Tabs defaultValue="articles">
-        <TabsList>
-          <TabsTrigger value="articles">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="articles"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <Newspaper className="mr-1.5 size-4" />
             Articles
           </TabsTrigger>
-          <TabsTrigger value="tags">
+          <TabsTrigger
+            value="tags"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <Tags className="mr-1.5 size-4" />
             Étiquettes
           </TabsTrigger>
-          <TabsTrigger value="gallery">
+          <TabsTrigger
+            value="gallery"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
+          >
             <Images className="mr-1.5 size-4" />
             Galerie
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="articles">
-          <ArticlesTab />
+          <motion.div
+            key="articles"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <ArticlesTab />
+          </motion.div>
         </TabsContent>
         <TabsContent value="tags">
-          <TagsTab />
+          <motion.div
+            key="tags"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <TagsTab />
+          </motion.div>
         </TabsContent>
         <TabsContent value="gallery">
-          <GalleryTab />
+          <motion.div
+            key="gallery"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <GalleryTab />
+          </motion.div>
         </TabsContent>
       </Tabs>
     </motion.div>

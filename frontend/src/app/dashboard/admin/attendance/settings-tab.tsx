@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -35,35 +36,75 @@ export function SettingsTab() {
   return (
     <div className="pt-2">
       <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="general"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <Globe className="mr-1.5 size-4" />
             Général
           </TabsTrigger>
-          <TabsTrigger value="departments">
+          <TabsTrigger
+            value="departments"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <Building className="mr-1.5 size-4" />
             Départements
           </TabsTrigger>
-          <TabsTrigger value="staff">
+          <TabsTrigger
+            value="staff"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
+          >
             <Clock className="mr-1.5 size-4" />
             Personnel
           </TabsTrigger>
-          <TabsTrigger value="exemptions">
+          <TabsTrigger
+            value="exemptions"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-navy data-active:text-white data-active:shadow-md"
+          >
             <ShieldOff className="mr-1.5 size-4" />
             Exemptions
           </TabsTrigger>
         </TabsList>
         <TabsContent value="general">
-          <GeneralSettings />
+          <motion.div
+            key="general"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <GeneralSettings />
+          </motion.div>
         </TabsContent>
         <TabsContent value="departments">
-          <DepartmentSettings />
+          <motion.div
+            key="departments"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <DepartmentSettings />
+          </motion.div>
         </TabsContent>
         <TabsContent value="staff">
-          <StaffSchedulesSettings />
+          <motion.div
+            key="schedules"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <StaffSchedulesSettings />
+          </motion.div>
         </TabsContent>
         <TabsContent value="exemptions">
-          <ExemptionsSettings />
+          <motion.div
+            key="exemptions"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <ExemptionsSettings />
+          </motion.div>
         </TabsContent>
       </Tabs>
     </div>

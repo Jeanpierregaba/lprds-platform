@@ -25,6 +25,7 @@ export const reportsApi = {
     report_type?: ReportType
     child_id?: string
     group_id?: string
+    search?: string
     skip?: number
     limit?: number
   }) => apiClient.get<ReportListResponse>('/api/v1/reports', { params }),

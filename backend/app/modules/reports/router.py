@@ -120,6 +120,7 @@ async def list_reports(
     report_type: ReportType | None = Query(default=None),
     child_id: uuid.UUID | None = Query(default=None),
     group_id: uuid.UUID | None = Query(default=None),
+    search: str | None = Query(default=None, description="Nom, prénoms ou matricule de l'enfant"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> ReportListResponse:
@@ -127,7 +128,7 @@ async def list_reports(
     return await service.list_reports(
         user.establishment_id, user, db,
         report_status=report_status, report_type=report_type,
-        child_id=child_id, group_id=group_id, skip=skip, limit=limit,
+        child_id=child_id, group_id=group_id, search=search, skip=skip, limit=limit,
     )
 
 

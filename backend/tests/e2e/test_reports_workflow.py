@@ -112,8 +112,16 @@ def test_reports_workflow(client):
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-20",
        "content": VALID_CONTENT}, headers=educ1).status_code, 409)
     ck("Date future → 422", c.post("/reports", json={
-       "child_id": cid, "report_type": "quotidien", "reference_date": "2099-01-01",
-       "content": VALID_CONTENT}, headers=educ1).status_code, 422)
+        "child_id": cid, "report_type": "quotidien", "reference_date": "2099-01-01",
+        "content": VALID_CONTENT}, headers=educ1).status_code, 422)
+
+    # ── Recherche par nom d'enfant (admin comme éducatrice) ──
+    ck("Recherche 'alp' → 1 résultat", c.get(
+        "/reports?search=alp", headers=adm).json()["total"], 1)
+    ck("Recherche 'ALPHA' (insensible à la casse)", c.get(
+        "/reports?search=ALPHA", headers=educ1).json()["total"], 1)
+    ck("Recherche sans résultat → 0", c.get(
+        "/reports?search=zzz", headers=adm).json()["total"], 0)
 
     # ── Visibilité scoping par groupe ──
     lst_e1 = c.get("/reports", headers=educ1).json()

@@ -1531,7 +1531,7 @@ GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}] 
 
 GET    /api/v1/reports/vocabulary         # reports:read — labels FR (mood, behavior_tag, ...)
 POST   /api/v1/reports                    # reports:write (+ règle de groupe pour le staff)
-GET    /api/v1/reports                    # reports:read — scope auto par groupe si staff
+GET    /api/v1/reports                    # reports:read — scope auto par groupe si staff, ?search= (nom/prénoms/matricule)
 GET    /api/v1/reports/{id}
 PATCH  /api/v1/reports/{id}               # admin : tout statut ; staff : draft/rejected — revalide le contenu
 DELETE /api/v1/reports/{id}               # draft jamais soumis uniquement

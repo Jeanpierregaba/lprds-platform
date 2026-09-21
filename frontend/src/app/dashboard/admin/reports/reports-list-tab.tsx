@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Eye, FileText, LayoutGrid, List, Plus } from 'lucide-react'
+import { Eye, FileText, LayoutGrid, List, Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,18 +33,26 @@ function formatDate(iso: string) {
 export function ReportsListTab() {
   const [status, setStatus] = useState<string>(ALL)
   const [reportType, setReportType] = useState<string>(ALL)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [skip, setSkip] = useState(0)
   const [view, setView] = useState<'table' | 'cards'>('cards')
 
-  useEffect(() => setSkip(0), [status, reportType])
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  useEffect(() => setSkip(0), [status, reportType, debouncedSearch])
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['reports', 'list', { status, reportType, skip }],
+    queryKey: ['reports', 'list', { status, reportType, search: debouncedSearch, skip }],
     queryFn: () =>
       reportsApi
         .list({
           status: status === ALL ? undefined : (status as ReportStatus),
           report_type: reportType === ALL ? undefined : (reportType as ReportType),
+          search: debouncedSearch || undefined,
           skip,
           limit: PAGE_SIZE,
         })
@@ -59,6 +68,15 @@ export function ReportsListTab() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par nom, prénoms ou matricule..."
+              className="h-9 pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <Select
             items={{ [ALL]: 'Tous les statuts', ...REPORT_STATUS_LABELS }}
             value={status}

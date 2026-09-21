@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, UploadFile, status
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
@@ -219,6 +219,7 @@ async def list_reports(
     report_type: ReportType | None = None,
     child_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
+    search: str | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> ReportListResponse:
@@ -238,11 +239,25 @@ async def list_reports(
         filters.append(Report.child_id == child_id)
     if group_id:
         filters.append(Report.group_id == group_id)
+    if search:
+        pattern = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                Child.last_name.ilike(pattern),
+                Child.first_names.ilike(pattern),
+                Child.matricule.ilike(pattern),
+            )
+        )
 
-    total = await db.scalar(select(func.count()).select_from(Report).where(*filters))
+    count_stmt = select(func.count()).select_from(Report)
+    select_stmt = select(Report)
+    if search:
+        # Jointure nécessaire pour filtrer sur les colonnes de l'enfant.
+        count_stmt = count_stmt.join(Child, Child.id == Report.child_id)
+        select_stmt = select_stmt.join(Child, Child.id == Report.child_id)
+    total = await db.scalar(count_stmt.where(*filters))
     result = await db.execute(
-        select(Report)
-        .where(*filters)
+        select_stmt.where(*filters)
         .order_by(Report.created_at.desc())
         .offset(skip)
         .limit(limit)

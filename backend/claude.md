@@ -1527,7 +1527,7 @@ Un rapport soumis par un **staff** suit le circuit complet normal.
 
 ### Endpoints
 ```
-GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}]  # reports:write (GET: reports:read)
+GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}]  # ADMIN uniquement (non délégable — une éducatrice porte reports:write mais ne configure pas les types actifs)
 
 GET    /api/v1/reports/vocabulary         # reports:read — labels FR (mood, behavior_tag, ...)
 POST   /api/v1/reports                    # reports:write (+ règle de groupe pour le staff)

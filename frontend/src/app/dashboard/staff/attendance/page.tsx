@@ -49,28 +49,28 @@ export default function StaffAttendancePage() {
         <Input id="staff-attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
       </div>
 
-      <Card>
+      <Card className="overflow-hidden py-0">
         <CardContent className="p-0">
           <div className="hidden sm:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Enfant</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Arrivée</TableHead>
-                  <TableHead>Départ</TableHead>
-                  <TableHead>Retard</TableHead>
+            <Table className="border-collapse">
+              <TableHeader className="bg-primary [&_tr]:border-transparent">
+                <TableRow className="bg-primary hover:bg-primary">
+                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfant</TableHead>
+                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Arrivée</TableHead>
+                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Départ</TableHead>
+                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retard</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
                     </TableRow>
                   ))
                 ) : items.length === 0 ? (
@@ -82,13 +82,13 @@ export default function StaffAttendancePage() {
                 ) : (
                   items.map((item) => (
                     <TableRow key={item.child.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="px-5 py-4 font-medium">
                         {item.child.first_names} {item.child.last_name}
                       </TableCell>
-                      <TableCell><StatusBadge status={item.status} /></TableCell>
-                      <TableCell className="text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="px-5 py-4"><StatusBadge status={item.status} /></TableCell>
+                      <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
+                      <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
+                      <TableCell className="px-5 py-4 text-muted-foreground">
                         {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                       </TableCell>
                     </TableRow>

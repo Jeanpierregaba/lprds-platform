@@ -4,15 +4,25 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Baby } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 import { childrenApi } from '@/lib/api/children.api'
+import { cn } from '@/lib/utils/cn'
 import type { ChildListItem } from '@/types/children'
 
-function initials(firstNames: string, lastName: string) {
-  return `${firstNames[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
+function childAgeLabel(birthIso: string): string {
+  const birth = new Date(birthIso)
+  const now = new Date()
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
+  if (now.getDate() < birth.getDate()) months -= 1
+  if (months < 1) {
+    const days = Math.max(0, Math.floor((now.getTime() - birth.getTime()) / 86400000))
+    return `${days} jour${days > 1 ? 's' : ''}`
+  }
+  const years = Math.floor(months / 12)
+  const rest = months % 12
+  if (years === 0) return `${months} mois`
+  return rest === 0 ? `${years} an${years > 1 ? 's' : ''}` : `${years} an${years > 1 ? 's' : ''} ${rest} mois`
 }
 
 export default function StaffMyGroupPage() {
@@ -39,12 +49,10 @@ export default function StaffMyGroupPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
-              <CardContent className="flex items-center gap-3 p-4">
-                <Skeleton className="size-10 shrink-0 rounded-full" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
+              <CardContent className="space-y-2 p-5">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-40" />
               </CardContent>
             </Card>
           ))}
@@ -63,31 +71,41 @@ export default function StaffMyGroupPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((child: ChildListItem) => (
-            <Card key={child.id}>
-              <CardContent className="flex items-start gap-3 p-4">
-                <Avatar size="lg">
-                  <AvatarFallback>{initials(child.first_names, child.last_name)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="truncate font-medium">{child.first_names} {child.last_name}</p>
-                  <p className="font-mono text-xs text-muted-foreground">{child.matricule}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Né(e) le {new Date(child.birth_date).toLocaleDateString('fr-FR')}
+          {items.map((child: ChildListItem, i: number) => (
+            <motion.div
+              key={child.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
+            >
+              <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !child.is_active && 'opacity-75')}>
+                <CardContent className="space-y-1.5 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-display text-xl font-semibold leading-tight">
+                      {child.first_names} {child.last_name}
+                    </p>
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
+                        child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {child.is_active ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Code: <span className="font-mono">{child.matricule}</span>
                   </p>
-                  {(child.department || child.section) && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {child.department && (
-                        <Badge variant="outline" className="font-normal">{child.department.name}</Badge>
-                      )}
-                      {child.section && (
-                        <Badge variant="outline" className="font-normal">{child.section.name}</Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  <p className="text-sm">
+                    <span className="font-medium">Âge:</span> {childAgeLabel(child.birth_date)}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Section:</span>{' '}
+                    {child.section?.name ?? child.department?.name ?? '—'}
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
         </div>
       )}

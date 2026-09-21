@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_active_user
+from app.modules.auth.dependencies import get_active_user, require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.reports import service
 from app.modules.reports.dependencies import get_parent
@@ -30,6 +30,10 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 _read = require_permission(PermissionCode.REPORTS_READ)
 _write = require_permission(PermissionCode.REPORTS_WRITE)
 _validate = require_permission(PermissionCode.REPORTS_VALIDATE)
+# Types de rapport par département : configuration réservée à l'admin —
+# une éducatrice porte reports:write (elle rédige) mais ne choisit pas
+# quels types sont actifs dans chaque département.
+_admin_only = require_roles(UserRole.ADMIN)
 
 
 async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
@@ -56,7 +60,7 @@ async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
 async def list_department_report_types(
     department_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_read),
+    user: User = Depends(_admin_only),
 ) -> list[DepartmentReportTypeResponse]:
     return await service.list_department_report_types(
         department_id, user.establishment_id, db
@@ -71,7 +75,7 @@ async def assign_department_report_type(
     department_id: uuid.UUID,
     report_type: ReportType,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_admin_only),
 ) -> None:
     await service.assign_department_report_type(
         department_id, report_type, user.establishment_id, db
@@ -86,7 +90,7 @@ async def unassign_department_report_type(
     department_id: uuid.UUID,
     report_type: ReportType,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_admin_only),
 ) -> None:
     await service.unassign_department_report_type(
         department_id, report_type, user.establishment_id, db

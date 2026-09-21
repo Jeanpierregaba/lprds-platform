@@ -83,6 +83,15 @@ def test_reports_workflow(client):
     types2 = c.get(f"/reports/settings/departments/{did}/types", headers=adm).json()
     ck("1 type restant (quotidien)", [t["report_type"] for t in types2], ["quotidien"])
 
+    # ── Paramètres réservés à l'admin : une éducatrice porte reports:write
+    # (elle rédige) mais ne configure pas les types actifs par département.
+    ck("Educ1 GET settings → 403", c.get(
+        f"/reports/settings/departments/{did}/types", headers=educ1).status_code, 403)
+    ck("Educ1 POST settings → 403", c.post(
+        f"/reports/settings/departments/{did}/types/annuel", headers=educ1).status_code, 403)
+    ck("Educ1 DELETE settings → 403", c.request("DELETE",
+       f"/reports/settings/departments/{did}/types/quotidien", headers=educ1).status_code, 403)
+
     # ── Création par une éducatrice ──
     ck("Educ2 (pas le groupe) → 403", c.post("/reports", json={
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-20",

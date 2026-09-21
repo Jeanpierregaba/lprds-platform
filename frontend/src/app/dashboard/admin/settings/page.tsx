@@ -16,7 +16,9 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 const TABS = [
   { value: 'profil', label: 'Profil', icon: User },
   { value: 'presences', label: 'Présences', icon: ClipboardCheck, perm: 'attendance:write' },
-  { value: 'rapports', label: 'Rapports', icon: FileText, perm: 'reports:write' },
+  // Types activés par département : réservé à l'admin — une éducatrice porte
+  // reports:write (elle rédige) mais ne configure pas les types actifs.
+  { value: 'rapports', label: 'Rapports', icon: FileText, adminOnly: true },
   {
     value: 'bibliotheque', label: 'Bibliothèque', icon: BookOpen,
     perms: ['library:read', 'library:write', 'library:lend'],
@@ -31,6 +33,7 @@ function SettingsTabs() {
 
   const isAdmin = user?.role === 'admin'
   const visible: string[] = TABS.filter((t) => {
+    if ('adminOnly' in t && t.adminOnly) return isAdmin
     if (!('perm' in t) && !('perms' in t)) return true
     if (isAdmin) return true
     if ('perms' in t) return t.perms.every((p) => permissions.has(p))

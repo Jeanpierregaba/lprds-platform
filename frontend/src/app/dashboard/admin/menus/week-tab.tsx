@@ -149,7 +149,7 @@ export function WeekTab({
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="menu-department">Département</Label>
+          <Label htmlFor="menu-department" className="text-white font-semibold">Département</Label>
           <Select
             items={Object.fromEntries(departments.map((d) => [d.id, d.name]))}
             value={departmentId}

@@ -104,13 +104,12 @@ export const STAFF_MODULE_ITEMS: (NavItem & {
   { label: 'Organisation', href: '/dashboard/admin/organization', icon: Network, permissions: ['organization:read'] },
   // Paramètres des modules (onglets déplacés vers /dashboard/admin/settings) —
   // le staff délégué y garde accès en lien profond (?tab=), filtré ci-dessous.
+  // PAS d'entrée « Paramètres rapports » : les types activés par département
+  // sont réservés à l'admin (une éducatrice porte reports:write mais ne
+  // configure pas les types actifs — cf. backend reports/router.py).
   {
     label: 'Paramètres présences', href: '/dashboard/admin/settings?tab=presences', icon: Settings,
     permissions: ['attendance:write'],
-  },
-  {
-    label: 'Paramètres rapports', href: '/dashboard/admin/settings?tab=rapports', icon: Settings,
-    permissions: ['reports:write'],
   },
   {
     label: 'Paramètres bibliothèque', href: '/dashboard/admin/settings?tab=bibliotheque', icon: Settings,

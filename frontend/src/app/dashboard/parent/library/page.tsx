@@ -51,18 +51,30 @@ export default function ParentLibraryPage() {
       </div>
 
       <Tabs defaultValue="catalogue">
-        <TabsList>
-          <TabsTrigger value="catalogue">
+        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
+          <TabsTrigger
+            value="catalogue"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
+          >
             <BookOpen className="mr-1.5 size-4" />
             Catalogue
           </TabsTrigger>
-          <TabsTrigger value="lendings">
+          <TabsTrigger
+            value="lendings"
+            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
+          >
             <BookMarked className="mr-1.5 size-4" />
             Mes emprunts
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="catalogue" className="pt-2">
+        <TabsContent value="catalogue">
+          <motion.div
+            key="parent-catalogue"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
           {booksLoading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -107,9 +119,16 @@ export default function ParentLibraryPage() {
               ))}
             </div>
           )}
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="lendings" className="pt-2">
+        <TabsContent value="lendings">
+          <motion.div
+            key="parent-lendings"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
           {lendingsLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -167,6 +186,7 @@ export default function ParentLibraryPage() {
               </CardContent>
             </Card>
           )}
+          </motion.div>
         </TabsContent>
       </Tabs>
     </motion.div>

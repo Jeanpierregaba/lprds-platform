@@ -13,9 +13,9 @@ from app.modules.blog.models import (
     Article,
     ArticleAttachment,
     ArticleStatus,
+    BlogGalleryCategory,
     BlogGalleryPhoto,
     BlogTag,
-    GalleryCategory,
 )
 from app.modules.blog.schemas import (
     ArticleCreateRequest,
@@ -24,6 +24,10 @@ from app.modules.blog.schemas import (
     ArticleResponse,
     ArticleUpdateRequest,
     AttachmentResponse,
+    GalleryCategoryCreateRequest,
+    GalleryCategoryListResponse,
+    GalleryCategoryResponse,
+    GalleryCategoryUpdateRequest,
     GalleryPhotoListItem,
     GalleryPhotoListResponse,
     PublicArticleDetail,
@@ -339,15 +343,107 @@ async def get_article_attachment_for_staff(
 
 
 # ── Galerie du site vitrine ──────────────────────────────────────
+async def create_gallery_category(
+    payload: GalleryCategoryCreateRequest, establishment_id: uuid.UUID, db: AsyncSession
+) -> GalleryCategoryResponse:
+    """Comme create_tag : nom libre unique par établissement (409 sinon)."""
+    existing = await db.scalar(
+        select(BlogGalleryCategory.id).where(
+            BlogGalleryCategory.establishment_id == establishment_id,
+            BlogGalleryCategory.name == payload.name,
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Une catégorie porte déjà ce nom",
+        )
+    category = BlogGalleryCategory(establishment_id=establishment_id, name=payload.name)
+    db.add(category)
+    await db.flush()
+    await db.refresh(category)
+    return _gallery_category_response(category)
+
+
+async def list_gallery_categories(
+    establishment_id: uuid.UUID, db: AsyncSession
+) -> GalleryCategoryListResponse:
+    result = await db.execute(
+        select(BlogGalleryCategory)
+        .where(BlogGalleryCategory.establishment_id == establishment_id)
+        .order_by(BlogGalleryCategory.name)
+    )
+    return GalleryCategoryListResponse(items=[
+        _gallery_category_response(c) for c in result.scalars().all()
+    ])
+
+
+async def update_gallery_category(
+    category_id: uuid.UUID, payload: GalleryCategoryUpdateRequest,
+    establishment_id: uuid.UUID, db: AsyncSession,
+) -> GalleryCategoryResponse:
+    category = await _get_gallery_category_or_404(category_id, establishment_id, db)
+    existing = await db.scalar(
+        select(BlogGalleryCategory.id).where(
+            BlogGalleryCategory.establishment_id == establishment_id,
+            BlogGalleryCategory.name == payload.name,
+            BlogGalleryCategory.id != category_id,
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Une catégorie porte déjà ce nom",
+        )
+    category.name = payload.name
+    await db.flush()
+    return _gallery_category_response(category)
+
+
+async def delete_gallery_category(
+    category_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> None:
+    """Suppression définitive — les photos restent publiées mais passent « sans
+    catégorie » (FK ON DELETE SET NULL), comme les articles sans étiquette."""
+    category = await _get_gallery_category_or_404(category_id, establishment_id, db)
+    await db.delete(category)
+    await db.flush()
+
+
+async def _get_gallery_category_or_404(
+    category_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> BlogGalleryCategory:
+    category = await db.scalar(
+        select(BlogGalleryCategory).where(
+            BlogGalleryCategory.id == category_id,
+            BlogGalleryCategory.establishment_id == establishment_id,
+        )
+    )
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catégorie introuvable")
+    return category
+
+
+def _gallery_category_response(category: BlogGalleryCategory) -> GalleryCategoryResponse:
+    return GalleryCategoryResponse(id=category.id, name=category.name, created_at=category.created_at)
+
+
+def _category_brief(category: BlogGalleryCategory | None) -> TagBrief | None:
+    if category is None:
+        return None
+    return TagBrief(id=category.id, name=category.name)
+
+
 async def create_gallery_photo(
     establishment_id: uuid.UUID,
     editor: User,
-    category: GalleryCategory,
+    category_id: uuid.UUID,
     file: UploadFile,
     db: AsyncSession,
 ) -> GalleryPhotoListItem:
-    """Upload = publication immédiate (pas de workflow). Catégorie filtrée à la
-    frontière de l'API via GalleryCategory (422 si inconnue)."""
+    """Upload = publication immédiate (pas de workflow). La catégorie doit
+    appartenir à l'établissement (404 sinon)."""
+    category = await _get_gallery_category_or_404(category_id, establishment_id, db)
     content_bytes = await file.read()
     content_type = file.content_type or ""
     _validate_gallery_photo(content_bytes, content_type)
@@ -355,7 +451,7 @@ async def create_gallery_photo(
     storage_key = await storage.save_file(_GALLERY_SUBFOLDER, file.filename or "photo", content_bytes)
     photo = BlogGalleryPhoto(
         establishment_id=establishment_id,
-        category=category.value,
+        category_id=category.id,
         filename=file.filename or "photo",
         content_type=content_type,
         size_bytes=len(content_bytes),
@@ -372,13 +468,13 @@ async def list_gallery_photos(
     establishment_id: uuid.UUID,
     db: AsyncSession,
     *,
-    category: GalleryCategory | None = None,
+    category_id: uuid.UUID | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> GalleryPhotoListResponse:
     filters = [BlogGalleryPhoto.establishment_id == establishment_id]
-    if category:
-        filters.append(BlogGalleryPhoto.category == category.value)
+    if category_id:
+        filters.append(BlogGalleryPhoto.category_id == category_id)
 
     total = await db.scalar(select(func.count()).select_from(BlogGalleryPhoto).where(*filters))
     result = await db.execute(
@@ -414,14 +510,14 @@ async def list_public_gallery_photos(
     establishment_code: str,
     db: AsyncSession,
     *,
-    category: GalleryCategory | None = None,
+    category_id: uuid.UUID | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> PublicGalleryListResponse:
     establishment = await get_public_establishment_or_404(establishment_code, db)
     filters = [BlogGalleryPhoto.establishment_id == establishment.id]
-    if category:
-        filters.append(BlogGalleryPhoto.category == category.value)
+    if category_id:
+        filters.append(BlogGalleryPhoto.category_id == category_id)
 
     total = await db.scalar(select(func.count()).select_from(BlogGalleryPhoto).where(*filters))
     result = await db.execute(
@@ -433,13 +529,21 @@ async def list_public_gallery_photos(
     )
     items = [
         PublicGalleryPhoto(
-            id=p.id, category=p.category, content_type=p.content_type,
+            id=p.id, category=_category_brief(p.category), content_type=p.content_type,
             size_bytes=p.size_bytes, created_at=p.created_at,
             url=_public_gallery_url(establishment_code, p.id),
         )
         for p in result.scalars().all()
     ]
     return PublicGalleryListResponse(total=total or 0, items=items)
+
+
+async def list_public_gallery_categories(
+    establishment_code: str, db: AsyncSession
+) -> GalleryCategoryListResponse:
+    """Catégories pour les pastilles de filtre du site vitrine (public)."""
+    establishment = await get_public_establishment_or_404(establishment_code, db)
+    return await list_gallery_categories(establishment.id, db)
 
 
 async def get_public_gallery_photo(
@@ -731,7 +835,7 @@ def _public_gallery_url(establishment_code: str, photo_id: uuid.UUID) -> str:
 
 def _gallery_item(photo: BlogGalleryPhoto) -> GalleryPhotoListItem:
     return GalleryPhotoListItem(
-        id=photo.id, category=photo.category, filename=photo.filename,
+        id=photo.id, category=_category_brief(photo.category), filename=photo.filename,
         content_type=photo.content_type, size_bytes=photo.size_bytes,
         uploaded_by=_user_brief(photo.uploaded_by), created_at=photo.created_at,
         url=_internal_gallery_url(photo.id),

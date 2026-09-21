@@ -5,21 +5,27 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Reveal } from './reveal'
-import { GALLERY_CATEGORIES } from '@/lib/marketing/data'
-import { GALLERY_PHOTO_CATEGORIES, type GalleryCategory } from '@/types/blog'
+import type { GalleryPhotoCategory } from '@/types/blog'
 
 export type LiveGalleryItem = {
   id: string
-  category: GalleryCategory
+  category: GalleryPhotoCategory | null
   url: string
 }
 
-export function GalleryExplorer({ items }: { items: LiveGalleryItem[] }) {
-  const [filter, setFilter] = useState<(typeof GALLERY_CATEGORIES)[number]['id']>('all')
+export function GalleryExplorer({
+  items, categories,
+}: {
+  items: LiveGalleryItem[]
+  categories: GalleryPhotoCategory[]
+}) {
+  const [filter, setFilter] = useState<string>('all')
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
-  const visible = filter === 'all' ? items : items.filter((g) => g.category === filter)
+  const visible = filter === 'all' ? items : items.filter((g) => g.category?.id === filter)
   const active = activeIndex !== null ? visible[activeIndex] : null
+  const categoryName = (id: string | null) =>
+    id === null ? 'Sans catégorie' : categories.find((c) => c.id === id)?.name ?? 'Sans catégorie'
 
   const go = (delta: number) => {
     if (activeIndex === null || visible.length === 0) return
@@ -29,7 +35,19 @@ export function GalleryExplorer({ items }: { items: LiveGalleryItem[] }) {
   return (
     <>
       <div className="flex flex-wrap justify-center gap-2">
-        {GALLERY_CATEGORIES.map((c) => (
+        <button
+          key="all"
+          type="button"
+          onClick={() => { setFilter('all'); setActiveIndex(null) }}
+          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+            filter === 'all'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary'
+          }`}
+        >
+          Tout voir
+        </button>
+        {categories.map((c) => (
           <button
             key={c.id}
             type="button"
@@ -67,14 +85,14 @@ export function GalleryExplorer({ items }: { items: LiveGalleryItem[] }) {
               >
                 <Image
                   src={item.url}
-                  alt={GALLERY_PHOTO_CATEGORIES[item.category]}
+                  alt={categoryName(item.category?.id ?? null)}
                   fill
                   unoptimized
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                 />
                 <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/0 to-black/0 p-4 opacity-0 transition-opacity group-hover:opacity-100">
-                  <p className="text-sm font-medium text-white">{GALLERY_PHOTO_CATEGORIES[item.category]}</p>
+                  <p className="text-sm font-medium text-white">{categoryName(item.category?.id ?? null)}</p>
                 </div>
               </button>
             </Reveal>
@@ -87,10 +105,10 @@ export function GalleryExplorer({ items }: { items: LiveGalleryItem[] }) {
           {active && (
             <div className="relative">
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl sm:aspect-video">
-                <Image src={active.url} alt={GALLERY_PHOTO_CATEGORIES[active.category]} fill unoptimized className="object-cover" sizes="(max-width: 768px) 100vw, 768px" />
+                <Image src={active.url} alt={categoryName(active.category?.id ?? null)} fill unoptimized className="object-cover" sizes="(max-width: 768px) 100vw, 768px" />
               </div>
               <div className="mt-3 text-center text-white">
-                <p className="font-display text-lg">{GALLERY_PHOTO_CATEGORIES[active.category]}</p>
+                <p className="font-display text-lg">{categoryName(active.category?.id ?? null)}</p>
               </div>
               <DialogClose
                 className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-white text-foreground shadow-lg transition-colors hover:bg-muted"

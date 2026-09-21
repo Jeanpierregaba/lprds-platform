@@ -7,13 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.modules.auth.models import User
 from app.modules.blog import service
-from app.modules.blog.models import ArticleStatus, GalleryCategory
+from app.modules.blog.models import ArticleStatus
 from app.modules.blog.schemas import (
     ArticleCreateRequest,
     ArticleListResponse,
     ArticleResponse,
     ArticleUpdateRequest,
     AttachmentResponse,
+    GalleryCategoryCreateRequest,
+    GalleryCategoryListResponse,
+    GalleryCategoryResponse,
+    GalleryCategoryUpdateRequest,
     GalleryPhotoListItem,
     GalleryPhotoListResponse,
     TagCreateRequest,
@@ -197,32 +201,79 @@ async def delete_article_attachment(
 
 
 # ── Galerie du site vitrine ──────────────────────────────────────
+# ⚠️ Les routes /gallery/categories* sont déclarées AVANT /gallery/{photo_id} :
+# « categories » ne parse pas en UUID et tomberait sinon en 422.
+@router.post(
+    "/gallery/categories",
+    response_model=GalleryCategoryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_gallery_category(
+    payload: GalleryCategoryCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> GalleryCategoryResponse:
+    """Crée une catégorie de photo (nom libre, unique par établissement)."""
+    return await service.create_gallery_category(payload, user.establishment_id, db)
+
+
+@router.get("/gallery/categories", response_model=GalleryCategoryListResponse)
+async def list_gallery_categories(
+    db: AsyncSession = Depends(get_db), user: User = Depends(_write)
+) -> GalleryCategoryListResponse:
+    return await service.list_gallery_categories(user.establishment_id, db)
+
+
+@router.patch(
+    "/gallery/categories/{category_id}", response_model=GalleryCategoryResponse
+)
+async def update_gallery_category(
+    category_id: uuid.UUID,
+    payload: GalleryCategoryUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> GalleryCategoryResponse:
+    return await service.update_gallery_category(
+        category_id, payload, user.establishment_id, db
+    )
+
+
+@router.delete("/gallery/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_gallery_category(
+    category_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> None:
+    """Suppression définitive — les photos restent publiées, sans catégorie."""
+    await service.delete_gallery_category(category_id, user.establishment_id, db)
+
+
 @router.post(
     "/gallery",
     response_model=GalleryPhotoListItem,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_gallery_photo(
-    category: GalleryCategory = Form(...),
+    category_id: uuid.UUID = Form(...),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
 ) -> GalleryPhotoListItem:
-    """Upload = publication immédiate sur le site vitrine. Catégorie 422 si
-    inconnue (GalleryCategory + Form, validé à la frontière de l'API)."""
-    return await service.create_gallery_photo(user.establishment_id, user, category, file, db)
+    """Upload = publication immédiate sur le site vitrine. 404 si la catégorie
+    n'appartient pas à l'établissement."""
+    return await service.create_gallery_photo(user.establishment_id, user, category_id, file, db)
 
 
 @router.get("/gallery", response_model=GalleryPhotoListResponse)
 async def list_gallery_photos(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
-    category: GalleryCategory | None = Query(default=None),
+    category_id: uuid.UUID | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> GalleryPhotoListResponse:
     return await service.list_gallery_photos(
-        user.establishment_id, db, category=category, skip=skip, limit=limit
+        user.establishment_id, db, category_id=category_id, skip=skip, limit=limit
     )
 
 

@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.modules.blog import service
-from app.modules.blog.models import GalleryCategory
 from app.modules.blog.schemas import (
+    GalleryCategoryListResponse,
     PublicArticleDetail,
     PublicArticleListResponse,
     PublicGalleryListResponse,
@@ -81,18 +81,31 @@ async def download_public_attachment(
 
 
 # ── Galerie (site vitrine, SANS authentification) ────────────────
+@router.get(
+    "/{establishment_code}/gallery/categories",
+    response_model=GalleryCategoryListResponse,
+)
+async def list_public_gallery_categories(
+    establishment_code: str,
+    db: AsyncSession = Depends(get_db),
+) -> GalleryCategoryListResponse:
+    """Catégories pour les pastilles de filtre (jamais d'identifiant exposé :
+    seuls id+nom sont renvoyés, comme pour les étiquettes)."""
+    return await service.list_public_gallery_categories(establishment_code, db)
+
+
 @router.get("/{establishment_code}/gallery", response_model=PublicGalleryListResponse)
 async def list_public_gallery(
     establishment_code: str,
     db: AsyncSession = Depends(get_db),
-    category: GalleryCategory | None = Query(default=None),
+    category_id: uuid.UUID | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> PublicGalleryListResponse:
     """Toutes les photos de l'établissement — la galerie étant « publication
     immédiate », tout ce qui est uploadé est visible (pas de statut à filtrer)."""
     return await service.list_public_gallery_photos(
-        establishment_code, db, category=category, skip=skip, limit=limit
+        establishment_code, db, category_id=category_id, skip=skip, limit=limit
     )
 
 

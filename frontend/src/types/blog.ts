@@ -17,15 +17,14 @@ export interface TagBrief {
   name: string
 }
 
-export type GalleryCategory = 'activities' | 'outdoor' | 'meals' | 'rest' | 'events' | 'environment'
+export interface GalleryPhotoCategory {
+  id: string
+  name: string
+  created_at: string
+}
 
-export const GALLERY_PHOTO_CATEGORIES: Record<GalleryCategory, string> = {
-  activities: 'Activités manuelles',
-  outdoor: 'Jeux extérieurs',
-  meals: 'Repas',
-  rest: 'Temps calme',
-  events: 'Fêtes & sorties',
-  environment: 'Cadre'
+export interface GalleryPhotoCategoryListResponse {
+  items: GalleryPhotoCategory[]
 }
 
 export interface BlogTag {
@@ -50,7 +49,7 @@ export interface BlogAttachment {
 
 export interface GalleryPhoto {
   id: string
-  category: GalleryCategory
+  category: GalleryPhotoCategory | null
   filename: string
   content_type: string
   size_bytes: number

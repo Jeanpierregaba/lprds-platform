@@ -43,16 +43,34 @@ class ArticleStatus(StrEnum):
     PUBLISHED = "published"
 
 
-class GalleryCategory(StrEnum):
-    """Catégories de la galerie du site vitrine — vocabulaire figé qui reflète
-    `GALLERY_CATEGORIES` côté frontend (data.ts). Stables, jamais les phrases
-    françaises brutes — même pattern que ArticleStatus/PermissionCode."""
+class BlogGalleryCategory(Base):
+    """Catégorie de photo de la galerie — liste libre gérée par
+    l'admin/rédacteur (créée à la volée), comme BlogTag pour les articles.
+    Remplace l'ancien enum figé GalleryCategory (migration) : la variété des
+    sujets d'une galerie photo ne se prête pas à un vocabulaire fermé."""
 
-    ACTIVITIES = "activities"
-    OUTDOOR    = "outdoor"
-    MEALS      = "meals"
-    REST       = "rest"
-    EVENTS     = "events"
+    __tablename__ = "blog_gallery_categories"
+    __table_args__ = (
+        UniqueConstraint("establishment_id", "name", name="uq_blog_gallery_category_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    establishment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("establishments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<BlogGalleryCategory {self.name}>"
 
 
 class BlogTag(Base):
@@ -180,9 +198,9 @@ class ArticleAttachment(Base):
 class BlogGalleryPhoto(Base):
     """Photo de la galerie du site vitrine. Liste volontairement simple :
     1 ligne = 1 photo, upload = publication immédiate (pas de workflow, pas de
-    titre/légende — cf. décisions produit), catégorie pageant reflet des
-    catégories frontend (GalleryCategory). Table dédiée, même pattern que
-    ArticleAttachment."""
+    titre/légende — cf. décisions produit), catégorie libre
+    (BlogGalleryCategory, NULL = sans catégorie, ex. après suppression de sa
+    catégorie). Table dédiée, même pattern que ArticleAttachment."""
 
     __tablename__ = "blog_gallery_photos"
     __mapper_args__ = {"eager_defaults": True}
@@ -196,7 +214,11 @@ class BlogGalleryPhoto(Base):
         nullable=False,
         index=True,
     )
-    category: Mapped[str] = mapped_column(String(20), nullable=False)
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("blog_gallery_categories.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -209,7 +231,8 @@ class BlogGalleryPhoto(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
+    category: Mapped["BlogGalleryCategory | None"] = relationship(lazy="selectin")
     uploaded_by: Mapped["User"] = relationship(lazy="selectin")
 
     def __repr__(self) -> str:
-        return f"<BlogGalleryPhoto {self.category} {self.filename}>"
+        return f"<BlogGalleryPhoto {self.category_id} {self.filename}>"

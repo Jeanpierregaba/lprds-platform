@@ -305,12 +305,3 @@ export const PARTNERS = [
   { name: 'Professeure de danse', role: 'Favorise l’expression corporelle et le rythme.' },
   { name: 'Maître d’armes d’escrime', role: 'Stimule la concentration, les réflexes et l’esprit sportif.' },
 ] as const
-
-export const GALLERY_CATEGORIES = [
-  { id: 'all', name: 'Tout voir' },
-  { id: 'activities', name: 'Activités manuelles' },
-  { id: 'outdoor', name: 'Jeux extérieurs' },
-  { id: 'meals', name: 'Repas' },
-  { id: 'rest', name: 'Temps calme' },
-  { id: 'events', name: 'Fêtes & sorties' },
-] as const

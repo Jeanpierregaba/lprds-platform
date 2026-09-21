@@ -9,7 +9,7 @@
  */
 
 import type { PublicBlogPostItem, PublicBlogTag, PublicGalleryPhoto } from '@/types/public-blog'
-import type { GalleryCategory } from '@/types/blog'
+import type { GalleryPhotoCategory } from '@/types/blog'
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '')
 const ESTABLISHMENT_CODE = process.env.NEXT_PUBLIC_ESTABLISHMENT_CODE ?? 'LPRDS'
@@ -91,10 +91,18 @@ export async function fetchPublicBlogTags(): Promise<PublicBlogTag[]> {
 }
 
 /** Photos de la galerie du site vitrine (toutes catégories ou une seule). */
-export async function fetchPublicGallery(category?: GalleryCategory): Promise<PublicGalleryPhoto[]> {
-  const query = category ? `?category=${category}` : ''
+export async function fetchPublicGallery(categoryId?: string): Promise<PublicGalleryPhoto[]> {
+  const query = categoryId ? `?category_id=${categoryId}` : ''
   const data = await getJson<{ total: number; items: PublicGalleryPhoto[] }>(
     `/api/v1/public/blog/${ESTABLISHMENT_CODE}/gallery${query}`
+  )
+  return data?.items ?? []
+}
+
+/** Catégories de la galerie — pastilles de filtre (jamais d'identifiant exposé). */
+export async function fetchPublicGalleryCategories(): Promise<GalleryPhotoCategory[]> {
+  const data = await getJson<{ items: GalleryPhotoCategory[] }>(
+    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/gallery/categories`
   )
   return data?.items ?? []
 }

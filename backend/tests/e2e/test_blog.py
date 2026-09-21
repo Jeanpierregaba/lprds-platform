@@ -141,41 +141,70 @@ def test_blog(client):
     list_all = c.get("/blog/articles?include_inactive=true", headers=redac1).json()
     ck("include_inactive=true → 2 (brouillon + supprimé)", list_all["total"], 2)
 
-    # ── Galerie du site vitrine ──
+    # ── Galerie du site vitrine : catégories libres (comme les étiquettes) ──
+    ck("Éducatrice sans blog:write ne peut pas créer de catégorie → 403", c.post(
+       "/blog/gallery/categories", json={"name": "Fêtes"},
+       headers=educ).status_code, 403)
+    cat1 = c.post("/blog/gallery/categories", json={"name": "Fêtes"},
+                  headers=redac1).json()
+    ck("Création catégorie galerie → nom", cat1["name"], "Fêtes")
+    ck("Doublon catégorie → 409", c.post(
+       "/blog/gallery/categories", json={"name": "Fêtes"},
+       headers=redac1).status_code, 409)
+    cat2 = c.post("/blog/gallery/categories", json={"name": "Repas"},
+                  headers=redac1).json()
+    cats = c.get("/blog/gallery/categories", headers=redac1).json()
+    ck("Liste catégories → 2", len(cats["items"]), 2)
+
     ck("Éducatrice sans blog:write ne peut pas uploader → 403", c.post(
-       "/blog/gallery", data={"category": "activities"},
+       "/blog/gallery", data={"category_id": cat1["id"]},
        files={"file": ("g1.png", PNG, "image/png")}, headers=educ).status_code, 403)
-    up1 = c.post("/blog/gallery", data={"category": "activities"},
+    up1 = c.post("/blog/gallery", data={"category_id": cat1["id"]},
                  files={"file": ("g1.png", PNG, "image/png")}, headers=redac1)
     ck("Upload galerie → 201", up1.status_code, 201)
-    ck("  catégorie renseignée", up1.json()["category"], "activities")
+    ck("  catégorie renseignée", up1.json()["category"]["name"], "Fêtes")
     ck("  url interne présente", up1.json()["url"] is not None, True)
     gid = up1.json()["id"]
-    up2 = c.post("/blog/gallery", data={"category": "meals"},
+    up2 = c.post("/blog/gallery", data={"category_id": cat2["id"]},
                  files={"file": ("g2.png", PNG, "image/png")}, headers=redac1)
-    ck("2e upload (meals) → 201", up2.status_code, 201)
+    ck("2e upload (Repas) → 201", up2.status_code, 201)
     gid2 = up2.json()["id"]
-    ck("Catégorie inconnue → 422", c.post(
-       "/blog/gallery", data={"category": "toto"},
-       files={"file": ("g.png", PNG, "image/png")}, headers=redac1).status_code, 422)
+    ck("Catégorie inconnue → 404", c.post(
+       "/blog/gallery", data={"category_id": "00000000-0000-0000-0000-000000000000"},
+       files={"file": ("g.png", PNG, "image/png")}, headers=redac1).status_code, 404)
     ck("Vidéo refusée dans la galerie → 422", c.post(
-       "/blog/gallery", data={"category": "events"},
+       "/blog/gallery", data={"category_id": cat1["id"]},
        files={"file": ("v.mp4", b"\x00\x00\x00\x18ftypmp42fake", "video/mp4")},
        headers=redac1).status_code, 422)
     ck("SVG refusé → 422", c.post(
-       "/blog/gallery", data={"category": "events"},
+       "/blog/gallery", data={"category_id": cat1["id"]},
        files={"file": ("s.svg", b"<svg></svg>", "image/svg+xml")},
        headers=redac1).status_code, 422)
 
     gal = c.get("/blog/gallery", headers=redac1).json()
     ck("Liste interne → 2 photos", gal["total"], 2)
     ck("  tri récent d'abord", gal["items"][0]["id"], gid2)
-    gal_meals = c.get("/blog/gallery?category=meals", headers=redac1).json()
-    ck("Filtre catégorie (interne) → 1", gal_meals["total"], 1)
-    ck("  uploaded_by présent", gal_meals["items"][0]["uploaded_by"]["last_name"], "Un")
+    gal_cat = c.get(f"/blog/gallery?category_id={cat2['id']}", headers=redac1).json()
+    ck("Filtre catégorie (interne) → 1", gal_cat["total"], 1)
+    ck("  uploaded_by présent", gal_cat["items"][0]["uploaded_by"]["last_name"], "Un")
     img = c.get(f"/blog/gallery/{gid}/image", headers=redac1)
     ck("Téléchargement image interne → 200", img.status_code, 200)
     ck("  contenu PNG correct", img.content, PNG)
+
+    # ── Renommage + suppression : les photos restent, sans catégorie ──
+    ck("Renommage catégorie → 200", c.patch(
+       f"/blog/gallery/categories/{cat1['id']}", json={"name": "Célébrations"},
+       headers=redac1).status_code, 200)
+    ck("  nom propagé sur la photo", c.get(
+       "/blog/gallery", headers=redac1).json()["items"][1]["category"]["name"],
+       "Célébrations")
+    ck("Suppression catégorie → 204", c.delete(
+       f"/blog/gallery/categories/{cat1['id']}", headers=redac1).status_code, 204)
+    after_del = c.get("/blog/gallery", headers=redac1).json()
+    ck("  photo conservée après suppression de sa catégorie",
+       after_del["total"], 2)
+    ck("  catégorie passée à null",
+       [i for i in after_del["items"] if i["id"] == gid][0]["category"], None)
 
     # ── Publication immédiate : visible du site public dès l'upload ──
     pub_gal = c.get("/public/blog/LPRDS/gallery")
@@ -183,7 +212,10 @@ def test_blog(client):
     ck("  2 photos visibles", pub_gal.json()["total"], 2)
     ck("  URL publique vers /public/blog/.../gallery/...",
        pub_gal.json()["items"][0]["url"].startswith("/api/v1/public/blog/LPRDS/gallery/"), True)
-    pub_gal_cat = c.get("/public/blog/LPRDS/gallery?category=activities")
+    pub_cats = c.get("/public/blog/LPRDS/gallery/categories")
+    ck("Catégories publiques → 200", pub_cats.status_code, 200)
+    ck("  1 restante (Repas)", [cc["name"] for cc in pub_cats.json()["items"]], ["Repas"])
+    pub_gal_cat = c.get(f"/public/blog/LPRDS/gallery?category_id={cat2['id']}")
     ck("Filtre catégorie public → 1", pub_gal_cat.json()["total"], 1)
     pub_img = c.get(f"/public/blog/LPRDS/gallery/{gid}/image")
     ck("Téléchargement image publique → 200", pub_img.status_code, 200)

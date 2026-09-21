@@ -1,7 +1,8 @@
 import { apiClient } from './client'
 import type {
   Article, ArticleCreatePayload, ArticleListResponse, ArticleStatus, ArticleUpdatePayload,
-  BlogAttachment, BlogTag, BlogTagListResponse, GalleryCategory, GalleryPhoto, GalleryPhotoListResponse,
+  BlogAttachment, BlogTag, BlogTagListResponse, GalleryPhoto, GalleryPhotoCategory,
+  GalleryPhotoCategoryListResponse, GalleryPhotoListResponse,
 } from '@/types/blog'
 
 export const blogApi = {
@@ -50,12 +51,24 @@ export const blogApi = {
   deleteAttachment: (articleId: string, attachmentId: string) =>
     apiClient.delete<void>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`),
 
-  listGallery: (params?: { category?: GalleryCategory; skip?: number; limit?: number }) =>
+  listGalleryCategories: () =>
+    apiClient.get<GalleryPhotoCategoryListResponse>('/api/v1/blog/gallery/categories'),
+
+  createGalleryCategory: (name: string) =>
+    apiClient.post<GalleryPhotoCategory>('/api/v1/blog/gallery/categories', { name }),
+
+  updateGalleryCategory: (id: string, name: string) =>
+    apiClient.patch<GalleryPhotoCategory>(`/api/v1/blog/gallery/categories/${id}`, { name }),
+
+  deleteGalleryCategory: (id: string) =>
+    apiClient.delete<void>(`/api/v1/blog/gallery/categories/${id}`),
+
+  listGallery: (params?: { category_id?: string; skip?: number; limit?: number }) =>
     apiClient.get<GalleryPhotoListResponse>('/api/v1/blog/gallery', { params }),
 
-  uploadGallery: (category: GalleryCategory, file: File) => {
+  uploadGallery: (categoryId: string, file: File) => {
     const form = new FormData()
-    form.append('category', category)
+    form.append('category_id', categoryId)
     form.append('file', file)
     return apiClient.post<GalleryPhoto>('/api/v1/blog/gallery', form)
   },

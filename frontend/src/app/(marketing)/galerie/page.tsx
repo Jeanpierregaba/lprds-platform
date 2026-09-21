@@ -4,7 +4,7 @@ import { PageHero } from '@/components/marketing/page-hero'
 import { GalleryExplorer } from '@/components/marketing/gallery-explorer'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { BRAND } from '@/lib/marketing/data'
-import { fetchPublicGallery } from '@/lib/api/public-blog.api'
+import { fetchPublicGallery, fetchPublicGalleryCategories } from '@/lib/api/public-blog.api'
 
 export const metadata: Metadata = {
   title: `Galerie — ${BRAND.name}`,
@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function GalleryPage() {
   const photos = await fetchPublicGallery()
+  const categories = await fetchPublicGalleryCategories()
 
   return (
     <>
@@ -28,7 +29,7 @@ export default async function GalleryPage() {
 
       <section className="px-6 py-16 sm:py-20 lg:px-8">
         <div className="mx-auto max-w-6xl">
-          <GalleryExplorer items={photos} />
+          <GalleryExplorer items={photos} categories={categories} />
         </div>
       </section>
 

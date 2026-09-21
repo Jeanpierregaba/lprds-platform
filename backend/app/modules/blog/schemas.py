@@ -113,9 +113,27 @@ class PublicArticleDetail(BaseModel):
 
 
 # ── Galerie du site vitrine ──────────────────────────────────────
+class GalleryCategoryCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+
+class GalleryCategoryUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+
+class GalleryCategoryResponse(BaseModel):
+    id:         uuid.UUID
+    name:       str
+    created_at: datetime
+
+
+class GalleryCategoryListResponse(BaseModel):
+    items: list[GalleryCategoryResponse]
+
+
 class GalleryPhotoListItem(BaseModel):
     id:           uuid.UUID
-    category:     str
+    category:     TagBrief | None
     filename:     str
     content_type: str
     size_bytes:   int
@@ -131,7 +149,7 @@ class GalleryPhotoListResponse(BaseModel):
 
 class PublicGalleryPhoto(BaseModel):
     id:           uuid.UUID
-    category:     str
+    category:     TagBrief | None
     content_type: str
     size_bytes:   int
     created_at:   datetime

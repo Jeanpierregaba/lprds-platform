@@ -78,7 +78,7 @@ export default function ParentReportDetailPage() {
     >
       <Link
         href="/dashboard/parent/reports"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm text-white font-semibold"
       >
         <ArrowLeft className="size-4" />
         Retour à la liste

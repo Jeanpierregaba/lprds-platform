@@ -12,7 +12,6 @@ import { Reveal } from '@/components/marketing/reveal'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { STATS, SECTIONS, BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, sortByPublished, fetchPublicGallery } from '@/lib/api/public-blog.api'
-import { GALLERY_PHOTO_CATEGORIES } from '@/types/blog'
 import heroImg from '../../../public/images/marketing/hero-img.png'
 
 // Icône Lucide par section (aperçu accueil : 3 sections crèche) — voir aussi
@@ -206,7 +205,7 @@ export default async function HomePage() {
                   >
                     <Image
                       src={photo.url}
-                      alt={GALLERY_PHOTO_CATEGORIES[photo.category]}
+                      alt={photo.category?.name ?? 'Photo de la galerie'}
                       fill
                       unoptimized
                       className="object-cover transition-transform duration-500 hover:scale-105"

@@ -46,7 +46,7 @@ from app.modules.rbac.models import (
 )
 from app.modules.reports.models import DepartmentReportType, Report, ReportAttachment, ReportRead
 from app.modules.notifications.models import PushSubscription
-from app.modules.blog.models import Article, ArticleAttachment, BlogGalleryPhoto, BlogTag
+from app.modules.blog.models import Article, ArticleAttachment, BlogGalleryCategory, BlogGalleryPhoto, BlogTag
 
 __all__ = [
     "Base",

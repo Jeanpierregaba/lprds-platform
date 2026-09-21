@@ -4,7 +4,7 @@
  * camelCase côté frontend.
  */
 
-import type { GalleryCategory } from './blog'
+import type { GalleryPhotoCategory } from './blog'
 
 export interface PublicBlogTag {
   id: string
@@ -31,7 +31,7 @@ export interface PublicBlogPostPreview extends PublicBlogPostItem {
 /** Photo de la galerie du site vitrine — consultable sans authentification. */
 export interface PublicGalleryPhoto {
   id: string
-  category: GalleryCategory
+  category: GalleryPhotoCategory | null
   content_type: string
   size_bytes: number
   created_at: string

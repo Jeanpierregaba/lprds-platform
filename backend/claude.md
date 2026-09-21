@@ -1853,6 +1853,28 @@ une, médias) avant d'être rendu public via `POST /articles/{id}/publish`.
 `GET /blog/articles` exclut les inactifs par défaut ; `?include_inactive=true`
 les inclut (vue de gestion complète, réservée à `blog:write`).
 
+### Galerie du site vitrine — catégories libres (comme les étiquettes)
+
+Les photos (`blog_gallery_photos`, upload = publication immédiate, suppression
+définitive) sont classées par **catégories créées à la volée** (`blog_gallery_categories`,
+nom unique par établissement — migration `b71c4e02a9f3`). L'ancien enum figé
+`GalleryCategory` (6 codes en dur) est supprimé : à la migration, une catégorie
+a été créée par ancien code retrouvé (libellés FR historiques), photos
+rattachées, sans orphelin.
+
+- CRUD complet `blog:write` : `POST/GET /blog/gallery/categories`,
+  `PATCH/DELETE /blog/gallery/categories/{id}` (409 sur doublon, comme les
+  étiquettes). Supprimer une catégorie **conserve les photos**, qui passent
+  « sans catégorie » (`category_id` NULL, FK `ON DELETE SET NULL`).
+- Upload `POST /blog/gallery` avec `category_id` (Form, **requis**, 404 si hors
+  établissement) ; filtre `GET /blog/gallery?category_id=` ; la réponse expose
+  `category: {id, name} | null`.
+- Côté public : filtre `?category_id=` + `GET
+  /public/blog/{code}/gallery/categories` (pastilles de filtre, seuls id+nom
+  exposés). Le site vitrine (`galerie/page.tsx` + `GalleryExplorer`) charge ses
+  pastilles depuis l'API — plus aucune catégorie en dur côté frontend
+  (`GALLERY_CATEGORIES` / `GALLERY_PHOTO_CATEGORIES` supprimés).
+
 ### Endpoints
 ```
 # Gestion (authentifiée, blog:write)
@@ -1860,6 +1882,13 @@ POST   /api/v1/blog/tags
 GET    /api/v1/blog/tags
 PATCH  /api/v1/blog/tags/{tag_id}
 DELETE /api/v1/blog/tags/{tag_id}                       # suppression définitive
+
+POST   /api/v1/blog/gallery/categories                  # nom libre, unique/établissement
+GET    /api/v1/blog/gallery/categories
+PATCH  /api/v1/blog/gallery/categories/{category_id}    # renommage (409 si doublon)
+DELETE /api/v1/blog/gallery/categories/{category_id}    # définitive — photos conservées, sans catégorie
+POST   /api/v1/blog/gallery                             # multipart category_id + file — publication immédiate
+GET    /api/v1/blog/gallery                             # ?category_id= &skip= &limit=
 
 POST   /api/v1/blog/articles                            # créé en draft
 GET    /api/v1/blog/articles                             # ?status= &tag_id= &include_inactive= &skip= &limit=

@@ -53,6 +53,21 @@ async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
 
 
 # ── Paramètres : types de rapport activés par département ────────
+async def _read_types(
+    user: User = Depends(get_active_user),
+) -> User:
+    """Lecture des types actifs : admin, ou staff porteur de reports:read OU
+    reports:write — l'éducatrice en a besoin dans le formulaire de création
+    pour savoir quels types proposer (elle ne peut pas les CONFIGURER, seuls
+    POST/DELETE ci-dessous sont admin-only)."""
+    if user.role == UserRole.ADMIN:
+        return user
+    codes = user_permission_codes(user)
+    if PermissionCode.REPORTS_READ.value in codes or PermissionCode.REPORTS_WRITE.value in codes:
+        return user
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+
+
 @router.get(
     "/settings/departments/{department_id}/types",
     response_model=list[DepartmentReportTypeResponse],
@@ -60,7 +75,7 @@ async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
 async def list_department_report_types(
     department_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_admin_only),
+    user: User = Depends(_read_types),
 ) -> list[DepartmentReportTypeResponse]:
     return await service.list_department_report_types(
         department_id, user.establishment_id, db

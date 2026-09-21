@@ -83,10 +83,12 @@ def test_reports_workflow(client):
     types2 = c.get(f"/reports/settings/departments/{did}/types", headers=adm).json()
     ck("1 type restant (quotidien)", [t["report_type"] for t in types2], ["quotidien"])
 
-    # ── Paramètres réservés à l'admin : une éducatrice porte reports:write
-    # (elle rédige) mais ne configure pas les types actifs par département.
-    ck("Educ1 GET settings → 403", c.get(
-        f"/reports/settings/departments/{did}/types", headers=educ1).status_code, 403)
+    # ── Paramètres réservés à l'admin en ÉCRITURE : une éducatrice porte
+    # reports:write (elle rédige) mais ne configure pas les types actifs par
+    # département. La LECTURE reste ouverte (reports:read OU reports:write) —
+    # le formulaire de création en a besoin pour proposer les types actifs.
+    ck("Educ1 GET settings → 200", c.get(
+        f"/reports/settings/departments/{did}/types", headers=educ1).status_code, 200)
     ck("Educ1 POST settings → 403", c.post(
         f"/reports/settings/departments/{did}/types/annuel", headers=educ1).status_code, 403)
     ck("Educ1 DELETE settings → 403", c.request("DELETE",

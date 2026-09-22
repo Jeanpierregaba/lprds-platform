@@ -2,14 +2,12 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, KeyRound, Loader2, ShieldCheck, X } from 'lucide-react'
+import { KeyRound, Loader2, ShieldCheck, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,16 +19,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { staffApi } from '@/lib/api/staff.api'
 import { rbacApi } from '@/lib/api/rbac.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
+import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
 
 const infoSchema = z.object({
@@ -55,6 +51,7 @@ export default function StaffDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [resetOpen, setResetOpen] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
@@ -121,12 +118,7 @@ export default function StaffDetailPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="max-w-3xl space-y-4">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
+    return <DetailSkeleton />
   }
 
   if (!staff) {
@@ -134,32 +126,14 @@ export default function StaffDetailPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="max-w-3xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/staff"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 text-white font-semibold"/>
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+    <PageMotion className="max-w-3xl space-y-4">
+      <BackLink href="/dashboard/admin/staff" label="Retour à la liste" />
 
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{staff.nickname || `${staff.first_name} ${staff.last_name}`}</h1>
-            <span
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-semibold',
-                staff.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {staff.is_active ? 'Actif' : 'Inactif'}
-            </span>
+            <StatusPill active={staff.is_active} />
           </div>
           <p className="font-mono text-sm text-white font-semibold">{staff.matricule ?? '—'}</p>
         </div>
@@ -193,29 +167,24 @@ export default function StaffDetailPage() {
             </DialogContent>
           </Dialog>
 
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant={staff.is_active ? 'destructive' : 'outline'} />}>
-              {staff.is_active ? 'Désactiver' : 'Réactiver'}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {staff.is_active ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?'}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {staff.is_active
-                    ? 'Le compte sera désactivé (réversible). La personne ne pourra plus se connecter.'
-                    : 'Le compte redeviendra accessible.'}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction onClick={() => toggleActiveMutation.mutate()}>
-                  Confirmer
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button variant={staff.is_active ? 'destructive' : 'outline'} onClick={() => setConfirmArchive(true)}>
+            {staff.is_active ? 'Désactiver' : 'Réactiver'}
+          </Button>
+          <ConfirmDialog
+            open={confirmArchive}
+            onOpenChange={setConfirmArchive}
+            title={staff.is_active ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?'}
+            description={
+              staff.is_active
+                ? 'Le compte sera désactivé (réversible). La personne ne pourra plus se connecter.'
+                : 'Le compte redeviendra accessible.'
+            }
+            confirmLabel="Confirmer"
+            onConfirm={() => {
+              setConfirmArchive(false)
+              toggleActiveMutation.mutate()
+            }}
+          />
         </div>
         )}
       </div>
@@ -302,7 +271,7 @@ export default function StaffDetailPage() {
         </TabsContent>
         )}
       </Tabs>
-    </motion.div>
+    </PageMotion>
   )
 }
 

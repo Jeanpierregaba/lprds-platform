@@ -2,11 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { blogApi } from '@/lib/api/blog.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 
 const NO_TAG = '__no_tag__'
 
@@ -54,16 +53,8 @@ export default function NewArticlePage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="mx-auto max-w-2xl space-y-4"
-    >
-      <Button variant="ghost" size="sm" render={<Link href="/dashboard/admin/blog" />}>
-        <ArrowLeft className="mr-1.5 size-4" />
-        Retour
-      </Button>
+    <PageMotion className="mx-auto max-w-2xl space-y-4">
+      <BackLink href="/dashboard/admin/blog" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -105,6 +96,6 @@ export default function NewArticlePage() {
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

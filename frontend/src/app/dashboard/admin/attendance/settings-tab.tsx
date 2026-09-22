@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -16,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -25,6 +24,7 @@ import { attendanceApi } from '@/lib/api/attendance.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import type { Department } from '@/types/organization'
 import type { StaffListItem } from '@/types/staff'
 import type { AttendanceSettingsPayload } from '@/types/attendance'
@@ -36,76 +36,32 @@ export function SettingsTab() {
   return (
     <div className="pt-2">
       <Tabs defaultValue="general">
-        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
-          <TabsTrigger
-            value="general"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
-          >
-            <Globe className="mr-1.5 size-4" />
+        <PillsTabsList>
+          <PillsTrigger value="general" active="primary" icon={Globe}>
             Général
-          </TabsTrigger>
-          <TabsTrigger
-            value="departments"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
-          >
-            <Building className="mr-1.5 size-4" />
+          </PillsTrigger>
+          <PillsTrigger value="departments" active="teal" icon={Building}>
             Départements
-          </TabsTrigger>
-          <TabsTrigger
-            value="staff"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
-          >
-            <Clock className="mr-1.5 size-4" />
+          </PillsTrigger>
+          <PillsTrigger value="staff" active="sky" icon={Clock}>
             Personnel
-          </TabsTrigger>
-          <TabsTrigger
-            value="exemptions"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-navy data-active:text-white data-active:shadow-md"
-          >
-            <ShieldOff className="mr-1.5 size-4" />
+          </PillsTrigger>
+          <PillsTrigger value="exemptions" active="navy" icon={ShieldOff}>
             Exemptions
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="general">
-          <motion.div
-            key="general"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            <GeneralSettings />
-          </motion.div>
-        </TabsContent>
-        <TabsContent value="departments">
-          <motion.div
-            key="departments"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            <DepartmentSettings />
-          </motion.div>
-        </TabsContent>
-        <TabsContent value="staff">
-          <motion.div
-            key="schedules"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            <StaffSchedulesSettings />
-          </motion.div>
-        </TabsContent>
-        <TabsContent value="exemptions">
-          <motion.div
-            key="exemptions"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            <ExemptionsSettings />
-          </motion.div>
-        </TabsContent>
+          </PillsTrigger>
+        </PillsTabsList>
+        <TabPanel value="general">
+          <GeneralSettings />
+        </TabPanel>
+        <TabPanel value="departments">
+          <DepartmentSettings />
+        </TabPanel>
+        <TabPanel value="staff">
+          <StaffSchedulesSettings />
+        </TabPanel>
+        <TabPanel value="exemptions">
+          <ExemptionsSettings />
+        </TabPanel>
       </Tabs>
     </div>
   )

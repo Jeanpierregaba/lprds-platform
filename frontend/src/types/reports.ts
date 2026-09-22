@@ -148,6 +148,21 @@ export interface ReportListResponse {
   items: ReportListItem[]
 }
 
+export interface MissingReportItem {
+  child:        ChildBrief
+  section_name: string | null
+  has_draft:    boolean
+}
+
+export interface MissingReportResponse {
+  report_type:  ReportType
+  date:         string
+  period_start: string
+  period_label: string
+  total: number
+  items: MissingReportItem[]
+}
+
 export interface Report extends ReportListItem {
   establishment_id: string
   department_id:    string

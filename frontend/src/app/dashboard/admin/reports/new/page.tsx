@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, FileUp, Loader2, Search, X } from 'lucide-react'
+import { FileUp, Loader2, Search, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +20,7 @@ import { toDailyContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { useUser } from '@/lib/stores/auth.store'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { REPORT_TYPE_LABELS, type ReportType } from '@/types/reports'
 import type { ChildListItem } from '@/types/children'
 import { DailyFields } from '../daily-fields'
@@ -215,19 +214,8 @@ export default function NewReportPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="mx-auto w-full max-w-2xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/reports"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 text-white" />
-        <span className="text-white">Retour à la liste</span>
-      </Link>
+    <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
+      <BackLink href="/dashboard/admin/reports" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -417,6 +405,6 @@ export default function NewReportPage() {
           )}
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

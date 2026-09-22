@@ -1,11 +1,12 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText } from 'lucide-react'
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsTrigger } from '@/components/ui/tabs'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { PillsTabsList, TabPanel } from '@/components/dashboard/shared/tabs'
 import { DashboardTab } from './dashboard-tab'
 import { ExportTab } from './export-tab'
 import { JournalTab } from './journal-tab'
@@ -24,21 +25,14 @@ export default function AttendancePage() {
   const defaultTab = showRead ? 'dashboard' : showScan ? 'scan' : showWrite ? 'qrcodes' : 'dashboard'
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Présences</h1>
-        <p className="text-muted-foreground">
-          Suivi journalier, journal des scans, QR codes et paramètres de présence.
-        </p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Présences"
+        description="Suivi journalier, journal des scans, QR codes et paramètres de présence."
+      />
 
       <Tabs defaultValue={defaultTab}>
-        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border">
+        <PillsTabsList fit={false}>
           {showRead && (
             <TabsTrigger
               value="dashboard"
@@ -84,56 +78,34 @@ export default function AttendancePage() {
               Export
             </TabsTrigger>
           )}
-        </TabsList>
+        </PillsTabsList>
 
         {showRead && (
-          <TabsContent value="dashboard">
-            <TabPanel value="dashboard">
-              <DashboardTab />
-            </TabPanel>
-          </TabsContent>
+          <TabPanel value="dashboard">
+            <DashboardTab />
+          </TabPanel>
         )}
         {showRead && (
-          <TabsContent value="journal">
-            <TabPanel value="journal">
-              <JournalTab />
-            </TabPanel>
-          </TabsContent>
+          <TabPanel value="journal">
+            <JournalTab />
+          </TabPanel>
         )}
         {showWrite && (
-          <TabsContent value="qrcodes">
-            <TabPanel value="qrcodes">
-              <QrCodesTab />
-            </TabPanel>
-          </TabsContent>
+          <TabPanel value="qrcodes">
+            <QrCodesTab />
+          </TabPanel>
         )}
         {showScan && (
-          <TabsContent value="scan">
-            <TabPanel value="scan">
-              <ScanTab />
-            </TabPanel>
-          </TabsContent>
+          <TabPanel value="scan">
+            <ScanTab />
+          </TabPanel>
         )}
         {showRead && (
-          <TabsContent value="export">
-            <TabPanel value="export">
-              <ExportTab />
-            </TabPanel>
-          </TabsContent>
+          <TabPanel value="export">
+            <ExportTab />
+          </TabPanel>
         )}
       </Tabs>
-    </motion.div>
-  )
-}
-
-function TabPanel({ value, children }: { value: string; children: React.ReactNode }) {  return (
-    <motion.div
-      key={value}
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-    >
-      {children}
-    </motion.div>
+    </PageMotion>
   )
 }

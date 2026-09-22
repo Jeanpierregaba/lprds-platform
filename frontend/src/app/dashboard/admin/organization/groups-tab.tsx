@@ -11,10 +11,8 @@ import { Loader2, Pencil, Plus, Search, UserMinus, UserPlus, Users } from 'lucid
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -25,7 +23,9 @@ import { useUser } from '@/lib/stores/auth.store'
 import { staffApi } from '@/lib/api/staff.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Group } from '@/types/organization'
 
 const schema = z.object({
@@ -189,10 +189,12 @@ export function GroupsTab() {
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-2">
-            <Switch id="grp-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="grp-include-inactive" className="text-sm text-white font-semibold">Inclure les groupes inactifs</Label>
-          </div>
+          <InactiveSwitch
+            id="grp-include-inactive"
+            checked={includeInactive}
+            onCheckedChange={setIncludeInactive}
+            label="Inclure les groupes inactifs"
+          />
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -280,93 +282,74 @@ export function GroupsTab() {
         </Dialog>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Section</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Éducatrice</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfants</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="w-10 px-5 py-4" />
+      <DataTable>
+        <DataTableHead>
+          <Th>Nom</Th>
+          <Th>Section</Th>
+          <Th>Éducatrice</Th>
+          <Th>Enfants</Th>
+          <Th>Statut</Th>
+          <Th className="w-10" />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={3}
+              widths={['h-4 w-28', 'h-4 w-36', 'h-4 w-28', 'h-4 w-10', 'h-5 w-14 rounded-full', '']}
+            />
+          ) : groups.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Users className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">
+                    {!hasSections
+                      ? 'Créez d\'abord une section.'
+                      : !hasEducatrices
+                        ? 'Aucune éducatrice active disponible pour l\'instant.'
+                        : 'Aucun groupe pour le moment.'}
+                  </p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            groups.map((group) => (
+              <TableRow key={group.id}>
+                <Td className="font-medium">{group.name}</Td>
+                <Td className="text-muted-foreground">{sectionLabel(group.section_id)}</Td>
+                <Td className="text-muted-foreground">
+                  {group.educatrice.nickname || `${group.educatrice.first_name} ${group.educatrice.last_name}`}
+                </Td>
+                <Td>
+                  {canWrite && (
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => openManage(group)}>
+                    <Users className="size-3.5" />
+                    {group.children.length}
+                  </Button>
+                  )}
+                </Td>
+                <Td>
+                  <StatusPill active={group.is_active} />
+                </Td>
+                <Td>
+                  {canWrite && (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(group)} aria-label={`Modifier ${group.name}`}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(group)}>
+                      {group.is_active ? 'Désactiver' : 'Réactiver'}
+                    </Button>
+                  </div>
+                  )}
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-36" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : groups.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <Users className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">
-                        {!hasSections
-                          ? 'Créez d\'abord une section.'
-                          : !hasEducatrices
-                            ? 'Aucune éducatrice active disponible pour l\'instant.'
-                            : 'Aucun groupe pour le moment.'}
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                groups.map((group) => (
-                  <TableRow key={group.id}>
-                    <TableCell className="px-5 py-4 font-medium">{group.name}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{sectionLabel(group.section_id)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">
-                      {group.educatrice.nickname || `${group.educatrice.first_name} ${group.educatrice.last_name}`}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {canWrite && (
-                      <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => openManage(group)}>
-                        <Users className="size-3.5" />
-                        {group.children.length}
-                      </Button>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span
-                        className={cn(
-                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                          group.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {group.is_active ? 'Actif' : 'Inactif'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {canWrite && (
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(group)} aria-label={`Modifier ${group.name}`}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(group)}>
-                          {group.is_active ? 'Désactiver' : 'Réactiver'}
-                        </Button>
-                      </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
 
       <Dialog open={!!manageGroupId} onOpenChange={(open) => !open && setManageGroupId(null)}>
         <DialogContent className="sm:max-w-lg">

@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { BookMarked, BookOpen, LibraryBig } from 'lucide-react'
 
@@ -8,8 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs } from '@/components/ui/tabs'
 import { libraryApi } from '@/lib/api/library.api'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { LENDING_STATUS_LABELS, type LendingStatus } from '@/types/library'
 
 const STATUS_BADGE_VARIANT: Record<LendingStatus, 'default' | 'outline' | 'destructive'> = {
@@ -37,44 +38,23 @@ export default function ParentLibraryPage() {
   const lendingItems = lendings?.items ?? []
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Bibliothèque</h1>
-        <p className="text-muted-foreground">
-          Livres disponibles et emprunts de vos enfants.
-        </p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Bibliothèque"
+        description="Livres disponibles et emprunts de vos enfants."
+      />
 
       <Tabs defaultValue="catalogue">
-        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
-          <TabsTrigger
-            value="catalogue"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
-          >
-            <BookOpen className="mr-1.5 size-4" />
+        <PillsTabsList>
+          <PillsTrigger value="catalogue" active="primary" icon={BookOpen}>
             Catalogue
-          </TabsTrigger>
-          <TabsTrigger
-            value="lendings"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
-          >
-            <BookMarked className="mr-1.5 size-4" />
+          </PillsTrigger>
+          <PillsTrigger value="lendings" active="teal" icon={BookMarked}>
             Mes emprunts
-          </TabsTrigger>
-        </TabsList>
+          </PillsTrigger>
+        </PillsTabsList>
 
-        <TabsContent value="catalogue">
-          <motion.div
-            key="parent-catalogue"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
+        <TabPanel value="catalogue">
           {booksLoading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -119,16 +99,9 @@ export default function ParentLibraryPage() {
               ))}
             </div>
           )}
-          </motion.div>
-        </TabsContent>
+        </TabPanel>
 
-        <TabsContent value="lendings">
-          <motion.div
-            key="parent-lendings"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
+        <TabPanel value="lendings">
           {lendingsLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -186,9 +159,8 @@ export default function ParentLibraryPage() {
               </CardContent>
             </Card>
           )}
-          </motion.div>
-        </TabsContent>
+        </TabPanel>
       </Tabs>
-    </motion.div>
+    </PageMotion>
   )
 }

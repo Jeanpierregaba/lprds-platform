@@ -20,15 +20,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { childrenApi } from '@/lib/api/children.api'
 import { libraryApi } from '@/lib/api/library.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { LENDING_STATUS_LABELS, type LendingStatus } from '@/types/library'
 
 const PAGE_SIZE = 20
@@ -260,85 +259,72 @@ export function LendingsTab() {
         )}
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Livre</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfant</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Emprunté le</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retour prévu</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="px-5 py-4" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-36" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <BookMarked className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun prêt enregistré.</p>
+      <DataTable>
+        <DataTableHead>
+          <Th>Livre</Th>
+          <Th>Enfant</Th>
+          <Th>Emprunté le</Th>
+          <Th>Retour prévu</Th>
+          <Th>Statut</Th>
+          <Th />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              widths={['h-4 w-48', 'h-4 w-36', 'h-4 w-24', 'h-4 w-24', 'h-5 w-20 rounded-full', '']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <BookMarked className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucun prêt enregistré.</p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((lending) => (
+              <TableRow key={lending.id}>
+                <Td>
+                  <div className="font-medium">{lending.book_title}</div>
+                  <div className="text-xs text-muted-foreground">{lending.author}</div>
+                </Td>
+                <Td>
+                  <div className="font-medium">{lending.child_name}</div>
+                  <div className="text-xs text-muted-foreground">{lending.child_matricule}</div>
+                </Td>
+                <Td className="text-muted-foreground">{formatDate(lending.borrowed_at)}</Td>
+                <Td className="text-muted-foreground">{formatDate(lending.due_date)}</Td>
+                <Td>
+                  <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[lending.status])}>
+                    {LENDING_STATUS_LABELS[lending.status]}
+                  </span>
+                  {lending.overdue_days != null && (
+                    <div className="mt-0.5 text-xs text-destructive">
+                      {lending.overdue_days} j de retard
                     </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((lending) => (
-                  <TableRow key={lending.id}>
-                    <TableCell className="px-5 py-4">
-                      <div className="font-medium">{lending.book_title}</div>
-                      <div className="text-xs text-muted-foreground">{lending.author}</div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="font-medium">{lending.child_name}</div>
-                      <div className="text-xs text-muted-foreground">{lending.child_matricule}</div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(lending.borrowed_at)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(lending.due_date)}</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[lending.status])}>
-                        {LENDING_STATUS_LABELS[lending.status]}
-                      </span>
-                      {lending.overdue_days != null && (
-                        <div className="mt-0.5 text-xs text-destructive">
-                          {lending.overdue_days} j de retard
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {lending.status !== 'returned' && canLend && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={returnMutation.isPending}
-                          onClick={() => returnMutation.mutate(lending.id)}
-                        >
-                          <RotateCcw className="mr-1.5 size-4" />
-                          Rendre
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  )}
+                </Td>
+                <Td>
+                  {lending.status !== 'returned' && canLend && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={returnMutation.isPending}
+                      onClick={() => returnMutation.mutate(lending.id)}
+                    >
+                      <RotateCcw className="mr-1.5 size-4" />
+                      Rendre
+                    </Button>
+                  )}
+                </Td>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">

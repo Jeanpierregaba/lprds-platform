@@ -252,3 +252,87 @@ def test_reports_workflow(client):
     ck("  média toujours présent", c.get(
         f"/reports/{rid}/attachments/{aid2}", headers=adm).status_code, 200)
     c.request("DELETE", f"/reports/{rid}/attachments/{aid2}", headers=adm)
+
+
+def test_missing_daily_reports(client):
+    """GET /reports/missing : qui n'a rien soumis, sans croiser les absences."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "MISS", "admin@miss.fr")
+
+    dep = c.post("/departments", json={"name": "Mat"}, headers=adm).json()
+    sec = c.post("/sections", json={"department_id": dep["id"], "name": "PS"}, headers=adm).json()
+    c.post(f"/reports/settings/departments/{dep['id']}/types/quotidien", headers=adm)
+    c.post(f"/reports/settings/departments/{dep['id']}/types/bi_mensuel", headers=adm)
+
+    onboard_staff(c, adm, "educ-m@miss.fr", nick="Tata M")
+    educ_id = c.get("/staff?search=educ-m@miss.fr", headers=adm).json()["items"][0]["id"]
+    writer = c.post("/rbac/roles", json={"name": "Rédactrice",
+                 "permissions": ["reports:read", "reports:write"]}, headers=adm).json()
+    c.post(f"/rbac/staff/{educ_id}/roles/{writer['id']}", headers=adm)
+    educ = login(c, "educ-m@miss.fr", "StaffNew2026")
+    gid = c.post("/groups", json={"section_id": sec["id"], "educatrice_id": educ_id},
+                 headers=adm).json()["id"]
+
+    def make_child(first):
+        child = c.post("/children", json={"last_name": "Miss", "first_names": first,
+                       "birth_date": "2023-01-01", "admission_date": "2025-01-01",
+                       "residence_address": "x", "department_id": dep["id"],
+                       "section_id": sec["id"],
+                       "guardians": [{"last_name": "Miss", "first_names": "P",
+                       "phone": "+229"}]}, headers=adm).json()
+        c.post(f"/groups/{gid}/children/{child['id']}", headers=adm)
+        return child["id"]
+
+    cid1, cid2 = make_child("Alpha"), make_child("Beta")
+    day = "2026-07-20"
+
+    m = c.get(f"/reports/missing?report_type=quotidien&date={day}", headers=adm).json()
+    ck("2 manquants avant soumission", m["total"], 2)
+    ck("  période du jour", m["period_start"], day)
+    ck("  sans brouillon", [i["has_draft"] for i in m["items"]], [False, False])
+
+    # Brouillon pour Beta : toujours manquant, mais signalé en cours.
+    c.post("/reports", json={"child_id": cid2, "report_type": "quotidien",
+           "reference_date": day, "content": VALID_CONTENT}, headers=educ)
+    m = c.get(f"/reports/missing?report_type=quotidien&date={day}", headers=adm).json()
+    ck("Brouillon ≠ soumis (toujours 2 manquants)", m["total"], 2)
+    ck("  Beta signalé en brouillon",
+       [i["has_draft"] for i in m["items"] if i["child"]["id"] == cid2], [True])
+
+    # Soumission pour Alpha : ne reste que Beta.
+    r1 = c.post("/reports", json={"child_id": cid1, "report_type": "quotidien",
+                "reference_date": day, "content": VALID_CONTENT}, headers=educ).json()
+    c.post(f"/reports/{r1['id']}/submit", headers=educ)
+    m = c.get(f"/reports/missing?report_type=quotidien&date={day}", headers=adm).json()
+    ck("Soumis → plus manquant (reste Beta)", [i["child"]["id"] for i in m["items"]], [cid2])
+
+    # Bi-mensuel : période 16–31 juillet pour une date au 20.
+    mb = c.get(f"/reports/missing?report_type=bi_mensuel&date={day}", headers=adm).json()
+    ck("Bi-mensuel : 2 manquants (période 16–31)", mb["total"], 2)
+    ck("  period_start au 16", mb["period_start"], "2026-07-16")
+    ck("  period_label", mb["period_label"], "16–31 juillet 2026")
+
+    # Scope éducatrice : son groupe uniquement, même sans filtre.
+    me = c.get(f"/reports/missing?report_type=quotidien&date={day}", headers=educ).json()
+    ck("Éducatrice voit les manquants de son groupe", me["total"], 1)
+    # Date future → 422.
+    ck("Date future → 422", c.get(
+        "/reports/missing?report_type=quotidien&date=2099-01-01", headers=adm).status_code, 422)
+
+    # ── Périmètre par type : seuls les départements liés au type comptent ──
+    dep2 = c.post("/departments", json={"name": "Gard"}, headers=adm).json()
+    sec2 = c.post("/sections", json={"department_id": dep2["id"], "name": "BB"}, headers=adm).json()
+    c.post(f"/reports/settings/departments/{dep2['id']}/types/bi_mensuel", headers=adm)
+    outsider = c.post("/children", json={"last_name": "Miss", "first_names": "Gamma",
+                      "birth_date": "2023-01-01", "admission_date": "2025-01-01",
+                      "residence_address": "x", "department_id": dep2["id"],
+                      "section_id": sec2["id"],
+                      "guardians": [{"last_name": "Miss", "first_names": "P",
+                      "phone": "+229"}]}, headers=adm).json()["id"]
+    mq = c.get(f"/reports/missing?report_type=quotidien&date={day}", headers=adm).json()
+    ck("Département non lié au quotidien : enfant exclu des manquants quotidien",
+       outsider in [i["child"]["id"] for i in mq["items"]], False)
+    mb2 = c.get(f"/reports/missing?report_type=bi_mensuel&date={day}", headers=adm).json()
+    ck("... mais compté dans les manquants bi-mensuel",
+       outsider in [i["child"]["id"] for i in mb2["items"]], True)

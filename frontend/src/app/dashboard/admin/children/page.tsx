@@ -2,28 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Baby, Download, Eye, FileSpreadsheet, FileUp, LayoutGrid, List, Loader2, Plus, QrCode, Search, UserCheck, UserX } from 'lucide-react'
+import { Baby, Download, Eye, FileSpreadsheet, FileUp, Loader2, Plus, QrCode, UserCheck, UserX } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Card, CardContent } from '@/components/ui/card'
+import { TableBody, TableRow } from '@/components/ui/table'
+import { CardContent } from '@/components/ui/card'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { childrenApi } from '@/lib/api/children.api'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { organizationApi } from '@/lib/api/organization.api'
@@ -31,6 +21,12 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { InactiveSwitch, SearchInput, ViewToggle, type ViewMode } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem, StatusPill } from '@/components/dashboard/shared/cards'
+import { ListPagination } from '@/components/dashboard/shared/pagination'
+import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
 import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
 
 const PAGE_SIZE = 20
@@ -64,7 +60,7 @@ export default function ChildrenListPage() {
   const [sectionId, setSectionId] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<'table' | 'cards'>('cards')
+  const [view, setView] = useState<ViewMode>('cards')
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
@@ -110,8 +106,6 @@ export default function ChildrenListPage() {
 
   const total = data?.total ?? 0
   const items = data?.items ?? []
-  const hasNext = skip + PAGE_SIZE < total
-  const hasPrev = skip > 0
 
   const downloadTemplate = async () => {
     setLoadingTemplate(true)
@@ -153,60 +147,51 @@ export default function ChildrenListPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Enfants</h1>
-          <p className="text-muted-foreground">Gérer les fiches des enfants de votre établissement.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-            className="hidden"
-            onChange={(e) => onFileSelected(e.target.files?.[0])}
-          />
-          {canWrite && (
-          <Button type="button" variant="outline" onClick={downloadTemplate} disabled={loadingTemplate}>
-            {loadingTemplate ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileSpreadsheet className="mr-1.5 size-4" />}
-            Modèle
-          </Button>
-          )}
-          <Button type="button" variant="outline" onClick={exportChildren} disabled={exporting}>
-            {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
-            Exporter
-          </Button>
-          {canWrite && (
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-            {importing ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
-            Importer
-          </Button>
-          )}
-          {canWrite && (
-          <Button render={<Link href="/dashboard/admin/children/new" />}>
-            <Plus className="mr-1.5 size-4" />
-            Nouvelle fiche
-          </Button>
-          )}
-        </div>
-      </div>
+    <PageMotion className="space-y-6">
+      <PageHeader
+        title="Enfants"
+        description="Gérer les fiches des enfants de votre établissement."
+        actions={
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              className="hidden"
+              onChange={(e) => onFileSelected(e.target.files?.[0])}
+            />
+            {canWrite && (
+            <Button type="button" variant="outline" onClick={downloadTemplate} disabled={loadingTemplate}>
+              {loadingTemplate ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileSpreadsheet className="mr-1.5 size-4" />}
+              Modèle
+            </Button>
+            )}
+            <Button type="button" variant="outline" onClick={exportChildren} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
+              Exporter
+            </Button>
+            {canWrite && (
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+              {importing ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
+              Importer
+            </Button>
+            )}
+            {canWrite && (
+            <Button render={<Link href="/dashboard/admin/children/new" />}>
+              <Plus className="mr-1.5 size-4" />
+              Nouvelle fiche
+            </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par nom, prénoms ou matricule..."
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          placeholder="Rechercher par nom, prénoms ou matricule..."
+          value={search}
+          onChange={setSearch}
+        />
         <Select
           items={{ [ALL]: 'Tous les départements', ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
           value={departmentId}
@@ -237,33 +222,14 @@ export default function ChildrenListPage() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-2">
-          <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="include-inactive" className="text-sm text-white font-semibold">Inclure les fiches inactives</Label>
-        </div>
+        <InactiveSwitch
+          id="include-inactive"
+          checked={includeInactive}
+          onCheckedChange={setIncludeInactive}
+          label="Inclure les fiches inactives"
+        />
 
-        <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5 bg-accent">
-          <Button
-            type="button"
-            variant={view === 'table' ? 'default' : 'ghost'}
-            size="icon-sm"
-            aria-label="Vue en liste"
-            aria-pressed={view === 'table'}
-            onClick={() => setView('table')}
-          >
-            <List className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant={view === 'cards' ? 'default' : 'ghost'}
-            size="icon-sm"
-            aria-label="Vue en cartes"
-            aria-pressed={view === 'cards'}
-            onClick={() => setView('cards')}
-          >
-            <LayoutGrid className="size-4" />
-          </Button>
-        </div>
+        <ViewToggle view={view} onChange={setView} />
       </div>
 
       {view === 'cards' ? (
@@ -273,117 +239,91 @@ export default function ChildrenListPage() {
           hasSearch={!!debouncedSearch}
         />
       ) : (
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Matricule</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Naissance</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Département</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Section</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+      <DataTable>
+        <DataTableHead>
+          <Th>Matricule</Th>
+          <Th>Nom</Th>
+          <Th>Naissance</Th>
+          <Th>Département</Th>
+          <Th>Section</Th>
+          <Th>Statut</Th>
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              widths={['h-4 w-20', 'h-4 w-40', 'h-4 w-24', 'h-4 w-28', 'h-4 w-28', 'h-5 w-14 rounded-full']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-56 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Baby className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">
+                    {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucune fiche enfant pour le moment.'}
+                  </p>
+                  <p className="max-w-sm text-sm">
+                    {debouncedSearch
+                      ? 'Essayez un autre nom, prénom ou matricule.'
+                      : 'Créez la première fiche pour commencer à gérer les enfants.'}
+                  </p>
+                  {!debouncedSearch && canWrite && (
+                    <Button render={<Link href="/dashboard/admin/children/new" />} size="sm" className="mt-1">
+                      <Plus className="mr-1.5 size-4" />
+                      Nouvelle fiche
+                    </Button>
+                  )}
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((child) => (
+              <TableRow key={child.id} className={cn(!child.is_active && 'opacity-70')}>
+                <Td>
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="block font-mono text-xs">
+                    {child.matricule}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="block font-medium">
+                    {child.first_names} {child.last_name}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
+                    {formatDate(child.birth_date)}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
+                    {child.department?.name ?? '—'}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
+                    {child.section?.name ?? '—'}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="block">
+                    <StatusPill active={child.is_active} />
+                  </Link>
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-4 py-3.5"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-4 py-3.5"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-56 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <Baby className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">
-                        {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucune fiche enfant pour le moment.'}
-                      </p>
-                      <p className="max-w-sm text-sm">
-                        {debouncedSearch
-                          ? 'Essayez un autre nom, prénom ou matricule.'
-                          : 'Créez la première fiche pour commencer à gérer les enfants.'}
-                      </p>
-                      {!debouncedSearch && canWrite && (
-                        <Button render={<Link href="/dashboard/admin/children/new" />} size="sm" className="mt-1">
-                          <Plus className="mr-1.5 size-4" />
-                          Nouvelle fiche
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((child) => (
-                  <TableRow key={child.id} className={cn(!child.is_active && 'opacity-70')}>
-                    <TableCell className="px-4 py-3.5">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block font-mono text-xs">
-                        {child.matricule}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3.5">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block font-medium">
-                        {child.first_names} {child.last_name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3.5">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
-                        {formatDate(child.birth_date)}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3.5">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
-                        {child.department?.name ?? '—'}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3.5">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
-                        {child.section?.name ?? '—'}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3.5">
-                      <Link href={`/dashboard/admin/children/${child.id}`} className="block">
-                        <span
-                          className={cn(
-                            'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                            child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                          )}
-                        >
-                          {child.is_active ? 'Actif' : 'Inactif'}
-                        </span>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
       )}
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {total} enfant{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-            Précédent
-          </Button>
-          <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
-            Suivant
-          </Button>
-        </div>
-      </div>
+      <ListPagination
+        label={<>{total} enfant{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        skip={skip}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onSkipChange={setSkip}
+      />
 
       <Dialog open={!!importReport} onOpenChange={(open) => !open && setImportReport(null)}>
         <DialogContent className="sm:max-w-2xl">
@@ -420,7 +360,7 @@ export default function ChildrenListPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </motion.div>
+    </PageMotion>
   )
 }
 
@@ -433,49 +373,26 @@ function ChildrenCardGrid({
   const canQr = user?.role === 'admin' || permissions.has('attendance:write')
 
   if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="space-y-2 p-5">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-40" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
+    return <CardsSkeleton />
   }
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex h-56 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <Baby className="size-5" />
-          </div>
-          <p className="font-medium text-foreground">
-            {hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucune fiche enfant pour le moment.'}
-          </p>
-        </CardContent>
-      </Card>
+      <CardsEmptyState
+        icon={Baby}
+        title={hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucune fiche enfant pour le moment.'}
+      />
     )
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <CardsGrid>
       {items.map((child, i) => (
-        <motion.div
-          key={child.id}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
-        >
+        <StaggerItem key={child.id} index={i}>
           <ChildCard child={child} canArchive={canArchive} canQr={canQr} />
-        </motion.div>
+        </StaggerItem>
       ))}
-    </div>
+    </CardsGrid>
   )
 }
 
@@ -502,7 +419,6 @@ function ChildCard({
   canQr: boolean
 }) {
   const queryClient = useQueryClient()
-  const router = useRouter()
   const detailHref = `/dashboard/admin/children/${child.id}`
   const [qrOpen, setQrOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
@@ -524,27 +440,17 @@ function ChildCard({
 
   return (
     <>
-      <Card
-        className={cn('cursor-pointer rounded-2xl shadow-soft transition hover:-translate-y-0.5', !child.is_active && 'opacity-75')}
-        onClick={() => router.push(detailHref)}
-        onKeyDown={(e) => { if (e.key === 'Enter') router.push(detailHref) }}
-        tabIndex={0}
-        role="link"
-        aria-label={`Ouvrir la fiche de ${child.first_names} ${child.last_name}`}
+      <ClickableCard
+        href={detailHref}
+        label={`Ouvrir la fiche de ${child.first_names} ${child.last_name}`}
+        inactive={!child.is_active}
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-xl font-semibold leading-tight">
             {child.first_names} {child.last_name}
           </p>
-          <span
-            className={cn(
-              'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
-              child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-            )}
-          >
-            {child.is_active ? 'Actif' : 'Inactif'}
-          </span>
+          <StatusPill active={child.is_active} shrink />
         </div>
         <p className="text-sm text-muted-foreground">
           Code: <span className="font-mono">{child.matricule}</span>
@@ -587,47 +493,28 @@ function ChildCard({
           )}
         </div>
       </CardContent>
-      </Card>
+      </ClickableCard>
 
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="font-display">Badge de {child.first_names}</DialogTitle>
-            <DialogDescription className="font-mono text-xs">{child.matricule}</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-center py-2">
-            {loadingQr || !qr ? (
-              <Skeleton className="size-48 rounded-xl" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={qr.qr_image} alt={`QR ${child.matricule}`} className="size-48 rounded-xl ring-1 ring-border" />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <QrBadgeDialog
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+        title={`Badge de ${child.first_names}`}
+        subtitle={child.matricule}
+        qrImage={qr?.qr_image}
+        loading={loadingQr}
+      />
 
-      <AlertDialog open={confirmToggle} onOpenChange={setConfirmToggle}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Désactiver cette fiche ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {child.first_names} {child.last_name} ne comptera plus parmi les enfants actifs
-              (réversible depuis sa fiche).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmToggle(false)
-                toggleMutation.mutate()
-              }}
-            >
-              Désactiver
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmToggle}
+        onOpenChange={setConfirmToggle}
+        title="Désactiver cette fiche ?"
+        description={`${child.first_names} ${child.last_name} ne comptera plus parmi les enfants actifs (réversible depuis sa fiche).`}
+        confirmLabel="Désactiver"
+        onConfirm={() => {
+          setConfirmToggle(false)
+          toggleMutation.mutate()
+        }}
+      />
     </>
   )
 }

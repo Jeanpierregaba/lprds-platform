@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { ClipboardCheck } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { StatusBadge } from '../../admin/attendance/status-badge'
 
 function todayIso() {
@@ -33,16 +34,11 @@ export default function StaffAttendancePage() {
   const items = data?.items ?? []
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Présence</h1>
-        <p className="text-muted-foreground">Statut du jour des enfants de votre groupe.</p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Présence"
+        description="Statut du jour des enfants de votre groupe."
+      />
 
       <div className="w-fit space-y-1.5">
         <Label htmlFor="staff-attendance-date" className="text-white font-semibold text-sm">Date</Label>
@@ -53,44 +49,37 @@ export default function StaffAttendancePage() {
         <CardContent className="p-0">
           <div className="hidden sm:block">
             <Table className="border-collapse">
-              <TableHeader className="bg-primary [&_tr]:border-transparent">
-                <TableRow className="bg-primary hover:bg-primary">
-                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfant</TableHead>
-                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Arrivée</TableHead>
-                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Départ</TableHead>
-                  <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retard</TableHead>
-                </TableRow>
-              </TableHeader>
+              <DataTableHead>
+                <Th>Enfant</Th>
+                <Th>Statut</Th>
+                <Th>Arrivée</Th>
+                <Th>Départ</Th>
+                <Th>Retard</Th>
+              </DataTableHead>
               <TableBody>
                 {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
-                    </TableRow>
-                  ))
+                  <TableSkeletonRows
+                    count={5}
+                    widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10']}
+                  />
                 ) : items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={5} className="h-56 text-center">
+                    <Td colSpan={5} className="h-56 text-center">
                       <EmptyState />
-                    </TableCell>
+                    </Td>
                   </TableRow>
                 ) : (
                   items.map((item) => (
                     <TableRow key={item.child.id}>
-                      <TableCell className="px-5 py-4 font-medium">
+                      <Td className="font-medium">
                         {item.child.first_names} {item.child.last_name}
-                      </TableCell>
-                      <TableCell className="px-5 py-4"><StatusBadge status={item.status} /></TableCell>
-                      <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                      <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                      <TableCell className="px-5 py-4 text-muted-foreground">
+                      </Td>
+                      <Td><StatusBadge status={item.status} /></Td>
+                      <Td className="text-muted-foreground">{formatTime(item.arrival_time)}</Td>
+                      <Td className="text-muted-foreground">{formatTime(item.departure_time)}</Td>
+                      <Td className="text-muted-foreground">
                         {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
-                      </TableCell>
+                      </Td>
                     </TableRow>
                   ))
                 )}
@@ -137,7 +126,7 @@ export default function StaffAttendancePage() {
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }
 

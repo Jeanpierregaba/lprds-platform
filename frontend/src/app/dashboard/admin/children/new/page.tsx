@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +23,7 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
+import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 
 const guardianSchema = z.object({
   last_name: z.string().min(1, 'Nom requis').max(100),
@@ -217,31 +217,16 @@ export default function NewChildPage() {
 
   if (!canWrite) {
     return (
-      <div className="mx-auto w-full max-w-2xl space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Droits insuffisants — vous n'avez pas la permission de créer une fiche enfant.
-        </p>
-        <Link href="/dashboard/admin/children" className="text-sm text-primary hover:underline">
-          Retour à la liste
-        </Link>
-      </div>
+      <RightsGuard
+        message="Droits insuffisants — vous n'avez pas la permission de créer une fiche enfant."
+        backHref="/dashboard/admin/children"
+      />
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="mx-auto w-full max-w-2xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/children"
-        className="inline-flex items-center gap-1.5 text-sm text-white hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+    <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
+      <BackLink href="/dashboard/admin/children" label="Retour à la liste" />
 
       {/* Indicateur d'étapes */}
       <div className="flex items-center">
@@ -690,6 +675,6 @@ export default function NewChildPage() {
           </form>
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

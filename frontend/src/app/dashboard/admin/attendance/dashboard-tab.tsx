@@ -16,15 +16,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { StatusBadge } from './status-badge'
 import type { AttendanceEvent, DailyStatusValue, PersonType } from '@/types/attendance'
 
@@ -81,33 +83,21 @@ export function DashboardTab() {
       </div>
 
       <Tabs defaultValue="children">
-        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
-          <TabsTrigger
-            value="children"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
-          >
-            <Baby className="mr-1.5 size-4" />
+        <PillsTabsList>
+          <PillsTrigger value="children" active="primary" icon={Baby}>
             Enfants
-          </TabsTrigger>
-          <TabsTrigger
-            value="staff"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
-          >
-            <UserRound className="mr-1.5 size-4" />
+          </PillsTrigger>
+          <PillsTrigger value="staff" active="teal" icon={UserRound}>
             Personnel
-          </TabsTrigger>
-        </TabsList>
+          </PillsTrigger>
+        </PillsTabsList>
 
-        <TabsContent value="children">
-          <TabFade value="children">
-            <ChildrenDaily date={date} canCorrect={canCorrect} />
-          </TabFade>
-        </TabsContent>
-        <TabsContent value="staff">
-          <TabFade value="staff">
-            <StaffDaily date={date} canCorrect={canCorrect} />
-          </TabFade>
-        </TabsContent>
+        <TabPanel value="children">
+          <ChildrenDaily date={date} canCorrect={canCorrect} />
+        </TabPanel>
+        <TabPanel value="staff">
+          <StaffDaily date={date} canCorrect={canCorrect} />
+        </TabPanel>
       </Tabs>
     </div>
   )
@@ -507,66 +497,54 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
         </Select>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Enfant</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Arrivée</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Départ</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retard</TableHead>
+      <DataTable footer={<PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />}>
+        <DataTableHead>
+          <Th>Enfant</Th>
+          <Th>Statut</Th>
+          <Th>Arrivée</Th>
+          <Th>Départ</Th>
+          <Th>Retard</Th>
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={5}
+              widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10']}
+            />
+          ) : visibleItems.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={5} className="h-40 text-center text-muted-foreground">
+                {search.trim() ? 'Aucun enfant ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
+              </Td>
+            </TableRow>
+          ) : (
+            pageItems.map((item) => (
+              <TableRow
+                key={item.child.id}
+                onClick={canCorrect ? () => setCorrecting({
+                  personType: 'child',
+                  personId: item.child.id,
+                  displayName: `${item.child.first_names} ${item.child.last_name}`,
+                  initialArrival: item.arrival_time,
+                  initialDeparture: item.departure_time,
+                }) : undefined}
+                className={canCorrect ? 'cursor-pointer' : undefined}
+                title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
+              >
+                <Td className="font-medium">
+                  {item.child.first_names} {item.child.last_name}
+                </Td>
+                <Td><StatusBadge status={item.status} /></Td>
+                <Td className="text-muted-foreground">{formatTime(item.arrival_time)}</Td>
+                <Td className="text-muted-foreground">{formatTime(item.departure_time)}</Td>
+                <Td className="text-muted-foreground">
+                  {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
-                  </TableRow>
-                ))
-              ) : visibleItems.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="h-40 text-center text-muted-foreground">
-                    {search.trim() ? 'Aucun enfant ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                pageItems.map((item) => (
-                  <TableRow
-                    key={item.child.id}
-                    onClick={canCorrect ? () => setCorrecting({
-                      personType: 'child',
-                      personId: item.child.id,
-                      displayName: `${item.child.first_names} ${item.child.last_name}`,
-                      initialArrival: item.arrival_time,
-                      initialDeparture: item.departure_time,
-                    }) : undefined}
-                    className={canCorrect ? 'cursor-pointer' : undefined}
-                    title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
-                  >
-                    <TableCell className="px-5 py-4 font-medium">
-                      {item.child.first_names} {item.child.last_name}
-                    </TableCell>
-                    <TableCell className="px-5 py-4"><StatusBadge status={item.status} /></TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">
-                      {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
 
       <StatusModal
         open={modal !== null}
@@ -662,73 +640,60 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
         </div>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Personnel</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Arrivée</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Départ</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Retard</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Cantine</TableHead>
+      <DataTable footer={<PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />}>
+        <DataTableHead>
+          <Th>Personnel</Th>
+          <Th>Statut</Th>
+          <Th>Arrivée</Th>
+          <Th>Départ</Th>
+          <Th>Retard</Th>
+          <Th>Cantine</Th>
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={5}
+              widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10', 'h-4 w-10']}
+            />
+          ) : visibleItems.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-40 text-center text-muted-foreground">
+                {search.trim() ? 'Aucun membre ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
+              </Td>
+            </TableRow>
+          ) : (
+            pageItems.map((item) => (
+              <TableRow
+                key={item.staff.id}
+                onClick={canCorrect ? () => setCorrecting({
+                  personType: 'staff',
+                  personId: item.staff.id,
+                  displayName: item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`,
+                  initialArrival: item.arrival_time,
+                  initialDeparture: item.departure_time,
+                }) : undefined}
+                className={canCorrect ? 'cursor-pointer' : undefined}
+                title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
+              >
+                <Td className="font-medium">
+                  {item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
+                </Td>
+                <Td><StatusBadge status={item.status} /></Td>
+                <Td className="text-muted-foreground">{formatTime(item.arrival_time)}</Td>
+                <Td className="text-muted-foreground">{formatTime(item.departure_time)}</Td>
+                <Td className="text-muted-foreground">
+                  {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
+                </Td>
+                <Td>
+                  {item.meal_taken
+                    ? <span className="inline-block rounded-full bg-pale-green px-3 py-1 text-xs font-semibold text-white">Oui</span>
+                    : <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">Non</span>}
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-10" /></TableCell>
-                  </TableRow>
-                ))
-              ) : visibleItems.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
-                    {search.trim() ? 'Aucun membre ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                pageItems.map((item) => (
-                  <TableRow
-                    key={item.staff.id}
-                    onClick={canCorrect ? () => setCorrecting({
-                      personType: 'staff',
-                      personId: item.staff.id,
-                      displayName: item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`,
-                      initialArrival: item.arrival_time,
-                      initialDeparture: item.departure_time,
-                    }) : undefined}
-                    className={canCorrect ? 'cursor-pointer' : undefined}
-                    title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
-                  >
-                    <TableCell className="px-5 py-4 font-medium">
-                      {item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
-                    </TableCell>
-                    <TableCell className="px-5 py-4"><StatusBadge status={item.status} /></TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.arrival_time)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatTime(item.departure_time)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">
-                      {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {item.meal_taken
-                        ? <span className="inline-block rounded-full bg-pale-green px-3 py-1 text-xs font-semibold text-white">Oui</span>
-                        : <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">Non</span>}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
 
       <StatusModal
         open={modal !== null}

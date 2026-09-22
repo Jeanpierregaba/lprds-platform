@@ -2,13 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { ArrowLeft, FileVideo, Loader2, Paperclip, Trash2 } from 'lucide-react'
+import { FileVideo, Loader2, Paperclip, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -19,10 +18,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { AuthMedia } from '@/components/media/auth-media'
 import { AttachmentLightbox } from '@/components/media/attachment-lightbox'
 import { reportsApi } from '@/lib/api/reports.api'
@@ -32,6 +27,8 @@ import { useReportForms } from '@/lib/reports/use-report-forms'
 import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { BackLink } from '@/components/dashboard/shared/page'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
@@ -51,6 +48,8 @@ export default function ReportDetailPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [attachmentToRemove, setAttachmentToRemove] = useState<ReportAttachment | null>(null)
   const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const canValidate = permissions.has('reports:validate')
@@ -195,13 +194,7 @@ export default function ReportDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
-      <Link
-        href="/dashboard/admin/reports"
-        className="inline-flex items-center gap-1.5 text-sm text-white"
-      >
-        <ArrowLeft className="size-4 text-white" />
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+      <BackLink href="/dashboard/admin/reports" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -251,21 +244,23 @@ export default function ReportDetailPage() {
                   </Button>
                 )}
                 {isDeletable && (
-                  <AlertDialog>
-                    <AlertDialogTrigger render={<Button type="button" variant="destructive" className="ml-auto" />}>
+                  <>
+                    <Button type="button" variant="destructive" className="ml-auto" onClick={() => setConfirmDelete(true)}>
                       Supprimer
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer ce brouillon ?</AlertDialogTitle>
-                        <AlertDialogDescription>Cette action est définitive.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteMutation.mutate()}>Supprimer</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    </Button>
+                    <ConfirmDialog
+                      open={confirmDelete}
+                      onOpenChange={setConfirmDelete}
+                      title="Supprimer ce brouillon ?"
+                      description="Cette action est définitive."
+                      confirmLabel="Supprimer"
+                      destructive
+                      onConfirm={() => {
+                        setConfirmDelete(false)
+                        deleteMutation.mutate()
+                      }}
+                    />
+                  </>
                 )}
               </div>
             </div>
@@ -350,37 +345,16 @@ export default function ReportDetailPage() {
                   {att.content_type.startsWith('video/') && (
                     <FileVideo className="pointer-events-none absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
                   )}
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon-xs"
-                          className="absolute left-1.5 top-1.5 opacity-80 shadow transition hover:opacity-100"
-                          aria-label={`Retirer ${att.filename}`}
-                        />
-                      }
-                    >
-                      <Trash2 className="size-3.5" />
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Retirer cette pièce jointe ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {att.filename} sera définitivement retirée de ce rapport.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteAttachmentMutation.mutate(att.id)}
-                        >
-                          Retirer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon-xs"
+                    className="absolute left-1.5 top-1.5 opacity-80 shadow transition hover:opacity-100"
+                    aria-label={`Retirer ${att.filename}`}
+                    onClick={() => setAttachmentToRemove(att)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </div>
               ))}
             </div>
@@ -426,6 +400,18 @@ export default function ReportDetailPage() {
           onOpenChange={(open) => !open && setSelectedAttachment(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!attachmentToRemove}
+        onOpenChange={(open) => !open && setAttachmentToRemove(null)}
+        title="Retirer cette pièce jointe ?"
+        description={`${attachmentToRemove?.filename ?? ''} sera définitivement retirée de ce rapport.`}
+        confirmLabel="Retirer"
+        onConfirm={() => {
+          if (attachmentToRemove) deleteAttachmentMutation.mutate(attachmentToRemove.id)
+          setAttachmentToRemove(null)
+        }}
+      />
     </div>
   )
 }

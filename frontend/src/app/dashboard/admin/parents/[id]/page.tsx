@@ -2,32 +2,27 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, KeyRound, Loader2, Trash2 } from 'lucide-react'
+import { KeyRound, Loader2, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { parentsApi } from '@/lib/api/parents.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
+import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 
@@ -59,6 +54,7 @@ export default function ParentDetailPage() {
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
   const [resetOpen, setResetOpen] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
   const [children, setChildren] = useState<ParentChildBrief[]>([])
   const [childrenError, setChildrenError] = useState<string | null>(null)
 
@@ -131,12 +127,7 @@ export default function ParentDetailPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="max-w-2xl space-y-4">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
+    return <DetailSkeleton className="max-w-2xl space-y-4" />
   }
 
   if (!parent) {
@@ -144,32 +135,14 @@ export default function ParentDetailPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="max-w-2xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/parents"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 text-white" />
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+    <PageMotion className="max-w-2xl space-y-4">
+      <BackLink href="/dashboard/admin/parents" label="Retour à la liste" />
 
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{parent.nickname || `${parent.first_name} ${parent.last_name}`}</h1>
-            <span
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-semibold',
-                parent.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {parent.is_active ? 'Actif' : 'Inactif'}
-            </span>
+            <StatusPill active={parent.is_active} />
           </div>
           <p className="text-sm text-white">
             Dernière connexion : {formatDateTime(parent.last_login_at)}
@@ -207,30 +180,27 @@ export default function ParentDetailPage() {
           )}
 
           {canWrite && (
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant={parent.is_active ? 'destructive' : 'outline'} />}>
+          <>
+            <Button variant={parent.is_active ? 'destructive' : 'outline'} onClick={() => setConfirmArchive(true)}>
               <Trash2 className="mr-1.5 size-4 text-white" />
               {parent.is_active ? 'Désactiver' : 'Réactiver'}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {parent.is_active ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?'}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {parent.is_active
-                    ? 'Le compte sera désactivé (réversible). Le parent ne pourra plus se connecter.'
-                    : 'Le compte redeviendra accessible.'}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction onClick={() => toggleActiveMutation.mutate()}>
-                  Confirmer
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            </Button>
+            <ConfirmDialog
+              open={confirmArchive}
+              onOpenChange={setConfirmArchive}
+              title={parent.is_active ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?'}
+              description={
+                parent.is_active
+                  ? 'Le compte sera désactivé (réversible). Le parent ne pourra plus se connecter.'
+                  : 'Le compte redeviendra accessible.'
+              }
+              confirmLabel="Confirmer"
+              onConfirm={() => {
+                setConfirmArchive(false)
+                toggleActiveMutation.mutate()
+              }}
+            />
+          </>
           )}
         </div>
       </div>
@@ -294,6 +264,6 @@ export default function ParentDetailPage() {
           </form>
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

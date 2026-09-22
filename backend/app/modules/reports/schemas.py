@@ -236,6 +236,25 @@ class ReportListResponse(BaseModel):
     items: list[ReportListItem]
 
 
+class MissingReportItem(BaseModel):
+    """Enfant sans rapport soumis/validé pour la période courante d'un type.
+
+    `has_draft` = un brouillon (ou rejeté, à resoumettre) existe — travail en
+    cours, mais rien de soumis pour l'instant."""
+    child:        ChildBrief
+    section_name: str | None = None
+    has_draft:    bool = False
+
+
+class MissingReportResponse(BaseModel):
+    report_type:  ReportType
+    date:         date
+    period_start: date
+    period_label: str
+    total: int
+    items: list[MissingReportItem]
+
+
 class ReportResponse(ReportListItem):
     establishment_id: uuid.UUID
     department_id:    uuid.UUID

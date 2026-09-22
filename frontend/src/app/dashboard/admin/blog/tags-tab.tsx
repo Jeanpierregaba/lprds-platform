@@ -8,18 +8,14 @@ import { Loader2, Pencil, Plus, Tags, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { blogApi } from '@/lib/api/blog.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { BlogTag } from '@/types/blog'
 
 function formatDate(iso: string) {
@@ -32,6 +28,7 @@ export function TagsTab() {
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<BlogTag | null>(null)
   const [editName, setEditName] = useState('')
+  const [tagToDelete, setTagToDelete] = useState<BlogTag | null>(null)
 
   const { data: tags, isLoading } = useQuery({
     queryKey: ['blog', 'tags'],
@@ -90,81 +87,75 @@ export function TagsTab() {
         </Dialog>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Créée le</TableHead>
-                <TableHead className="w-24 px-5 py-4" />
+      <DataTable>
+        <DataTableHead>
+          <Th>Nom</Th>
+          <Th>Créée le</Th>
+          <Th className="w-24" />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={4}
+              widths={['h-5 w-32 rounded-full', 'h-4 w-24', '']}
+            />
+          ) : !tags || tags.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={3} className="h-40 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Tags className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucune étiquette.</p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            tags.map((tag) => (
+              <TableRow key={tag.id}>
+                <Td>
+                  <span className="inline-block rounded-full bg-teal px-3 py-1 text-xs font-semibold text-white">
+                    {tag.name}
+                  </span>
+                </Td>
+                <Td className="text-muted-foreground">{formatDate(tag.created_at)}</Td>
+                <Td>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => { setEditing(tag); setEditName(tag.name) }}
+                      aria-label="Renommer"
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Supprimer"
+                      onClick={() => setTagToDelete(tag)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-32 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : !tags || tags.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={3} className="h-40 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <Tags className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucune étiquette.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                tags.map((tag) => (
-                  <TableRow key={tag.id}>
-                    <TableCell className="px-5 py-4">
-                      <span className="inline-block rounded-full bg-teal px-3 py-1 text-xs font-semibold text-white">
-                        {tag.name}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(tag.created_at)}</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => { setEditing(tag); setEditName(tag.name) }}
-                          aria-label="Renommer"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Supprimer" />}>
-                            <Trash2 className="size-4" />
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer l&apos;étiquette « {tag.name} » ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Suppression définitive. Les articles qui la portaient passeront sans étiquette.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteMutation.mutate(tag.id)}>Supprimer</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
+
+      <ConfirmDialog
+        open={!!tagToDelete}
+        onOpenChange={(open) => !open && setTagToDelete(null)}
+        title={`Supprimer l\u2019étiquette « ${tagToDelete?.name ?? ''} » ?`}
+        description="Suppression définitive. Les articles qui la portaient passeront sans étiquette."
+        confirmLabel="Supprimer"
+        onConfirm={() => {
+          if (tagToDelete) deleteMutation.mutate(tagToDelete.id)
+          setTagToDelete(null)
+        }}
+      />
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>

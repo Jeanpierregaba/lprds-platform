@@ -1,12 +1,12 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { BookOpen, LibraryBig } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { libraryApi } from '@/lib/api/library.api'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 
 export default function StaffLibraryPage() {
   const { data, isLoading } = useQuery({
@@ -17,18 +17,11 @@ export default function StaffLibraryPage() {
   const books = data?.items ?? []
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Bibliothèque</h1>
-        <p className="text-muted-foreground">
-          Livres disponibles dans votre section.
-        </p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Bibliothèque"
+        description="Livres disponibles dans votre section."
+      />
 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,6 +60,6 @@ export default function StaffLibraryPage() {
           ))}
         </div>
       )}
-    </motion.div>
+    </PageMotion>
   )
 }

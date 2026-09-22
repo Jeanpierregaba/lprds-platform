@@ -12,10 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -23,7 +20,9 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Department } from '@/types/organization'
 
 const schema = z.object({
@@ -96,10 +95,12 @@ export function DepartmentsTab() {
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Switch id="dept-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="dept-include-inactive" className="text-sm text-white font-semibold">Inclure les départements inactifs</Label>
-        </div>
+        <InactiveSwitch
+          id="dept-include-inactive"
+          checked={includeInactive}
+          onCheckedChange={setIncludeInactive}
+          label="Inclure les départements inactifs"
+        />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           {canWrite && (
@@ -137,79 +138,62 @@ export function DepartmentsTab() {
         </Dialog>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Description</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="w-10 px-5 py-4" />
+      <DataTable>
+        <DataTableHead>
+          <Th>Nom</Th>
+          <Th>Description</Th>
+          <Th>Statut</Th>
+          <Th className="w-10" />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={3}
+              widths={['h-4 w-32', 'h-4 w-48', 'h-5 w-14 rounded-full', '']}
+            />
+          ) : departments.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={4} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Building className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucun département pour le moment.</p>
+                  <p className="max-w-sm text-sm">
+                    Créez le premier département pour commencer à structurer votre établissement.
+                  </p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            departments.map((dept) => (
+              <TableRow key={dept.id}>
+                <Td className="font-medium">{dept.name}</Td>
+                <Td className="text-muted-foreground">{dept.description ?? '—'}</Td>
+                <Td>
+                  <StatusPill active={dept.is_active} />
+                </Td>
+                <Td>
+                  {canWrite && (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(dept)} aria-label={`Modifier ${dept.name}`}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleActiveMutation.mutate(dept)}
+                    >
+                      {dept.is_active ? 'Désactiver' : 'Réactiver'}
+                    </Button>
+                  </div>
+                  )}
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : departments.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <Building className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun département pour le moment.</p>
-                      <p className="max-w-sm text-sm">
-                        Créez le premier département pour commencer à structurer votre établissement.
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                departments.map((dept) => (
-                  <TableRow key={dept.id}>
-                    <TableCell className="px-5 py-4 font-medium">{dept.name}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{dept.description ?? '—'}</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span
-                        className={cn(
-                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                          dept.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {dept.is_active ? 'Actif' : 'Inactif'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {canWrite && (
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(dept)} aria-label={`Modifier ${dept.name}`}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleActiveMutation.mutate(dept)}
-                        >
-                          {dept.is_active ? 'Désactiver' : 'Réactiver'}
-                        </Button>
-                      </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
     </div>
   )
 }

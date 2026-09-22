@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, Response
@@ -12,6 +13,7 @@ from app.modules.reports.dependencies import get_parent
 from app.modules.reports.models import ReportStatus, ReportType
 from app.modules.reports.schemas import (
     DepartmentReportTypeResponse,
+    MissingReportResponse,
     ParentReportDetailResponse,
     ParentReportListResponse,
     ReportAttachmentResponse,
@@ -157,6 +159,33 @@ async def get_vocabulary(
     lecture de ses rapports validés). Placé AVANT /{report_id} pour éviter
     toute ambiguïté de routage (même précaution que /mine/list, cf. claude.md)."""
     return service.get_vocabulary()
+
+
+@router.get("/missing", response_model=MissingReportResponse)
+async def list_missing_reports(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_read),
+    report_type: ReportType = Query(default=ReportType.QUOTIDIEN),
+    target_date: date | None = Query(default=None, alias="date"),
+    department_id: uuid.UUID | None = Query(default=None),
+    section_id: uuid.UUID | None = Query(default=None),
+    group_id: uuid.UUID | None = Query(default=None),
+) -> MissingReportResponse:
+    """Rapports non soumis pour la période contenant la date (défaut
+    aujourd'hui, jamais future) — l'admin voit d'un coup d'œil qui n'a rien
+    soumis, sans croiser la liste des absences. Le staff ne voit que ses
+    groupes menés. Placé AVANT /{report_id} (même précaution que /vocabulary)."""
+    target = target_date or date.today()
+    if target > date.today():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La date ne peut pas être dans le futur",
+        )
+    return await service.list_missing_reports(
+        user.establishment_id, user, db,
+        report_type=report_type, target=target, department_id=department_id,
+        section_id=section_id, group_id=group_id,
+    )
 
 
 @router.get("/{report_id}", response_model=ReportResponse)

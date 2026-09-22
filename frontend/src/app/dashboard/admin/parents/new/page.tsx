@@ -2,15 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
-import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { parentsApi } from '@/lib/api/parents.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 
@@ -71,31 +70,16 @@ export default function NewParentPage() {
 
   if (!canWrite) {
     return (
-      <div className="mx-auto w-full max-w-2xl space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Droits insuffisants — vous n'avez pas la permission de créer un compte parent.
-        </p>
-        <Link href="/dashboard/admin/parents" className="text-sm text-primary hover:underline">
-          Retour à la liste
-        </Link>
-      </div>
+      <RightsGuard
+        message="Droits insuffisants — vous n'avez pas la permission de créer un compte parent."
+        backHref="/dashboard/admin/parents"
+      />
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="mx-auto w-full max-w-2xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/parents"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 text-white" />
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+    <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
+      <BackLink href="/dashboard/admin/parents" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -179,6 +163,6 @@ export default function NewParentPage() {
           </form>
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

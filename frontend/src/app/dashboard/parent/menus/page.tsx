@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -12,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MenuWeekTable } from '@/components/menus/menu-week-table'
 import { menusApi } from '@/lib/api/menus.api'
 import { addDays, mondayOf, parseIsoDate, toIsoDate } from '@/lib/utils/dates'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import type { Menu, Weekday } from '@/types/menus'
 
 function formatDate(iso: string) {
@@ -74,18 +74,11 @@ export default function ParentMenusPage() {
   const menu = (isCurrentWeek ? currentItems : weekItems).find((m) => m.department_id === deptId) ?? null
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Menus</h1>
-          <p className="text-muted-foreground">Repas servis par l&apos;établissement.</p>
-        </div>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Menus"
+        description="Repas servis par l\u2019établissement."
+      />
 
       {departments.length > 1 && (
         <Tabs value={deptId} onValueChange={(v) => v && setDeptId(v)}>
@@ -140,6 +133,6 @@ export default function ParentMenusPage() {
           )}
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

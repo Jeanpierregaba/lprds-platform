@@ -1,35 +1,30 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Download, FileUp, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Download, FileUp, Loader2, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { organizationApi } from '@/lib/api/organization.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
 import { downloadBlob } from '@/lib/utils/download'
+import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Child, ChildDocument } from '@/types/children'
 
 const infoSchema = z.object({
@@ -88,6 +83,8 @@ export default function ChildDetailPage() {
     queryFn: () => childrenApi.get(id).then((r) => r.data),
   })
 
+  const [confirmArchive, setConfirmArchive] = useState(false)
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['child', id] })
 
   const toggleActiveMutation = useMutation({
@@ -100,12 +97,7 @@ export default function ChildDetailPage() {
   })
 
   if (isLoading) {
-    return (
-      <div className="max-w-3xl space-y-4">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    )
+    return <DetailSkeleton />
   }
 
   if (!child) {
@@ -113,60 +105,39 @@ export default function ChildDetailPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="max-w-3xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/children"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 text-white" />
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+    <PageMotion className="max-w-3xl space-y-4">
+      <BackLink href="/dashboard/admin/children" label="Retour à la liste" />
 
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{child.first_names} {child.last_name}</h1>
-            <span
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-semibold',
-                child.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {child.is_active ? 'Actif' : 'Inactif'}
-            </span>
+            <StatusPill active={child.is_active} />
           </div>
           <p className="font-mono text-sm text-white">{child.matricule}</p>
         </div>
 
         {canArchive && (
-        <AlertDialog>
-          <AlertDialogTrigger render={<Button variant={child.is_active ? 'destructive' : 'outline'} />}>
+        <>
+          <Button variant={child.is_active ? 'destructive' : 'outline'} onClick={() => setConfirmArchive(true)}>
             {child.is_active ? 'Désactiver' : 'Réactiver'}
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {child.is_active ? 'Désactiver cette fiche ?' : 'Réactiver cette fiche ?'}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {child.is_active
-                  ? 'La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment jamais.'
-                  : 'La fiche redeviendra active.'}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
-              <AlertDialogAction onClick={() => toggleActiveMutation.mutate()}>
-                Confirmer
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          </Button>
+          <ConfirmDialog
+            open={confirmArchive}
+            onOpenChange={setConfirmArchive}
+            title={child.is_active ? 'Désactiver cette fiche ?' : 'Réactiver cette fiche ?'}
+            description={
+              child.is_active
+                ? 'La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment jamais.'
+                : 'La fiche redeviendra active.'
+            }
+            confirmLabel="Confirmer"
+            onConfirm={() => {
+              setConfirmArchive(false)
+              toggleActiveMutation.mutate()
+            }}
+          />
+        </>
         )}
       </div>
 
@@ -195,7 +166,7 @@ export default function ChildDetailPage() {
           <DocumentsTab childId={id} child={child} onSaved={invalidate} canWrite={canWrite} />
         </TabsContent>
       </Tabs>
-    </motion.div>
+    </PageMotion>
   )
 }
 
@@ -645,6 +616,7 @@ function formatDate(iso: string) {
 
 function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [docToDelete, setDocToDelete] = useState<ChildDocument | null>(null)
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => childrenApi.uploadDocument(childId, file),
@@ -739,33 +711,34 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
                     Télécharger
                   </Button>
                   {canWrite && (
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Supprimer ${doc.filename}`} />}
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer ce document ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          « {doc.filename} » sera retiré du dossier de l&apos;enfant.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => removeMutation.mutate(doc.id)}>
-                          Supprimer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Supprimer ${doc.filename}`}
+                    onClick={() => setDocToDelete(doc)}
+                  >
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
                   )}
                 </div>
               </li>
             ))}
           </ul>
         )}
+
+        <ConfirmDialog
+          open={!!docToDelete}
+          onOpenChange={(open) => !open && setDocToDelete(null)}
+          title="Supprimer ce document ?"
+          description={`« ${docToDelete?.filename ?? ''} » sera retiré du dossier de l\u2019enfant.`}
+          confirmLabel="Supprimer"
+          destructive
+          onConfirm={() => {
+            if (docToDelete) removeMutation.mutate(docToDelete.id)
+            setDocToDelete(null)
+          }}
+        />
       </CardContent>
     </Card>
   )

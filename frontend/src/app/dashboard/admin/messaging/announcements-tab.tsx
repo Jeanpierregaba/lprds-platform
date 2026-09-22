@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -26,6 +25,8 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { CardsEmptyState } from '@/components/dashboard/shared/cards'
 import type { Announcement } from '@/types/messaging'
 
 const schema = z.object({
@@ -151,10 +152,12 @@ export function AnnouncementsTab() {
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Switch id="announcement-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="announcement-include-inactive" className="text-sm text-white font-semibold">Inclure les diffusions désactivées</Label>
-        </div>
+        <InactiveSwitch
+          id="announcement-include-inactive"
+          checked={includeInactive}
+          onCheckedChange={setIncludeInactive}
+          label="Inclure les diffusions désactivées"
+        />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button onClick={openCreate} />}>
@@ -238,14 +241,11 @@ export function AnnouncementsTab() {
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
         </div>
       ) : items.length === 0 ? (
-        <Card>
-          <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-              <Megaphone className="size-5" />
-            </div>
-            <p className="font-medium text-foreground">Aucune diffusion pour le moment.</p>
-          </CardContent>
-        </Card>
+        <CardsEmptyState
+          icon={Megaphone}
+          title="Aucune diffusion pour le moment."
+          heightClass="h-48"
+        />
       ) : (
         <div className="space-y-3">
           {items.map((a) => (

@@ -13,16 +13,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { rbacApi } from '@/lib/api/rbac.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { StatusPill } from '@/components/dashboard/shared/cards'
 import { PERMISSION_GROUPS } from '@/types/rbac'
 import type { Role } from '@/types/rbac'
 
@@ -113,10 +112,12 @@ export function RolesTab() {
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Switch id="role-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="role-include-inactive" className="text-sm text-white font-semibold">Inclure les rôles inactifs</Label>
-        </div>
+        <InactiveSwitch
+          id="role-include-inactive"
+          checked={includeInactive}
+          onCheckedChange={setIncludeInactive}
+          label="Inclure les rôles inactifs"
+        />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button onClick={openCreate} />}>
@@ -215,93 +216,76 @@ export function RolesTab() {
         </Dialog>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Permissions</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="w-10 px-5 py-4" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <ShieldCheck className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun rôle pour le moment.</p>
-                      <p className="max-w-sm text-sm">
-                        Créez des rôles pour donner des droits fins à votre personnel (ex. Directrice, Secrétaire).
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((role) => (
-                  <TableRow key={role.id}>
-                    <TableCell className="px-5 py-4">
-                      <div className="font-medium">{role.name}</div>
-                      {role.description && (
-                        <div className="text-xs text-muted-foreground">{role.description}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {role.permissions.length === 0 ? (
-                          <span className="text-muted-foreground">Aucune</span>
-                        ) : (
-                          role.permissions.slice(0, 4).map((p) => (
-                            <span key={p.id} className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{p.code}</span>
-                          ))
-                        )}
-                        {role.permissions.length > 4 && (
-                          <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                            +{role.permissions.length - 4}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span
-                        className={cn(
-                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                          role.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {role.is_active ? 'Actif' : 'Inactif'}
+      <DataTable>
+        <DataTableHead>
+          <Th>Nom</Th>
+          <Th>Permissions</Th>
+          <Th>Statut</Th>
+          <Th className="w-10" />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={3}
+              widths={['h-4 w-32', 'h-4 w-48', 'h-5 w-14 rounded-full', '']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={4} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <ShieldCheck className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucun rôle pour le moment.</p>
+                  <p className="max-w-sm text-sm">
+                    Créez des rôles pour donner des droits fins à votre personnel (ex. Directrice, Secrétaire).
+                  </p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((role) => (
+              <TableRow key={role.id}>
+                <Td>
+                  <div className="font-medium">{role.name}</div>
+                  {role.description && (
+                    <div className="text-xs text-muted-foreground">{role.description}</div>
+                  )}
+                </Td>
+                <Td>
+                  <div className="flex flex-wrap gap-1">
+                    {role.permissions.length === 0 ? (
+                      <span className="text-muted-foreground">Aucune</span>
+                    ) : (
+                      role.permissions.slice(0, 4).map((p) => (
+                        <span key={p.id} className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{p.code}</span>
+                      ))
+                    )}
+                    {role.permissions.length > 4 && (
+                      <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                        +{role.permissions.length - 4}
                       </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(role)} aria-label={`Modifier ${role.name}`}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(role)}>
-                          {role.is_active ? 'Désactiver' : 'Réactiver'}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    )}
+                  </div>
+                </Td>
+                <Td>
+                  <StatusPill active={role.is_active} />
+                </Td>
+                <Td>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(role)} aria-label={`Modifier ${role.name}`}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(role)}>
+                      {role.is_active ? 'Désactiver' : 'Réactiver'}
+                    </Button>
+                  </div>
+                </Td>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
     </div>
   )
 }

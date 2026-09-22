@@ -6,12 +6,12 @@ import { History } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { menusApi } from '@/lib/api/menus.api'
 import { parseIsoDate } from '@/lib/utils/dates'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { ListPagination } from '@/components/dashboard/shared/pagination'
 
 const PAGE_SIZE = 20
 
@@ -45,8 +45,6 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
 
   const total = data?.total ?? 0
   const items = data?.items ?? []
-  const hasNext = skip + PAGE_SIZE < total
-  const hasPrev = skip > 0
 
   return (
     <div className="space-y-4 pt-2">
@@ -69,77 +67,62 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
         </Select>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Semaine</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Département</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Dernière modification</TableHead>
-                <TableHead className="w-10 px-5 py-4" />
+      <DataTable>
+        <DataTableHead>
+          <Th>Semaine</Th>
+          <Th>Département</Th>
+          <Th>Dernière modification</Th>
+          <Th className="w-10" />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              widths={['h-4 w-48', 'h-4 w-24', 'h-4 w-32', '']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={4} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <History className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucun menu enregistré pour le moment.</p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((menu) => (
+              <TableRow
+                key={menu.id}
+                className="cursor-pointer"
+                onClick={() => onSelectMenu(menu.week_start, menu.department_id)}
+                title="Voir ce menu"
+              >
+                <Td className="font-medium">
+                  {formatDate(menu.week_start)} — {formatDate(menu.week_end)}
+                </Td>
+                <Td className="text-muted-foreground">
+                  {menu.department_name ?? '—'}
+                </Td>
+                <Td className="text-muted-foreground">{formatDateTime(menu.updated_at)}</Td>
+                <Td>
+                  <Button variant="ghost" size="sm" onClick={() => onSelectMenu(menu.week_start, menu.department_id)}>
+                    Voir
+                  </Button>
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={4} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <History className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun menu enregistré pour le moment.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((menu) => (
-                  <TableRow
-                    key={menu.id}
-                    className="cursor-pointer"
-                    onClick={() => onSelectMenu(menu.week_start, menu.department_id)}
-                    title="Voir ce menu"
-                  >
-                    <TableCell className="px-5 py-4 font-medium">
-                      {formatDate(menu.week_start)} — {formatDate(menu.week_end)}
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">
-                      {menu.department_name ?? '—'}
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDateTime(menu.updated_at)}</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Button variant="ghost" size="sm" onClick={() => onSelectMenu(menu.week_start, menu.department_id)}>
-                        Voir
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>{total} semaine{total > 1 ? 's' : ''} enregistrée{total > 1 ? 's' : ''}</span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-            Précédent
-          </Button>
-          <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
-            Suivant
-          </Button>
-        </div>
-      </div>
+      <ListPagination
+        label={<>{total} semaine{total > 1 ? 's' : ''} enregistrée{total > 1 ? 's' : ''}</>}
+        skip={skip}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onSkipChange={setSkip}
+      />
     </div>
   )
 }

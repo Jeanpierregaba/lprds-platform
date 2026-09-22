@@ -7,14 +7,14 @@ import { Baby, Download, IdCard, QrCode, Search, UserRound } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { CardPreviewModal } from '@/components/card-preview-modal'
-import { TabFade } from './dashboard-tab'
+import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 
 /** Nom de fichier à partir du nom affiché : « Tata Victoire » → « tata-victoire ». */
 function slugifyName(value: string) {
@@ -30,32 +30,20 @@ export function QrCodesTab() {
   return (
     <div className="pt-2">
       <Tabs defaultValue="children">
-        <TabsList className="h-auto w-full gap-1.5 overflow-x-auto rounded-2xl bg-card p-1.5 shadow-soft ring-1 ring-border sm:w-fit">
-          <TabsTrigger
-            value="children"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
-          >
-            <Baby className="mr-1.5 size-4" />
+        <PillsTabsList>
+          <PillsTrigger value="children" active="primary" icon={Baby}>
             Enfants
-          </TabsTrigger>
-          <TabsTrigger
-            value="staff"
-            className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-accent hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
-          >
-            <UserRound className="mr-1.5 size-4" />
+          </PillsTrigger>
+          <PillsTrigger value="staff" active="teal" icon={UserRound}>
             Personnel
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="children">
-          <TabFade value="children">
-            <PersonQrCode personType="child" />
-          </TabFade>
-        </TabsContent>
-        <TabsContent value="staff">
-          <TabFade value="staff">
-            <PersonQrCode personType="staff" />
-          </TabFade>
-        </TabsContent>
+          </PillsTrigger>
+        </PillsTabsList>
+        <TabPanel value="children">
+          <PersonQrCode personType="child" />
+        </TabPanel>
+        <TabPanel value="staff">
+          <PersonQrCode personType="staff" />
+        </TabPanel>
       </Tabs>
     </div>
   )

@@ -1,6 +1,6 @@
 import { apiClient } from './client'
 import type {
-  DepartmentReportTypeSetting, ParentReportDetail, ParentReportListResponse, Report,
+  DepartmentReportTypeSetting, MissingReportResponse, ParentReportDetail, ParentReportListResponse, Report,
   ReportCreatePayload, ReportListResponse,
   ReportStatus, ReportType, ReportUpdatePayload, ReportVocabulary, ReportAttachment,
 } from '@/types/reports'
@@ -29,6 +29,14 @@ export const reportsApi = {
     skip?: number
     limit?: number
   }) => apiClient.get<ReportListResponse>('/api/v1/reports', { params }),
+
+  listMissing: (params?: {
+    report_type?: ReportType
+    date?: string
+    department_id?: string
+    section_id?: string
+    group_id?: string
+  }) => apiClient.get<MissingReportResponse>('/api/v1/reports/missing', { params }),
 
   get: (id: string) => apiClient.get<Report>(`/api/v1/reports/${id}`),
 

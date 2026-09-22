@@ -18,7 +18,7 @@ from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.organization import service as org_service
-from app.modules.organization.models import Department, Group
+from app.modules.organization.models import Department, Group, Section
 from app.modules.notifications.service import notify_parents_report_validated
 from app.modules.reports.email import send_report_available_email
 from app.modules.reports.models import (
@@ -44,6 +44,8 @@ from app.modules.reports.schemas import (
     ChildBrief,
     DailyReportContent,
     DepartmentReportTypeResponse,
+    MissingReportItem,
+    MissingReportResponse,
     ParentReportDetailResponse,
     ParentReportListItem,
     ParentReportListResponse,
@@ -652,6 +654,115 @@ def _child_brief(child: Child) -> ChildBrief:
     return ChildBrief(
         id=child.id, matricule=child.matricule,
         last_name=child.last_name, first_names=child.first_names,
+    )
+
+
+async def list_missing_reports(
+    establishment_id: uuid.UUID,
+    current_user: User,
+    db: AsyncSession,
+    *,
+    report_type: ReportType,
+    target: date,
+    department_id: uuid.UUID | None = None,
+    section_id: uuid.UUID | None = None,
+    group_id: uuid.UUID | None = None,
+) -> MissingReportResponse:
+    """Enfants actifs sans rapport soumis/validé pour la période contenant
+    `target` (jour lui-même / quinzaine / année selon le type).
+
+    Évite à l'admin d'aller croiser la liste des absences : un seul appel dit
+    qui n'a rien soumis. Scope : l'éducatrice ne voit que ses groupes menés
+    (filtres département/section/groupe ignorés pour elle — son périmètre est
+    déjà son groupe) ; l'admin voit tout l'établissement, filtrable.
+    `has_draft` signale un brouillon/rejeté en cours (rien de soumis quand même).
+    """
+    period_start, _period_end, period_label = _period_for(report_type, target)
+
+    # Seuls les enfants dont le département a CE type activé comptent : un
+    # département lié uniquement au quotidien ne fait pas grimper les
+    # « non soumis » du bi-mensuel/annuel (et inversement). Cohérent avec la
+    # création, qui exige le type actif pour le département de l'enfant.
+    type_dept_ids = select(DepartmentReportType.department_id).where(
+        DepartmentReportType.establishment_id == establishment_id,
+        DepartmentReportType.report_type == str(report_type),
+    )
+    child_filters = [
+        Child.establishment_id == establishment_id,
+        Child.is_active.is_(True),
+        Child.department_id.in_(type_dept_ids),
+    ]
+    if current_user.role == UserRole.STAFF:
+        led_group_ids = await _led_group_ids(current_user.id, db)
+        if not led_group_ids:
+            return MissingReportResponse(
+                report_type=report_type, date=target,
+                period_start=period_start, period_label=period_label,
+                total=0, items=[],
+            )
+        child_filters.append(Child.group_id.in_(led_group_ids))
+    else:
+        if department_id:
+            child_filters.append(Child.department_id == department_id)
+        if section_id:
+            child_filters.append(Child.section_id == section_id)
+        if group_id:
+            child_filters.append(Child.group_id == group_id)
+
+    result = await db.execute(
+        select(Child).where(*child_filters).order_by(Child.last_name, Child.first_names)
+    )
+    children = result.scalars().all()
+    if not children:
+        return MissingReportResponse(
+            report_type=report_type, date=target,
+            period_start=period_start, period_label=period_label,
+            total=0, items=[],
+        )
+
+    child_ids = [c.id for c in children]
+    reports = (
+        await db.execute(
+            select(Report.child_id, Report.status).where(
+                Report.establishment_id == establishment_id,
+                Report.report_type == str(report_type),
+                Report.period_start == period_start,
+                Report.child_id.in_(child_ids),
+            )
+        )
+    ).all()
+    submitted_ids = {
+        cid for cid, st in reports
+        if st in (str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED))
+    }
+    draft_ids = {
+        cid for cid, st in reports
+        if st in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED))
+    }
+
+    section_ids = {c.section_id for c in children if c.section_id}
+    section_names: dict[uuid.UUID, str] = {}
+    if section_ids:
+        rows = (
+            await db.execute(
+                select(Section.id, Section.name).where(Section.id.in_(section_ids))
+            )
+        ).all()
+        section_names = {sid: name for sid, name in rows}
+
+    items = [
+        MissingReportItem(
+            child=_child_brief(c),
+            section_name=section_names.get(c.section_id) if c.section_id else None,
+            has_draft=c.id in draft_ids,
+        )
+        for c in children
+        if c.id not in submitted_ids
+    ]
+    return MissingReportResponse(
+        report_type=report_type, date=target,
+        period_start=period_start, period_label=period_label,
+        total=len(items), items=items,
     )
 
 

@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ArrowRight, Award, CalendarRange, FileText, Sun } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { reportsApi } from '@/lib/api/reports.api'
 import { REPORT_TYPE_LABELS, type ReportType } from '@/types/reports'
 import { cn } from '@/lib/utils/cn'
+import { PageMotion } from '@/components/dashboard/shared/page'
+import { CardsEmptyState } from '@/components/dashboard/shared/cards'
+import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { useMyChildren } from '../use-my-children'
 
 const ALL = '__all__'
@@ -51,18 +53,11 @@ export default function ParentReportsPage() {
 
   const total = data?.total ?? 0
   const items = data?.items ?? []
-  const hasNext = skip + PAGE_SIZE < total
-  const hasPrev = skip > 0
 
   const childItems = { [ALL]: 'Tous les enfants', ...Object.fromEntries(children.map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
+    <PageMotion>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Rapports</h1>
@@ -87,15 +82,12 @@ export default function ParentReportsPage() {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
         </div>
       ) : items.length === 0 ? (
-        <Card>
-          <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-              <FileText className="size-5" />
-            </div>
-            <p className="font-medium text-foreground">Aucun rapport disponible pour le moment.</p>
-            <p className="max-w-sm text-sm">Les rapports apparaissent ici une fois validés par l&apos;établissement.</p>
-          </CardContent>
-        </Card>
+        <CardsEmptyState
+          icon={FileText}
+          title="Aucun rapport disponible pour le moment."
+          description="Les rapports apparaissent ici une fois validés par l'établissement."
+          heightClass="h-48"
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((r, i) => {
@@ -151,18 +143,14 @@ export default function ParentReportsPage() {
       )}
 
       {!isLoading && total > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{total} rapports</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-              Précédent
-            </Button>
-            <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
-              Suivant
-            </Button>
-          </div>
-        </div>
+        <ListPagination
+          label={<>{total} rapports</>}
+          skip={skip}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onSkipChange={setSkip}
+        />
       )}
-    </motion.div>
+    </PageMotion>
   )
 }

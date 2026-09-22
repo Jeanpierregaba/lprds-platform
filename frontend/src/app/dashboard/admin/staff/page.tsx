@@ -2,33 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Eye, LayoutGrid, List, Loader2, Plus, QrCode, Search, UserCheck, UserRound, UserX } from 'lucide-react'
+import { Eye, Loader2, Plus, QrCode, UserCheck, UserRound, UserX } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
+import { CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Card, CardContent } from '@/components/ui/card'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { staffApi } from '@/lib/api/staff.api'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { InactiveSwitch, SearchInput, ViewToggle, type ViewMode } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem, StatusPill } from '@/components/dashboard/shared/cards'
+import { ListPagination } from '@/components/dashboard/shared/pagination'
+import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
 import { STAFF_TYPE_LABELS, type StaffListItem, type StaffType } from '@/types/staff'
 
 const PAGE_SIZE = 20
@@ -43,7 +36,7 @@ export default function StaffListPage() {
   const [staffType, setStaffType] = useState<string>(ALL)
   const [includeInactive, setIncludeInactive] = useState(false)
   const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<'table' | 'cards'>('cards')
+  const [view, setView] = useState<ViewMode>('cards')
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -68,41 +61,28 @@ export default function StaffListPage() {
 
   const total = data?.total ?? 0
   const items = data?.items ?? []
-  const hasNext = skip + PAGE_SIZE < total
-  const hasPrev = skip > 0
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Personnel</h1>
-          <p className="text-muted-foreground">Gérer les comptes de votre personnel.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canWrite && (
+    <PageMotion className="space-y-6">
+      <PageHeader
+        title="Personnel"
+        description="Gérer les comptes de votre personnel."
+        actions={
+          canWrite ? (
           <Button render={<Link href="/dashboard/admin/staff/new" />}>
             <Plus className="mr-1.5 size-4" />
             Nouveau membre
           </Button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par nom, surnom, email ou matricule..."
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          placeholder="Rechercher par nom, surnom, email ou matricule..."
+          value={search}
+          onChange={setSearch}
+        />
         <Select
           items={{ [ALL]: 'Tous les types', ...STAFF_TYPE_LABELS }}
           value={staffType}
@@ -118,33 +98,14 @@ export default function StaffListPage() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-2">
-          <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="include-inactive" className="text-sm text-white font-semibold">Inclure les comptes inactifs</Label>
-        </div>
+        <InactiveSwitch
+          id="include-inactive"
+          checked={includeInactive}
+          onCheckedChange={setIncludeInactive}
+          label="Inclure les comptes inactifs"
+        />
 
-        <div className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5 bg-accent">
-          <Button
-            type="button"
-            variant={view === 'table' ? 'default' : 'ghost'}
-            size="icon-sm"
-            aria-label="Vue en liste"
-            aria-pressed={view === 'table'}
-            onClick={() => setView('table')}
-          >
-            <List className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant={view === 'cards' ? 'default' : 'ghost'}
-            size="icon-sm"
-            aria-label="Vue en cartes"
-            aria-pressed={view === 'cards'}
-            onClick={() => setView('cards')}
-          >
-            <LayoutGrid className="size-4" />
-          </Button>
-        </div>
+        <ViewToggle view={view} onChange={setView} />
       </div>
 
       {view === 'cards' ? (
@@ -154,111 +115,86 @@ export default function StaffListPage() {
           hasSearch={!!debouncedSearch}
         />
       ) : (
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Matricule</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Type</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Email</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
+      <DataTable>
+        <DataTableHead>
+          <Th>Matricule</Th>
+          <Th>Nom</Th>
+          <Th>Type</Th>
+          <Th>Email</Th>
+          <Th>Statut</Th>
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              widths={['h-4 w-20', 'h-4 w-40', 'h-4 w-28', 'h-4 w-32', 'h-5 w-14 rounded-full']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={5} className="h-56 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <UserRound className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">
+                    {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun membre du personnel pour le moment.'}
+                  </p>
+                  <p className="max-w-sm text-sm">
+                    {debouncedSearch
+                      ? 'Essayez un autre nom, surnom, email ou matricule.'
+                      : 'Créez le premier compte pour commencer à gérer votre personnel.'}
+                  </p>
+                  {!debouncedSearch && canWrite && (
+                    <Button render={<Link href="/dashboard/admin/staff/new" />} size="sm" className="mt-1">
+                      <Plus className="mr-1.5 size-4" />
+                      Nouveau membre
+                    </Button>
+                  )}
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((s) => (
+              <TableRow key={s.id} className={cn(!s.is_active && 'opacity-70')}>
+                <Td>
+                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-mono text-xs">
+                    {s.matricule ?? '—'}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-medium">
+                    {s.nickname ?? `${s.first_name} ${s.last_name}`}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
+                    {s.staff_type ? STAFF_TYPE_LABELS[s.staff_type] : '—'}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
+                    {s.email}
+                  </Link>
+                </Td>
+                <Td>
+                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block">
+                    <StatusPill active={s.is_active} />
+                  </Link>
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="h-56 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <UserRound className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">
-                        {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun membre du personnel pour le moment.'}
-                      </p>
-                      <p className="max-w-sm text-sm">
-                        {debouncedSearch
-                          ? 'Essayez un autre nom, surnom, email ou matricule.'
-                          : 'Créez le premier compte pour commencer à gérer votre personnel.'}
-                      </p>
-                      {!debouncedSearch && canWrite && (
-                        <Button render={<Link href="/dashboard/admin/staff/new" />} size="sm" className="mt-1">
-                          <Plus className="mr-1.5 size-4" />
-                          Nouveau membre
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((s) => (
-                  <TableRow key={s.id} className={cn(!s.is_active && 'opacity-70')}>
-                    <TableCell className="px-5 py-4">
-                      <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-mono text-xs">
-                        {s.matricule ?? '—'}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-medium">
-                        {s.nickname ?? `${s.first_name} ${s.last_name}`}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
-                        {s.staff_type ? STAFF_TYPE_LABELS[s.staff_type] : '—'}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
-                        {s.email}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Link href={`/dashboard/admin/staff/${s.id}`} className="block">
-                        <span
-                          className={cn(
-                            'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                            s.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                          )}
-                        >
-                          {s.is_active ? 'Actif' : 'Inactif'}
-                        </span>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
       )}
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {total} membre{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-            Précédent
-          </Button>
-          <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
-            Suivant
-          </Button>
-        </div>
-      </div>
-    </motion.div>
+      <ListPagination
+        label={<>{total} membre{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        skip={skip}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onSkipChange={setSkip}
+      />
+    </PageMotion>
   )
 }
 
@@ -271,49 +207,26 @@ function StaffCardGrid({
   const canQr = user?.role === 'admin' || permissions.has('attendance:write')
 
   if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="space-y-2 p-5">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-40" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
+    return <CardsSkeleton />
   }
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex h-56 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <UserRound className="size-5" />
-          </div>
-          <p className="font-medium text-foreground">
-            {hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun membre du personnel pour le moment.'}
-          </p>
-        </CardContent>
-      </Card>
+      <CardsEmptyState
+        icon={UserRound}
+        title={hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun membre du personnel pour le moment.'}
+      />
     )
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <CardsGrid>
       {items.map((member, i) => (
-        <motion.div
-          key={member.id}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
-        >
+        <StaggerItem key={member.id} index={i}>
           <StaffCard member={member} canWrite={canWrite} canQr={canQr} />
-        </motion.div>
+        </StaggerItem>
       ))}
-    </div>
+    </CardsGrid>
   )
 }
 
@@ -325,7 +238,6 @@ function StaffCard({
   canQr: boolean
 }) {
   const queryClient = useQueryClient()
-  const router = useRouter()
   const detailHref = `/dashboard/admin/staff/${member.id}`
   const [qrOpen, setQrOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
@@ -347,27 +259,17 @@ function StaffCard({
 
   return (
     <>
-      <Card
-        className={cn('cursor-pointer rounded-2xl shadow-soft transition hover:-translate-y-0.5', !member.is_active && 'opacity-75')}
-        onClick={() => router.push(detailHref)}
-        onKeyDown={(e) => { if (e.key === 'Enter') router.push(detailHref) }}
-        tabIndex={0}
-        role="link"
-        aria-label={`Ouvrir le compte de ${member.nickname ?? `${member.first_name} ${member.last_name}`}`}
+      <ClickableCard
+        href={detailHref}
+        label={`Ouvrir le compte de ${member.nickname ?? `${member.first_name} ${member.last_name}`}`}
+        inactive={!member.is_active}
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-xl font-semibold leading-tight">
             {member.nickname ?? `${member.first_name} ${member.last_name}`}
           </p>
-          <span
-            className={cn(
-              'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
-              member.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-            )}
-          >
-            {member.is_active ? 'Actif' : 'Inactif'}
-          </span>
+          <StatusPill active={member.is_active} shrink />
         </div>
         <p className="text-sm text-muted-foreground">
           Code: <span className="font-mono">{member.matricule ?? '—'}</span>
@@ -409,47 +311,28 @@ function StaffCard({
           )}
         </div>
       </CardContent>
-      </Card>
+      </ClickableCard>
 
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="font-display">Badge de {member.nickname ?? member.first_name}</DialogTitle>
-            <DialogDescription className="font-mono text-xs">{member.matricule ?? member.email}</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-center py-2">
-            {loadingQr || !qr ? (
-              <Skeleton className="size-48 rounded-xl" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={qr.qr_image} alt={`QR ${member.matricule ?? ''}`} className="size-48 rounded-xl ring-1 ring-border" />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <QrBadgeDialog
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+        title={`Badge de ${member.nickname ?? member.first_name}`}
+        subtitle={member.matricule ?? member.email}
+        qrImage={qr?.qr_image}
+        loading={loadingQr}
+      />
 
-      <AlertDialog open={confirmToggle} onOpenChange={setConfirmToggle}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Désactiver ce compte ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {member.nickname ?? `${member.first_name} ${member.last_name}`} ne pourra plus
-              se connecter (réversible depuis sa fiche).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmToggle(false)
-                toggleMutation.mutate()
-              }}
-            >
-              Désactiver
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmToggle}
+        onOpenChange={setConfirmToggle}
+        title="Désactiver ce compte ?"
+        description={`${member.nickname ?? `${member.first_name} ${member.last_name}`} ne pourra plus se connecter (réversible depuis sa fiche).`}
+        confirmLabel="Désactiver"
+        onConfirm={() => {
+          setConfirmToggle(false)
+          toggleMutation.mutate()
+        }}
+      />
     </>
   )
 }

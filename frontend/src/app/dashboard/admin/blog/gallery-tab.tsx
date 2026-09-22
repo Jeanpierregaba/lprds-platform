@@ -14,13 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { blogApi } from '@/lib/api/blog.api'
 import { AuthMedia } from './auth-media'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { GalleryPhotoCategory } from '@/types/blog'
 
 const ALL = '__all__'
@@ -45,6 +42,7 @@ export function GalleryTab() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadCategoryId, setUploadCategoryId] = useState('')
   const [manageOpen, setManageOpen] = useState(false)
+  const [photoToDelete, setPhotoToDelete] = useState<{ id: string } | null>(null)
   const [file, setFile] = useState<File | null>(null)
 
   const { data: categories = [] } = useGalleryCategories()
@@ -209,29 +207,16 @@ export function GalleryTab() {
                       {photo.category?.name ?? 'Sans catégorie'} · {formatSize(photo.size_bytes)}
                     </p>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={<Button type="button" variant="secondary" size="icon-sm"
-                        className="absolute right-2 top-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
-                        aria-label="Supprimer la photo" />}
-                    >
-                      <Trash2 className="size-4" />
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cette photo ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Elle disparaîtra immédiatement de la galerie du site vitrine. Action irréversible.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteMutation.mutate(photo.id)}>
-                          Supprimer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon-sm"
+                    className="absolute right-2 top-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+                    aria-label="Supprimer la photo"
+                    onClick={() => setPhotoToDelete({ id: photo.id })}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
               ))}
             </div>
@@ -240,6 +225,18 @@ export function GalleryTab() {
       </Card>
 
       <CategoriesManager open={manageOpen} onOpenChange={setManageOpen} />
+
+      <ConfirmDialog
+        open={!!photoToDelete}
+        onOpenChange={(open) => !open && setPhotoToDelete(null)}
+        title="Supprimer cette photo ?"
+        description="Elle disparaîtra immédiatement de la galerie du site vitrine. Action irréversible."
+        confirmLabel="Supprimer"
+        onConfirm={() => {
+          if (photoToDelete) deleteMutation.mutate(photoToDelete.id)
+          setPhotoToDelete(null)
+        }}
+      />
     </div>
   )
 }
@@ -350,25 +347,17 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la catégorie « {deleting?.name} » ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Suppression définitive. Les photos qu&apos;elle contient resteront publiées, sans catégorie.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deleteMutation.isPending}
-              onClick={() => deleting && deleteMutation.mutate(deleting.id)}
-            >
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Supprimer la catégorie « ${deleting?.name ?? ''} » ?`}
+        description="Suppression définitive. Les photos qu'elle contient resteront publiées, sans catégorie."
+        confirmLabel="Supprimer"
+        confirmDisabled={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleting) deleteMutation.mutate(deleting.id)
+        }}
+      />
     </>
   )
 }

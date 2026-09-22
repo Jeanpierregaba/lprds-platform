@@ -12,10 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
@@ -24,7 +21,9 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { cn } from '@/lib/utils/cn'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Section } from '@/types/organization'
 
 const schema = z.object({
@@ -137,10 +136,12 @@ export function SectionsTab() {
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center gap-2">
-            <Switch id="sec-include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="sec-include-inactive" className="text-sm text-white font-semibold">Inclure les sections inactives</Label>
-          </div>
+          <InactiveSwitch
+            id="sec-include-inactive"
+            checked={includeInactive}
+            onCheckedChange={setIncludeInactive}
+            label="Inclure les sections inactives"
+          />
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -202,77 +203,59 @@ export function SectionsTab() {
         </Dialog>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Nom</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Département</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Description</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="w-10 px-5 py-4" />
+      <DataTable>
+        <DataTableHead>
+          <Th>Nom</Th>
+          <Th>Département</Th>
+          <Th>Description</Th>
+          <Th>Statut</Th>
+          <Th className="w-10" />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              count={3}
+              widths={['h-4 w-32', 'h-4 w-28', 'h-4 w-48', 'h-5 w-14 rounded-full', '']}
+            />
+          ) : sections.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={5} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <LayoutGrid className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">
+                    {hasDepartments ? 'Aucune section pour le moment.' : 'Créez d\'abord un département.'}
+                  </p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            sections.map((section) => (
+              <TableRow key={section.id}>
+                <Td className="font-medium">{section.name}</Td>
+                <Td className="text-muted-foreground">{departmentName(section.department_id)}</Td>
+                <Td className="text-muted-foreground">{section.description ?? '—'}</Td>
+                <Td>
+                  <StatusPill active={section.is_active} />
+                </Td>
+                <Td>
+                  {canWrite && (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(section)} aria-label={`Modifier ${section.name}`}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(section)}>
+                      {section.is_active ? 'Désactiver' : 'Réactiver'}
+                    </Button>
+                  </div>
+                  )}
+                </Td>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : sections.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <LayoutGrid className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">
-                        {hasDepartments ? 'Aucune section pour le moment.' : 'Créez d\'abord un département.'}
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sections.map((section) => (
-                  <TableRow key={section.id}>
-                    <TableCell className="px-5 py-4 font-medium">{section.name}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{departmentName(section.department_id)}</TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{section.description ?? '—'}</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span
-                        className={cn(
-                          'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                          section.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {section.is_active ? 'Actif' : 'Inactif'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {canWrite && (
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(section)} aria-label={`Modifier ${section.name}`}>
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(section)}>
-                          {section.is_active ? 'Désactiver' : 'Réactiver'}
-                        </Button>
-                      </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
     </div>
   )
 }

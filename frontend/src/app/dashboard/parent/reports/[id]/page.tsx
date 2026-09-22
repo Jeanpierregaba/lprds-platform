@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Download, FileVideo, Loader2 } from 'lucide-react'
+import { Download, FileVideo, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,6 +14,7 @@ import { AttachmentLightbox } from '@/components/media/attachment-lightbox'
 import { reportsApi } from '@/lib/api/reports.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
+import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
 import { ContentView } from '@/app/dashboard/admin/reports/content-view'
 
@@ -70,19 +69,8 @@ export default function ParentReportDetailPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="mx-auto w-full max-w-2xl space-y-4"
-    >
-      <Link
-        href="/dashboard/parent/reports"
-        className="inline-flex items-center gap-1.5 text-sm text-white font-semibold"
-      >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
-      </Link>
+    <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
+      <BackLink href="/dashboard/parent/reports" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -171,6 +159,6 @@ export default function ParentReportDetailPage() {
           onOpenChange={(open) => !open && setSelectedAttachment(null)}
         />
       )}
-    </motion.div>
+    </PageMotion>
   )
 }

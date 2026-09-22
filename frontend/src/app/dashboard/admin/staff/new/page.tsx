@@ -5,12 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
-import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react'
-import Link from 'next/link'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
 
 const schema = z.object({
@@ -65,31 +64,16 @@ export default function NewStaffPage() {
 
   if (!canWrite) {
     return (
-      <div className="mx-auto w-full max-w-2xl space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Droits insuffisants — vous n'avez pas la permission de créer un compte du personnel.
-        </p>
-        <Link href="/dashboard/admin/staff" className="text-sm text-primary hover:underline">
-          Retour à la liste
-        </Link>
-      </div>
+      <RightsGuard
+        message="Droits insuffisants — vous n'avez pas la permission de créer un compte du personnel."
+        backHref="/dashboard/admin/staff"
+      />
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="mx-auto w-full max-w-2xl space-y-4"
-    >
-      <Link
-        href="/dashboard/admin/staff"
-        className="inline-flex items-center gap-1.5 text-sm text-white"
-      >
-        <ArrowLeft className="size-4 text-white font-semibold" />
-        <span className="text-white font-semibold">Retour à la liste</span>
-      </Link>
+    <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
+      <BackLink href="/dashboard/admin/staff" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -192,6 +176,6 @@ export default function NewStaffPage() {
           </form>
         </CardContent>
       </Card>
-    </motion.div>
+    </PageMotion>
   )
 }

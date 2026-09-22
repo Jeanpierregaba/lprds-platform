@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { FileVideo, Images } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AuthMedia } from '@/components/media/auth-media'
 import { galleryApi } from '@/lib/api/gallery.api'
 import { isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { MediaLightbox } from '@/app/dashboard/admin/gallery/media-lightbox'
 
 const PAGE_SIZE = 30
@@ -28,20 +28,13 @@ export default function StaffGalleryPage() {
 
   const total = data?.total ?? 0
   const items = data?.items ?? []
-  const hasNext = skip + PAGE_SIZE < total
-  const hasPrev = skip > 0
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Galerie</h1>
-        <p className="text-muted-foreground">Photos et vidéos que vous avez envoyées via vos rapports.</p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Galerie"
+        description="Photos et vidéos que vous avez envoyées via vos rapports."
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -83,20 +76,16 @@ export default function StaffGalleryPage() {
       )}
 
       {!isLoading && total > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{total} média{total > 1 ? 's' : ''}</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-              Précédent
-            </Button>
-            <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
-              Suivant
-            </Button>
-          </div>
-        </div>
+        <ListPagination
+          label={<>{total} média{total > 1 ? 's' : ''}</>}
+          skip={skip}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onSkipChange={setSkip}
+        />
       )}
 
       <MediaLightbox item={selected} onOpenChange={(open) => !open && setSelected(null)} />
-    </motion.div>
+    </PageMotion>
   )
 }

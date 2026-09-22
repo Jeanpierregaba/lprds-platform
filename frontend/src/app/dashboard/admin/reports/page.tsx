@@ -1,23 +1,34 @@
 'use client'
 
-import { motion } from 'framer-motion'
-
-import { ReportsListTab } from './reports-list-tab'
+import { Tabs } from '@/components/ui/tabs'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
+import { REPORT_TYPE_LABELS } from '@/types/reports'
+import { TYPE_TAB_META, TypeTab } from './type-tab'
 
 export default function ReportsPage() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Rapports</h1>
-        <p className="text-muted-foreground">Rapports de vie des enfants — quotidien, bi-mensuel, annuel.</p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Rapports"
+        description="Rapports de vie des enfants quotidien, bi-mensuel, annuel."
+      />
 
-      <ReportsListTab />
-    </motion.div>
+      <Tabs defaultValue="quotidien">
+        <PillsTabsList>
+          {TYPE_TAB_META.map((tab) => (
+            <PillsTrigger key={tab.value} value={tab.value} active={tab.active} icon={tab.icon}>
+              {REPORT_TYPE_LABELS[tab.value]}
+            </PillsTrigger>
+          ))}
+        </PillsTabsList>
+
+        {TYPE_TAB_META.map((tab) => (
+          <TabPanel key={tab.value} value={tab.value}>
+            <TypeTab reportType={tab.value} />
+          </TabPanel>
+        ))}
+      </Tabs>
+    </PageMotion>
   )
 }

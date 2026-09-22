@@ -2,32 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { libraryApi } from '@/lib/api/library.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { CardsEmptyState, CardsGrid, CardsSkeleton, StaggerItem, StatusPill } from '@/components/dashboard/shared/cards'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Book } from '@/types/library'
 import { BookFormDialog } from './book-form-dialog'
 
@@ -103,12 +92,12 @@ export function CatalogueTab() {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-2">
-            <Switch id="include-inactive-books" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="include-inactive-books" className="text-sm text-white font-semibold">
-              Inclure les désactivés
-            </Label>
-          </div>
+          <InactiveSwitch
+            id="include-inactive-books"
+            checked={includeInactive}
+            onCheckedChange={setIncludeInactive}
+            label="Inclure les désactivés"
+          />
         </div>
 
 {canWrite && (
@@ -153,29 +142,15 @@ export function CatalogueTab() {
         sections={sections ?? []}
       />
 
-      <AlertDialog
+      <ConfirmDialog
         open={deletingBook !== null}
         onOpenChange={(open) => !open && setDeletingBook(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Désactiver ce livre ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              « {deletingBook?.title} » ne sera plus empruntable, mais l'historique des prêts restera
-              consultable.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => deletingBook && deleteMutation.mutate(deletingBook.id)}
-            >
-              Désactiver
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Désactiver ce livre ?"
+        description={`« ${deletingBook?.title ?? ''} » ne sera plus empruntable, mais l'historique des prêts restera consultable.`}
+        confirmLabel="Désactiver"
+        destructive
+        onConfirm={() => deletingBook && deleteMutation.mutate(deletingBook.id)}
+      />
     </div>
   )
 }
@@ -190,55 +165,28 @@ function BooksCardGrid({
   onDeactivate: (book: Book) => void
 }) {
   if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="space-y-2 p-5">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-40" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
+    return <CardsSkeleton />
   }
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <BookOpen className="size-5" />
-          </div>
-          <p className="font-medium text-foreground">Aucun livre dans le catalogue.</p>
-        </CardContent>
-      </Card>
+      <CardsEmptyState
+        icon={BookOpen}
+        title="Aucun livre dans le catalogue."
+        heightClass="h-48"
+      />
     )
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <CardsGrid>
       {items.map((book, i) => (
-        <motion.div
-          key={book.id}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: Math.min(i, 8) * 0.05 }}
-        >
+        <StaggerItem key={book.id} index={i}>
           <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !book.is_active && 'opacity-75')}>
             <CardContent className="space-y-1.5 p-5">
               <div className="flex items-start justify-between gap-3">
                 <p className="font-display text-xl font-semibold leading-tight">{book.title}</p>
-                <span
-                  className={cn(
-                    'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
-                    book.is_active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {book.is_active ? 'Actif' : 'Désactivé'}
-                </span>
+                <StatusPill active={book.is_active} activeLabel="Actif" inactiveLabel="Désactivé" shrink />
               </div>
               <p className="text-sm text-muted-foreground">par {book.author}</p>
               <div className="flex flex-wrap gap-1">
@@ -274,8 +222,8 @@ function BooksCardGrid({
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </StaggerItem>
       ))}
-    </div>
+    </CardsGrid>
   )
 }

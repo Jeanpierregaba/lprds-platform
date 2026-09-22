@@ -7,14 +7,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Newspaper, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { blogApi } from '@/lib/api/blog.api'
 import { cn } from '@/lib/utils/cn'
+import { InactiveSwitch } from '@/components/dashboard/shared/filters'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { AuthMedia } from './auth-media'
 import { ARTICLE_STATUS_LABELS, type ArticleStatus } from '@/types/blog'
 
@@ -96,10 +94,12 @@ export function ArticlesTab() {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-2">
-            <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-            <Label htmlFor="include-inactive" className="text-sm text-white font-semibold">Inclure les supprimés</Label>
-          </div>
+          <InactiveSwitch
+            id="include-inactive"
+            checked={includeInactive}
+            onCheckedChange={setIncludeInactive}
+            label="Inclure les supprimés"
+          />
         </div>
 
         <Button render={<Link href="/dashboard/admin/blog/new" />}>
@@ -108,94 +108,81 @@ export function ArticlesTab() {
         </Button>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="w-16 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Image</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Titre</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Étiquette</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Statut</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Publié le</TableHead>
-                <TableHead className="px-5 py-4" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="size-10 rounded" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-24 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="px-5 py-4" />
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <Newspaper className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun article pour le moment.</p>
+      <DataTable>
+        <DataTableHead>
+          <Th className="w-16">Image</Th>
+          <Th>Titre</Th>
+          <Th>Étiquette</Th>
+          <Th>Statut</Th>
+          <Th>Publié le</Th>
+          <Th />
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              widths={['size-10 rounded', 'h-4 w-48', 'h-5 w-24 rounded-full', 'h-5 w-20 rounded-full', 'h-4 w-24', '']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <Newspaper className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucun article pour le moment.</p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((article) => (
+              <TableRow
+                key={article.id}
+                className={!article.is_active ? 'cursor-pointer opacity-50' : 'cursor-pointer'}
+                onClick={() => router.push(`/dashboard/admin/blog/${article.id}`)}
+                title="Ouvrir cet article"
+              >
+                <Td>
+                  {article.cover_url ? (
+                    <AuthMedia
+                      queryKey={['blog', 'cover-thumb', article.id]}
+                      fetchBlob={() => blogApi.downloadCover(article.id).then((r) => r.data)}
+                      contentType="image/*"
+                      alt={article.title}
+                      className="size-10 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground">
+                      <Newspaper className="size-4" />
                     </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((article) => (
-                  <TableRow
-                    key={article.id}
-                    className={!article.is_active ? 'cursor-pointer opacity-50' : 'cursor-pointer'}
-                    onClick={() => router.push(`/dashboard/admin/blog/${article.id}`)}
-                    title="Ouvrir cet article"
-                  >
-                    <TableCell className="px-5 py-4">
-                      {article.cover_url ? (
-                        <AuthMedia
-                          queryKey={['blog', 'cover-thumb', article.id]}
-                          fetchBlob={() => blogApi.downloadCover(article.id).then((r) => r.data)}
-                          contentType="image/*"
-                          alt={article.title}
-                          className="size-10 rounded object-cover"
-                        />
-                      ) : (
-                        <div className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground">
-                          <Newspaper className="size-4" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-5 py-4 font-medium">
-                      {article.title}
-                      {!article.is_active && <span className="ml-2 text-xs font-normal text-muted-foreground">(supprimé)</span>}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      {article.tag ? (
-                        <span className="inline-block rounded-full bg-teal px-3 py-1 text-xs font-semibold text-white">
-                          {article.tag.name}
-                        </span>
-                      ) : '—'}
-                    </TableCell>
-                    <TableCell className="px-5 py-4">
-                      <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[article.status])}>
-                        {ARTICLE_STATUS_LABELS[article.status]}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-5 py-4 text-muted-foreground">{formatDate(article.published_at)}</TableCell>
-                    <TableCell className="px-5 py-4">
-                      <Button variant="ghost" size="sm" render={<Link href={`/dashboard/admin/blog/${article.id}`} />}>
-                        Voir
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  )}
+                </Td>
+                <Td className="font-medium">
+                  {article.title}
+                  {!article.is_active && <span className="ml-2 text-xs font-normal text-muted-foreground">(supprimé)</span>}
+                </Td>
+                <Td>
+                  {article.tag ? (
+                    <span className="inline-block rounded-full bg-teal px-3 py-1 text-xs font-semibold text-white">
+                      {article.tag.name}
+                    </span>
+                  ) : '—'}
+                </Td>
+                <Td>
+                  <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[article.status])}>
+                    {ARTICLE_STATUS_LABELS[article.status]}
+                  </span>
+                </Td>
+                <Td className="text-muted-foreground">{formatDate(article.published_at)}</Td>
+                <Td>
+                  <Button variant="ghost" size="sm" render={<Link href={`/dashboard/admin/blog/${article.id}`} />}>
+                    Voir
+                  </Button>
+                </Td>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </DataTable>
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">

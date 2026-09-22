@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, ImagePlus, Loader2, Send, Trash2, Upload } from 'lucide-react'
+import { ImagePlus, Loader2, Send, Trash2, Upload } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,13 +14,11 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { blogApi } from '@/lib/api/blog.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
+import { BackLink } from '@/components/dashboard/shared/page'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { ARTICLE_STATUS_LABELS } from '@/types/blog'
 import { AuthMedia } from '../auth-media'
 
@@ -41,6 +38,7 @@ export default function ArticleDetailPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tagId, setTagId] = useState(NO_TAG)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const { data: article, isLoading } = useQuery({
     queryKey: ['blog', 'article', id],
@@ -128,13 +126,7 @@ export default function ArticleDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
-      <Link
-        href="/dashboard/admin/blog"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Retour à la liste
-      </Link>
+      <BackLink href="/dashboard/admin/blog" label="Retour à la liste" />
 
       <Card>
         <CardHeader>
@@ -257,23 +249,20 @@ export default function ArticleDetailPage() {
                 </Button>
               )}
 
-              <AlertDialog>
-                <AlertDialogTrigger render={<Button type="button" variant="destructive" className="ml-auto" />}>
-                  Supprimer
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      L&apos;article disparaîtra du site public et ne sera plus modifiable.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deleteMutation.mutate()}>Supprimer</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button type="button" variant="destructive" className="ml-auto" onClick={() => setConfirmDelete(true)}>
+                Supprimer
+              </Button>
+              <ConfirmDialog
+                open={confirmDelete}
+                onOpenChange={setConfirmDelete}
+                title="Supprimer cet article ?"
+                description="L'article disparaîtra du site public et ne sera plus modifiable."
+                confirmLabel="Supprimer"
+                onConfirm={() => {
+                  setConfirmDelete(false)
+                  deleteMutation.mutate()
+                }}
+              />
             </div>
           )}
         </CardContent>

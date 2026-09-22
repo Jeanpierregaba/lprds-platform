@@ -4,15 +4,14 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ScrollText } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { cn } from '@/lib/utils/cn'
+import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { ListPagination } from '@/components/dashboard/shared/pagination'
 import type { PersonType } from '@/types/attendance'
 
 const PAGE_SIZE = 25
@@ -68,8 +67,6 @@ export function JournalTab() {
 
   const total = data?.total ?? 0
   const items = data?.items ?? []
-  const hasNext = skip + PAGE_SIZE < total
-  const hasPrev = skip > 0
 
   return (
     <div className="space-y-4 pt-2">
@@ -101,90 +98,71 @@ export function JournalTab() {
         </div>
       </div>
 
-      <Card className="overflow-hidden py-0">
-        <CardContent className="p-0">
-          <Table className="border-collapse">
-            <TableHeader className="bg-primary [&_tr]:border-transparent">
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Horodatage</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Type</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Événement</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Personne</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Scanné par</TableHead>
-                <TableHead className="px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Accompagnateur</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="px-5 py-4"><Skeleton className="h-4 w-24" /></TableCell>
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <ScrollText className="size-5" />
-                      </div>
-                      <p className="font-medium text-foreground">Aucun événement pour ces filtres.</p>
-                    </div>
-                  </TableCell>
+      <DataTable>
+        <DataTableHead>
+          <Th>Horodatage</Th>
+          <Th>Type</Th>
+          <Th>Événement</Th>
+          <Th>Personne</Th>
+          <Th>Scanné par</Th>
+          <Th>Accompagnateur</Th>
+        </DataTableHead>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeletonRows
+              widths={['h-4 w-28', 'h-5 w-16 rounded-full', 'h-5 w-16 rounded-full', 'h-4 w-32', 'h-4 w-28', 'h-4 w-24']}
+            />
+          ) : items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-48 text-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                    <ScrollText className="size-5" />
+                  </div>
+                  <p className="font-medium text-foreground">Aucun événement pour ces filtres.</p>
+                </div>
+              </Td>
+            </TableRow>
+          ) : (
+            items.map((event) => {
+              const person = event.child ?? event.staff
+              const personName = person
+                ? person.nickname || `${person.first_names ?? person.first_name ?? ''} ${person.last_name}`.trim()
+                : '—'
+              return (
+                <TableRow key={event.id}>
+                  <Td className="text-muted-foreground">{formatDateTime(event.scanned_at)}</Td>
+                  <Td>
+                    <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', PERSON_TYPE_PILLS[event.person_type])}>
+                      {PERSON_TYPE_LABELS[event.person_type]}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', EVENT_PILLS[event.event_type])}>
+                      {EVENT_LABELS[event.event_type] ?? event.event_type}
+                    </span>
+                  </Td>
+                  <Td className="font-medium">{personName}</Td>
+                  <Td className="text-muted-foreground">
+                    {event.scanned_by.first_name} {event.scanned_by.last_name}
+                  </Td>
+                  <Td className="text-muted-foreground">
+                    {event.companion_name ? `${event.companion_name}${event.companion_phone ? ` · ${event.companion_phone}` : ''}` : '—'}
+                  </Td>
                 </TableRow>
-              ) : (
-                items.map((event) => {
-                  const person = event.child ?? event.staff
-                  const personName = person
-                    ? person.nickname || `${person.first_names ?? person.first_name ?? ''} ${person.last_name}`.trim()
-                    : '—'
-                  return (
-                    <TableRow key={event.id}>
-                      <TableCell className="px-5 py-4 text-muted-foreground">{formatDateTime(event.scanned_at)}</TableCell>
-                      <TableCell className="px-5 py-4">
-                        <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', PERSON_TYPE_PILLS[event.person_type])}>
-                          {PERSON_TYPE_LABELS[event.person_type]}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4">
-                        <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', EVENT_PILLS[event.event_type])}>
-                          {EVENT_LABELS[event.event_type] ?? event.event_type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 font-medium">{personName}</TableCell>
-                      <TableCell className="px-5 py-4 text-muted-foreground">
-                        {event.scanned_by.first_name} {event.scanned_by.last_name}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-muted-foreground">
-                        {event.companion_name ? `${event.companion_name}${event.companion_phone ? ` · ${event.companion_phone}` : ''}` : '—'}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              )
+            })
+          )}
+        </TableBody>
+      </DataTable>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {total} événement{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-            Précédent
-          </Button>
-          <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
-            Suivant
-          </Button>
-        </div>
-      </div>
+      <ListPagination
+        label={<>{total} événement{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        skip={skip}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onSkipChange={setSkip}
+      />
     </div>
   )
 }

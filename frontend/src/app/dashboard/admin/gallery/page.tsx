@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { FileVideo, Images } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -11,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { galleryApi } from '@/lib/api/gallery.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { GALLERY_SOURCE_BADGE_LABEL, isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { GalleryFilters, EMPTY_FILTERS, toParams, type GalleryFilterState } from './gallery-filters'
 import { MediaThumb } from './media-thumb'
 import { MediaLightbox } from './media-lightbox'
@@ -39,16 +39,11 @@ export default function GalleryPage() {
   const hasPrev = skip > 0
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div>
-        <h1 className="text-2xl font-bold">Galerie</h1>
-        <p className="text-muted-foreground">Photos et vidéos issues des rapports et de la messagerie.</p>
-      </div>
+    <PageMotion>
+      <PageHeader
+        title="Galerie"
+        description="Photos et vidéos issues des rapports et de la messagerie."
+      />
 
       <GalleryFilters filters={filters} onChange={setFilters} hideSource={staffReportsOnly} />
 
@@ -102,6 +97,6 @@ export default function GalleryPage() {
       )}
 
       <MediaLightbox item={selected} onOpenChange={(open) => !open && setSelected(null)} />
-    </motion.div>
+    </PageMotion>
   )
 }

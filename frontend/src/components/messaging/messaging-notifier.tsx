@@ -21,30 +21,42 @@ export function MessagingNotifier() {
   const queryClient = useQueryClient()
 
   useMessagingEvent((event) => {
-    if (!user || !['message', 'message_deleted', 'read_receipt'].includes(event.type)) return
-    // Les onglets de la page messagerie sont démontés hors de cette page :
-    // on rafraîchit ici les compteurs de non-lus (pastille de navigation),
-    // en réutilisant exactement leurs clés (aucune requête en double).
+    if (!user) return
+    if (event.type !== 'message' && event.type !== 'message_deleted' && event.type !== 'read_receipt') {
+      return
+    }
+    const onMessagingPage =
+      user.role === 'admin'
+        ? pathname.startsWith('/dashboard/admin/messaging')
+        : pathname.startsWith('/dashboard/parent/messaging')
+    // Sur la page messagerie, les onglets gèrent déjà leurs invalidations :
+    // on ne double pas le refetch ici.
+    if (onMessagingPage) return
+    // Hors page : on rafraîchit les compteurs de non-lus (pastille de
+    // navigation), en réutilisant exactement les clés des onglets.
     if (user.role === 'admin') {
       queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] })
     } else if (user.role === 'parent') {
       queryClient.invalidateQueries({ queryKey: ['parent', 'conversation-me'] })
     }
+    // Garde de type explicite AVANT tout accès à `sender` : seuls les
+    // événements `message` en portent un (un nouveau type sans `sender`
+    // ajouté au filtre ci-dessus planterait sinon la distribution).
+    if (event.type !== 'message') return
     // Mon propre message (envoyé depuis un autre onglet/appareil) — silence.
-    if (event.type !== 'message' || event.sender.id === user.id) return
-
-    const onMessagingPage =
-      user.role === 'admin'
-        ? pathname.startsWith('/dashboard/admin/messaging')
-        : pathname.startsWith('/dashboard/parent/messaging')
-    if (onMessagingPage) return
+    if (event.sender.id === user.id) return
 
     const senderName =
       event.sender.nickname ||
       `${event.sender.first_name} ${event.sender.last_name ?? ''}`.trim() ||
       "L'établissement"
     const excerpt = event.body?.trim().slice(0, 120) || 'Nouvelle pièce jointe'
-    toast.info(`Nouveau message — ${senderName}`, { description: excerpt })
+    // Dédupé par conversation : sous une rafale, un seul toast vivant,
+    // mis à jour au lieu d'empiler N toasts.
+    toast.info(`Nouveau message — ${senderName}`, {
+      id: `new-message-${event.conversation_id}`,
+      description: excerpt,
+    })
   })
 
   return null

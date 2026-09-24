@@ -45,19 +45,25 @@ _write = require_permission(PermissionCode.ATTENDANCE_WRITE)
 @router.get("/qrcode/child/{child_id}", response_model=QRCodeResponse)
 async def get_child_qrcode(
     child_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
 ) -> QRCodeResponse:
-    """Payload à encoder dans l'image QR côté frontend (pas de génération d'image ici)."""
+    """Jeton chiffré + image PNG du badge (prête à imprimer). Chaque appel
+    génère un jeton équivalent (tous restent valides) : cache privé d'1 h
+    côté client pour éviter de régénérer l'image à chaque affichage."""
+    response.headers["Cache-Control"] = "private, max-age=3600"
     return await service.get_child_qrcode(child_id, user.establishment_id, db)
 
 
 @router.get("/qrcode/staff/{staff_id}", response_model=QRCodeResponse)
 async def get_staff_qrcode(
     staff_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
 ) -> QRCodeResponse:
+    response.headers["Cache-Control"] = "private, max-age=3600"
     return await service.get_staff_qrcode(staff_id, user.establishment_id, db)
 
 

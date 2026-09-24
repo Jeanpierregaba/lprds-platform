@@ -37,12 +37,12 @@ export function ConversationsTab() {
   const [firstBody, setFirstBody] = useState('')
   const markedReadRef = useRef<Set<string>>(new Set())
 
-  const { data: conversations, isLoading: isLoadingConversations } = useQuery({
+  const { data: conversations, isLoading: isLoadingConversations, isError: isConversationsError, refetch: refetchConversations } = useQuery({
     queryKey: conversationsKey,
-    queryFn: () => messagingApi.listConversations({ limit: 100 }).then((r) => r.data),
+    queryFn: () => messagingApi.listConversations({ limit: 200 }).then((r) => r.data),
   })
 
-  const { data: parentsData, isLoading: isLoadingParents } = useQuery({
+  const { data: parentsData, isLoading: isLoadingParents, isError: isParentsError, refetch: refetchParents } = useQuery({
     queryKey: ['parents', 'list', { include_inactive: false }],
     queryFn: () => parentsApi.list({ include_inactive: false, limit: 200 }).then((r) => r.data),
     enabled: startDialogOpen,
@@ -72,16 +72,22 @@ export function ConversationsTab() {
 
   const markReadMutation = useMutation({
     mutationFn: (conversationId: string) => messagingApi.markConversationRead(conversationId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: conversationsKey }),
+    // Ajouté au ref UNIQUEMENT au succès : en cas d'échec on retente
+    // (avant, le flag était posé avant l'appel — jamais retenté).
+    onSuccess: (_data, conversationId) => {
+      markedReadRef.current.add(conversationId)
+      queryClient.invalidateQueries({ queryKey: conversationsKey })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   useEffect(() => {
+    // Sécurité : si le fil n'est plus sélectionné, on oublie le marquage —
+    // rouvrir la conversation remarque lu (le compteur a pu bouger).
+    if (!selectedId) return
     const conv = conversations?.items.find((c) => c.id === selectedId)
-    if (selectedId && conv && conv.unread_count > 0 && !markedReadRef.current.has(selectedId)) {
-      markedReadRef.current.add(selectedId)
-      markReadMutation.mutate(selectedId)
-    }
-  }, [selectedId, conversations, markReadMutation])
+    if (conv && conv.unread_count === 0) markedReadRef.current.delete(selectedId)
+  }, [selectedId, conversations])
 
   const conversationItems = conversations?.items ?? []
   const selectedConversation = conversationItems.find((c) => c.id === selectedId) ?? null
@@ -100,6 +106,13 @@ export function ConversationsTab() {
         {isLoadingConversations ? (
           <div className="space-y-2 p-3">
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          </div>
+        ) : isConversationsError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-sm font-medium text-foreground">Impossible de charger les conversations.</p>
+            <Button variant="outline" size="sm" onClick={() => refetchConversations()}>
+              Réessayer
+            </Button>
           </div>
         ) : conversationItems.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
@@ -149,7 +162,12 @@ export function ConversationsTab() {
           <p className="text-sm">Sélectionnez une conversation.</p>
         </CardContent>
       ) : (
-        <ConversationThread conversation={selectedConversation} markedReadRef={markedReadRef} />
+        <ConversationThread
+          conversation={selectedConversation}
+          markedReadRef={markedReadRef}
+          markReadPending={markReadMutation.isPending}
+          onMarkRead={(id) => markReadMutation.mutate(id)}
+        />
       )}
     </Card>
   )
@@ -185,6 +203,13 @@ export function ConversationsTab() {
             {isLoadingParents ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}
+              </div>
+            ) : isParentsError ? (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <p className="text-sm text-muted-foreground">Impossible de charger les parents.</p>
+                <Button variant="outline" size="sm" onClick={() => refetchParents()}>
+                  Réessayer
+                </Button>
               </div>
             ) : (
               <div className="max-h-56 space-y-1 overflow-y-auto">
@@ -246,10 +271,12 @@ export function ConversationsTab() {
 }
 
 function ConversationThread({
-  conversation, markedReadRef,
+  conversation, markedReadRef, markReadPending, onMarkRead,
 }: {
   conversation: Conversation
   markedReadRef: React.RefObject<Set<string>>
+  markReadPending: boolean
+  onMarkRead: (conversationId: string) => void
 }) {
   const queryClient = useQueryClient()
   const thread = useConversationThread({
@@ -270,6 +297,28 @@ function ConversationThread({
     onIncomingFromOther: () => markedReadRef.current?.delete(conversation.id),
   })
 
+  // Marqué lu quand le fil est réellement affiché (messages chargés, en bas),
+  // pas au simple clic sur la conversation — avec retry en cas d'échec.
+  useEffect(() => {
+    if (
+      conversation.unread_count > 0 &&
+      !thread.isLoading &&
+      thread.isAtBottom &&
+      !markedReadRef.current?.has(conversation.id) &&
+      !markReadPending
+    ) {
+      onMarkRead(conversation.id)
+    }
+  }, [
+    conversation.id,
+    conversation.unread_count,
+    thread.isLoading,
+    thread.isAtBottom,
+    markReadPending,
+    markedReadRef,
+    onMarkRead,
+  ])
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border p-4">
@@ -283,6 +332,13 @@ function ConversationThread({
           {thread.isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-2/3" />)}
+            </div>
+          ) : thread.isError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+              <p className="text-sm font-medium text-foreground">Impossible de charger les messages.</p>
+              <Button variant="outline" size="sm" onClick={() => thread.refetchMessages()}>
+                Réessayer
+              </Button>
             </div>
           ) : (
             <>
@@ -331,29 +387,32 @@ function ConversationThread({
 
       {thread.pickerOpen && (
         <div className="border-t border-border p-3 pb-0">
-          <MediaPicker files={thread.picked} onChange={thread.setPicked} max={MAX_MESSAGE_MEDIA} disabled={thread.busy} />
+          <MediaPicker files={thread.picked} onChange={thread.setPicked} max={MAX_MESSAGE_MEDIA} disabled={thread.busy} allowPdf={false} />
         </div>
       )}
 
       <div className="flex items-end gap-2 border-t border-border p-3">
-        <Textarea
-          placeholder="Répondre au nom de l'administration..."
-          rows={2}
-          value={thread.body}
-          onChange={(e) => thread.setBody(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              thread.onSend()
-            }
-          }}
-          className="flex-1 resize-none"
-        />
-        <div className="flex flex-col items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <Textarea
+            placeholder="Répondre au nom de l'administration..."
+            rows={2}
+            value={thread.body}
+            onChange={(e) => thread.setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                thread.onSend()
+              }
+            }}
+            className="w-full resize-none"
+          />
+        </div>
+        <div className="flex shrink-0 flex-col items-center gap-1">
           <Button
             type="button"
             variant={thread.pickerOpen ? 'secondary' : 'ghost'}
             size="icon"
+            className="h-10 w-10"
             aria-label="Joindre des photos ou vidéos"
             title="Joindre des photos ou vidéos (avec aperçu avant envoi)"
             onClick={() => thread.setPickerOpen((v) => !v)}
@@ -363,7 +422,7 @@ function ConversationThread({
               ? <Loader2 className="size-4 animate-spin" />
               : <Paperclip className="size-4" />}
           </Button>
-          <Button type="button" onClick={thread.onSend} disabled={!thread.canSend}>
+          <Button type="button" className="h-10 w-10" onClick={thread.onSend} disabled={!thread.canSend} aria-label="Envoyer">
             {thread.busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </Button>
         </div>

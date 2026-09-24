@@ -62,17 +62,31 @@ async def run_relay_until_disconnect(websocket: WebSocket, channels: list[str]) 
     """
     Lance le relais en tâche de fond et bloque jusqu'à déconnexion du client
     (détectée en lisant les frames entrantes — leur contenu est ignoré, ce
-    canal ne sert qu'à la détection de coupure).
+    canal ne sert qu'à la détection de coupure — SAUF un `{"type":"ping"}`
+    applicatif, auquel on répond `{"type":"pong"}` : c'est le heartbeat qui
+    permet au client de détecter une connexion morte (NAT/proxy idle) et de
+    forcer un cycle reconnect + resync).
     """
     from starlette.websockets import WebSocketDisconnect
 
     relay_task = asyncio.create_task(relay_channels(websocket, channels))
     try:
         while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        pass
+            try:
+                text = await websocket.receive_text()
+            except WebSocketDisconnect:
+                break
+            if _is_ping(text):
+                with contextlib.suppress(Exception):
+                    await websocket.send_text('{"type": "pong"}')
     finally:
         relay_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await relay_task
+
+
+def _is_ping(text: str) -> bool:
+    try:
+        return json.loads(text).get("type") == "ping"
+    except Exception:
+        return False

@@ -27,6 +27,7 @@ import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { CardsEmptyState } from '@/components/dashboard/shared/cards'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Announcement } from '@/types/messaging'
 
 const schema = z.object({
@@ -50,12 +51,12 @@ export function AnnouncementsTab() {
   const [broadcast, setBroadcast] = useState(true)
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['messaging', 'announcements', { includeInactive }],
-    queryFn: () => messagingApi.listAnnouncements({ include_inactive: includeInactive }).then((r) => r.data),
+    queryFn: () => messagingApi.listAnnouncements({ include_inactive: includeInactive, limit: 200 }).then((r) => r.data),
   })
 
-  const { data: departments = [] } = useQuery({
+  const { data: departments = [], isLoading: isLoadingDepts, isError: isDeptsError } = useQuery({
     queryKey: ['organization', 'departments'],
     queryFn: () => organizationApi.listDepartments().then((r) => r.data),
   })
@@ -189,7 +190,13 @@ export function AnnouncementsTab() {
                   <Checkbox
                     id="announcement-broadcast"
                     checked={broadcast}
-                    onCheckedChange={(v) => setBroadcast(v === true)}
+                    onCheckedChange={(v) => {
+                      const next = v === true
+                      setBroadcast(next)
+                      // Repartir d'une sélection vide quand on revient au
+                      // ciblé (pas de surprise d'une ancienne sélection).
+                      if (next) setSelectedDeptIds([])
+                    }}
                   />
                   <Label htmlFor="announcement-broadcast" className="text-sm font-normal">
                     Tous les parents de l&apos;établissement
@@ -197,7 +204,16 @@ export function AnnouncementsTab() {
                 </div>
                 {!broadcast && (
                   <div className="space-y-1 rounded-md border px-3 py-2">
-                    {departments.length === 0 ? (
+                    {isLoadingDepts ? (
+                      <div className="space-y-2 py-1">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-2/3" />
+                      </div>
+                    ) : isDeptsError ? (
+                      <p className="text-sm text-destructive">
+                        Impossible de charger les départements — réessayez en rouvrant ce dialogue.
+                      </p>
+                    ) : departments.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Aucun département dans l&apos;établissement.</p>
                     ) : (
                       departments.map((d) => (
@@ -217,12 +233,10 @@ export function AnnouncementsTab() {
                 )}
               </div>
 
-              {!editing && (
-                <div className="space-y-2">
-                  <Label>Médias (facultatif, max {MAX_ANNOUNCEMENT_MEDIA})</Label>
-                  <MediaPicker files={attachFiles} onChange={setAttachFiles} />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label>Médias (facultatif, max {MAX_ANNOUNCEMENT_MEDIA})</Label>
+                <MediaPicker files={attachFiles} onChange={setAttachFiles} />
+              </div>
 
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
@@ -240,6 +254,16 @@ export function AnnouncementsTab() {
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
         </div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center">
+            <p className="font-medium text-foreground">Impossible de charger les diffusions.</p>
+            <p className="max-w-sm text-sm text-muted-foreground">Vérifiez votre connexion puis réessayez.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Réessayer
+            </Button>
+          </CardContent>
+        </Card>
       ) : items.length === 0 ? (
         <CardsEmptyState
           icon={Megaphone}
@@ -255,6 +279,7 @@ export function AnnouncementsTab() {
               deptNames={deptNames}
               onEdit={() => openEdit(a)}
               onToggleActive={() => toggleActiveMutation.mutate(a)}
+              togglePending={toggleActiveMutation.isPending}
             />
           ))}
         </div>
@@ -264,16 +289,18 @@ export function AnnouncementsTab() {
 }
 
 function AnnouncementCard({
-  announcement, deptNames, onEdit, onToggleActive,
+  announcement, deptNames, onEdit, onToggleActive, togglePending,
 }: {
   announcement: Announcement
   deptNames: Map<string, string>
   onEdit: () => void
   onToggleActive: () => void
+  togglePending: boolean
 }) {
   const queryClient = useQueryClient()
   const scoped = announcement.department_ids ?? []
   const [attachOpen, setAttachOpen] = useState(false)
+  const [confirmToggle, setConfirmToggle] = useState(false)
   const [attachFiles, setAttachFiles] = useState<File[]>([])
   const remaining = MAX_ANNOUNCEMENT_MEDIA - announcement.attachments.length
 
@@ -287,6 +314,7 @@ function AnnouncementCard({
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
+  const slotsLeft = Math.max(remaining, 0)
 
   return (
     <Card className={!announcement.is_active ? 'opacity-70' : undefined}>
@@ -299,15 +327,15 @@ function AnnouncementCard({
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {!announcement.is_active && <Badge variant="outline">Inactive</Badge>}
-            <Badge variant="outline" className="font-normal">
+            <Badge variant="outline" className="break-words font-normal">
               {scoped.length === 0
                 ? 'Tous les parents'
                 : scoped.map((id) => deptNames.get(id) ?? 'Département').join(', ')}
             </Badge>
-            {announcement.read_count != null && (
-              <Badge variant="outline" className="font-normal">
+            {announcement.read_count != null && announcement.total_parents != null && (
+              <Badge variant="outline" className="whitespace-nowrap font-normal">
                 {announcement.read_count}/{announcement.total_parents} ont lu
               </Badge>
             )}
@@ -321,9 +349,32 @@ function AnnouncementCard({
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onEdit}>Modifier</Button>
-          <Button variant="outline" size="sm" onClick={onToggleActive}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmToggle(true)}
+            disabled={togglePending}
+          >
+            {togglePending
+              ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+              : null}
             {announcement.is_active ? 'Désactiver' : 'Réactiver'}
           </Button>
+          <ConfirmDialog
+            open={confirmToggle}
+            onOpenChange={setConfirmToggle}
+            title={announcement.is_active ? 'Désactiver cette diffusion ?' : 'Réactiver cette diffusion ?'}
+            description={
+              announcement.is_active
+                ? 'Elle sera masquée à tous les parents (réversible).'
+                : 'Elle redeviendra visible par les parents concernés.'
+            }
+            confirmLabel="Confirmer"
+            onConfirm={() => {
+              setConfirmToggle(false)
+              onToggleActive()
+            }}
+          />
           <Dialog open={attachOpen} onOpenChange={(open) => {
             setAttachOpen(open)
             if (!open) setAttachFiles([])
@@ -332,21 +383,23 @@ function AnnouncementCard({
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={remaining <= 0}
-                title={remaining <= 0 ? `Limite de ${MAX_ANNOUNCEMENT_MEDIA} médias atteinte` : 'Joindre des fichiers'}
+                disabled={slotsLeft <= 0}
+                title={slotsLeft <= 0 ? `Limite de ${MAX_ANNOUNCEMENT_MEDIA} médias atteinte` : 'Joindre des fichiers'}
               />
             }>
               <Paperclip className="mr-1.5 size-3.5" />
               Joindre des fichiers
             </DialogTrigger>
-            <DialogContent>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Ajouter des médias</DialogTitle>
                 <DialogDescription>
-                  Photos, vidéos ou PDF — {remaining} emplacement{remaining > 1 ? 's' : ''} restant{remaining > 1 ? 's' : ''} sur {MAX_ANNOUNCEMENT_MEDIA}.
+                  {slotsLeft <= 0
+                    ? `Limite de ${MAX_ANNOUNCEMENT_MEDIA} médias atteinte pour cette diffusion.`
+                    : `Photos, vidéos ou PDF — ${slotsLeft} emplacement${slotsLeft > 1 ? 's' : ''} restant${slotsLeft > 1 ? 's' : ''} sur ${MAX_ANNOUNCEMENT_MEDIA}.`}
                 </DialogDescription>
               </DialogHeader>
-              <MediaPicker files={attachFiles} onChange={setAttachFiles} max={remaining} />
+              <MediaPicker files={attachFiles} onChange={setAttachFiles} max={slotsLeft} />
               <DialogFooter>
                 <Button
                   type="button"

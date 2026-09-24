@@ -75,6 +75,13 @@ def test_manual_correction_flow(client):
             "event_type": "meal", "date": dep_time.date().isoformat(),
             "time": dep_time.strftime("%H:%M")}, headers=adm).status_code, 422)
 
+    # Cantine manuelle pour le STAFF acceptée (le rejet ne vise que l'enfant).
+    staff_meal = c.post("/attendance/events/manual", json={
+        "person_type": "staff", "staff_id": staff["id"],
+        "event_type": "meal", "date": dep_time.date().isoformat(),
+        "time": dep_time.strftime("%H:%M")}, headers=adm)
+    ck("Cantine staff saisie manuellement", staff_meal.status_code, 201)
+
     # Saisie manuelle pour le personnel.
     staff_manual = c.post("/attendance/events/manual", json={
         "person_type": "staff", "staff_id": staff["id"],
@@ -91,6 +98,42 @@ def test_manual_correction_flow(client):
     ck("Événement inconnu → 404", c.patch(
         "/attendance/events/00000000-0000-0000-0000-000000000000",
         json={"scanned_at": past.isoformat()}, headers=adm).status_code, 404)
+
+
+def test_correction_temporal_coherence_and_export(client):
+    """Cohérence arrivée<d-part au PATCH + export local (.xlsx, heures locales)."""
+    c = client
+    adm, child, _staff = _setup(c)
+
+    # Date passée fixe (jamais de bascule de jour, même à 00h30).
+    day = (datetime.now(tz=timezone.utc) - timedelta(days=3)).date().isoformat()
+    arr = c.post("/attendance/events/manual", json={
+        "person_type": "child", "child_id": child["id"],
+        "event_type": "arrival", "date": day, "time": "10:00"}, headers=adm).json()
+    dep = c.post("/attendance/events/manual", json={
+        "person_type": "child", "child_id": child["id"],
+        "event_type": "departure", "date": day, "time": "12:00"}, headers=adm).json()
+
+    # Déplacer l'arrivée APRÈS le départ → 422.
+    ck("Arrivée après le départ refusée", c.patch(
+        f"/attendance/events/{arr['id']}",
+        json={"scanned_at": f"{day}T13:00:00+00:00"}, headers=adm).status_code, 422)
+    # Déplacer le départ AVANT l'arrivée → 422.
+    ck("Départ avant l'arrivée refusé", c.patch(
+        f"/attendance/events/{dep['id']}",
+        json={"scanned_at": f"{day}T09:00:00+00:00"}, headers=adm).status_code, 422)
+    # Déplacement cohérent (arrivée 09:30, toujours avant 12:00) → 200.
+    ck("Déplacement cohérent accepté", c.patch(
+        f"/attendance/events/{arr['id']}",
+        json={"scanned_at": f"{day}T09:30:00+00:00"}, headers=adm).status_code, 200)
+
+    # Export Excel : extension .xlsx + heures en heure locale établissement.
+    exp = c.get(
+        f"/attendance/export?format=excel&person_type=children&date_from={day}&date_to={day}",
+        headers=adm)
+    ck("Export Excel 200", exp.status_code, 200)
+    disp = exp.headers.get("content-disposition", "")
+    ck("Nom de fichier en .xlsx", disp.endswith('.xlsx"'), True)
 
 
 def test_manual_correction_permissions(client):

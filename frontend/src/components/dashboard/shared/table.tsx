@@ -8,12 +8,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils/cn'
 
 /** Coquille tableau à en-tête primary (M7). `footer` est rendu dans la
- * carte, sous le tableau (ex. pagination interne du dashboard présences). */
+ * carte, sous le tableau (ex. pagination interne du dashboard présences).
+ * Le conteneur `overflow-x-auto` rend les tableaux larges swipables sur
+ * mobile au lieu de déborder de la page. */
 export function DataTable({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
   return (
     <Card className="overflow-hidden py-0">
       <CardContent className="p-0">
-        <Table className="border-collapse">{children}</Table>
+        <div className="overflow-x-auto">
+          <Table className="border-collapse">{children}</Table>
+        </div>
         {footer}
       </CardContent>
     </Card>

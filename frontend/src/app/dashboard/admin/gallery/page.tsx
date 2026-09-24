@@ -72,8 +72,8 @@ export default function GalleryPage() {
               {isVideo(item.content_type) && (
                 <FileVideo className="absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
               )}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
-                <Badge variant="secondary" className="text-[10px]">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:opacity-100">
+                <Badge variant="secondary" className="text-xs">
                   {GALLERY_SOURCE_BADGE_LABEL[item.source]}
                 </Badge>
               </div>

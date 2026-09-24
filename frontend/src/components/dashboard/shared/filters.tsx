@@ -34,7 +34,9 @@ export function SearchInput({
 
 export type ViewMode = 'table' | 'cards'
 
-/** Bascule vue liste / cartes (M5). */
+/** Bascule vue liste / cartes (M5). Boutons 40px : compromis tactile qui
+ * reste compact dans les barres de filtres (le 44px strict casserait leur
+ * hauteur d'alignement avec les selects h-9). */
 export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view: ViewMode) => void }) {
   return (
     <div className="ml-auto flex items-center gap-1 rounded-md border border-border bg-accent p-0.5">
@@ -42,6 +44,7 @@ export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view
         type="button"
         variant={view === 'table' ? 'default' : 'ghost'}
         size="icon-sm"
+        className="h-10 w-10"
         aria-label="Vue en liste"
         aria-pressed={view === 'table'}
         onClick={() => onChange('table')}
@@ -52,6 +55,7 @@ export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view
         type="button"
         variant={view === 'cards' ? 'default' : 'ghost'}
         size="icon-sm"
+        className="h-10 w-10"
         aria-label="Vue en cartes"
         aria-pressed={view === 'cards'}
         onClick={() => onChange('cards')}

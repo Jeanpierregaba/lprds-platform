@@ -82,14 +82,14 @@ export default function ParentLibraryPage() {
                     {book.description && (
                       <p className="line-clamp-2 text-sm text-muted-foreground">{book.description}</p>
                     )}
-                    <div className="flex items-center justify-between pt-1 text-sm">
-                      <span className={book.available_quantity === 0 ? 'text-destructive' : undefined}>
+                    <div className="flex items-center justify-between gap-2 pt-1 text-sm">
+                      <span className={book.available_quantity === 0 ? 'shrink-0 text-destructive' : 'shrink-0'}>
                         {book.available_quantity > 0
                           ? `${book.available_quantity} exemplaire${book.available_quantity > 1 ? 's' : ''} disponible${book.available_quantity > 1 ? 's' : ''}`
                           : 'Indisponible'}
                       </span>
                       {book.sections.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="min-w-0 text-right text-xs text-muted-foreground">
                           {book.sections.map((s) => s.name).join(', ')}
                         </span>
                       )}
@@ -120,18 +120,20 @@ export default function ParentLibraryPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table className="min-w-[640px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Livre</TableHead>
-                      <TableHead>Enfant</TableHead>
-                      <TableHead>Emprunté le</TableHead>
-                      <TableHead>Retour prévu</TableHead>
-                      <TableHead>Statut</TableHead>
-                    </TableRow>
-                  </TableHeader>
+            <>
+              <div className="hidden sm:block">
+                <Card>
+                  <CardContent className="p-0">
+                    <Table className="min-w-[640px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Livre</TableHead>
+                          <TableHead>Enfant</TableHead>
+                          <TableHead>Emprunté le</TableHead>
+                          <TableHead>Retour prévu</TableHead>
+                          <TableHead>Statut</TableHead>
+                        </TableRow>
+                      </TableHeader>
                   <TableBody>
                     {lendingItems.map((lending) => (
                       <TableRow key={lending.id}>
@@ -158,6 +160,33 @@ export default function ParentLibraryPage() {
                 </Table>
               </CardContent>
             </Card>
+          </div>
+          <div className="space-y-3 sm:hidden">
+            {lendingItems.map((lending) => (
+              <Card key={lending.id}>
+                <CardContent className="space-y-1.5 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{lending.book_title}</p>
+                      <p className="truncate text-xs text-muted-foreground">{lending.author}</p>
+                    </div>
+                    <Badge variant={STATUS_BADGE_VARIANT[lending.status]} className="shrink-0">
+                      {LENDING_STATUS_LABELS[lending.status]}
+                    </Badge>
+                  </div>
+                  {lending.overdue_days != null && (
+                    <p className="text-xs text-destructive">{lending.overdue_days} j de retard</p>
+                  )}
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="min-w-0 truncate">{lending.child_name}</span>
+                    <span className="shrink-0">Emprunté le {formatDate(lending.borrowed_at)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Retour prévu le {formatDate(lending.due_date)}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+            </>
           )}
         </TabPanel>
       </Tabs>

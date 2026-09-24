@@ -38,12 +38,12 @@ export function PageHeader({
     )
   }
   return (
-    <div className="flex items-center justify-between">
-      <div>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
         <h1 className="text-2xl font-bold">{title}</h1>
         {description && <p className="text-muted-foreground">{description}</p>}
       </div>
-      <div className="flex items-center gap-2">{actions}</div>
+      <div className="flex flex-wrap items-center gap-2">{actions}</div>
     </div>
   )
 }

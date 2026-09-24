@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { AttendanceEvent, EventType, VerifyQrResponse } from '@/types/attendance'
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -73,6 +74,7 @@ export function ScanTab() {
   const [selectedType, setSelectedType] = useState<EventType | null>(null)
   const [companionName, setCompanionName] = useState('')
   const [companionPhone, setCompanionPhone] = useState('')
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -127,7 +129,17 @@ export function ScanTab() {
       frameRef.current = requestAnimationFrame(scanLoop)
     } catch (err) {
       setCameraState('denied')
-      setCameraError(err instanceof Error ? err.message : "Impossible d'accéder à la caméra")
+      // Messages navigateur bruts (souvent anglais) traduits en clair.
+      const raw = err instanceof Error ? err.message : ''
+      setCameraError(
+        /permission|denied|notallowed/i.test(raw)
+          ? "Accès à la caméra refusé — autorisez-la dans les réglages du navigateur."
+          : /notfound|nodevice|no device/i.test(raw)
+            ? 'Aucune caméra détectée sur cet appareil.'
+            : /notreadable|inuse|track/i.test(raw)
+              ? 'Caméra déjà utilisée par une autre application.'
+              : "Impossible d'accéder à la caméra."
+      )
     }
   }, [scanLoop])
 
@@ -141,6 +153,7 @@ export function ScanTab() {
     setSelectedType(null)
     setCompanionName('')
     setCompanionPhone('')
+    setConfirmDuplicate(false)
   }
 
   // ── Étape 1 : validation du QR scanné (aucun événement créé) ──
@@ -195,6 +208,23 @@ export function ScanTab() {
 
   const isChild = verified?.person_type === 'child'
   const eventOptions = verified ? buildOptions(verified) : []
+
+  // Le geste choisi existe-t-il déjà aujourd'hui ? Si oui, on demande
+  // confirmation avant de créer un doublon (journal append-only).
+  const selectedAlreadyDone = !!verified && !!selectedType && (
+    (selectedType === 'arrival' && verified.has_arrived) ||
+    (selectedType === 'departure' && verified.has_departed) ||
+    (selectedType === 'meal' && verified.has_meal)
+  )
+
+  const onValidate = () => {
+    if (!selectedType || scanMutation.isPending) return
+    if (selectedAlreadyDone) {
+      setConfirmDuplicate(true)
+      return
+    }
+    scanMutation.mutate()
+  }
 
   // ── Rendu ─────────────────────────────────────────────────────
   return (
@@ -256,18 +286,29 @@ export function ScanTab() {
               )}
 
               <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={resetToIdle} disabled={scanMutation.isPending || !selectedType}>
+                <Button type="button" variant="outline" className="flex-1" onClick={resetToIdle} disabled={scanMutation.isPending}>
                   Annuler
                 </Button>
                 <Button
                   type="button"
                   className="flex-1"
-                  onClick={() => selectedType && scanMutation.mutate()}
+                  onClick={onValidate}
                   disabled={!selectedType || scanMutation.isPending}
                 >
                   {scanMutation.isPending ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Enregistrement...</> : 'Valider'}
                 </Button>
               </div>
+              <ConfirmDialog
+                open={confirmDuplicate}
+                onOpenChange={setConfirmDuplicate}
+                title="Événement déjà pointé aujourd'hui"
+                description={`Ce geste (${selectedType ? EVENT_TYPE_LABELS[selectedType].toLowerCase() : ''}) existe déjà pour ${verified?.display_name ?? 'cette personne'} aujourd'hui. Créer quand même un doublon ?`}
+                confirmLabel="Pointer quand même"
+                onConfirm={() => {
+                  setConfirmDuplicate(false)
+                  scanMutation.mutate()
+                }}
+              />
             </div>
           ) : decodedPayload && verified === null ? (
             <div className="space-y-4">

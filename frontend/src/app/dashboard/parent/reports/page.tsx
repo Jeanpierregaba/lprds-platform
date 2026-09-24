@@ -122,9 +122,9 @@ export default function ParentReportsPage() {
                         </div>
                         {!r.is_read && <Badge variant="default" className="shrink-0">Nouveau</Badge>}
                       </div>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium', style.soft)}>
-                          <Icon className="size-3.5" />
+                          <Icon className="size-3.5 shrink-0" />
                           {REPORT_TYPE_LABELS[r.report_type]}
                         </span>
                         {published && <span className="text-xs text-muted-foreground">Publié le {published}</span>}

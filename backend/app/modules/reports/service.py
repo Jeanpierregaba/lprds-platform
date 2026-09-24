@@ -16,6 +16,8 @@ from app.core.config import settings
 from app.modules.attendance.models import AttendanceEvent, AttendanceSettings, EventType, PersonType
 from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
+from app.modules.rbac.dependencies import user_permission_codes
+from app.modules.rbac.models import PermissionCode
 from app.modules.children.models import Child
 from app.modules.organization import service as org_service
 from app.modules.organization.models import Department, Group, Section
@@ -229,9 +231,34 @@ async def list_reports(
 
     if current_user.role == UserRole.STAFF:
         led_group_ids = await _led_group_ids(current_user.id, db)
-        if not led_group_ids:
+        # Un validateur (reports:validate, ex. directrice sans groupe mené)
+        # doit pouvoir TROUVER les rapports soumis pour les valider : la
+        # validation elle-même est sans restriction de groupe, la lecture ne
+        # peut pas être plus étroite. Il voit le soumis/validé de tout
+        # l'établissement + l'intégralité de ses propres groupes.
+        can_validate_all = (
+            PermissionCode.REPORTS_VALIDATE.value
+            in user_permission_codes(current_user)
+        )
+        if led_group_ids and can_validate_all:
+            filters.append(
+                or_(
+                    Report.group_id.in_(led_group_ids),
+                    Report.status.in_(
+                        [str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED)]
+                    ),
+                )
+            )
+        elif led_group_ids:
+            filters.append(Report.group_id.in_(led_group_ids))
+        elif can_validate_all:
+            filters.append(
+                Report.status.in_(
+                    [str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED)]
+                )
+            )
+        else:
             return ReportListResponse(total=0, items=[])
-        filters.append(Report.group_id.in_(led_group_ids))
 
     if report_status:
         filters.append(Report.status == str(report_status))
@@ -556,6 +583,15 @@ async def _authorize_read(report: Report, current_user: User, db: AsyncSession) 
     if current_user.role == UserRole.STAFF and report.group_id:
         led = await _led_group_ids(current_user.id, db)
         if report.group_id in led:
+            return
+        # Validateur sans groupe mené : peut ouvrir un soumis/validé pour le
+        # valider (cohérent avec validate_report, sans restriction de groupe).
+        # Les brouillons/rejetés des autres groupes restent invisibles.
+        if (
+            PermissionCode.REPORTS_VALIDATE.value in user_permission_codes(current_user)
+            and report.status
+            in (str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED))
+        ):
             return
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
 

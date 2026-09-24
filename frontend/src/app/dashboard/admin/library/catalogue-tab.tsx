@@ -185,7 +185,7 @@ function BooksCardGrid({
           <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !book.is_active && 'opacity-75')}>
             <CardContent className="space-y-1.5 p-5">
               <div className="flex items-start justify-between gap-3">
-                <p className="font-display text-xl font-semibold leading-tight">{book.title}</p>
+                <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">{book.title}</p>
                 <StatusPill active={book.is_active} activeLabel="Actif" inactiveLabel="Désactivé" shrink />
               </div>
               <p className="text-sm text-muted-foreground">par {book.author}</p>

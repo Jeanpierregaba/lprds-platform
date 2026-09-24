@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,23 +13,25 @@ import { Table, TableBody, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { formatTimeIn, todayLocalIso } from '@/lib/utils/dates'
 import { StatusBadge } from '../../admin/attendance/status-badge'
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10)
+  return todayLocalIso()
 }
 
-function formatTime(iso: string | null) {
+function formatTime(iso: string | null, timeZone?: string) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function StaffAttendancePage() {
   const [date, setDate] = useState(todayIso())
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['staff', 'attendance', 'my-group', date],
     queryFn: () => attendanceApi.getMyGroupDaily({ date }).then((r) => r.data),
+    enabled: date !== '',
   })
 
   const items = data?.items ?? []
@@ -62,6 +65,15 @@ export default function StaffAttendancePage() {
                     count={5}
                     widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10']}
                   />
+                ) : isError ? (
+                  <TableRow className="hover:bg-transparent">
+                    <Td colSpan={5} className="h-56 text-center">
+                      <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
+                        Réessayer
+                      </Button>
+                    </Td>
+                  </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <Td colSpan={5} className="h-56 text-center">
@@ -75,8 +87,8 @@ export default function StaffAttendancePage() {
                         {item.child.first_names} {item.child.last_name}
                       </Td>
                       <Td><StatusBadge status={item.status} /></Td>
-                      <Td className="text-muted-foreground">{formatTime(item.arrival_time)}</Td>
-                      <Td className="text-muted-foreground">{formatTime(item.departure_time)}</Td>
+                      <Td className="text-muted-foreground">{formatTime(item.arrival_time, data?.timezone)}</Td>
+                      <Td className="text-muted-foreground">{formatTime(item.departure_time, data?.timezone)}</Td>
                       <Td className="text-muted-foreground">
                         {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                       </Td>
@@ -95,13 +107,20 @@ export default function StaffAttendancePage() {
                   <Skeleton className="h-4 w-24" />
                 </div>
               ))
+            ) : isError ? (
+              <div className="flex h-56 flex-col items-center justify-center gap-3 px-4 text-center">
+                <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  Réessayer
+                </Button>
+              </div>
             ) : items.length === 0 ? (
               <div className="h-56"><EmptyState /></div>
             ) : (
               items.map((item) => (
                 <div key={item.child.id} className="space-y-2 px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-medium">
+                    <p className="min-w-0 flex-1 truncate font-medium">
                       {item.child.first_names} {item.child.last_name}
                     </p>
                     <StatusBadge status={item.status} />
@@ -109,11 +128,11 @@ export default function StaffAttendancePage() {
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Arrivée</p>
-                      <p>{formatTime(item.arrival_time)}</p>
+                      <p>{formatTime(item.arrival_time, data?.timezone)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Départ</p>
-                      <p>{formatTime(item.departure_time)}</p>
+                      <p>{formatTime(item.departure_time, data?.timezone)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Retard</p>

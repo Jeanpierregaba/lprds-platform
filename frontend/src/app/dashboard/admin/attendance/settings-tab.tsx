@@ -29,8 +29,8 @@ import type { Department } from '@/types/organization'
 import type { StaffListItem } from '@/types/staff'
 import type { AttendanceSettingsPayload } from '@/types/attendance'
 
-const toInputTime = (t: string) => t.slice(0, 5)
-const toApiTime = (t: string) => `${t}:00`
+const toInputTime = (t: string | null | undefined) => (t ?? '').slice(0, 5)
+const toApiTime = (t: string) => (t.length > 5 ? t : `${t}:00`)
 
 export function SettingsTab() {
   return (
@@ -71,6 +71,7 @@ const generalSchema = z.object({
   timezone: z.string().min(1, 'Fuseau horaire requis').max(50),
   staff_expected_arrival_time: z.string().min(1, 'Heure requise'),
   staff_expected_departure_time: z.string().min(1, 'Heure requise'),
+  late_grace_minutes: z.number().int().min(0, '0 minimum').max(120, '120 maximum'),
 })
 type GeneralForm = z.infer<typeof generalSchema>
 
@@ -87,12 +88,13 @@ function GeneralSettings() {
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<GeneralForm>({
     resolver: zodResolver(generalSchema),
-    defaultValues: { timezone: 'UTC', staff_expected_arrival_time: '', staff_expected_departure_time: '' },
+    defaultValues: { timezone: 'UTC', staff_expected_arrival_time: '', staff_expected_departure_time: '', late_grace_minutes: 0 },
     values: settings
       ? {
           timezone: settings.timezone,
           staff_expected_arrival_time: toInputTime(settings.staff_expected_arrival_time),
           staff_expected_departure_time: toInputTime(settings.staff_expected_departure_time),
+          late_grace_minutes: settings.late_grace_minutes ?? 0,
         }
       : undefined,
   })
@@ -103,6 +105,7 @@ function GeneralSettings() {
         timezone: values.timezone,
         staff_expected_arrival_time: toApiTime(values.staff_expected_arrival_time),
         staff_expected_departure_time: toApiTime(values.staff_expected_departure_time),
+        late_grace_minutes: values.late_grace_minutes,
       })
       toast.success('Paramètres généraux enregistrés.')
       queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'general'] })
@@ -155,6 +158,21 @@ function GeneralSettings() {
                 <p className="text-sm text-destructive">{errors.staff_expected_departure_time.message}</p>
               )}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="late_grace_minutes">Tolérance avant retard (minutes)</Label>
+            <Input
+              id="late_grace_minutes" type="number" min={0} max={120}
+              {...register('late_grace_minutes', { valueAsNumber: true })}
+              aria-invalid={!!errors.late_grace_minutes}
+            />
+            {errors.late_grace_minutes && (
+              <p className="text-sm text-destructive">{errors.late_grace_minutes.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Une arrivée dans ce délai après l&apos;horaire attendu compte « présent ».
+              0 = aucun pardon. S&apos;applique aux enfants comme au personnel.
+            </p>
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
@@ -338,7 +356,7 @@ function StaffSchedulesSettings() {
 
   const { data: staffResults, isLoading } = useQuery({
     queryKey: ['staff', { search: debouncedSearch, forSchedules: true }],
-    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 50 }).then((r) => r.data),
+    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 200 }).then((r) => r.data),
   })
 
   const staffItems = staffResults?.items ?? []
@@ -384,13 +402,23 @@ function StaffSchedulesSettings() {
 
   const openEdit = (s: StaffListItem) => {
     setEditing(s)
-    const current = scheduleByStaff.get(s.id)
-    reset({
-      expected_arrival_time: current ? toInputTime(current.expected_arrival_time) : '',
-      expected_departure_time: current ? toInputTime(current.expected_departure_time) : '',
-    })
     setDialogOpen(true)
   }
+
+  // Pré-remplit à l'ouverture, une fois l'horaire chargé — jamais avec du
+  // vide pendant le chargement (écraserait un horaire existant à l'écran).
+  const editingSchedule = editing ? scheduleByStaff.get(editing.id) : undefined
+  const editingScheduleLoading = editing
+    ? scheduleQueries[staffItems.findIndex((s) => s.id === editing.id)]?.isLoading ?? false
+    : false
+  useEffect(() => {
+    if (dialogOpen && editing && !editingScheduleLoading) {
+      reset({
+        expected_arrival_time: editingSchedule ? toInputTime(editingSchedule.expected_arrival_time) : '',
+        expected_departure_time: editingSchedule ? toInputTime(editingSchedule.expected_departure_time) : '',
+      })
+    }
+  }, [dialogOpen, editing, editingSchedule, editingScheduleLoading, reset])
 
   const onSubmit = (values: ScheduleForm) => {
     if (!editing) return
@@ -459,6 +487,7 @@ function StaffSchedulesSettings() {
               ) : (
                 staffItems.map((s) => {
                   const current = scheduleByStaff.get(s.id)
+                  const currentLoading = scheduleQueries[staffItems.findIndex((x) => x.id === s.id)]?.isLoading ?? false
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">
@@ -466,17 +495,19 @@ function StaffSchedulesSettings() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{s.email}</TableCell>
                       <TableCell>
-                        {current ? (
+                        {currentLoading ? (
+                          <Skeleton className="h-5 w-24 rounded-full" />
+                        ) : current ? (
                           <Badge variant="outline" className="font-normal">Personnalisé</Badge>
                         ) : (
                           <Badge variant="secondary" className="font-normal">Horaire général</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {current ? toInputTime(current.expected_arrival_time) : '—'}
+                        {currentLoading ? <Skeleton className="h-4 w-16" /> : current ? toInputTime(current.expected_arrival_time) : '—'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {current ? toInputTime(current.expected_departure_time) : '—'}
+                        {currentLoading ? <Skeleton className="h-4 w-16" /> : current ? toInputTime(current.expected_departure_time) : '—'}
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
@@ -517,7 +548,7 @@ function StaffSchedulesSettings() {
               </div>
             </div>
             <DialogFooter className="justify-between">
-              {editing && scheduleByStaff.get(editing.id) ? (
+              {editing && (editingSchedule || editingScheduleLoading) ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -553,7 +584,7 @@ function ExemptionsSettings() {
 
   const { data: staffResults, isLoading } = useQuery({
     queryKey: ['staff', { search: debouncedSearch, forExemptions: true }],
-    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 50 }).then((r) => r.data),
+    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 200 }).then((r) => r.data),
   })
 
   const { data: exemptions } = useQuery({
@@ -572,6 +603,9 @@ function ExemptionsSettings() {
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
+  // Pending par ligne : un seul toggle global bloquait les 50 switches et
+  // les bascules rapides se perdaient.
+  const pendingId = toggleMutation.isPending ? toggleMutation.variables?.staffId ?? null : null
 
   const items = staffResults?.items ?? []
 
@@ -635,7 +669,8 @@ function ExemptionsSettings() {
                         <Switch
                           checked={exempt}
                           onCheckedChange={(v) => toggleMutation.mutate({ staffId: staff.id, exempt: v })}
-                          disabled={toggleMutation.isPending}
+                          disabled={pendingId === staff.id}
+                          aria-label={`Exempter ${staff.nickname || staff.first_name} ${staff.last_name}`}
                         />
                       </TableCell>
                     </TableRow>

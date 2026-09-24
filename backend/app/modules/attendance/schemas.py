@@ -41,7 +41,8 @@ class ScanRequest(BaseModel):
 
 # ── Correction manuelle (admin ou attendance:write) ───────────────
 class ManualEventRequest(BaseModel):
-    """Saisie manuelle d'une arrivée/départ quand le scan est faux ou absent.
+    """Saisie manuelle (arrivée/départ — cantine aussi pour le staff) quand le
+    scan est faux ou absent.
 
     `date` + `time` sont interprétés dans le fuseau horaire configuré de
     l'établissement (UTC par défaut). `scanned_by` = l'auteur de la correction.
@@ -50,7 +51,7 @@ class ManualEventRequest(BaseModel):
     person_type: PersonType
     child_id: uuid.UUID | None = None
     staff_id: uuid.UUID | None = None
-    event_type: EventType = Field(description="arrival ou departure — jamais meal")
+    event_type: EventType = Field(description="arrival, departure — ou meal pour le staff uniquement")
     date: date_
     time: time
     companion_name:  str | None = Field(default=None, max_length=200)
@@ -122,6 +123,7 @@ class AttendanceEventResponse(BaseModel):
 
 class AttendanceEventListResponse(BaseModel):
     total: int
+    timezone: str = "UTC"
     items: list[AttendanceEventResponse]
 
 
@@ -145,13 +147,15 @@ class StaffDailyStatus(DailyStatus):
 
 
 class ChildDailyStatusListResponse(BaseModel):
-    date:  date_
+    date:     date_
+    timezone: str = "UTC"
     total: int
     items: list[ChildDailyStatus]
 
 
 class StaffDailyStatusListResponse(BaseModel):
-    date:  date_
+    date:     date_
+    timezone: str = "UTC"
     total: int
     items: list[StaffDailyStatus]
 
@@ -185,6 +189,7 @@ class AttendanceGeneralSettingsRequest(BaseModel):
     timezone:                       str = Field(max_length=50)
     staff_expected_arrival_time:    time
     staff_expected_departure_time:  time
+    late_grace_minutes:             int = Field(default=0, ge=0, le=120)
 
     _check_timezone = field_validator("timezone")(_validate_timezone)
 
@@ -203,6 +208,7 @@ class AttendanceGeneralSettingsResponse(BaseModel):
     timezone:                        str
     staff_expected_arrival_time:     time
     staff_expected_departure_time:   time
+    late_grace_minutes:              int = 0
 
 
 # ── Horaires personnalisés (staff) ───────────────────────────────

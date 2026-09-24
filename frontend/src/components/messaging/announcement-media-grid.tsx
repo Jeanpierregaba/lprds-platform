@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import {
   ChevronLeft, ChevronRight, Download, ImageOff, Loader2, Play,
 } from 'lucide-react'
@@ -15,31 +14,12 @@ import { messagingApi } from '@/lib/api/messaging.api'
 import { downloadBlob } from '@/lib/utils/download'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { useAttachmentBlob } from '@/lib/messaging/use-attachment-blob'
 import { FileDownloadButton } from './message-attachments'
 import type { Attachment } from '@/types/messaging'
 
 const isPreviewable = (att: Attachment) =>
   att.content_type.startsWith('image/') || att.content_type.startsWith('video/')
-
-/** Blob partagé grille ↔ modal (react-query, pas de double téléchargement). */
-function useAttachmentBlob(id: string | null) {
-  const query = useQuery({
-    queryKey: ['messaging', 'attachment-blob', id],
-    queryFn: () => messagingApi.downloadAttachment(id ?? '').then((r) => r.data),
-    enabled: id !== null,
-    staleTime: Infinity,
-  })
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!query.data) return
-    const objectUrl = URL.createObjectURL(query.data)
-    setUrl(objectUrl)
-    return () => URL.revokeObjectURL(objectUrl)
-  }, [query.data])
-
-  return { url, isLoading: query.isLoading, isError: query.isError }
-}
 
 /**
  * Médias d'une diffusion : frames carrés de taille fixe (média recadré en
@@ -159,43 +139,51 @@ function AnnouncementMediaViewer({
   onIndexChange: (index: number) => void
   onClose: () => void
 }) {
-  const att = media[index]
+  // Index borné : la liste peut rétrécir pendant que le viewer est ouvert
+  // (suppression) — sans ça `att` devient undefined après les hooks.
+  const safeIndex = media.length === 0 ? 0 : index % media.length
+  const att = media[safeIndex]
   const { url } = useAttachmentBlob(att?.id ?? null)
-  if (!att) return null
-  const isVideo = att.content_type.startsWith('video/')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') onIndexChange((index + 1) % media.length)
-      else if (e.key === 'ArrowLeft') onIndexChange((index - 1 + media.length) % media.length)
+      else if (e.key === 'ArrowRight') onIndexChange((safeIndex + 1) % media.length)
+      else if (e.key === 'ArrowLeft') onIndexChange((safeIndex - 1 + media.length) % media.length)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [index, media.length, onClose, onIndexChange])
+  }, [safeIndex, media.length, onClose, onIndexChange])
 
   const onDownload = async () => {
+    if (!att) return
     try {
-      const res = await messagingApi.downloadAttachment(att.id)
-      downloadBlob(res.data, att.filename)
+      // Réutilise le blob déjà en cache quand il est chargé (pas de 2e GET).
+      const blob = url
+        ? await fetch(url).then((r) => r.blob())
+        : (await messagingApi.downloadAttachment(att.id)).data
+      downloadBlob(blob, att.filename)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
   }
 
+  if (!att) return null
+  const isVideo = att.content_type.startsWith('video/')
+
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            Média {index + 1} / {media.length}
+            Média {safeIndex + 1} / {media.length}
           </DialogTitle>
           <DialogDescription className="sr-only">
             Carrousel des médias de la diffusion — flèches ou clavier pour naviguer, Échap pour fermer.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex h-[60vh] items-center justify-center overflow-hidden rounded-md bg-black">
+        <div className="flex h-[50dvh] items-center justify-center overflow-hidden rounded-md bg-black">
           {url && (
             isVideo ? (
               <video key={att.id} src={url} controls preload="metadata" className="max-h-full max-w-full" />
@@ -206,13 +194,14 @@ function AnnouncementMediaViewer({
           )}
         </div>
 
-        <DialogFooter className="flex-row items-center justify-between sm:justify-between">
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-1">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              onClick={() => onIndexChange((index - 1 + media.length) % media.length)}
+              className="h-10 w-10"
+              onClick={() => onIndexChange((safeIndex - 1 + media.length) % media.length)}
               disabled={media.length < 2}
               aria-label="Média précédent"
             >
@@ -222,14 +211,15 @@ function AnnouncementMediaViewer({
               type="button"
               variant="outline"
               size="icon"
-              onClick={() => onIndexChange((index + 1) % media.length)}
+              className="h-10 w-10"
+              onClick={() => onIndexChange((safeIndex + 1) % media.length)}
               disabled={media.length < 2}
               aria-label="Média suivant"
             >
               <ChevronRight className="size-4" />
             </Button>
           </div>
-          <Button type="button" variant="outline" onClick={onDownload}>
+          <Button type="button" variant="outline" className="h-10" onClick={onDownload}>
             <Download className="mr-1.5 size-4" />
             Télécharger
           </Button>

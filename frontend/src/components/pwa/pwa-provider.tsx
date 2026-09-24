@@ -1,9 +1,12 @@
 'use client'
 
-import { Download, WifiOff } from 'lucide-react'
+import { Download, Smartphone, WifiOff, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils/cn'
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -15,17 +18,40 @@ const isStandalone = (): boolean =>
   'standalone' in window.navigator ||
   (window.navigator as { standalone?: boolean }).standalone === true
 
+type InstallFallback = 'ios' | 'mac' | null
+
+/** `beforeinstallprompt` n'existe que sur Chromium : ailleurs, on détecte la
+ * plateforme pour proposer une installation manuelle guidée (Safari iOS/macOS).
+ * Sur les navigateurs sans aucun parcours d'installation, on n'affiche rien. */
+const detectInstallFallback = (): InstallFallback => {
+  const ua = window.navigator.userAgent
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1)
+  if (isIOS) return 'ios'
+  const isSafari =
+    /Safari/.test(ua) && !/Chrome|Chromium|Android/.test(ua) && /Apple Computer/.test(window.navigator.vendor)
+  if (isSafari) return 'mac'
+  return null
+}
+
 // Version compilée dans le bundle au build (NEXT_PUBLIC_APP_VERSION, cf.
 // scripts/stamp-version.mjs). Absente en dev local → auto-update désactivé.
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || ''
 // Fréquence du sondage de version quand l'onglet reste ouvert.
 const UPDATE_POLL_MS = 15 * 60 * 1000
 const UPDATED_FLAG = 'lprds-sw-updated'
+// Masquage du bouton d'installation (persisté — le navigateur propose
+// toujours l'installation via son menu). Effacé si l'app est installée.
+const INSTALL_DISMISSED_FLAG = 'lprds-install-dismissed'
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState<boolean>(false)
   const [offline, setOffline] = useState<boolean>(false)
+  const [installDismissed, setInstallDismissed] = useState<boolean>(false)
+  const [installFallback, setInstallFallback] = useState<InstallFallback>(null)
+  const [helpOpen, setHelpOpen] = useState<boolean>(false)
   // Garde anti double-rechargement (controllerchange + sondage version).
   const reloadingRef = useRef(false)
 
@@ -119,10 +145,26 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     const onInstalled = () => {
       setInstalled(true)
       setDeferredPrompt(null)
+      try {
+        localStorage.removeItem(INSTALL_DISMISSED_FLAG)
+      } catch {
+        // Stockage indisponible — on ignore.
+      }
     }
 
     void register()
-    if (isStandalone()) setInstalled(true)
+    if (isStandalone()) {
+      setInstalled(true)
+    } else {
+      // Pas encore de `beforeinstallprompt` ? Sur Safari le bouton
+      // d'installation n'apparaîtrait jamais : on prépare le mode guidé.
+      setInstallFallback(detectInstallFallback())
+    }
+    try {
+      if (localStorage.getItem(INSTALL_DISMISSED_FLAG)) setInstallDismissed(true)
+    } catch {
+      // Stockage indisponible — le bouton reste visible.
+    }
     if (APP_VERSION) {
       pollTimer = setInterval(() => void checkForUpdate(), UPDATE_POLL_MS)
       document.addEventListener('visibilitychange', onVisible)
@@ -154,27 +196,82 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     if (outcome === 'accepted') setInstalled(true)
   }, [deferredPrompt])
 
-  const showInstall = deferredPrompt !== null && !installed
+  const dismissInstall = useCallback(() => {
+    setInstallDismissed(true)
+    try {
+      localStorage.setItem(INSTALL_DISMISSED_FLAG, '1')
+    } catch {
+      // Stockage indisponible — masqué pour la session en cours seulement.
+    }
+  }, [])
+
+  const showInstall = deferredPrompt !== null && !installed && !installDismissed
+  const showFallback = deferredPrompt === null && installFallback !== null && !installed && !installDismissed
 
   return (
     <div className="contents">
       {children}
 
-      {showInstall && (
-        <button
-          type="button"
-          onClick={promptInstall}
-          className={cn(
-            'fixed bottom-5 right-5 z-50 inline-flex h-12 items-center gap-2 rounded-full',
-            'bg-primary px-5 text-sm font-medium text-primary-foreground',
-            'shadow-[0_4px_0_#D88D16] hover:translate-y-0.5 hover:shadow-none',
-            'transition-all motion-reduce:transition-none',
-          )}
-        >
-          <Download className="size-4" aria-hidden="true" />
-          Installer l&rsquo;application
-        </button>
+      {(showInstall || showFallback) && (
+        <div className="fixed bottom-5 right-5 z-50">
+          <button
+            type="button"
+            onClick={() => (showInstall ? void promptInstall() : setHelpOpen(true))}
+            className={cn(
+              'inline-flex h-12 items-center gap-2 rounded-full',
+              'bg-primary px-5 text-sm font-medium text-primary-foreground',
+              'shadow-[0_4px_0_#D88D16] hover:translate-y-0.5 hover:shadow-none',
+              'transition-all motion-reduce:transition-none',
+            )}
+          >
+            {showFallback ? (
+              <Smartphone className="size-4" aria-hidden="true" />
+            ) : (
+              <Download className="size-4" aria-hidden="true" />
+            )}
+            Installer l&rsquo;application
+          </button>
+          <button
+            type="button"
+            onClick={dismissInstall}
+            aria-label="Masquer le bouton d'installation"
+            title="Masquer"
+            className={cn(
+              'absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full',
+              'bg-card text-muted-foreground shadow-soft ring-1 ring-border',
+              'transition hover:text-foreground',
+            )}
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
       )}
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Installer l&rsquo;application</DialogTitle>
+            <DialogDescription>
+              {installFallback === 'ios'
+                ? 'Sur iPhone/iPad, l\u2019installation se fait depuis Safari :'
+                : 'Sur Mac, l\u2019installation se fait depuis Safari :'}
+            </DialogDescription>
+          </DialogHeader>
+          {installFallback === 'ios' ? (
+            <ol className="list-decimal space-y-2 pl-5 text-sm">
+              <li>Ouvrez cette page dans <strong>Safari</strong>.</li>
+              <li>Touchez le bouton <strong>Partager</strong> (carré avec une flèche vers le haut).</li>
+              <li>Choisissez <strong>« Sur l&rsquo;écran d&rsquo;accueil »</strong> puis <strong>Ajouter</strong>.</li>
+            </ol>
+          ) : (
+            <ol className="list-decimal space-y-2 pl-5 text-sm">
+              <li>Ouvrez cette page dans <strong>Safari</strong>.</li>
+              <li>Menu <strong>Fichier → Ajouter au Dock</strong> (ou Partager → Ajouter au Dock).</li>
+              <li>L&rsquo;application apparaît dans votre Dock comme une app.</li>
+            </ol>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {offline && (
         <div

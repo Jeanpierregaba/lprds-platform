@@ -266,7 +266,7 @@ function StaffCard({
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="font-display text-xl font-semibold leading-tight">
+          <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">
             {member.nickname ?? `${member.first_name} ${member.last_name}`}
           </p>
           <StatusPill active={member.is_active} shrink />
@@ -277,7 +277,7 @@ function StaffCard({
         <p className="text-sm">
           <span className="font-medium">Poste:</span> {member.staff_type ? STAFF_TYPE_LABELS[member.staff_type] : '—'}
         </p>
-        <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+        <p className="truncate text-sm text-muted-foreground" title={member.email}>{member.email}</p>
 
         <div className="flex flex-wrap gap-2 pt-3">
           <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/staff/${member.id}`} />}>

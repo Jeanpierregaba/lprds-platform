@@ -41,13 +41,13 @@ export function MediaLightbox({
 
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="truncate">{item.filename}</DialogTitle>
+          <DialogTitle className="break-words" title={item.filename}>{item.filename}</DialogTitle>
           <DialogDescription>{formatDateTime(item.created_at)}</DialogDescription>
         </DialogHeader>
 
-        <MediaThumb item={item} controls className="max-h-[60vh] w-full rounded-md" />
+        <MediaThumb item={item} controls className="max-h-[50dvh] w-full rounded-md" />
 
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary">{GALLERY_SOURCE_BADGE_LABEL[item.source]}</Badge>

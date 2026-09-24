@@ -18,11 +18,13 @@ import { childrenApi } from '@/lib/api/children.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { toIsoDate } from '@/lib/utils/dates'
 import type { ExportFileFormat, ExportPersonType } from '@/types/attendance'
 
 type PeriodType = 'day' | 'week' | 'month' | 'custom'
 
-const iso = (d: Date) => d.toISOString().slice(0, 10)
+// Date calendaire locale (jamais toISOString/UTC : à 00h30 locale on daterait d'hier).
+const iso = (d: Date) => toIsoDate(d)
 
 function periodRange(period: PeriodType): { from: string; to: string } {
   const now = new Date()
@@ -49,8 +51,9 @@ function periodRange(period: PeriodType): { from: string; to: string } {
 
 export function ExportTab() {
   const [period, setPeriod] = useState<PeriodType>('week')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  // Période initiale = semaine en cours (sinon le premier export part vide).
+  const [dateFrom, setDateFrom] = useState(() => periodRange('week').from)
+  const [dateTo, setDateTo] = useState(() => periodRange('week').to)
   const [personType, setPersonType] = useState<ExportPersonType>('both')
   const [departmentId, setDepartmentId] = useState('')
   const [sectionId, setSectionId] = useState('')
@@ -131,6 +134,14 @@ export function ExportTab() {
       toast.error('La date de fin doit être postérieure ou égale à la date de début.')
       return
     }
+    // Même plafond que le backend (422 au-delà) : refusé avant l'appel.
+    const days = Math.round(
+      (new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000
+    ) + 1
+    if (days > 366) {
+      toast.error('La période ne peut pas dépasser 366 jours.')
+      return
+    }
     setDownloading(true)
     try {
       const res = await attendanceApi.exportAttendance({
@@ -146,6 +157,8 @@ export function ExportTab() {
       const blob = res.data as Blob
       const disposition = res.headers['content-disposition']
       const match = /filename="([^"]+)"/.exec(disposition ?? '')
+      // Le backend nomme désormais en `.xlsx` ; le repli local fait pareil
+      // (jamais `.excel`, inconnu de l'OS au double-clic).
       const filename = match?.[1] ?? `presences_${dateFrom}_${dateTo}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
 
       const url = URL.createObjectURL(blob)
@@ -154,8 +167,12 @@ export function ExportTab() {
       a.download = filename
       document.body.appendChild(a)
       a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      // Revocation différée : synchrone juste après click() course sur gros blobs.
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+        a.remove()
+      }, 5000)
+      toast.success(`Export téléchargé (${filename}).`)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     } finally {
@@ -180,10 +197,10 @@ export function ExportTab() {
         </CardHeader>
         <CardContent>
           {selectedPerson ? (
-            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-              <Badge variant="outline">{selectedPerson.kind === 'child' ? 'Enfant' : 'Personnel'}</Badge>
-              <span className="min-w-0 truncate text-sm font-medium">{selectedPerson.label}</span>
-              {selectedPerson.sub && <span className="truncate text-xs text-muted-foreground">{selectedPerson.sub}</span>}
+              <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                <Badge variant="outline">{selectedPerson.kind === 'child' ? 'Enfant' : 'Personnel'}</Badge>
+                <span className="min-w-0 truncate text-sm font-medium">{selectedPerson.label}</span>
+                {selectedPerson.sub && <span className="min-w-0 shrink-0 truncate text-xs text-muted-foreground">{selectedPerson.sub}</span>}
               <button
                 type="button"
                 onClick={() => setSelectedPerson(null)}
@@ -203,6 +220,7 @@ export function ExportTab() {
                   aria-label="Rechercher une personne précise"
                   value={personSearch}
                   onChange={(e) => setPersonSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setPersonSearch('') }}
                   className="pl-9"
                 />
               </div>
@@ -349,7 +367,7 @@ export function ExportTab() {
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={download} disabled={downloading}>
+        <Button onClick={download} disabled={downloading || !dateFrom || !dateTo || dateTo < dateFrom}>
           {downloading ? (
             <><Loader2 className="mr-2 size-4 animate-spin" /> Génération...</>
           ) : (

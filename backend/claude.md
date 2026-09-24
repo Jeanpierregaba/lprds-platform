@@ -869,6 +869,18 @@ volée** (`attendance/service.py`) à partir des événements du jour, jamais st
 Avantages : traçabilité complète (qui a scanné, quand), plusieurs scans par jour
 sans rien écraser, aucune désynchronisation possible entre un état et son historique.
 
+**Journée locale de bout en bout** : le bucket « jour » est la journée
+[00:00, 24:00) **dans le fuseau configuré** de l'établissement (convertie en
+UTC avec DST via `_local_day_bounds`), jamais minuit UTC — dashboards, journal,
+export et `verify` partagent ce découpage. Les heures affichées (export,
+dashboards) sont converties dans ce fuseau (`_to_local`) ; les réponses
+dashboards/journal exposent `timezone` pour que le frontend affiche la même
+heure que celle qui a décidé du retard.
+
+**Anti-rebond au scan** : même personne + même geste dans les 60 dernières
+secondes → **409** (double-clic ou badge présenté 2 fois) — un geste différent
+reste accepté aussitôt.
+
 Deux contraintes **CHECK** en base (pas seulement applicatives) :
 - exactement une des deux FK (`child_id` / `staff_id`) est renseignée, cohérente
   avec `person_type`
@@ -885,6 +897,12 @@ parent ou le personnel au scan (arrivée comme départ). Le contenu doit donc ê
   `SECRET_KEY` — pas de nouvelle variable d'env), **pas seulement signé**. Un
   simple token signé (type `itsdangerous`) reste décodable en base64 par
   n'importe qui ; ici le contenu est réellement opaque.
+- **Versionnage + rotation sans casse** : jetons préfixés `v1:` (anciens jetons
+  sans préfixe toujours acceptés) ; `QR_KEY_PREVIOUS` (ancienne valeur de
+  `SECRET_KEY`, cf. `.env.example`) garde les anciens badges lisibles pendant
+  la réimpression — sans elle, toute rotation invalide tout d'un coup.
+- Les endpoints QR renvoient `Cache-Control: private, max-age=3600` (tout jeton
+  émis reste valide, inutile de régénérer l'image à chaque affichage).
 - Le payload n'encode **jamais le matricule**, ni même en clair le type de
   personne — seulement `{type, id interne}` chiffré. Même en cas de faiblesse
   cryptographique hypothétique, le pire qui fuiterait est un UUID interne,
@@ -925,7 +943,10 @@ GET  /api/v1/attendance/export                      # ?format=&person_type=&date
 Export agrégé PDF/Excel (statut par personne × jour, max 366 jours) :
 `child_id` / `staff_id` (exclusifs, 422 sinon) restreignent à UNE personne
 précise — 404 si hors établissement — et priment sur `person_type` /
-département / section.
+département / section (le nom de fichier suit le périmètre effectif).
+Heures affichées en heure locale établissement, extension `.xlsx` (l'enum API
+reste `excel`), textes échappés pour le PDF, et **périmètre complet** : les
+inactifs ayant scanné dans la période sont inclus (avec les mêmes filtres).
 
 ### Correction manuelle — édition directe de la ligne (décision produit)
 
@@ -933,14 +954,18 @@ Le journal reste append-only **pour les scans** (jamais d'UPDATE sur ce chemin),
 mais une heure fausse ou un scan manquant se corrige **en touchant la ligne** —
 décision explicite (alternative « nouvel event manuel avec flag » écartée) :
 
-- `POST /events/manual` (`attendance:write`) : crée une arrivée/départ avec
-  `{person_type, child_id|staff_id, event_type (jamais meal), date, time}` —
+- `POST /events/manual` (`attendance:write`) : crée une arrivée/départ —
+  cantine aussi pour le staff (seul l'enfant la refuse, 422) — avec
+  `{person_type, child_id|staff_id, event_type, date, time}` —
   `date`+`time` interprétés dans le **fuseau de l'établissement**, heure future
-  refusée (422). `scanned_by` = l'auteur de la correction. Mêmes gardes qu'au
-  scan (personne active, pas de cantine enfant, pas d'accompagnateur staff).
+  refusée (422, même repère local que la rectification). `scanned_by` =
+  l'auteur de la correction. Mêmes gardes qu'au scan (personne active, pas de
+  cantine enfant, pas d'accompagnateur staff).
 - `PATCH /events/{event_id}` (`attendance:write`) : ne change que `scanned_at`
-  (naïf = fuseau établissement, futur = 422) — **type et personne inchangés**,
-  la cohérence du journal est préservée. 404 inter-établissement.
+  (naïf = fuseau établissement, aware = normalisé, futur local = 422) —
+  **type et personne inchangés**, la cohérence du journal est préservée.
+  **Cohérence temporelle** : arrivée déplacée après le dernier départ du jour
+  (ou départ avant la première arrivée) → 422. 404 inter-établissement.
 - Pas de suppression de ligne : une heure ne s'efface pas, elle se rectifie.
 - Le statut du jour étant calculé à la volée, la correction est **visible
   immédiatement** (dashboard, export, pré-remplissage des rapports quotidiens).
@@ -975,8 +1000,8 @@ séparé pour chacun) :
 | Pas d'arrivée, jour ouvré (lun-ven) | `absent` | `null` |
 | Pas d'arrivée, week-end | `not_expected` | `null` |
 | Arrivée, aucun horaire configuré | `present` | `null` (indéterminable) |
-| Arrivée après l'horaire attendu | `late` | écart en minutes |
-| Arrivée dans les temps | `present` | `0` |
+| Arrivée après l'horaire attendu + tolérance | `late` | écart en minutes |
+| Arrivée dans les temps (+ tolérance) | `present` | `0` |
 | **Staff exempté**, pas d'arrivée | `exempt` | `null` |
 | **Staff exempté**, arrivée quand même | calculé normalement | idem |
 
@@ -985,14 +1010,11 @@ séparé pour chacun) :
 
 > ⚠️ Pas de gestion de calendrier (congés, jours fériés) dans cette version —
 > volontairement simplifié à « jours ouvrés lun-ven ». Un enfant/staff absent un
-> jour férié apparaîtra `absent`. À enrichir si besoin.
+> jour férié apparaîtra `absent`. Calendrier d'exception à trancher avec le
+> métier si besoin (décision produit en suspens, pas un oubli).
 >
-> Le **bucket « jour »** (quels événements comptent pour la date demandée) reste
-> calculé sur une journée UTC 00:00–24:00, mais la **comparaison de retard**
-> (heure d'arrivée vs horaire attendu) est faite dans le **fuseau horaire
-> configuré** de l'établissement (cf. ci-dessous). Un décalage de fuseau proche
-> de minuit peut donc, en théorie, ranger un événement dans le « mauvais » jour
-> côté bucket — cas limite non traité, à corriger si besoin réel.
+> Le bucket « jour » est la journée locale de l'établissement (cf. « Modèle »
+> ci-dessus) — plus de décalage UTC proche de minuit.
 
 ### Paramètres — fuseau horaire + asymétrie enfants/staff assumée
 
@@ -1001,12 +1023,20 @@ Un seul jeu de **paramètres généraux** par établissement
 staff porteur de `attendance:write` :
 
 - **`timezone`** (nom IANA, ex. `Africa/Porto-Novo`) : utilisé pour **les deux**
-  calculs de retard (enfants ET staff). Validé via `zoneinfo` à la saisie (422
+  calculs de retard (enfants ET staff) **et** tout le bucket « jour »
+  (dashboards, journal, export, verify). Validé via `zoneinfo` à la saisie (422
   si le nom n'existe pas). Défaut implicite `UTC` tant que rien n'est configuré.
+  Une valeur corrompue en base lève une 500 explicite (« reconfigurez ») au lieu
+  d'un calcul faux silencieux.
 - **`staff_expected_arrival_time` / `staff_expected_departure_time`** : **un
   seul horaire pour tout le personnel** de l'établissement — pas de découpe par
   département pour le staff (confirmé : *« Tous les personnels ont une même
   heure d'arrivée et de départ »*).
+- **`late_grace_minutes`** (défaut 0 = aucun pardon) : tolérance en minutes
+  avant qu'une arrivée tardive compte « en retard » — enfants comme staff,
+  dashboards comme export. Migration `7ee86cf2ad2a`.
+- Upserts **atomiques** (`ON CONFLICT`) sur les trois réglages : 2 PUT
+  concurrents ne violent plus les contraintes d'unicité en 500.
 
 Les enfants restent différents : horaires **par département**
 (`department_attendance_settings`, 1 ligne par département,
@@ -1021,14 +1051,18 @@ par département).
 
 **Exemption** (`users.attendance_exempt`, colonne sur `User`, défaut `False`) :
 un staff exempté n'est jamais compté `absent` par défaut, géré via
-`/attendance/settings/exempt-staff`.
+`/attendance/settings/exempt-staff` — qui exige un compte **actif** (409
+sinon : un flag sur un inactif serait invisible, la liste ne montrant que les
+actifs).
 
 ### Isolation
 Toutes les opérations (scan, QR, dashboards, réglages) sont bornées à
 `current_user.establishment_id`. Scanner ou consulter une personne d'un autre
 établissement → **404**, y compris quand le matricule scanné existe réellement
 mais ailleurs (le matricule seul ne suffit pas à identifier une personne hors
-de son établissement).
+de son établissement). Même discipline pour les filtres : `department_id` /
+`section_id` (dashboard), `child_id` / `staff_id` (journal) hors établissement
+→ **404**, jamais un vide silencieux ; `date_from > date_to` (journal) → 422.
 
 ---
 
@@ -1091,11 +1125,21 @@ Client ← WS (relais transparent) ←──────────── tous 
   s'applique PAS aux WebSocket — Starlette ne le fait qu'sur le scope `http` —
   donc cette vérification est la seule protection d'origine sur ce endpoint).
 - **Rejet = fermeture avant `accept()`** : un jeton invalide/révoqué ou un rôle
-  non éligible (staff/superadmin) ferme la connexion sans l'accepter. Selon le
-  serveur ASGI, ça se traduit soit par un refus HTTP direct du handshake
+  non éligible (staff/superadmin) ferme la connexion sans l'accepter (code
+  `1008`). Côté client : **pas de reconnexion sur 1008** (sinon boucle
+  infinie), backoff exponentiel + jitter sinon (1s→30s), reconnexion immédiate
+  au retour `online`. Selon le serveur ASGI, ça se traduit soit par un refus HTTP direct du handshake
   (`InvalidStatus`, observé avec uvicorn), soit par une fermeture juste après
   (`ConnectionClosed`, code `1008`) — les deux prouvent la même chose : jamais
   de session WS utilisable sans jeton admin/parent valide.
+- **Heartbeat applicatif** : le client envoie `{"type":"ping"}` toutes les 25 s,
+  le serveur répond `{"type":"pong"}` (seul contenu entrant traité, le reste
+  est ignoré) ; sans pong sous 10 s le client force la fermeture → cycle
+  reconnect + resync (détecte les connexions mortes NAT/proxy idle).
+- **Resync au reconnect** : à chaque réouverture après coupure, le client
+  invalide les clés `messaging/*`, `parent/conversation*`,
+  `parent/announcements` — aucun trou permanent (le publish Redis étant
+  best-effort).
 - **Session DB éphémère** : la connexion n'ouvre une session DB QUE pour la
   phase d'authentification (+ get-or-create de la conversation côté parent),
   commit, puis referme — une connexion WS peut vivre des heures, hors de
@@ -1292,7 +1336,7 @@ foulée, façon WhatsApp.
   contenu (pas de sniffing des octets magiques) : simplification assumée,
   acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
   un client qui mentirait délibérément sur le type.
-- **Poussé en temps réel** comme un message : `{"type": "attachment", message_id, ...}`
+- **Poussé en temps réel** comme un message : `{"type": "attachment", conversation_id, message_id, ...}`
   sur les mêmes canaux (`messaging:conv:{id}` + `messaging:estab:{id}:admin`),
   ou `{"type": "announcement_attachment", ...}` sur le canal diffusions pour
   une pièce jointe d'annonce.
@@ -1500,6 +1544,15 @@ draft ──submit──> submitted ──validate──> validated (publié au 
   d'office, ou un staff de confiance type Directrice/Assistante de direction) :
   n'importe quel rapport `submitted` de l'établissement, sans restriction de
   groupe (contrairement à la création).
+- **Qui VOIT quoi (lecture)** : garde d'entrée en OU — admin, ou staff porteur
+  d'au moins une permission du module (read, write ou validate) ; la sidebar
+  affiche le module dès une permission, la garde ne peut pas être plus étroite
+  (« page visible, données 403 » sinon). Périmètre ensuite :
+  - groupe(s) mené(s) en intégralité (tous statuts) ;
+  - **plus**, pour un porteur de `reports:validate` (ex. directrice SANS groupe
+    mené, cas réel) : le soumis/validé de **tout** l'établissement — sinon le
+    rôle validateur serait inutilisable (la validation elle-même est sans
+    restriction de groupe). Les brouillons/rejetés d'autrui restent invisibles.
 
 ### ⚠️ Auto-publication quand l'auteur est admin
 
@@ -1531,7 +1584,7 @@ GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}] 
 
 GET    /api/v1/reports/vocabulary         # reports:read — labels FR (mood, behavior_tag, ...)
 POST   /api/v1/reports                    # reports:write (+ règle de groupe pour le staff)
-GET    /api/v1/reports                    # reports:read — scope auto par groupe si staff, ?search= (nom/prénoms/matricule)
+GET    /api/v1/reports                    # garde OU (read/write/validate) — scope auto par groupe si staff, + soumis/validé partout si reports:validate ; ?search= (nom/prénoms/matricule)
 GET    /api/v1/reports/missing            # reports:read — NON SOUMIS pour la période contenant la date (?report_type=, défaut quotidien ; date défaut aujourd'hui, jamais future) : seuls les enfants ACTIFS dont le DÉPARTEMENT a ce type activé comptent (cohérent avec la création) ; l'admin voit d'un coup d'œil qui n'a rien soumis sans croiser les absences ; staff = ses groupes uniquement. has_draft = brouillon/rejeté en cours. Côté UI : 5e pill « Non soumis » sous chaque onglet de type (avec sélecteur de date)
 GET    /api/v1/reports/{id}
 PATCH  /api/v1/reports/{id}               # admin : tout statut ; staff : draft/rejected — revalide le contenu

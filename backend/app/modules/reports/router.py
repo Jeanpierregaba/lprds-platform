@@ -32,26 +32,52 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 _read = require_permission(PermissionCode.REPORTS_READ)
 _write = require_permission(PermissionCode.REPORTS_WRITE)
 _validate = require_permission(PermissionCode.REPORTS_VALIDATE)
-# Types de rapport par département : configuration réservée à l'admin —
-# une éducatrice porte reports:write (elle rédige) mais ne choisit pas
-# quels types sont actifs dans chaque département.
-_admin_only = require_roles(UserRole.ADMIN)
+
+
+def _sees_reports(user: User) -> bool:
+    """Staff porteur d'AU MOINS UNE permission du module (read, write ou
+    validate) — même pattern OU que `_read_types`."""
+    codes = user_permission_codes(user)
+    return (
+        PermissionCode.REPORTS_READ.value in codes
+        or PermissionCode.REPORTS_WRITE.value in codes
+        or PermissionCode.REPORTS_VALIDATE.value in codes
+    )
+
+
+async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
+    """Garde des endpoints de LECTURE (liste, détail, manquants) : admin, ou
+    staff porteur d'au moins une permission du module. La sidebar affiche le
+    module dès une permission détenue ; refuser ici donnerait « page visible,
+    données 403 ». Le périmètre FIN (groupe mené vs tout l'établissement)
+    reste décidé dans le service, pas ici."""
+    if user.role == UserRole.ADMIN:
+        return user
+    if user.role == UserRole.STAFF and _sees_reports(user):
+        return user
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
 
 
 async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
     """
     GET /vocabulary n'expose que des libellés FR statiques (aucune donnée
-    d'enfant) — ouvert à reports:read (admin/staff) ET au parent, qui en a
-    besoin pour afficher le contenu de ses rapports validés sur son portail
-    (contrairement au reste du module, jamais accessible au parent hors
-    /mine/*). Sans lien avec establishment_id : le vocabulaire est global,
-    identique pour tous les établissements.
+    d'enfant) — ouvert au staff qui voit les rapports (read/write/validate)
+    ET au parent, qui en a besoin pour afficher le contenu de ses rapports
+    validés sur son portail (contrairement au reste du module, jamais
+    accessible au parent hors /mine/*). Sans lien avec establishment_id :
+    le vocabulaire est global, identique pour tous les établissements.
     """
     if user.role == UserRole.ADMIN or user.role == UserRole.PARENT:
         return user
-    if user.role == UserRole.STAFF and PermissionCode.REPORTS_READ.value in user_permission_codes(user):
+    if user.role == UserRole.STAFF and _sees_reports(user):
         return user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+
+
+# Types de rapport par département : configuration réservée à l'admin —
+# une éducatrice porte reports:write (elle rédige) mais ne choisit pas
+# quels types sont actifs dans chaque département.
+_admin_only = require_roles(UserRole.ADMIN)
 
 
 # ── Paramètres : types de rapport activés par département ────────
@@ -132,7 +158,7 @@ async def create_report(
 @router.get("", response_model=ReportListResponse)
 async def list_reports(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_read),
+    user: User = Depends(_can_see_reports),
     report_status: ReportStatus | None = Query(default=None, alias="status"),
     report_type: ReportType | None = Query(default=None),
     child_id: uuid.UUID | None = Query(default=None),
@@ -164,7 +190,7 @@ async def get_vocabulary(
 @router.get("/missing", response_model=MissingReportResponse)
 async def list_missing_reports(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_read),
+    user: User = Depends(_can_see_reports),
     report_type: ReportType = Query(default=ReportType.QUOTIDIEN),
     target_date: date | None = Query(default=None, alias="date"),
     department_id: uuid.UUID | None = Query(default=None),
@@ -192,7 +218,7 @@ async def list_missing_reports(
 async def get_report(
     report_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_read),
+    user: User = Depends(_can_see_reports),
 ) -> ReportResponse:
     return await service.get_report(report_id, user.establishment_id, user, db)
 
@@ -288,7 +314,7 @@ async def download_report_attachment(
     report_id: uuid.UUID,
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_read),
+    user: User = Depends(_can_see_reports),
 ) -> FileResponse:
     attachment, path = await service.get_report_attachment_for_staff(
         report_id, attachment_id, user.establishment_id, user, db

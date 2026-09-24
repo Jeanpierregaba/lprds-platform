@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.attendance.models import (
@@ -89,6 +90,28 @@ async def scan(
 ) -> AttendanceEventResponse:
     person_type, person_id = decrypt_qr_payload(payload.qr_payload)
 
+    # Anti-rebond : même personne + même geste dans les 60 dernières secondes
+    # = double-clic ou badge présenté 2 fois (journal append-only oblige, on
+    # refuse plutôt que de polluer). Un geste différent reste accepté aussitôt.
+    window_start = datetime.now(tz=timezone.utc) - timedelta(seconds=60)
+    recent = await db.scalar(
+        select(AttendanceEvent.id).where(
+            AttendanceEvent.establishment_id == establishment_id,
+            AttendanceEvent.event_type == str(payload.event_type),
+            (
+                (AttendanceEvent.child_id == person_id)
+                if person_type == PersonType.CHILD
+                else (AttendanceEvent.staff_id == person_id)
+            ),
+            AttendanceEvent.scanned_at >= window_start,
+        )
+    )
+    if recent:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Événement déjà enregistré il y a moins d'une minute",
+        )
+
     if person_type == PersonType.CHILD:
         if payload.event_type == EventType.MEAL:
             raise HTTPException(
@@ -139,7 +162,7 @@ async def create_manual_event(
     cantine pour un enfant, pas d'accompagnateur pour le staff) + refus d'une
     heure dans le futur. La ligne porte `scanned_by` = l'auteur de la
     correction, pas un scanneur QR."""
-    if payload.event_type == EventType.MEAL:
+    if payload.event_type == EventType.MEAL and payload.person_type == PersonType.CHILD:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Pas de cantine pour les enfants",
@@ -218,13 +241,52 @@ async def update_event(
         raise HTTPException(status_code=404, detail="Événement introuvable")
 
     scanned_at = payload.scanned_at
+    tz = await _get_timezone(establishment_id, db)
     if scanned_at.tzinfo is None:
-        tz = await _get_timezone(establishment_id, db)
         scanned_at = scanned_at.replace(tzinfo=tz)
-    if scanned_at > datetime.now(tz=timezone.utc):
+    else:
+        scanned_at = scanned_at.astimezone(tz)
+    # Même repère que la création manuelle : l'heure locale de
+    # l'établissement (pas UTC — écart d'une heure selon le fuseau).
+    if scanned_at > datetime.now(tz=tz):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="L'heure corrigée ne peut pas être dans le futur",
+        )
+    # Cohérence temporelle a minima : une arrivée déplacée après le dernier
+    # départ du même jour (ou un départ avant la première arrivée) est
+    # refusée — sinon le statut calculé devient absurde.
+    day_start, day_end = _local_day_bounds(tz, scanned_at.astimezone(tz).date())
+    siblings = (
+        await db.execute(
+            select(AttendanceEvent).where(
+                AttendanceEvent.establishment_id == establishment_id,
+                AttendanceEvent.scanned_at >= day_start,
+                AttendanceEvent.scanned_at < day_end,
+                AttendanceEvent.id != event.id,
+                (
+                    (AttendanceEvent.child_id == event.child_id)
+                    if event.child_id is not None
+                    else (AttendanceEvent.staff_id == event.staff_id)
+                ),
+            )
+        )
+    ).scalars().all()
+    arrivals = sorted(
+        e.scanned_at for e in siblings if e.event_type == str(EventType.ARRIVAL)
+    )
+    departures = sorted(
+        e.scanned_at for e in siblings if e.event_type == str(EventType.DEPARTURE)
+    )
+    if event.event_type == str(EventType.ARRIVAL) and departures and scanned_at > departures[-1]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="L'arrivée corrigée est après le dernier départ du jour",
+        )
+    if event.event_type == str(EventType.DEPARTURE) and arrivals and scanned_at < arrivals[0]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Le départ corrigé est avant la première arrivée du jour",
         )
     event.scanned_at = scanned_at
     await db.flush()
@@ -243,15 +305,18 @@ async def verify_qr(
     membre ACTIF de l'établissement courant."""
     person_type, person_id = decrypt_qr_payload(payload.qr_payload)
 
-    today = date_.today()
+    # « Aujourd'hui » dans le fuseau de l'établissement, pas la date serveur
+    # (souvent UTC) — sinon l'état du jour répond pour le mauvais jour.
+    tz = await _get_timezone(establishment_id, db)
+    today = datetime.now(tz=tz).date()
     events_formatted: dict[uuid.UUID, list[AttendanceEvent]] = {}
 
     if person_type == PersonType.CHILD:
         child = await _get_active_child_or_404(person_id, establishment_id, db)
-        display_name = child.first_names
+        display_name = f"{child.first_names} {child.last_name}".strip()
         matricule = child.matricule
         events_formatted = await _events_for_day(
-            establishment_id, PersonType.CHILD, today, db
+            establishment_id, PersonType.CHILD, today, db, tz
         )
         day_events = events_formatted.get(child.id, [])
         return VerifyQrResponse(
@@ -266,7 +331,7 @@ async def verify_qr(
     staff = await _get_active_staff_or_404(person_id, establishment_id, db)
     display_name = staff.nickname or f"{staff.first_name} {staff.last_name}".strip()
     events_formatted = await _events_for_day(
-        establishment_id, PersonType.STAFF, today, db
+        establishment_id, PersonType.STAFF, today, db, tz
     )
     day_events = events_formatted.get(staff.id, [])
     return VerifyQrResponse(
@@ -296,13 +361,40 @@ async def list_events(
     if person_type:
         filters.append(AttendanceEvent.person_type == str(person_type))
     if child_id:
+        exists = await db.scalar(
+            select(Child.id).where(
+                Child.id == child_id, Child.establishment_id == establishment_id
+            )
+        )
+        if not exists:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
         filters.append(AttendanceEvent.child_id == child_id)
     if staff_id:
+        exists = await db.scalar(
+            select(User.id).where(
+                User.id == staff_id,
+                User.establishment_id == establishment_id,
+                User.role == UserRole.STAFF,
+            )
+        )
+        if not exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Membre du personnel introuvable",
+            )
         filters.append(AttendanceEvent.staff_id == staff_id)
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La date de début doit être antérieure à la date de fin",
+        )
+    tz = await _get_timezone(establishment_id, db)
     if date_from:
-        filters.append(AttendanceEvent.scanned_at >= _day_start(date_from))
+        start, _ = _local_day_bounds(tz, date_from)
+        filters.append(AttendanceEvent.scanned_at >= start)
     if date_to:
-        filters.append(AttendanceEvent.scanned_at < _day_start(date_to) + timedelta(days=1))
+        _, end = _local_day_bounds(tz, date_to)
+        filters.append(AttendanceEvent.scanned_at < end)
 
     total = await db.scalar(
         select(func.count()).select_from(AttendanceEvent).where(*filters)
@@ -317,6 +409,7 @@ async def list_events(
     events = result.scalars().all()
     return AttendanceEventListResponse(
         total=total or 0,
+        timezone=str(tz),
         items=[await _to_event_response(e, db) for e in events],
     )
 
@@ -333,8 +426,12 @@ async def get_children_daily_status(
 ) -> ChildDailyStatusListResponse:
     filters = [Child.establishment_id == establishment_id, Child.is_active.is_(True)]
     if department_id:
+        # 404 si hors établissement (pas un vide silencieux) — même
+        # discipline que le reste du projet.
+        await org_service.get_or_404(Department, department_id, establishment_id, db)
         filters.append(Child.department_id == department_id)
     if section_id:
+        await org_service.get_or_404(Section, section_id, establishment_id, db)
         filters.append(Child.section_id == section_id)
     if group_ids is not None:
         if not group_ids:
@@ -342,11 +439,13 @@ async def get_children_daily_status(
         filters.append(Child.group_id.in_(group_ids))
     children = (await db.execute(select(Child).where(*filters))).scalars().all()
 
+    tz = await _get_timezone(establishment_id, db)
+    general_settings = await _get_general_settings(establishment_id, db)
+    grace = general_settings.late_grace_minutes if general_settings else 0
     events_by_child = await _events_for_day(
-        establishment_id, PersonType.CHILD, target_date, db
+        establishment_id, PersonType.CHILD, target_date, db, tz
     )
     settings_by_dept = await _department_settings_map(establishment_id, db)
-    tz = await _get_timezone(establishment_id, db)
     weekday = _is_weekday(target_date)
 
     items = []
@@ -356,7 +455,7 @@ async def get_children_daily_status(
         departure = _latest(events, EventType.DEPARTURE)
         dept_settings = settings_by_dept.get(child.department_id) if child.department_id else None
         expected = dept_settings.expected_arrival_time if dept_settings else None
-        status_, late_minutes = _compute_status(arrival, weekday, expected, tz)
+        status_, late_minutes = _compute_status(arrival, weekday, expected, tz, grace)
         items.append(
             ChildDailyStatus(
                 child=_child_brief(child),
@@ -366,7 +465,9 @@ async def get_children_daily_status(
                 late_minutes=late_minutes,
             )
         )
-    return ChildDailyStatusListResponse(date=target_date, total=len(items), items=items)
+    return ChildDailyStatusListResponse(
+        date=target_date, timezone=str(tz), total=len(items), items=items
+    )
 
 
 async def get_my_group_daily_status(
@@ -404,11 +505,12 @@ async def get_staff_daily_status(
         )
     ).scalars().all()
 
-    events_by_staff = await _events_for_day(
-        establishment_id, PersonType.STAFF, target_date, db
-    )
     general_settings = await _get_general_settings(establishment_id, db)
     tz = _tz_of(general_settings)
+    grace = general_settings.late_grace_minutes if general_settings else 0
+    events_by_staff = await _events_for_day(
+        establishment_id, PersonType.STAFF, target_date, db, tz
+    )
     schedule_map = await _staff_schedule_map(establishment_id, db)
     weekday = _is_weekday(target_date)
 
@@ -430,7 +532,7 @@ async def get_staff_daily_status(
         if member.attendance_exempt and arrival is None:
             status_, late_minutes = "exempt", None
         else:
-            status_, late_minutes = _compute_status(arrival, weekday, expected, tz)
+            status_, late_minutes = _compute_status(arrival, weekday, expected, tz, grace)
 
         items.append(
             StaffDailyStatus(
@@ -443,7 +545,9 @@ async def get_staff_daily_status(
                 exempt=member.attendance_exempt,
             )
         )
-    return StaffDailyStatusListResponse(date=target_date, total=len(items), items=items)
+    return StaffDailyStatusListResponse(
+        date=target_date, timezone=str(tz), total=len(items), items=items
+    )
 
 
 # ── Paramètres : département (enfants) ───────────────────────────
@@ -455,22 +559,27 @@ async def upsert_department_settings(
 ) -> DepartmentAttendanceSettingsResponse:
     await org_service.get_or_404(Department, department_id, establishment_id, db)
 
-    settings = await db.scalar(
-        select(DepartmentAttendanceSettings).where(
-            DepartmentAttendanceSettings.department_id == department_id
-        )
-    )
-    if settings:
-        settings.expected_arrival_time = payload.expected_arrival_time
-        settings.expected_departure_time = payload.expected_departure_time
-    else:
-        settings = DepartmentAttendanceSettings(
+    # Upsert atomique (ON CONFLICT) : 2 PUT concurrents ne violent plus la
+    # contrainte d'unicité en 500.
+    stmt = (
+        pg_insert(DepartmentAttendanceSettings)
+        .values(
             establishment_id=establishment_id,
             department_id=department_id,
             expected_arrival_time=payload.expected_arrival_time,
             expected_departure_time=payload.expected_departure_time,
         )
-        db.add(settings)
+        .on_conflict_do_update(
+            index_elements=["department_id"],
+            set_={
+                "expected_arrival_time": payload.expected_arrival_time,
+                "expected_departure_time": payload.expected_departure_time,
+            },
+        )
+        .returning(DepartmentAttendanceSettings)
+    )
+    result = await db.execute(stmt)
+    settings = result.scalar_one()
     await db.flush()
     return DepartmentAttendanceSettingsResponse.model_validate(settings)
 
@@ -500,19 +609,28 @@ async def upsert_general_settings(
     establishment_id: uuid.UUID,
     db: AsyncSession,
 ) -> AttendanceGeneralSettingsResponse:
-    settings = await _get_general_settings(establishment_id, db)
-    if settings:
-        settings.timezone = payload.timezone
-        settings.staff_expected_arrival_time = payload.staff_expected_arrival_time
-        settings.staff_expected_departure_time = payload.staff_expected_departure_time
-    else:
-        settings = AttendanceSettings(
+    stmt = (
+        pg_insert(AttendanceSettings)
+        .values(
             establishment_id=establishment_id,
             timezone=payload.timezone,
             staff_expected_arrival_time=payload.staff_expected_arrival_time,
             staff_expected_departure_time=payload.staff_expected_departure_time,
+            late_grace_minutes=payload.late_grace_minutes,
         )
-        db.add(settings)
+        .on_conflict_do_update(
+            index_elements=["establishment_id"],
+            set_={
+                "timezone": payload.timezone,
+                "staff_expected_arrival_time": payload.staff_expected_arrival_time,
+                "staff_expected_departure_time": payload.staff_expected_departure_time,
+                "late_grace_minutes": payload.late_grace_minutes,
+            },
+        )
+        .returning(AttendanceSettings)
+    )
+    result = await db.execute(stmt)
+    settings = result.scalar_one()
     await db.flush()
     return AttendanceGeneralSettingsResponse.model_validate(settings)
 
@@ -539,20 +657,25 @@ async def upsert_staff_schedule(
 ) -> StaffScheduleResponse:
     """Pose (ou remplace) l'horaire personnalisé d'un membre du personnel."""
     staff = await _get_staff_or_404(staff_id, establishment_id, db)
-    schedule = await db.scalar(
-        select(StaffAttendanceSchedule).where(StaffAttendanceSchedule.staff_id == staff_id)
-    )
-    if schedule:
-        schedule.expected_arrival_time = payload.expected_arrival_time
-        schedule.expected_departure_time = payload.expected_departure_time
-    else:
-        schedule = StaffAttendanceSchedule(
+    stmt = (
+        pg_insert(StaffAttendanceSchedule)
+        .values(
             establishment_id=establishment_id,
             staff_id=staff.id,
             expected_arrival_time=payload.expected_arrival_time,
             expected_departure_time=payload.expected_departure_time,
         )
-        db.add(schedule)
+        .on_conflict_do_update(
+            index_elements=["staff_id"],
+            set_={
+                "expected_arrival_time": payload.expected_arrival_time,
+                "expected_departure_time": payload.expected_departure_time,
+            },
+        )
+        .returning(StaffAttendanceSchedule)
+    )
+    result = await db.execute(stmt)
+    schedule = result.scalar_one()
     await db.flush()
     return StaffScheduleResponse(
         staff_id=staff.id,
@@ -653,8 +776,17 @@ async def get_attendance_export(
         child_id=child_id, staff_id=staff_id,
     )
 
+    # Extension OS-friendly : l'enum API reste `excel`, mais le fichier
+    # téléchargé porte `.xlsx` (double-clic / détection MIME).
+    ext = "xlsx" if file_format == ExportFileFormat.EXCEL else file_format.value
+    # Nom selon le périmètre EFFECTIF (child_id/staff_id re-scopent en local).
+    effective_scope = export_scope
+    if child_id:
+        effective_scope = ExportPersonType.CHILDREN
+    elif staff_id:
+        effective_scope = ExportPersonType.STAFF
     filename = (
-        f"{_FILENAME_SCOPE[export_scope]}_{date_from.isoformat()}_{date_to.isoformat()}.{file_format.value}"
+        f"{_FILENAME_SCOPE[effective_scope]}_{date_from.isoformat()}_{date_to.isoformat()}.{ext}"
     )
     if file_format == ExportFileFormat.PDF:
         content = await asyncio.to_thread(
@@ -747,14 +879,56 @@ async def _build_export_rows(
 
     general_settings = await _get_general_settings(establishment_id, db)
     tz = _tz_of(general_settings)
+    grace = general_settings.late_grace_minutes if general_settings else 0
     dept_settings = await _department_settings_map(establishment_id, db)
     schedule_map = await _staff_schedule_map(establishment_id, db)
 
-    events = await _events_for_range(establishment_id, export_scope, date_from, date_to, db)
+    events = await _events_for_range(
+        establishment_id, export_scope, date_from, date_to, db, tz
+    )
     by_person_day: dict[tuple[uuid.UUID, date_], list[AttendanceEvent]] = {}
+    event_child_ids: set[uuid.UUID] = set()
+    event_staff_ids: set[uuid.UUID] = set()
     for e in events:
-        person_id = e.child_id if e.person_type == str(PersonType.CHILD) else e.staff_id
-        by_person_day.setdefault((person_id, e.scanned_at.date()), []).append(e)
+        if e.person_type == str(PersonType.CHILD):
+            event_child_ids.add(e.child_id)
+            person_id = e.child_id
+        else:
+            event_staff_ids.add(e.staff_id)
+            person_id = e.staff_id
+        # Bucket calé sur la journée LOCALE (pas UTC) — cf. _local_day_bounds.
+        by_person_day.setdefault((person_id, _local_date(e.scanned_at, tz)), []).append(e)
+
+    # Périmètre complet : les inactifs ayant scanné dans la période sont
+    # inclus (sinon leurs scans disparaissent), avec les mêmes filtres
+    # département/section que les actifs.
+    if want_children and only_child is None:
+        known_child_ids = {c.id for c in children}
+        extra_child_ids = event_child_ids - known_child_ids
+        if extra_child_ids:
+            extra_filters = [
+                Child.establishment_id == establishment_id,
+                Child.id.in_(extra_child_ids),
+            ]
+            if department_id:
+                extra_filters.append(Child.department_id == department_id)
+            if section_id:
+                extra_filters.append(Child.section_id == section_id)
+            children = list(children) + list(
+                (await db.execute(select(Child).where(*extra_filters))).scalars().all()
+            )
+    if want_staff and only_staff is None:
+        extra_staff_ids = event_staff_ids - {m.id for m in staff_members}
+        if extra_staff_ids:
+            staff_members = list(staff_members) + list(
+                (await db.execute(
+                    select(User).where(
+                        User.establishment_id == establishment_id,
+                        User.role == UserRole.STAFF,
+                        User.id.in_(extra_staff_ids),
+                    )
+                )).scalars().all()
+            )
 
     rows: list[AttendanceExportRow] = []
     current = date_from
@@ -768,15 +942,15 @@ async def _build_export_rows(
                 day_events = by_person_day.get((child.id, current), [])
                 arrival = _earliest(day_events, EventType.ARRIVAL)
                 departure = _latest(day_events, EventType.DEPARTURE)
-                status_, late = _compute_status(arrival, weekday, expected, tz)
+                status_, late = _compute_status(arrival, weekday, expected, tz, grace)
                 rows.append(AttendanceExportRow(
                     person_type="Enfant",
                     name=f"{child.first_names} {child.last_name}".strip(),
                     matricule=child.matricule,
                     date=current,
                     status=_STATUS_LABELS.get(status_, status_),
-                    arrival_time=arrival,
-                    departure_time=departure,
+                    arrival_time=_to_local(arrival, tz),
+                    departure_time=_to_local(departure, tz),
                     late_minutes=late,
                     meal_taken=None,
                 ))
@@ -796,7 +970,7 @@ async def _build_export_rows(
                 if member.attendance_exempt and arrival is None:
                     status_, late = "exempt", None
                 else:
-                    status_, late = _compute_status(arrival, weekday, expected, tz)
+                    status_, late = _compute_status(arrival, weekday, expected, tz, grace)
                 name = member.nickname or f"{member.first_name} {member.last_name}".strip()
                 rows.append(AttendanceExportRow(
                     person_type="Personnel",
@@ -804,8 +978,8 @@ async def _build_export_rows(
                     matricule=member.matricule,
                     date=current,
                     status=_STATUS_LABELS.get(status_, status_),
-                    arrival_time=arrival,
-                    departure_time=departure,
+                    arrival_time=_to_local(arrival, tz),
+                    departure_time=_to_local(departure, tz),
                     late_minutes=late,
                     meal_taken=meal_taken,
                 ))
@@ -822,11 +996,14 @@ async def _events_for_range(
     date_from: date_,
     date_to: date_,
     db: AsyncSession,
+    tz: ZoneInfo,
 ) -> list[AttendanceEvent]:
+    start, _ = _local_day_bounds(tz, date_from)
+    _, end = _local_day_bounds(tz, date_to)
     filters = [
         AttendanceEvent.establishment_id == establishment_id,
-        AttendanceEvent.scanned_at >= _day_start(date_from),
-        AttendanceEvent.scanned_at < _day_start(date_to) + timedelta(days=1),
+        AttendanceEvent.scanned_at >= start,
+        AttendanceEvent.scanned_at < end,
     ]
     if export_scope == ExportPersonType.CHILDREN:
         filters.append(AttendanceEvent.person_type == str(PersonType.CHILD))
@@ -863,7 +1040,9 @@ async def set_staff_exemption(
     establishment_id: uuid.UUID,
     db: AsyncSession,
 ) -> StaffExemptionResponse:
-    staff = await _get_staff_or_404(staff_id, establishment_id, db)
+    # Compte actif exigé : un flag posé sur un inactif serait sans effet et
+    # invisible (la liste ne montre que les actifs).
+    staff = await _get_active_staff_or_404(staff_id, establishment_id, db)
     staff.attendance_exempt = exempt
     await db.flush()
     return StaffExemptionResponse(staff_id=staff.id, exempt=staff.attendance_exempt)
@@ -969,6 +1148,29 @@ def _day_start(d: date_) -> datetime:
     return datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
 
 
+def _local_day_bounds(tz: ZoneInfo, target: date_) -> tuple[datetime, datetime]:
+    """Fenêtre UTC correspondant à la journée [00:00, 24:00) dans le fuseau
+    de l'établissement — avec DST gérée par ZoneInfo. Tout le bucket « jour »
+    (dashboards, export, journal, verify) passe par ici, jamais par minuit UTC."""
+    start_local = datetime(target.year, target.month, target.day, tzinfo=tz)
+    start_utc = start_local.astimezone(timezone.utc)
+    return start_utc, start_utc + timedelta(days=1)
+
+
+def _local_date(dt: datetime, tz: ZoneInfo) -> date_:
+    aware = dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return aware.astimezone(tz).date()
+
+
+def _to_local(value: datetime | None, tz: ZoneInfo) -> datetime | None:
+    """Heure affichée dans le fuseau de l'établissement (export, journal) —
+    jamais l'UTC brut, qui décale l'affichage d'une heure (ex. Porto-Novo)."""
+    if value is None:
+        return None
+    aware = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return aware.astimezone(tz)
+
+
 def _is_weekday(d: date_) -> bool:
     return d.weekday() < 5  # 0=lundi ... 4=vendredi
 
@@ -978,9 +1180,9 @@ async def _events_for_day(
     person_type: PersonType,
     target_date: date_,
     db: AsyncSession,
+    tz: ZoneInfo,
 ) -> dict[uuid.UUID, list[AttendanceEvent]]:
-    start = _day_start(target_date)
-    end = start + timedelta(days=1)
+    start, end = _local_day_bounds(tz, target_date)
     result = await db.execute(
         select(AttendanceEvent).where(
             AttendanceEvent.establishment_id == establishment_id,
@@ -1040,8 +1242,18 @@ async def _get_general_settings(
 
 
 def _tz_of(settings: AttendanceSettings | None) -> ZoneInfo:
-    """Fuseau configuré, ou UTC par défaut si l'établissement n'a rien réglé."""
-    return ZoneInfo(settings.timezone) if settings else ZoneInfo("UTC")
+    """Fuseau configuré, ou UTC par défaut si l'établissement n'a rien réglé.
+    Une valeur corrompue (édition manuelle en base) lève une 500 explicite
+    plutôt que de faire tomber les calculs en erreur obscure."""
+    if not settings:
+        return ZoneInfo("UTC")
+    try:
+        return ZoneInfo(settings.timezone)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fuseau horaire invalide configuré ({settings.timezone}) — reconfigurez les paramètres de présence",
+        )
 
 
 async def _get_timezone(establishment_id: uuid.UUID, db: AsyncSession) -> ZoneInfo:
@@ -1053,6 +1265,7 @@ def _compute_status(
     weekday: bool,
     expected_arrival_time: time | None,
     tz: ZoneInfo,
+    grace_minutes: int = 0,
 ) -> tuple[str, int | None]:
     """
     Retourne (status, late_minutes). La comparaison se fait dans le fuseau
@@ -1063,8 +1276,8 @@ def _compute_status(
     - Pas d'arrivée + jour ouvré      → absent
     - Pas d'arrivée + week-end        → not_expected (rien n'est attendu)
     - Arrivée, pas d'horaire configuré→ present, late_minutes=None (indéterminable)
-    - Arrivée après l'horaire attendu → late, late_minutes=écart en minutes
-    - Arrivée dans les temps          → present, late_minutes=0
+    - Arrivée après horaire + tolérance → late, late_minutes=écart en minutes
+    - Arrivée dans les temps (+ tolérance) → present, late_minutes=0
     """
     if arrival is None:
         return ("absent" if weekday else "not_expected"), None
@@ -1075,6 +1288,6 @@ def _compute_status(
     arrival_local = arrival.astimezone(tz)
     expected_local = datetime.combine(arrival_local.date(), expected_arrival_time, tzinfo=tz)
     delta_minutes = int((arrival_local - expected_local).total_seconds() // 60)
-    if delta_minutes > 0:
+    if delta_minutes > grace_minutes:
         return "late", delta_minutes
     return "present", 0

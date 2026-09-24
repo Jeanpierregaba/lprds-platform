@@ -201,9 +201,9 @@ export function GalleryTab() {
                     alt={photo.filename}
                     className="size-full"
                   />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
                     <p className="truncate text-xs font-medium text-white">{photo.filename}</p>
-                    <p className="truncate text-[11px] text-white/75">
+                    <p className="truncate text-xs text-white/75">
                       {photo.category?.name ?? 'Sans catégorie'} · {formatSize(photo.size_bytes)}
                     </p>
                   </div>
@@ -211,7 +211,7 @@ export function GalleryTab() {
                     type="button"
                     variant="secondary"
                     size="icon-sm"
-                    className="absolute right-2 top-2 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+                    className="absolute right-2 top-2 h-10 w-10 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100"
                     aria-label="Supprimer la photo"
                     onClick={() => setPhotoToDelete({ id: photo.id })}
                   >

@@ -1,15 +1,17 @@
 'use client'
 
+import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Megaphone } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
-import type { Announcement } from '@/types/messaging'
+import type { Announcement, AnnouncementListResponse } from '@/types/messaging'
 
 const key = ['parent', 'announcements'] as const
 
@@ -19,10 +21,13 @@ function formatDateTime(iso: string) {
 
 export function AnnouncementsTab() {
   const queryClient = useQueryClient()
+  // Garde anti-double : un POST /read par diffusion (le cache peut être
+  // stale entre le clic et l'invalidate).
+  const pendingRef = useRef<Set<string>>(new Set())
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: key,
-    queryFn: () => messagingApi.listAnnouncements({ limit: 100 }).then((r) => r.data),
+    queryFn: () => messagingApi.listAnnouncements({ limit: 200 }).then((r) => r.data),
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key })
@@ -33,15 +38,40 @@ export function AnnouncementsTab() {
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => messagingApi.markAnnouncementRead(id),
+    // Optimiste : le badge « Nouveau » disparaît aussitôt, le serveur
+    // confirme en arrière-plan (retry possible en cas d'échec).
+    onMutate: (id) => {
+      queryClient.setQueryData<AnnouncementListResponse | undefined>(key, (old) =>
+        old ? { ...old, items: old.items.map((a) => (a.id === id ? { ...a, is_read: true } : a)) } : old
+      )
+    },
     onSuccess: () => invalidate(),
+    onError: () => invalidate(),
   })
 
   const items = data?.items ?? []
+
+  const handleOpen = (a: Announcement) => {
+    if (a.is_read || pendingRef.current.has(a.id) || markReadMutation.isPending) return
+    pendingRef.current.add(a.id)
+    markReadMutation.mutate(a.id, {
+      onSettled: () => pendingRef.current.delete(a.id),
+    })
+  }
 
   return (
     <div className="space-y-3 pt-2">
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
+      ) : isError ? (
+        <Card>
+          <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center">
+            <p className="font-medium text-foreground">Impossible de charger les diffusions.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Réessayer
+            </Button>
+          </CardContent>
+        </Card>
       ) : items.length === 0 ? (
         <Card>
           <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
@@ -56,7 +86,7 @@ export function AnnouncementsTab() {
           <AnnouncementCard
             key={a.id}
             announcement={a}
-            onOpen={() => { if (!a.is_read) markReadMutation.mutate(a.id) }}
+            onOpen={() => handleOpen(a)}
           />
         ))
       )}
@@ -66,15 +96,16 @@ export function AnnouncementsTab() {
 
 function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement; onOpen: () => void }) {
   return (
+    // Marquage au clic uniquement (jamais au survol : un survol n'est pas
+    // une lecture) — le bouton natif couvre aussi le clavier.
     <Card
       className={!announcement.is_read ? 'border-primary/50' : undefined}
-      onMouseEnter={onOpen}
       onClick={onOpen}
     >
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">{announcement.title}</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="break-words text-base">{announcement.title}</CardTitle>
             <CardDescription>
               {announcement.created_by.nickname || `${announcement.created_by.first_name} ${announcement.created_by.last_name}`}
               {' · '}{formatDateTime(announcement.created_at)}
@@ -84,7 +115,7 @@ function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="whitespace-pre-wrap text-sm">{announcement.body}</p>
+        <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{announcement.body}</p>
 
         <div onClick={(e) => e.stopPropagation()}>
           <AnnouncementMediaGrid attachments={announcement.attachments} />

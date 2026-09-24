@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { useMessagingEvent } from './socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import type { Message, MessageListResponse } from '@/types/messaging'
+import type { Attachment, Message, MessageListResponse } from '@/types/messaging'
 
 export const THREAD_PAGE_SIZE = 50
 export const EDIT_WINDOW_MS = 15 * 60 * 1000
@@ -19,7 +19,7 @@ export function isEditable(msg: Message): boolean {
 export interface ThreadApi {
   list: (params: { before_id?: string; limit?: number }) => Promise<MessageListResponse>
   send: (body: string) => Promise<Message>
-  uploadBatch: (messageId: string, files: File[]) => Promise<unknown>
+  uploadBatch: (messageId: string, files: File[]) => Promise<Attachment[]>
   edit: (messageId: string, body: string) => Promise<Message>
   remove: (messageId: string) => Promise<void>
   removeAttachment: (messageId: string, attachmentId: string) => Promise<void>
@@ -50,23 +50,29 @@ export function useConversationThread({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [editingAttachmentCount, setEditingAttachmentCount] = useState(0)
   const [removingAttachmentId, setRemovingAttachmentId] = useState<string | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [newCount, setNewCount] = useState(0)
+  const [isAtBottom, setIsAtBottom] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
   const lastSeenIdRef = useRef<string | null>(null)
+  const conversationIdRef = useRef(conversationId)
+  conversationIdRef.current = conversationId
 
   useEffect(() => {
     atBottomRef.current = true
+    setIsAtBottom(true)
     lastSeenIdRef.current = null
     setNewCount(0)
     setEditingId(null)
+    setEditingAttachmentCount(0)
     setPicked([])
     setPickerOpen(false)
   }, [conversationId])
 
-  const { data: messagesData, isLoading } = useQuery({
+  const { data: messagesData, isLoading, isError, refetch: refetchMessages } = useQuery({
     queryKey: conversationId ? messagesKey : [...messagesKey, 'none'],
     queryFn: () => api.list({ limit: THREAD_PAGE_SIZE }),
     enabled: !!conversationId,
@@ -86,29 +92,48 @@ export function useConversationThread({
       lastSeenIdRef.current = null
       return
     }
-    const lastId = last.id
-    if (lastSeenIdRef.current === lastId) return
-    lastSeenIdRef.current = lastId
+    // L'écho de ses propres messages (autre onglet/appareil) ne compte pas
+    // comme « nouveau » et ne déclenche pas la pastille.
+    if (last.sender_role === ownRole) {
+      lastSeenIdRef.current = last.id
+      if (atBottomRef.current) scrollToBottom(scrollRef.current)
+      return
+    }
+    const prevId = lastSeenIdRef.current
+    lastSeenIdRef.current = last.id
+    if (prevId === last.id) return
+    // Compte les vrais nouveaux (batch), pas +1 par rendu.
+    const prevIndex = prevId ? messages.findIndex((m) => m.id === prevId) : -1
+    const added = prevIndex >= 0 ? messages.length - 1 - prevIndex : 1
     if (atBottomRef.current) {
       scrollToBottom(scrollRef.current)
       setNewCount(0)
     } else {
-      setNewCount((c) => c + 1)
+      setNewCount((c) => c + Math.max(added, 1))
     }
-  }, [messages])
+  }, [messages, ownRole])
 
   const loadOlder = useCallback(async () => {
-    const cached = queryClient.getQueryData<MessageListResponse>(messagesKey)
+    // Clé et conversation capturées à l'appel : si l'utilisateur a changé de
+    // conversation pendant le vol, on ignore le résultat (pas de
+    // contamination croisée) et on ne touche pas au spinner courant.
+    const key = messagesKey
+    const convId = conversationId
+    const cached = queryClient.getQueryData<MessageListResponse>(key)
     const items = cached?.items ?? []
     const first = items[0]
-    if (loadingOlder || !conversationId || !first || items.length >= (cached?.total ?? 0)) return
+    if (loadingOlder || !convId || !first || items.length >= (cached?.total ?? 0)) return
     setLoadingOlder(true)
     const prevHeight = scrollRef.current?.scrollHeight ?? 0
     try {
       const older = await api.list({ before_id: first.id, limit: THREAD_PAGE_SIZE })
-      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
-        old ? { total: old.total, items: [...older.items, ...old.items] } : old
-      )
+      if (convId !== conversationIdRef.current) return
+      queryClient.setQueryData<MessageListResponse | undefined>(key, (old) => {
+        if (!old) return old
+        const known = new Set(old.items.map((m) => m.id))
+        const fresh = older.items.filter((m) => !known.has(m.id))
+        return { total: older.total, items: [...fresh, ...old.items] }
+      })
       requestAnimationFrame(() => {
         const el = scrollRef.current
         if (el) el.scrollTop += el.scrollHeight - prevHeight
@@ -116,7 +141,7 @@ export function useConversationThread({
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     } finally {
-      setLoadingOlder(false)
+      if (convId === conversationIdRef.current) setLoadingOlder(false)
     }
   }, [api, conversationId, loadingOlder, messagesKey, queryClient])
 
@@ -128,6 +153,7 @@ export function useConversationThread({
     if (!el) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
     atBottomRef.current = nearBottom
+    setIsAtBottom(nearBottom)
     if (nearBottom) setNewCount(0)
     if (el.scrollTop < 80) loadOlderRef.current()
   }, [])
@@ -155,6 +181,29 @@ export function useConversationThread({
       queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
         old ? { ...old, items: old.items.map((m) => (m.id === message.id ? message : m)) } : old
       ),
+    [messagesKey, queryClient]
+  )
+
+  /** Fusionne des pièces jointes dans un message du cache. Retourne false si
+   * le message n'y est pas (l'appelant recharge alors). */
+  const mergeAttachments = useCallback(
+    (messageId: string, attachments: Attachment[]): boolean => {
+      let found = false
+      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) => {
+        if (!old) return old
+        const items = old.items.map((m) => {
+          if (m.id !== messageId) return m
+          found = true
+          const known = new Set(m.attachments.map((a) => a.id))
+          return {
+            ...m,
+            attachments: [...m.attachments, ...attachments.filter((a) => !known.has(a.id))],
+          }
+        })
+        return { ...old, items }
+      })
+      return found
+    },
     [messagesKey, queryClient]
   )
 
@@ -190,8 +239,22 @@ export function useConversationThread({
           : old
       )
       onThreadChanged()
-    } else if (event.type === 'attachment' && event.message_id) {
-      queryClient.invalidateQueries({ queryKey: messagesKey })
+    } else if (event.type === 'attachment' && event.conversation_id === conversationId) {
+      // Fusion directe plutôt qu'invalidate (qui ne rechargerait que la
+      // dernière page et jetterait l'historique remonté). Repli : si le
+      // message n'est pas dans le cache (vieille page), on recharge.
+      const merged = mergeAttachments(event.message_id, [
+        {
+          id: event.id,
+          filename: event.filename,
+          content_type: event.content_type,
+          size_bytes: event.size_bytes,
+          uploaded_by: event.uploaded_by,
+          created_at: event.created_at,
+          url: event.url,
+        },
+      ])
+      if (!merged) queryClient.invalidateQueries({ queryKey: messagesKey })
     }
   })
 
@@ -208,16 +271,26 @@ export function useConversationThread({
   const sendMediaMutation = useMutation({
     mutationFn: async ({ text, files }: { text: string; files: File[] }) => {
       const message = await api.send(text)
-      await api.uploadBatch(message.id, files)
-      return message
+      try {
+        const attachments = await api.uploadBatch(message.id, files)
+        return { message, attachments, uploaded: true }
+      } catch {
+        // Texte créé côté serveur mais médias en échec : on affiche quand
+        // même le message (pas de fantôme invisible) avec un avertissement —
+        // un retry renvoyerait le texte en double.
+        return { message, attachments: [] as Attachment[], uploaded: false }
+      }
     },
-    onSuccess: (message) => {
+    onSuccess: ({ message, attachments, uploaded }) => {
       appendMessage(message)
+      if (attachments.length > 0) mergeAttachments(message.id, attachments)
       onThreadChanged()
       setBody('')
       setPicked([])
       setPickerOpen(false)
-      queryClient.invalidateQueries({ queryKey: messagesKey })
+      if (!uploaded) {
+        toast.warning('Message envoyé, mais les médias ont échoué — ajoutez-les via le trombone du message.')
+      }
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
@@ -227,8 +300,16 @@ export function useConversationThread({
     onSuccess: (message) => {
       replaceMessage(message)
       setEditingId(null)
+      setEditingAttachmentCount(0)
     },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
+    onError: (err) => {
+      // Fenêtre de 15 min calculée côté serveur : l'horloge client peut
+      // afficher le bouton à tort (dérive) — message explicite, pas générique.
+      const detail = getApiErrorMessage(err)
+      toast.error(
+        detail.includes('15 minutes') ? "Délai d'édition dépassé — rechargez le fil." : detail
+      )
+    },
   })
 
   const deleteMutation = useMutation({
@@ -252,9 +333,22 @@ export function useConversationThread({
   const removeAttachmentMutation = useMutation({
     mutationFn: ({ messageId, attachmentId }: { messageId: string; attachmentId: string }) =>
       api.removeAttachment(messageId, attachmentId),
-    onSuccess: () => {
+    onSuccess: (_data, { messageId, attachmentId }) => {
       setRemovingAttachmentId(null)
-      queryClient.invalidateQueries({ queryKey: messagesKey })
+      // Retrait optimiste : l'événement serveur `message_updated` confirmera
+      // (aucun invalidate — il jetterait l'historique remonté).
+      queryClient.setQueryData<MessageListResponse | undefined>(messagesKey, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((m) =>
+                m.id === messageId
+                  ? { ...m, attachments: m.attachments.filter((a) => a.id !== attachmentId) }
+                  : m
+              ),
+            }
+          : old
+      )
     },
     onError: (err) => {
       toast.error(getApiErrorMessage(err))
@@ -275,8 +369,11 @@ export function useConversationThread({
   return {
     messages,
     isLoading,
+    isError,
+    refetchMessages,
     isLoadingOlder: loadingOlder,
     hasMore,
+    isAtBottom,
     scrollRef,
     handleScroll,
     newCount,
@@ -296,10 +393,17 @@ export function useConversationThread({
     startEdit: (msg: Message) => {
       setEditingId(msg.id)
       setDraft(msg.body ?? '')
+      setEditingAttachmentCount(msg.attachments.length)
     },
-    cancelEdit: () => setEditingId(null),
+    cancelEdit: () => {
+      setEditingId(null)
+      setEditingAttachmentCount(0)
+    },
     saveEdit: () => {
-      if (editingId && draft.trim()) editMutation.mutate({ id: editingId, text: draft.trim() })
+      // Comme le serveur : texte vide accepté s'il reste ≥ 1 pièce jointe.
+      if (editingId && (draft.trim() || editingAttachmentCount > 0)) {
+        editMutation.mutate({ id: editingId, text: draft.trim() })
+      }
     },
     editPending: editMutation.isPending,
     deleteMessage: (id: string) => deleteMutation.mutate(id),

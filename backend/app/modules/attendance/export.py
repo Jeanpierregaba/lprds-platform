@@ -11,6 +11,7 @@ par jour de la période.
 """
 
 from io import BytesIO
+from xml.sax.saxutils import escape as xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -85,7 +86,7 @@ def render_attendance_pdf(
     )
 
     story = [
-        Paragraph(establishment_name, subtitle_style),
+        Paragraph(xml_escape(establishment_name), subtitle_style),
         Paragraph("Export des présences", title_style),
         Paragraph(
             f"Période du {_date_str(date_from)} au {_date_str(date_to)} — "
@@ -97,12 +98,15 @@ def render_attendance_pdf(
 
     table_rows = [[Paragraph(h, header_style) for h in _HEADERS]]
     for r in rows:
+        # Les cellules passent par Paragraph (mini-HTML) : tout texte libre
+        # (nom, statut, matricule) est échappé — sinon `<`, `>` ou `&` dans
+        # un nom casse le rendu ou lève.
         table_rows.append([
-            Paragraph(r.person_type, cell_style),
-            Paragraph(r.name, cell_style),
-            Paragraph(r.matricule or "—", cell_style),
+            Paragraph(xml_escape(r.person_type), cell_style),
+            Paragraph(xml_escape(r.name), cell_style),
+            Paragraph(xml_escape(r.matricule or "—"), cell_style),
             Paragraph(_date_str(r.date), cell_style),
-            Paragraph(r.status, cell_style),
+            Paragraph(xml_escape(r.status), cell_style),
             Paragraph(_time_str(r.arrival_time), cell_style),
             Paragraph(_time_str(r.departure_time), cell_style),
             Paragraph(_late_str(r.late_minutes), cell_style),

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Download, Loader2, Paperclip, Share, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Download, ImageOff, Loader2, Paperclip, Share, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { messagingApi } from '@/lib/api/messaging.api'
@@ -9,6 +9,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { cn } from '@/lib/utils/cn'
 import { isStandalone, shareOrDownload } from '@/lib/utils/pwa'
+import { useAttachmentBlob } from '@/lib/messaging/use-attachment-blob'
 import type { Attachment } from '@/types/messaging'
 
 /**
@@ -92,40 +93,44 @@ export function FileDownloadButton({
  * Photos et vidéos : aperçu seul, SANS nom de fichier. Un tap/clic sur
  * l'aperçu enregistre le média — feuille de partage native (galerie photo)
  * en PWA installée, téléchargement classique sur le web.
+ *
+ * Téléchargement paresseux (lorsque visible à l'écran) + blob partagé en
+ * cache : un fil avec 20 photos ne lance plus 20 GET parallèles, et une
+ * erreur réseau affiche un état local au lieu d'un toast par média.
  */
 function MediaPreview({
   attachment: att,
 }: {
   attachment: Attachment
 }) {
-  const [media, setMedia] = useState<{ url: string; blob: Blob } | null>(null)
   const [isPwa, setIsPwa] = useState(false)
+  const [visible, setVisible] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
   const isVideo = att.content_type.startsWith('video/')
 
   useEffect(() => {
     setIsPwa(isStandalone())
-    let alive = true
-    let url: string | null = null
-    messagingApi
-      .downloadAttachment(att.id)
-      .then((res) => {
-        if (!alive) return
-        url = URL.createObjectURL(res.data)
-        setMedia({ url, blob: res.data })
-      })
-      .catch((err) => {
-        if (alive) toast.error(getApiErrorMessage(err))
-      })
-    return () => {
-      alive = false
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [att.id])
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const { blob, url, isLoading, isError } = useAttachmentBlob(visible ? att.id : null)
 
   const save = async () => {
-    if (!media) return
+    if (!blob) return
     try {
-      await shareOrDownload(media.blob, att.filename, att.content_type)
+      await shareOrDownload(blob, att.filename, att.content_type)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
@@ -133,35 +138,41 @@ function MediaPreview({
   const hint = isPwa ? 'Enregistrer dans la galerie' : 'Télécharger'
 
   return (
-    <span className="mt-1.5 block max-w-full">
-      {media ? (
-        isVideo ? (
-          <span className="relative block">
-            <video src={media.url} controls preload="metadata" className="max-h-64 w-full rounded" />
+    <span ref={ref} className="mt-1.5 block max-w-full">
+      {!visible || isLoading ? (
+        <span className="flex h-16 items-center text-xs opacity-70">
+          {isLoading && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+          Chargement de l&apos;aperçu…
+        </span>
+      ) : isError || !url ? (
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ImageOff className="size-3.5" />
+          Aperçu indisponible
+        </span>
+      ) : isVideo ? (
+        <span className="relative block">
+          <video src={url} controls preload="metadata" className="max-h-64 w-full rounded" />
             <button
               type="button"
               onClick={save}
               title={hint}
               aria-label={hint}
-              className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1.5 text-white transition hover:bg-black/80"
+              className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-2 text-white transition hover:bg-black/80"
             >
               {isPwa ? <Share className="size-3.5" /> : <Download className="size-3.5" />}
             </button>
-          </span>
-        ) : (
+        </span>
+      ) : (
           <button
             type="button"
             onClick={save}
             title={hint}
             aria-label={`${hint} — ${att.filename}`}
-            className="block cursor-pointer"
+            className="block max-w-full cursor-pointer"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={media.url} alt="" className="max-h-64 w-auto rounded" />
+            <img src={url} alt="" className="max-h-64 w-auto max-w-full rounded" />
           </button>
-        )
-      ) : (
-        <span className="text-xs opacity-70">Chargement de l&apos;aperçu…</span>
       )}
     </span>
   )

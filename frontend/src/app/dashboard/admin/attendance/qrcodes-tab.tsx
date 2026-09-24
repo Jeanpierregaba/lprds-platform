@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Baby, Download, IdCard, QrCode, Search, UserRound } from 'lucide-react'
+import { toast } from 'sonner'
+import { Baby, Check, Copy, Download, IdCard, QrCode, Search, UserRound } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,16 +16,6 @@ import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { CardPreviewModal } from '@/components/card-preview-modal'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
-
-/** Nom de fichier à partir du nom affiché : « Tata Victoire » → « tata-victoire ». */
-function slugifyName(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
 
 export function QrCodesTab() {
   return (
@@ -54,24 +45,30 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showCardModal, setShowCardModal] = useState(false)
+  const [tokenCopied, setTokenCopied] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(t)
   }, [search])
 
-  useEffect(() => setSelectedId(null), [debouncedSearch, personType])
+  // La sélection survit à la frappe (seul un changement d'onglet la
+  // réinitialise) : affiner la recherche ne fait plus disparaître le QR.
+  useEffect(() => setSelectedId(null), [personType])
 
+  // Seuil de 2 lettres + 10 premiers résultats (comme l'export) : à 1
+  // lettre le bruit noie les résultats sans prévenir l'utilisateur.
+  const searchActive = debouncedSearch.trim().length >= 2
   const { data: childResults, isLoading: isSearchingChildren } = useQuery({
     queryKey: ['children', { search: debouncedSearch }],
     queryFn: () => childrenApi.list({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
-    enabled: personType === 'child' && debouncedSearch.length > 0,
+    enabled: personType === 'child' && searchActive,
   })
 
   const { data: staffResults, isLoading: isSearchingStaff } = useQuery({
     queryKey: ['staff', { search: debouncedSearch }],
     queryFn: () => staffApi.list({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
-    enabled: personType === 'staff' && debouncedSearch.length > 0,
+    enabled: personType === 'staff' && searchActive,
   })
 
   const isSearching = personType === 'child' ? isSearchingChildren : isSearchingStaff
@@ -120,14 +117,15 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher..."
+              placeholder="Rechercher... (2 lettres min)"
+              aria-label="Rechercher une personne par nom ou matricule"
               className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          {debouncedSearch && (
+          {searchActive && (
             <div className="divide-y divide-border rounded-md border border-border">
               {isSearching ? (
                 <div className="space-y-2 p-3">
@@ -137,19 +135,22 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
               ) : results.length === 0 ? (
                 <p className="p-3 text-sm text-muted-foreground">Aucun résultat.</p>
               ) : (
-                results.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setSelectedId(r.id)}
-                    className={`flex w-full items-center justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted ${
-                      selectedId === r.id ? 'bg-muted' : ''
-                    }`}
-                  >
-                    <span className="font-medium">{r.label}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{r.sub ?? '—'}</span>
-                  </button>
-                ))
+                <>
+                  {results.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setSelectedId(r.id)}
+                      className={`flex w-full items-center justify-between gap-2 p-3 text-left text-sm transition-colors hover:bg-muted ${
+                        selectedId === r.id ? 'bg-muted' : ''
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate font-medium">{r.label}</span>
+                      <span className="shrink-0 font-mono text-xs text-muted-foreground">{r.sub ?? '—'}</span>
+                    </button>
+                  ))}
+                  <p className="p-2 text-center text-xs text-muted-foreground">10 premiers résultats — affinez la recherche.</p>
+                </>
               )}
             </div>
           )}
@@ -183,10 +184,33 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                 className="size-48 rounded-md border border-border bg-white p-2"
               />
               <p className="font-mono text-sm text-muted-foreground">{qrcode.matricule}</p>
-              <Button variant="outline" size="sm" render={<a href={qrcode.qr_image} download={personType === 'staff' && selected ? `qr-${slugifyName(selected.label)}.png` : `qr-${qrcode.matricule}.png`} />}>
-                <Download className="mr-1.5 size-4" />
-                Télécharger
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                {/* Matricule unique des deux côtés (plus de slug prénom —
+                  collisions entre homonymes) comme nom de fichier. */}
+                <Button variant="outline" size="sm" render={<a href={qrcode.qr_image} download={`qr-${qrcode.matricule}.png`} />}>
+                  <Download className="mr-1.5 size-4" />
+                  Télécharger
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(qrcode.qr_payload)
+                      setTokenCopied(true)
+                      setTimeout(() => setTokenCopied(false), 2000)
+                    } catch {
+                      toast.error('Copie impossible — copiez le jeton depuis la saisie manuelle du scan.')
+                    }
+                  }}
+                >
+                  {tokenCopied ? <Check className="mr-1.5 size-4" /> : <Copy className="mr-1.5 size-4" />}
+                  {tokenCopied ? 'Copié !' : 'Copier le jeton'}
+                </Button>
+              </div>
+              <p className="max-w-xs text-center text-xs text-muted-foreground">
+                Collez ce jeton dans la saisie manuelle de l&apos;onglet Scanner en dépannage.
+              </p>
               {personType === 'child' && cardData && (
                 <Button
                   variant="default"

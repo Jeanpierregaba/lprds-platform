@@ -348,12 +348,12 @@ export default function ReportDetailPage() {
                   <Button
                     type="button"
                     variant="destructive"
-                    size="icon-xs"
-                    className="absolute left-1.5 top-1.5 opacity-80 shadow transition hover:opacity-100"
+                    size="icon-sm"
+                    className="absolute left-2 top-2 h-10 w-10 opacity-80 shadow transition hover:opacity-100"
                     aria-label={`Retirer ${att.filename}`}
                     onClick={() => setAttachmentToRemove(att)}
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               ))}

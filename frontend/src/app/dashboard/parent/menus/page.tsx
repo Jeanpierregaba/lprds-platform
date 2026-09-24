@@ -93,23 +93,30 @@ export default function ParentMenusPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">
-            Semaine du {formatDate(weekStart)} <br />
-            Au {formatDate(weekEnd)}
+            Semaine du {formatDate(weekStart)} — au {formatDate(weekEnd)}
           </h2>
         </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon-sm"
+            className="h-10 w-10"
             disabled={isCurrentWeek}
             onClick={() => setWeekStart(toIsoDate(addDays(parseIsoDate(weekStart), -7)))}
+            aria-label="Semaine précédente"
           >
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="outline" size="sm" disabled={isCurrentWeek} onClick={() => setWeekStart(currentMonday)}>
+          <Button variant="outline" className="h-10" disabled={isCurrentWeek} onClick={() => setWeekStart(currentMonday)}>
             Cette semaine
           </Button>
-          <Button variant="outline" size="icon-sm" onClick={() => setWeekStart(toIsoDate(addDays(parseIsoDate(weekStart), 7)))}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="h-10 w-10"
+            onClick={() => setWeekStart(toIsoDate(addDays(parseIsoDate(weekStart), 7)))}
+            aria-label="Semaine suivante"
+          >
             <ChevronRight className="size-4" />
           </Button>
         </div>

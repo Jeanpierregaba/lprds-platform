@@ -10,14 +10,24 @@ import { Button } from '@/components/ui/button'
  *  `MAX_ANNOUNCEMENT_ATTACHMENTS` — le serveur rejette en 409 au-delà). */
 export const MAX_ANNOUNCEMENT_MEDIA = 15
 
-const ACCEPT = 'image/*,video/*,application/pdf'
+/** Plafonds miroirs du backend (`config.py`) — pré-vérification côté client
+ * pour éviter un rejet 413 après envoi. */
+export const MAX_FILE_MB = 10
+export const MAX_VIDEO_MB = 50
 
-function isAllowedMedia(file: File): boolean {
+const ACCEPT_ALL = 'image/*,video/*,application/pdf'
+const ACCEPT_NO_PDF = 'image/*,video/*'
+
+function maxBytesFor(file: File): number {
+  return (file.type.startsWith('video/') ? MAX_VIDEO_MB : MAX_FILE_MB) * 1024 * 1024
+}
+
+function isAllowedMedia(file: File, allowPdf: boolean): boolean {
   if (file.type === 'image/svg+xml') return false
   return (
     file.type.startsWith('image/') ||
     file.type.startsWith('video/') ||
-    file.type === 'application/pdf'
+    (allowPdf && file.type === 'application/pdf')
   )
 }
 
@@ -31,19 +41,20 @@ function formatSize(bytes: number): string {
  * Sélection multiple de médias avec prévisualisation avant envoi : miniatures
  * pour les photos, lecteur intégré pour les vidéos, fiche fichier pour les PDF.
  * Le parent garde la main sur l'envoi (création de diffusion ou carte existante).
- * Utilisé aussi par les conversations privées (photos/vidéos, sans PDF) via
- * `max` et le filtrage des types rejetés côté appelant.
+ * `allowPdf=false` pour les conversations privées (photos/vidéos uniquement).
  */
 export function MediaPicker({
   files,
   onChange,
   max = MAX_ANNOUNCEMENT_MEDIA,
   disabled = false,
+  allowPdf = true,
 }: {
   files: File[]
   onChange: (files: File[]) => void
   max?: number
   disabled?: boolean
+  allowPdf?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [urls, setUrls] = useState<string[]>([])
@@ -57,18 +68,25 @@ export function MediaPicker({
   const addFiles = (list: FileList | null) => {
     if (!list) return
     const incoming = Array.from(list)
-    const rejected = incoming.filter((file) => !isAllowedMedia(file))
+    const rejected = incoming.filter((file) => !isAllowedMedia(file, allowPdf))
     if (rejected.length > 0) {
       toast.error(
-        `Fichier(s) ignoré(s) — seules les photos, vidéos et PDF sont acceptés : ${rejected.map((f) => f.name).join(', ')}`
+        `Fichier(s) ignoré(s) — ${allowPdf ? 'seules les photos, vidéos et PDF sont acceptés' : 'seules les photos et vidéos sont acceptées'} : ${rejected.map((f) => f.name).join(', ')}`
       )
     }
-    const allowed = incoming.filter((file) => isAllowedMedia(file))
-    const room = max - files.length
-    if (allowed.length > room) {
-      toast.error(`Limite de ${max} médias par envoi — ${allowed.length - room} fichier(s) ignoré(s).`)
+    const allowed = incoming.filter((file) => isAllowedMedia(file, allowPdf))
+    const tooBig = allowed.filter((file) => file.size > maxBytesFor(file))
+    if (tooBig.length > 0) {
+      toast.error(
+        `Fichier(s) trop volumineux (max ${MAX_FILE_MB} Mo, ${MAX_VIDEO_MB} Mo pour les vidéos) : ${tooBig.map((f) => f.name).join(', ')}`
+      )
     }
-    const kept = allowed.slice(0, Math.max(room, 0))
+    const fitting = allowed.filter((file) => file.size <= maxBytesFor(file))
+    const room = max - files.length
+    if (fitting.length > room) {
+      toast.error(`Limite de ${max} médias par envoi — ${fitting.length - room} fichier(s) ignoré(s).`)
+    }
+    const kept = fitting.slice(0, Math.max(room, 0))
     if (kept.length > 0) onChange([...files, ...kept])
   }
 
@@ -110,7 +128,7 @@ export function MediaPicker({
                 type="button"
                 onClick={() => removeAt(i)}
                 aria-label={`Retirer ${file.name}`}
-                className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive"
+                className="absolute right-1 top-1 rounded-full bg-black/60 p-2 text-white transition hover:bg-destructive"
               >
                 <X className="size-3.5" />
               </button>
@@ -122,7 +140,7 @@ export function MediaPicker({
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        accept={allowPdf ? ACCEPT_ALL : ACCEPT_NO_PDF}
         multiple
         className="hidden"
         onChange={(e) => {

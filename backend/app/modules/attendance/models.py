@@ -19,6 +19,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Time,
     UniqueConstraint,
@@ -223,6 +224,9 @@ class AttendanceSettings(Base):
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
     staff_expected_arrival_time: Mapped[time] = mapped_column(Time, nullable=False)
     staff_expected_departure_time: Mapped[time] = mapped_column(Time, nullable=False)
+    # Tolérance (minutes) avant qu'une arrivée tardive compte « en retard ».
+    # 0 = aucun pardon (comportement historique).
+    late_grace_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

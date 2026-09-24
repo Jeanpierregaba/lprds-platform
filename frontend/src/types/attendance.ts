@@ -31,6 +31,7 @@ export interface AttendanceEvent {
 
 export interface AttendanceEventListResponse {
   total: number
+  timezone?: string
   items: AttendanceEvent[]
 }
 
@@ -52,13 +53,15 @@ export interface StaffDailyStatus extends DailyStatus {
 }
 
 export interface ChildDailyStatusListResponse {
-  date:  string
+  date:     string
+  timezone?: string
   total: number
   items: ChildDailyStatus[]
 }
 
 export interface StaffDailyStatusListResponse {
-  date:  string
+  date:     string
+  timezone?: string
   total: number
   items: StaffDailyStatus[]
 }
@@ -83,7 +86,8 @@ export interface ManualEventPayload {
   person_type: PersonType
   child_id?:   string
   staff_id?:   string
-  event_type:  'arrival' | 'departure'
+  // Cantine : staff uniquement (le backend refuse 422 pour un enfant).
+  event_type:  'arrival' | 'departure' | 'meal'
   date:        string
   time:        string
 }
@@ -108,6 +112,7 @@ export interface AttendanceGeneralSettingsPayload {
   timezone:                       string
   staff_expected_arrival_time:    string
   staff_expected_departure_time:  string
+  late_grace_minutes?:           number
 }
 
 export interface AttendanceGeneralSettings {
@@ -116,6 +121,7 @@ export interface AttendanceGeneralSettings {
   timezone:                        string
   staff_expected_arrival_time:     string
   staff_expected_departure_time:   string
+  late_grace_minutes:              number
 }
 
 export interface StaffExemption {

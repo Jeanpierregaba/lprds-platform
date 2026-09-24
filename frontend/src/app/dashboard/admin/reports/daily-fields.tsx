@@ -56,13 +56,13 @@ function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: 
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {value.map((activity, i) => (
-            <Badge key={`${activity}-${i}`} variant="secondary" className="gap-1 py-1 font-normal">
+            <Badge key={`${activity}-${i}`} variant="secondary" className="max-w-full gap-1 whitespace-normal break-words py-1 text-left font-normal">
               {i + 1}-{activity}
               <button
                 type="button"
                 onClick={() => onChange(value.filter((_, j) => j !== i))}
                 aria-label={`Retirer ${activity}`}
-                className="rounded-full p-0.5 transition hover:bg-destructive/20"
+                className="shrink-0 rounded-full p-2 transition hover:bg-destructive/20"
               >
                 <X className="size-3" />
               </button>

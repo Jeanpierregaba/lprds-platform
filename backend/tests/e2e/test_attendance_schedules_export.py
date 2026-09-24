@@ -34,6 +34,37 @@ def _setup(client, code="LPRDS"):
     return adm, dep, sec, child, staff
 
 
+def test_late_grace_minutes(client):
+    """Tolérance avant retard : 08:05 sur 08:00 attendu = late sans
+    tolérance, present avec 10 minutes de grâce."""
+    c = client
+    adm, dep, sec, child, staff = _setup(c)
+    day = (date.today() - timedelta(days=3)).isoformat()
+    c.put(f"/attendance/settings/departments/{dep['id']}", json={
+        "expected_arrival_time": "08:00", "expected_departure_time": "16:00"},
+        headers=adm)
+    c.put("/attendance/settings/general", json={
+        "timezone": "UTC", "staff_expected_arrival_time": "08:00",
+        "staff_expected_departure_time": "16:00", "late_grace_minutes": 0},
+        headers=adm)
+    c.post("/attendance/events/manual", json={
+        "person_type": "child", "child_id": child["id"],
+        "event_type": "arrival", "date": day, "time": "08:05"}, headers=adm)
+
+    def status():
+        daily = c.get("/attendance/daily/children", params={"date": day},
+                      headers=adm).json()
+        mine = [i for i in daily["items"] if i["child"]["id"] == child["id"]][0]
+        return mine["status"], mine["late_minutes"]
+
+    ck("08:05 sans tolérance → late", status(), ("late", 5))
+    c.put("/attendance/settings/general", json={
+        "timezone": "UTC", "staff_expected_arrival_time": "08:00",
+        "staff_expected_departure_time": "16:00", "late_grace_minutes": 10},
+        headers=adm)
+    ck("08:05 avec 10 min de grâce → present", status(), ("present", 0))
+
+
 def test_staff_schedule_crud_and_fallback(client):
     c = client
     adm, dep, sec, child, staff = _setup(c)

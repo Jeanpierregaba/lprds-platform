@@ -1,6 +1,7 @@
 'use client'
 
-import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText } from 'lucide-react'
+import { useState } from 'react'
+import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText, Settings } from 'lucide-react'
 
 import { Tabs, TabsTrigger } from '@/components/ui/tabs'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
@@ -12,17 +13,29 @@ import { ExportTab } from './export-tab'
 import { JournalTab } from './journal-tab'
 import { QrCodesTab } from './qrcodes-tab'
 import { ScanTab } from './scan-tab'
+import { SettingsTab } from './settings-tab'
 
 export default function AttendancePage() {
   const user = useUser()
-  const { permissions } = useMyPermissions()
+  const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const isAdmin = user?.role === 'admin'
   const can = (code: string) => isAdmin || permissions.has(code)
 
   const showRead = can('attendance:read')
   const showWrite = can('attendance:write')
   const showScan = can('attendance:scan')
-  const defaultTab = showRead ? 'dashboard' : showScan ? 'scan' : showWrite ? 'qrcodes' : 'dashboard'
+  const fallbackTab = showRead ? 'dashboard' : showScan ? 'scan' : showWrite ? 'qrcodes' : 'dashboard'
+  const [tab, setTab] = useState<string | null>(null)
+  // Onglet contrôlé : recalculé quand les permissions arrivent (async) —
+  // plus de page vide pour les rôles restreints (ex. scan seul).
+  const active = (tab && isTabVisible(tab) ? tab : null) ?? fallbackTab
+
+  function isTabVisible(value: string) {
+    if (value === 'dashboard' || value === 'journal' || value === 'export') return showRead
+    if (value === 'qrcodes' || value === 'settings') return showWrite
+    if (value === 'scan') return showScan
+    return false
+  }
 
   return (
     <PageMotion>
@@ -31,7 +44,12 @@ export default function AttendancePage() {
         description="Suivi journalier, journal des scans, QR codes et paramètres de présence."
       />
 
-      <Tabs defaultValue={defaultTab}>
+      {!isLoadingPermissions && !showRead && !showWrite && !showScan ? (
+        <p className="text-sm text-muted-foreground">
+          Droits insuffisants — aucun accès au module présences.
+        </p>
+      ) : (
+      <Tabs value={active} onValueChange={(v) => v && setTab(v)}>
         <PillsTabsList fit={false}>
           {showRead && (
             <TabsTrigger
@@ -78,6 +96,15 @@ export default function AttendancePage() {
               Export
             </TabsTrigger>
           )}
+          {showWrite && (
+            <TabsTrigger
+              value="settings"
+              className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-secondary data-active:text-white data-active:shadow-md"
+            >
+              <Settings className="mr-1.5 size-4" />
+              Paramètres
+            </TabsTrigger>
+          )}
         </PillsTabsList>
 
         {showRead && (
@@ -105,7 +132,13 @@ export default function AttendancePage() {
             <ExportTab />
           </TabPanel>
         )}
+        {showWrite && (
+          <TabPanel value="settings">
+            <SettingsTab />
+          </TabPanel>
+        )}
       </Tabs>
+      )}
     </PageMotion>
   )
 }

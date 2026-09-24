@@ -217,7 +217,7 @@ def test_attendance_qr_verify(client):
     ck("Vérification enfant 200", v.status_code, 200)
     vj = v.json()
     ck("Type de personne enfant", vj["person_type"], "child")
-    ck("Nom affiché enfant (prénoms)", vj["display_name"], "Lina")
+    ck("Nom affiché enfant (prénoms + nom)", vj["display_name"], "Lina Beta")
     ck("Matricule enfant fourni", vj["matricule"], child["matricule"])
     ck("Enfant pas encore arrivé", vj["has_arrived"], False)
     ck("Enfant pas encore parti", vj["has_departed"], False)

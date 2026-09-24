@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    # Rotation des badges QR présences : renseigner ici l'ANCIENNE valeur de
+    # SECRET_KEY le temps de réimprimer les badges — les anciens jetons
+    # restent lisibles (période de grâce), les nouveaux utilisent la clé
+    # courante. Vide = aucun support d'ancienne clé.
+    qr_key_previous: str | None = None
 
     # Reset mot de passe
     reset_token_expire_minutes: int = 60

@@ -108,7 +108,7 @@ export interface WSReadReceiptEvent {
   read_at:         string
 }
 
-export type WSAttachmentEvent = Attachment & { type: 'attachment'; message_id: string }
+export type WSAttachmentEvent = Attachment & { type: 'attachment'; conversation_id: string; message_id: string }
 export type WSAnnouncementAttachmentEvent = Attachment & { type: 'announcement_attachment'; announcement_id: string }
 
 export type MessagingWSEvent =

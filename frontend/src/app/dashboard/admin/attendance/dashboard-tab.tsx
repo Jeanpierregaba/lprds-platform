@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  AlarmClock, Baby, ChevronLeft, ChevronRight, Search, UserRound, UserCheck, Users, UserX,
+  AlarmClock, Baby, CalendarOff, ChevronLeft, ChevronRight, Search, ShieldCheck, UserRound, UserCheck, Users, UserX,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
+import { formatTimeIn, todayLocalIso } from '@/lib/utils/dates'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { StatusBadge } from './status-badge'
@@ -34,28 +35,32 @@ const ALL = '__all__'
 const PAGE_SIZE = 15
 const MODAL_PAGE_SIZE = 8
 
-type StatKey = 'total' | 'present' | 'absent' | 'late'
+type StatKey = 'total' | 'present' | 'absent' | 'late' | 'not_expected' | 'exempt'
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10)
+  return todayLocalIso()
 }
 
-function formatTime(iso: string | null) {
+function formatTime(iso: string | null, timeZone?: string) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 /** « HH:MM » depuis un ISO (pour pré-remplir les champs time), '' si absent. */
-function toHHMM(iso: string | null) {
+function toHHMM(iso: string | null, timeZone?: string) {
   if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 function matchesStat(status: DailyStatusValue, key: StatKey) {
   switch (key) {
-    case 'present': return status === 'present'
+    // « Présents » inclut les retards (ils sont bien là) — le détail reste
+    // visible via la carte « En retard ».
+    case 'present': return status === 'present' || status === 'late'
     case 'absent': return status === 'absent'
     case 'late': return status === 'late'
+    case 'not_expected': return status === 'not_expected'
+    case 'exempt': return status === 'exempt'
     default: return true
   }
 }
@@ -123,6 +128,8 @@ interface StatCounts {
   present: number
   absent: number
   late: number
+  not_expected: number
+  exempt: number
 }
 
 // ── Correction manuelle des heures (lignes cliquables) ──────────
@@ -132,6 +139,7 @@ interface CorrectionTarget {
   displayName: string
   initialArrival: string | null     // ISO du jour (1re arrivée), null si aucun scan
   initialDeparture: string | null   // ISO du jour (dernier départ), null si aucun scan
+  timeZone?: string                 // fuseau établissement (pré-remplissage à la bonne heure)
 }
 
 function CorrectionDialog({
@@ -151,53 +159,87 @@ function CorrectionDialog({
   const { data, isLoading } = useQuery({
     queryKey: ['attendance', 'events', { personType: target.personType, personId: target.personId, date }],
     queryFn: () => attendanceApi.listEvents({
-      person_type: target.personType, ...personFilter, date_from: date, date_to: date, limit: 100,
+      person_type: target.personType, ...personFilter, date_from: date, date_to: date, limit: 200,
     }).then((r) => r.data),
   })
   const dayItems: AttendanceEvent[] = data?.items ?? []
+  const byTimeAsc = (a: AttendanceEvent, b: AttendanceEvent) =>
+    new Date(a.scanned_at).getTime() - new Date(b.scanned_at).getTime()
   const arrivalEvent = dayItems
     .filter((e) => e.event_type === 'arrival')
-    .sort((a, b) => a.scanned_at.localeCompare(b.scanned_at))[0]
+    .sort(byTimeAsc)[0]
   const departureEvent = dayItems
     .filter((e) => e.event_type === 'departure')
-    .sort((a, b) => b.scanned_at.localeCompare(a.scanned_at))[0]
+    .sort((a, b) => -byTimeAsc(a, b))[0]
+  // Cantine (staff uniquement) : la 1re du jour — un repas erroné était
+  // indélébile via l'UI, le backend l'autorise désormais en manuel.
+  const mealEvent = target.personType === 'staff'
+    ? dayItems.filter((e) => e.event_type === 'meal').sort(byTimeAsc)[0]
+    : undefined
 
-  const initialArrivalHHMM = toHHMM(target.initialArrival)
-  const initialDepartureHHMM = toHHMM(target.initialDeparture)
+  const initialArrivalHHMM = toHHMM(target.initialArrival, target.timeZone)
+  const initialDepartureHHMM = toHHMM(target.initialDeparture, target.timeZone)
+  const initialMealHHMM = toHHMM(mealEvent?.scanned_at ?? null, target.timeZone)
   const [arrival, setArrival] = useState(initialArrivalHHMM)
   const [departure, setDeparture] = useState(initialDepartureHHMM)
+  const [meal, setMeal] = useState(initialMealHHMM)
 
   const arrivalDirty = arrival !== '' && arrival !== initialArrivalHHMM
   const departureDirty = departure !== '' && departure !== initialDepartureHHMM
+  const mealDirty = meal !== '' && meal !== initialMealHHMM
 
   const save = useMutation({
     mutationFn: async () => {
-      const ops: Promise<unknown>[] = []
+      const ops: { label: string; run: () => Promise<unknown> }[] = []
       const personBody = target.personType === 'child'
         ? { child_id: target.personId }
         : { staff_id: target.personId }
       if (arrivalDirty) {
-        ops.push(arrivalEvent
-          ? attendanceApi.updateEvent(arrivalEvent.id, { scanned_at: `${date}T${arrival}` })
-          : attendanceApi.createManualEvent({
-              person_type: target.personType, ...personBody, event_type: 'arrival', date, time: arrival,
-            }))
+        ops.push({
+          label: 'arrivée',
+          run: () => arrivalEvent
+            ? attendanceApi.updateEvent(arrivalEvent.id, { scanned_at: `${date}T${arrival}` })
+            : attendanceApi.createManualEvent({
+                person_type: target.personType, ...personBody, event_type: 'arrival', date, time: arrival,
+              }),
+        })
       }
       if (departureDirty) {
-        ops.push(departureEvent
-          ? attendanceApi.updateEvent(departureEvent.id, { scanned_at: `${date}T${departure}` })
-          : attendanceApi.createManualEvent({
-              person_type: target.personType, ...personBody, event_type: 'departure', date, time: departure,
-            }))
+        ops.push({
+          label: 'départ',
+          run: () => departureEvent
+            ? attendanceApi.updateEvent(departureEvent.id, { scanned_at: `${date}T${departure}` })
+            : attendanceApi.createManualEvent({
+                person_type: target.personType, ...personBody, event_type: 'departure', date, time: departure,
+              }),
+        })
       }
-      await Promise.all(ops)
+      if (mealDirty) {
+        ops.push({
+          label: 'cantine',
+          run: () => mealEvent
+            ? attendanceApi.updateEvent(mealEvent.id, { scanned_at: `${date}T${meal}` })
+            : attendanceApi.createManualEvent({
+                person_type: target.personType, ...personBody, event_type: 'meal', date, time: meal,
+              }),
+        })
+      }
+      // allSettled : une correction partielle persistée est signalée
+      // explicitement (quelle heure a échoué), pas de toast générique.
+      const results = await Promise.allSettled(ops.map((op) => op.run()))
+      const failed = ops.filter((_, i) => results[i]?.status === 'rejected')
+      if (failed.length > 0) {
+        throw new Error(
+          `Échec de la correction (${failed.map((op) => op.label).join(', ')}) — les autres heures sont enregistrées.`
+        )
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
       toast.success('Heures corrigées.')
       onClose()
     },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
+    onError: (err) => toast.error(err instanceof Error ? err.message : getApiErrorMessage(err)),
   })
 
   const prettyDate = new Date(`${date}T00:00`).toLocaleDateString('fr-FR', {
@@ -219,7 +261,7 @@ function CorrectionDialog({
             <Skeleton className="h-10 w-full" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 py-2">
+          <div className={`grid gap-4 py-2 ${target.personType === 'staff' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
             <div className="space-y-1.5">
               <Label htmlFor="correct-arrival">Arrivée</Label>
               <Input
@@ -228,7 +270,7 @@ function CorrectionDialog({
                 value={arrival}
                 onChange={(e) => setArrival(e.target.value)}
               />
-              {!arrivalEvent && (
+              {!arrivalEvent && !isLoading && (
                 <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
               )}
             </div>
@@ -240,10 +282,24 @@ function CorrectionDialog({
                 value={departure}
                 onChange={(e) => setDeparture(e.target.value)}
               />
-              {!departureEvent && (
+              {!departureEvent && !isLoading && (
                 <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
               )}
             </div>
+            {target.personType === 'staff' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="correct-meal">Cantine</Label>
+                <Input
+                  id="correct-meal"
+                  type="time"
+                  value={meal}
+                  onChange={(e) => setMeal(e.target.value)}
+                />
+                {!mealEvent && !isLoading && (
+                  <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
         <p className="text-xs text-muted-foreground">
@@ -254,7 +310,7 @@ function CorrectionDialog({
           <Button variant="outline" onClick={onClose}>Annuler</Button>
           <Button
             onClick={() => save.mutate()}
-            disabled={!(arrivalDirty || departureDirty) || save.isPending || isLoading}
+            disabled={!(arrivalDirty || departureDirty || mealDirty) || save.isPending || isLoading}
           >
             {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
           </Button>
@@ -264,11 +320,13 @@ function CorrectionDialog({
   )
 }
 
-const STAT_DEFS: { key: StatKey; label: string; icon: typeof Users; tint: string }[] = [
-  { key: 'total', label: 'Total', icon: Users, tint: 'bg-sky text-white' },
-  { key: 'present', label: 'Présents', icon: UserCheck, tint: 'bg-pale-green text-white' },
-  { key: 'absent', label: 'Absents', icon: UserX, tint: 'bg-destructive text-white' },
-  { key: 'late', label: 'En retard', icon: AlarmClock, tint: 'bg-warning text-warning-foreground' },
+const STAT_DEFS: { key: StatKey; label: string; icon: typeof Users; tint: string; hint: string }[] = [
+  { key: 'total', label: 'Total', icon: Users, tint: 'bg-sky text-white', hint: 'Personnes suivies ce jour' },
+  { key: 'present', label: 'Présents', icon: UserCheck, tint: 'bg-pale-green text-white', hint: 'Arrivés à l\u2019heure ou en retard' },
+  { key: 'absent', label: 'Absents', icon: UserX, tint: 'bg-destructive text-white', hint: 'Jour ouvré sans arrivée' },
+  { key: 'late', label: 'En retard', icon: AlarmClock, tint: 'bg-warning text-warning-foreground', hint: 'Arrivés après l\u2019horaire attendu' },
+  { key: 'not_expected', label: 'Non attendus', icon: CalendarOff, tint: 'bg-muted text-muted-foreground', hint: 'Week-end : aucune présence attendue' },
+  { key: 'exempt', label: 'Exemptés', icon: ShieldCheck, tint: 'bg-teal text-white', hint: 'Personnel exempté de pointage' },
 ]
 
 function StatCards({
@@ -280,13 +338,14 @@ function StatCards({
   selected?: StatKey | null
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {STAT_DEFS.map(({ key, label, icon: Icon, tint }, i) => (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      {STAT_DEFS.map(({ key, label, icon: Icon, tint, hint }, i) => (
         <motion.button
           key={key}
           type="button"
           onClick={() => onSelect(key)}
           className="text-left"
+          title={hint}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: i * 0.06 }}
@@ -352,13 +411,13 @@ function PaginationControls({
         Page {page} sur {pageCount}
       </span>
       <Button
-        type="button" variant="outline" size="icon" className="size-8"
+        type="button" variant="outline" size="icon" className="h-10 w-10"
         disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="Page précédente"
       >
         <ChevronLeft className="size-4" />
       </Button>
       <Button
-        type="button" variant="outline" size="icon" className="size-8"
+        type="button" variant="outline" size="icon" className="h-10 w-10"
         disabled={page >= pageCount} onClick={() => onChange(page + 1)} aria-label="Page suivante"
       >
         <ChevronRight className="size-4" />
@@ -367,12 +426,14 @@ function PaginationControls({
   )
 }
 
-function ModalPersonRow({ name, status, arrival }: { name: string; status: DailyStatusValue; arrival: string | null }) {
+function ModalPersonRow({ name, status, arrival, departure, timeZone }: { name: string; status: DailyStatusValue; arrival: string | null; departure?: string | null; timeZone?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border py-2 last:border-0">
-      <span className="min-w-0 truncate text-sm font-medium">{name}</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-0">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
       <span className="flex shrink-0 items-center gap-2">
-        <span className="text-xs text-muted-foreground">{formatTime(arrival)}</span>
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
+          {formatTime(arrival, timeZone)}{departure ? ` → ${formatTime(departure, timeZone)}` : ''}
+        </span>
         <StatusBadge status={status} />
       </span>
     </div>
@@ -384,6 +445,8 @@ const STAT_TITLES: Record<StatKey, string> = {
   present: 'Présents',
   absent: 'Absents',
   late: 'En retard',
+  not_expected: 'Non attendus',
+  exempt: 'Exemptés',
 }
 
 function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
@@ -402,7 +465,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
         .then((r) => r.data),
   })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'daily', 'children', { date, departmentId, sectionId }],
     queryFn: () =>
       attendanceApi
@@ -412,15 +475,18 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
           section_id: sectionId === ALL ? undefined : sectionId,
         })
         .then((r) => r.data),
+    enabled: date !== '',
   })
 
   const items = data?.items ?? []
 
   const counts = useMemo<StatCounts>(() => ({
     total: data?.total ?? items.length,
-    present: items.filter((i) => i.status === 'present').length,
+    present: items.filter((i) => i.status === 'present' || i.status === 'late').length,
     absent: items.filter((i) => i.status === 'absent').length,
     late: items.filter((i) => i.status === 'late').length,
+    not_expected: items.filter((i) => i.status === 'not_expected').length,
+    exempt: items.filter((i) => i.status === 'exempt').length,
   }), [data?.total, items])
 
   // Pagination (15 lignes/page) + modale par statut.
@@ -472,7 +538,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
         <Select
           items={{ [ALL]: 'Tous les départements', ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
           value={departmentId}
-          onValueChange={(v) => setDepartmentId(v ?? ALL)}
+          onValueChange={(v) => { setDepartmentId(v ?? ALL); setSectionId(ALL) }}
         >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Tous les départements" />
@@ -511,6 +577,15 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
               count={5}
               widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10']}
             />
+          ) : isError ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={5} className="h-40 text-center">
+                <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
+                  Réessayer
+                </Button>
+              </Td>
+            </TableRow>
           ) : visibleItems.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={5} className="h-40 text-center text-muted-foreground">
@@ -527,6 +602,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                   displayName: `${item.child.first_names} ${item.child.last_name}`,
                   initialArrival: item.arrival_time,
                   initialDeparture: item.departure_time,
+                  timeZone: data?.timezone,
                 }) : undefined}
                 className={canCorrect ? 'cursor-pointer' : undefined}
                 title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
@@ -535,8 +611,8 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                   {item.child.first_names} {item.child.last_name}
                 </Td>
                 <Td><StatusBadge status={item.status} /></Td>
-                <Td className="text-muted-foreground">{formatTime(item.arrival_time)}</Td>
-                <Td className="text-muted-foreground">{formatTime(item.departure_time)}</Td>
+                <Td className="text-muted-foreground">{formatTime(item.arrival_time, data?.timezone)}</Td>
+                <Td className="text-muted-foreground">{formatTime(item.departure_time, data?.timezone)}</Td>
                 <Td className="text-muted-foreground">
                   {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                 </Td>
@@ -562,6 +638,8 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                 name={`${item.child.first_names} ${item.child.last_name}`}
                 status={item.status}
                 arrival={item.arrival_time}
+                departure={item.departure_time}
+                timeZone={data?.timezone}
               />
             ))}
             <PaginationControls page={safeModalPage} pageCount={modalPageCount} onChange={setModalPage} />
@@ -577,18 +655,21 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
 }
 
 function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'daily', 'staff', { date }],
     queryFn: () => attendanceApi.getStaffDaily({ date }).then((r) => r.data),
+    enabled: date !== '',
   })
 
   const items = data?.items ?? []
 
   const counts = useMemo<StatCounts>(() => ({
     total: data?.total ?? items.length,
-    present: items.filter((i) => i.status === 'present').length,
+    present: items.filter((i) => i.status === 'present' || i.status === 'late').length,
     absent: items.filter((i) => i.status === 'absent').length,
     late: items.filter((i) => i.status === 'late').length,
+    not_expected: items.filter((i) => i.status === 'not_expected').length,
+    exempt: items.filter((i) => i.status === 'exempt').length,
   }), [data?.total, items])
 
   // Pagination (15 lignes/page) + modale par statut.
@@ -655,6 +736,15 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
               count={5}
               widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10', 'h-4 w-10']}
             />
+          ) : isError ? (
+            <TableRow className="hover:bg-transparent">
+              <Td colSpan={6} className="h-40 text-center">
+                <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
+                  Réessayer
+                </Button>
+              </Td>
+            </TableRow>
           ) : visibleItems.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-40 text-center text-muted-foreground">
@@ -671,6 +761,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                   displayName: item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`,
                   initialArrival: item.arrival_time,
                   initialDeparture: item.departure_time,
+                  timeZone: data?.timezone,
                 }) : undefined}
                 className={canCorrect ? 'cursor-pointer' : undefined}
                 title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
@@ -679,8 +770,8 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                   {item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
                 </Td>
                 <Td><StatusBadge status={item.status} /></Td>
-                <Td className="text-muted-foreground">{formatTime(item.arrival_time)}</Td>
-                <Td className="text-muted-foreground">{formatTime(item.departure_time)}</Td>
+                <Td className="text-muted-foreground">{formatTime(item.arrival_time, data?.timezone)}</Td>
+                <Td className="text-muted-foreground">{formatTime(item.departure_time, data?.timezone)}</Td>
                 <Td className="text-muted-foreground">
                   {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                 </Td>
@@ -711,6 +802,8 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                 name={item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
                 status={item.status}
                 arrival={item.arrival_time}
+                departure={item.departure_time}
+                timeZone={data?.timezone}
               />
             ))}
             <PaginationControls page={safeModalPage} pageCount={modalPageCount} onChange={setModalPage} />

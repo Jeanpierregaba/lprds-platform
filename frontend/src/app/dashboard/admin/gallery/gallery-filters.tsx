@@ -132,9 +132,9 @@ export function GalleryFilters({
         </SelectContent>
       </Select>
 
-      <div className="flex items-center gap-1.5">
+      <div className="grid w-full grid-cols-1 gap-1.5 sm:w-auto sm:grid-cols-[auto_auto_auto] sm:items-center">
         <Input type="date" value={filters.dateFrom} onChange={(e) => set('dateFrom', e.target.value)} className="w-full sm:w-36" aria-label="Date de début" />
-        <span className="hidden text-muted-foreground sm:inline">–</span>
+        <span className="hidden text-center text-muted-foreground sm:inline">–</span>
         <Input type="date" value={filters.dateTo} onChange={(e) => set('dateTo', e.target.value)} className="w-full sm:w-36" aria-label="Date de fin" />
       </div>
 

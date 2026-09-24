@@ -336,3 +336,73 @@ def test_missing_daily_reports(client):
     mb2 = c.get(f"/reports/missing?report_type=bi_mensuel&date={day}", headers=adm).json()
     ck("... mais compté dans les manquants bi-mensuel",
        outsider in [i["child"]["id"] for i in mb2["items"]], True)
+
+
+def test_validator_without_group_sees_submitted(client):
+    """Validateur (reports:validate, sans groupe mené) : la validation étant
+    sans restriction de groupe, la lecture suit — soumis/validé visibles
+    partout, brouillons d'autrui invisibles. Garde lecture en OU (write
+    seul suffit aussi à lister son groupe)."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "VAL", "admin@val.fr")
+
+    dep = c.post("/departments", json={"name": "Mat"}, headers=adm).json()
+    sec = c.post("/sections", json={"department_id": dep["id"], "name": "PS"},
+                 headers=adm).json()
+    c.post(f"/reports/settings/departments/{dep['id']}/types/quotidien", headers=adm)
+    child = c.post("/children", json={"last_name": "Val", "first_names": "Kid",
+                   "birth_date": "2023-01-01", "admission_date": "2025-01-01",
+                   "residence_address": "x", "department_id": dep["id"],
+                   "section_id": sec["id"],
+                   "guardians": [{"last_name": "Val", "first_names": "P",
+                   "phone": "+229"}]}, headers=adm).json()
+
+    onboard_staff(c, adm, "writer@val.fr", nick="Tata W")
+    writer_id = c.get("/staff?search=writer@val.fr", headers=adm).json()["items"][0]["id"]
+    writer_role = c.post("/rbac/roles", json={"name": "Rédactrice",
+                  "permissions": ["reports:read", "reports:write"]}, headers=adm).json()
+    c.post(f"/rbac/staff/{writer_id}/roles/{writer_role['id']}", headers=adm)
+    writer = login(c, "writer@val.fr", "StaffNew2026")
+    gid = c.post("/groups", json={"section_id": sec["id"], "educatrice_id": writer_id},
+                 headers=adm).json()["id"]
+    c.post(f"/groups/{gid}/children/{child['id']}", headers=adm)
+
+    # Validatrice : reports:validate UNIQUEMENT, aucun groupe mené.
+    onboard_staff(c, adm, "validator@val.fr", nick="Directrice")
+    validator_id = c.get("/staff?search=validator@val.fr", headers=adm).json()["items"][0]["id"]
+    validator_role = c.post("/rbac/roles", json={"name": "Validatrice",
+                        "permissions": ["reports:validate"]}, headers=adm).json()
+    c.post(f"/rbac/staff/{validator_id}/roles/{validator_role['id']}", headers=adm)
+    validator = login(c, "validator@val.fr", "StaffNew2026")
+
+    sub = c.post("/reports", json={"child_id": child["id"], "report_type": "quotidien",
+                 "reference_date": "2026-07-20", "content": VALID_CONTENT},
+                 headers=writer).json()
+    c.post(f"/reports/{sub['id']}/submit", headers=writer)
+    draft = c.post("/reports", json={"child_id": child["id"], "report_type": "quotidien",
+                   "reference_date": "2026-07-21", "content": VALID_CONTENT},
+                   headers=writer).json()
+
+    lst = c.get("/reports", headers=validator).json()
+    ck("Validatrice sans groupe voit le soumis", [i["id"] for i in lst["items"]], [sub["id"]])
+    ck("... mais pas le brouillon d'autrui",
+       any(i["id"] == draft["id"] for i in lst["items"]), False)
+    ck("Détail du soumis → 200",
+       c.get(f"/reports/{sub['id']}", headers=validator).status_code, 200)
+    ck("Détail du brouillon d'autrui → 404",
+       c.get(f"/reports/{draft['id']}", headers=validator).status_code, 404)
+    ck("Validation possible", c.post(
+        f"/reports/{sub['id']}/validate", headers=validator).status_code, 200)
+
+    # Garde lecture en OU : write seul suffit à lister (son groupe).
+    onboard_staff(c, adm, "wonly@val.fr", nick="Tata WO")
+    wonly_id = c.get("/staff?search=wonly@val.fr", headers=adm).json()["items"][0]["id"]
+    wonly_role = c.post("/rbac/roles", json={"name": "WriteOnly",
+                     "permissions": ["reports:write"]}, headers=adm).json()
+    c.post(f"/rbac/staff/{wonly_id}/roles/{wonly_role['id']}", headers=adm)
+    wonly = login(c, "wonly@val.fr", "StaffNew2026")
+    c.post("/groups", json={"section_id": sec["id"], "educatrice_id": wonly_id},
+           headers=adm)
+    ck("Write seul → liste 200 (pas de 403)",
+       c.get("/reports", headers=wonly).status_code, 200)

@@ -47,9 +47,9 @@ export function AttachmentLightbox({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="truncate">{filename}</DialogTitle>
+          <DialogTitle className="break-words" title={filename}>{filename}</DialogTitle>
           <DialogDescription>{formatBytes(sizeBytes)}</DialogDescription>
         </DialogHeader>
 
@@ -59,7 +59,7 @@ export function AttachmentLightbox({
           contentType={contentType}
           alt={filename}
           controls
-          className="max-h-[60vh] w-full bg-black"
+          className="max-h-[50dvh] w-full bg-black"
         />
 
         <div className="flex justify-end">

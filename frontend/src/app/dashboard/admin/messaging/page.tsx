@@ -31,7 +31,7 @@ function ConnectionBadge() {
 export default function MessagingPage() {
   return (
     <PageMotion>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Messagerie</h1>
           <p className="text-muted-foreground">Diffusions vers les parents et conversations privées.</p>

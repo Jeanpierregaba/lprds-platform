@@ -447,7 +447,7 @@ function ChildCard({
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="font-display text-xl font-semibold leading-tight">
+          <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">
             {child.first_names} {child.last_name}
           </p>
           <StatusPill active={child.is_active} shrink />

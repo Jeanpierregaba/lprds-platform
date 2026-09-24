@@ -109,12 +109,12 @@ export function MissingList({
               <Card className="rounded-2xl shadow-soft">
                 <CardContent className="space-y-1.5 p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="font-display text-xl font-semibold leading-tight">
+                    <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">
                       {item.child.first_names} {item.child.last_name}
                     </p>
                     <span
                       className={cn(
-                        'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
+                        'shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold',
                         item.has_draft
                           ? 'bg-warning text-warning-foreground'
                           : 'bg-muted text-muted-foreground',

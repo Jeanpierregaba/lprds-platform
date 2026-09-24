@@ -442,9 +442,9 @@ export default function AdminDashboardPage() {
               <CardContent>
                 <ul className="space-y-1.5">
                   {canteen.map((c) => (
-                    <li key={c.department} className="flex items-baseline justify-between gap-3 text-sm">
+                    <li key={c.department} className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                       <span className="shrink-0 font-medium">{c.department}</span>
-                      <span className="truncate text-muted-foreground">{c.lunch}</span>
+                      <span className="text-muted-foreground sm:truncate sm:text-right" title={c.lunch ?? undefined}>{c.lunch}</span>
                     </li>
                   ))}
                 </ul>
@@ -462,7 +462,7 @@ export default function AdminDashboardPage() {
                   </span>
                   Dernière diffusion
                 </CardTitle>
-                <CardDescription className="truncate">{latestAnnouncement.title}</CardDescription>
+                <CardDescription className="break-words" title={latestAnnouncement.title}>{latestAnnouncement.title}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between text-sm">

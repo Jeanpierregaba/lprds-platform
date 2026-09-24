@@ -5,11 +5,8 @@ import { Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { MessageAttachments } from './message-attachments'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { cn } from '@/lib/utils/cn'
 import type { Message } from '@/types/messaging'
 
@@ -87,14 +84,19 @@ export function MessageBubble({
                 }
                 if (e.key === 'Escape') onCancelEdit()
               }}
-              className="min-w-52 resize-none bg-background text-foreground"
+              className="min-w-0 w-full resize-none bg-background text-foreground"
               autoFocus
             />
             <div className="flex justify-end gap-1.5">
               <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit} disabled={editPending}>
                 Annuler
               </Button>
-              <Button type="button" size="sm" onClick={onSaveEdit} disabled={editPending || !draft.trim()}>
+              <Button
+                type="button"
+                size="sm"
+                onClick={onSaveEdit}
+                disabled={editPending || (!draft.trim() && msg.attachments.length === 0)}
+              >
                 {editPending ? <Loader2 className="size-3.5 animate-spin" /> : 'Enregistrer'}
               </Button>
             </div>
@@ -116,14 +118,16 @@ export function MessageBubble({
         {msg.edited_at && <span>· modifié</span>}
         {isMine && msg.read_at && <span>· Vu</span>}
         {showMenu && (
-          <span className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+          // Visible au survol, au focus clavier, et toujours sur tactile
+          // (pas de hover) — sinon édition/suppression inaccessibles sur mobile.
+          <span className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
             {editable && (
               <button
                 type="button"
                 onClick={onStartEdit}
                 aria-label="Modifier le message"
                 title="Modifier (15 min)"
-                className="rounded p-0.5 transition hover:bg-muted-foreground/20"
+                className="rounded p-2 transition hover:bg-muted-foreground/20"
               >
                 <Pencil className="size-3.5" />
               </button>
@@ -131,9 +135,10 @@ export function MessageBubble({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
+              disabled={editing}
               aria-label="Supprimer le message"
               title="Supprimer"
-              className="rounded p-0.5 transition hover:bg-muted-foreground/20 hover:text-destructive"
+              className="rounded p-2 transition hover:bg-muted-foreground/20 hover:text-destructive disabled:opacity-40"
             >
               <Trash2 className="size-3.5" />
             </button>
@@ -142,28 +147,18 @@ export function MessageBubble({
         {deletePending && <Loader2 className="size-3.5 animate-spin" />}
       </div>
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce message ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Le message sera remplacé par « Message supprimé » et ses pièces jointes seront définitivement effacées.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmDelete(false)
-                onDelete()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Supprimer ce message ?"
+        description="Le message sera remplacé par « Message supprimé » et ses pièces jointes seront définitivement effacées."
+        confirmLabel="Supprimer"
+        destructive
+        onConfirm={() => {
+          setConfirmDelete(false)
+          onDelete()
+        }}
+      />
     </div>
   )
 }

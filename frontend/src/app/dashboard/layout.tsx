@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             aria-hidden
           />
           <div className="absolute inset-0 bg-neutral-900/40" aria-hidden="true" />
-          <div className="dashboard-view relative w-full h-full overflow-y-auto p-6">
+          <div className="dashboard-view relative w-full h-full overflow-y-auto p-4 sm:p-6">
             {user && (user.role === 'admin' || user.role === 'parent') ? (
               <MessagingSocketProvider>
                 {realtimeContent}

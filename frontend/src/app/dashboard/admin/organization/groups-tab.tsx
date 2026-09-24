@@ -352,7 +352,7 @@ export function GroupsTab() {
       </DataTable>
 
       <Dialog open={!!manageGroupId} onOpenChange={(open) => !open && setManageGroupId(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Enfants du groupe {manageGroup?.name}</DialogTitle>
             <DialogDescription>
@@ -373,10 +373,11 @@ export function GroupsTab() {
                   ) : (
                     manageGroup.children.map((child) => (
                       <div key={child.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <span>{child.last_name} {child.first_names} <span className="text-muted-foreground">· {child.matricule}</span></span>
+                        <span className="min-w-0 flex-1 truncate">{child.last_name} {child.first_names} <span className="text-muted-foreground">· {child.matricule}</span></span>
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          className="h-10 w-10 shrink-0"
                           aria-label={`Retirer ${child.first_names} ${child.last_name}`}
                           disabled={removeChildMutation.isPending}
                           onClick={() => removeChildMutation.mutate(child.id)}
@@ -413,10 +414,11 @@ export function GroupsTab() {
                   ) : (
                     availableChildren!.items.map((child) => (
                       <div key={child.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <span>{child.last_name} {child.first_names} <span className="text-muted-foreground">· {child.matricule}</span></span>
+                        <span className="min-w-0 flex-1 truncate">{child.last_name} {child.first_names} <span className="text-muted-foreground">· {child.matricule}</span></span>
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          className="h-10 w-10 shrink-0"
                           aria-label={`Ajouter ${child.first_names} ${child.last_name}`}
                           disabled={assignMutation.isPending}
                           onClick={() => assignMutation.mutate(child.id)}

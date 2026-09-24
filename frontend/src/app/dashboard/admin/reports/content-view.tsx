@@ -11,9 +11,9 @@ const DOMAIN_KEYS = Object.keys(DOMAIN_LABELS) as (keyof typeof DOMAIN_LABELS)[]
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <p className="text-xs font-medium text-secondary/70">{label}</p>
-      <p className="text-sm">{value || '—'}</p>
+      <p className="break-words text-sm [overflow-wrap:anywhere]">{value || '—'}</p>
     </div>
   )
 }
@@ -29,7 +29,11 @@ function Tags({
   return (
     <div className="flex flex-wrap gap-1.5">
       {codes.map((c) => (
-        <Badge key={c} variant="outline" className={cn('font-normal', badgeClassName)}>
+        <Badge
+          key={c}
+          variant="outline"
+          className={cn('max-w-full whitespace-normal break-words text-left font-normal', badgeClassName)}
+        >
           {vocabulary[c] ?? c}
         </Badge>
       ))}
@@ -97,7 +101,11 @@ export function ContentView({
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {activities.map((activity, i) => (
-                <Badge key={`${activity}-${i}`} variant="outline" className="border-primary/50 bg-primary/10 font-normal">
+                <Badge
+                  key={`${activity}-${i}`}
+                  variant="outline"
+                  className="max-w-full whitespace-normal break-words border-primary/50 bg-primary/10 text-left font-normal"
+                >
                   {i + 1}-{activity}
                 </Badge>
               ))}

@@ -62,7 +62,7 @@ export function ProfileSettingsTab() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Email</Label>
-            <p className="text-sm font-medium">{user.email}</p>
+            <p className="break-all text-sm font-medium">{user.email}</p>
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Rôle</Label>

@@ -226,6 +226,7 @@ async def update_announcement(
     # Le périmètre ne se pose pas par setattr (relation M2M) : il REMPLACE le
     # ciblage (liste vide = retour au broadcast).
     scope_change = changes.pop("department_ids", None)
+    validated: list[uuid.UUID] | None = None
     for field, value in changes.items():
         setattr(announcement, field, value)
     if scope_change is not None:
@@ -1186,7 +1187,12 @@ async def add_message_attachments_batch(
         payloads, uploader, db, message_id=message.id
     )
     for response in responses:
-        payload = {"type": "attachment", "message_id": str(message.id), **response.model_dump(mode="json")}
+        payload = {
+            "type": "attachment",
+            "conversation_id": str(conversation.id),
+            "message_id": str(message.id),
+            **response.model_dump(mode="json"),
+        }
         await publish_event(_conversation_channel(conversation.id), payload)
         await publish_event(_admin_channel(conversation.establishment_id), payload)
     return responses

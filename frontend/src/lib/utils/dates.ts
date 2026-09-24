@@ -27,3 +27,22 @@ export function parseIsoDate(iso: string) {
   const day = Number(parts[2])
   return new Date(year, month - 1, day)
 }
+
+/** Date locale du jour (calendrier du navigateur), jamais l'UTC de
+ * `toISOString` — à 00h30 locale (UTC+1), `toISOString` date encore d'hier. */
+export function todayLocalIso() {
+  return toIsoDate(new Date())
+}
+
+/** Heure affichée dans le fuseau IANA de l'établissement (celui qui sert au
+ * calcul des retards) — pas celui du navigateur, qui peut différer. */
+export function formatTimeIn(iso: string | null, timeZone: string): string {
+  if (!iso) return '—'
+  try {
+    return new Intl.DateTimeFormat('fr-FR', {
+      hour: '2-digit', minute: '2-digit', timeZone,
+    }).format(new Date(iso))
+  } catch {
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  }
+}

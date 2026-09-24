@@ -151,19 +151,19 @@ export default function ParentDashboardPage() {
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href="/dashboard/parent/messaging"
-            className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
+            className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
             Messagerie{unreadMessages + unreadAnnouncements > 0 ? ` (${unreadMessages + unreadAnnouncements})` : ''}
           </Link>
           <Link
             href="/dashboard/parent/reports"
-            className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
+            className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
             Rapports{unreadReports.length > 0 ? ` (${unreadReports.length})` : ''}
           </Link>
           <Link
             href="/dashboard/parent/gallery"
-            className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
+            className="rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
           >
             Galerie photos
           </Link>
@@ -233,7 +233,7 @@ export default function ParentDashboardPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardDescription>À lire en priorité</CardDescription>
-              <Link href="/dashboard/parent/reports" className="inline-flex items-center gap-1 text-xs font-medium text-sky hover:underline">
+              <Link href="/dashboard/parent/reports" className="inline-flex items-center gap-1 py-1 text-xs font-medium text-sky hover:underline">
                 Tout voir <ArrowRight className="size-3.5" />
               </Link>
             </div>
@@ -298,9 +298,9 @@ export default function ParentDashboardPage() {
               <CardContent>
                 <ul className="space-y-1.5">
                   {canteen.map((c) => (
-                    <li key={c.department} className="flex items-baseline justify-between gap-3 text-sm">
+                    <li key={c.department} className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
                       <span className="shrink-0 font-medium">{c.department}</span>
-                      <span className="truncate text-muted-foreground">{c.lunch}</span>
+                      <span className="text-muted-foreground sm:truncate sm:text-right" title={c.lunch ?? undefined}>{c.lunch}</span>
                     </li>
                   ))}
                 </ul>
@@ -312,7 +312,7 @@ export default function ParentDashboardPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardDescription>Bibliothèque</CardDescription>
-                <Link href="/dashboard/parent/library" className="inline-flex items-center gap-1 text-xs font-medium text-sky hover:underline">
+                <Link href="/dashboard/parent/library" className="inline-flex items-center gap-1 py-1 text-xs font-medium text-sky hover:underline">
                   Détail <ArrowRight className="size-3.5" />
                 </Link>
               </div>
@@ -331,7 +331,7 @@ export default function ParentDashboardPage() {
                     <li key={l.id} className="text-sm">
                       <span className="block truncate font-medium">{l.book_title}</span>
                       <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span className="truncate">{l.child_name} · retour le {new Date(l.due_date + 'T00:00:00').toLocaleDateString('fr-FR')}</span>
+                        <span className="min-w-0 truncate">{l.child_name} · retour le {new Date(l.due_date + 'T00:00:00').toLocaleDateString('fr-FR')}</span>
                         {l.status === 'overdue' || l.overdue_days != null ? (
                           <span className="shrink-0 rounded-full bg-destructive px-2.5 py-0.5 font-semibold text-white">En retard</span>
                         ) : null}
@@ -359,7 +359,7 @@ export default function ParentDashboardPage() {
           </Link>
 
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" render={<Link href="/dashboard/parent/menus" />}>
+            <Button variant="outline" className="h-10" render={<Link href="/dashboard/parent/menus" />}>
               <UtensilsCrossed className="mr-1.5 size-4" />
               Voir les menus de la semaine
             </Button>

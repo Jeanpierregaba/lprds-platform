@@ -107,9 +107,9 @@ export function AssignmentTab() {
                       selectedStaffId === staff.id ? 'bg-muted' : ''
                     }`}
                   >
-                    <div>
-                      <div className="font-medium">{staff.first_name} {staff.last_name}</div>
-                      <div className="text-xs text-muted-foreground">{staff.email}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{staff.first_name} {staff.last_name}</div>
+                      <div className="truncate text-xs text-muted-foreground" title={staff.email}>{staff.email}</div>
                     </div>
                     {staff.staff_type && (
                       <span className="inline-block shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">

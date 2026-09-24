@@ -130,6 +130,13 @@ def test_announcement_department_scope(client):
        c.get(f"/messaging/announcements/{scoped['id']}", headers=adm
              ).json()["total_parents"], 2)
 
+    # PATCH titre seul (sans department_ids) : ne doit pas lever 500
+    # (UnboundLocalError sur le périmètre) — régression verrouillée.
+    r = c.patch(f"/messaging/announcements/{scoped['id']}",
+                json={"title": "Titre modifié seul"}, headers=adm)
+    ck("PATCH titre seul → 200 (pas de 500)", r.status_code, 200)
+    ck("Titre mis à jour", r.json()["title"], "Titre modifié seul")
+
 
 def test_media_message_with_empty_body(client):
     """Envoi « comme WhatsApp » : message au corps vide + photo attachée dans

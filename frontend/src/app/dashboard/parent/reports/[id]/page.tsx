@@ -74,15 +74,15 @@ export default function ParentReportDetailPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
             <div className="min-w-0">
-              <CardTitle className="truncate">{report.child.first_names} {report.child.last_name}</CardTitle>
+              <CardTitle className="break-words">{report.child.first_names} {report.child.last_name}</CardTitle>
               <CardDescription>
                 {REPORT_TYPE_LABELS[report.report_type]} · {report.period_label}
               </CardDescription>
             </div>
             {report.report_type === 'annuel' && (
-              <Button variant="outline" size="sm" onClick={() => downloadPdfMutation.mutate()} disabled={downloadPdfMutation.isPending}>
+              <Button variant="outline" size="sm" className="h-10 shrink-0 sm:w-auto" onClick={() => downloadPdfMutation.mutate()} disabled={downloadPdfMutation.isPending}>
                 {downloadPdfMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
                 Bulletin PDF
               </Button>

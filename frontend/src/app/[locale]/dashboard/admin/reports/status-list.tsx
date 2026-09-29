@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { Eye, FileText, Plus } from 'lucide-react'
 
@@ -15,7 +16,7 @@ import { SearchInput, ViewToggle, type ViewMode } from '@/components/dashboard/s
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem } from '@/components/dashboard/shared/cards'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
-import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportListItem, type ReportStatus, type ReportType } from '@/types/reports'
+import { REPORT_STATUS_BADGE_CLASS, type ReportListItem, type ReportStatus, type ReportType } from '@/types/reports'
 import { Link } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
@@ -32,6 +33,8 @@ function formatDate(iso: string) {
 
 /** Liste paginée pour UN type et UN statut fixés (l'onglet parent porte les pills). */
 export function StatusList({ reportType, status }: { reportType: ReportType; status: ReportStatus }) {
+  const reportStatusLabel = useLabel('reportStatus')
+  const reportTypesLabel = useLabel('reportTypes')
   const user = useUser()
   const { permissions } = useMyPermissions()
   // La page est partagée admin/staff : l'éducatrice sans reports:write
@@ -111,7 +114,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                       <FileText className="size-5" />
                     </div>
-                    <p className="font-medium text-foreground">Aucun rapport {REPORT_STATUS_LABELS[status].toLowerCase()}.</p>
+                    <p className="font-medium text-foreground">Aucun rapport {reportStatusLabel(status).toLowerCase()}.</p>
                   </div>
                 </Td>
               </TableRow>
@@ -126,7 +129,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
                   <Td>
                     <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
                       <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', REPORT_TYPE_PILLS[r.report_type])}>
-                        {REPORT_TYPE_LABELS[r.report_type]}
+                        {reportTypesLabel(r.report_type)}
                       </span>
                     </Link>
                   </Td>
@@ -138,7 +141,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
                   <Td>
                     <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
                       <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', REPORT_STATUS_BADGE_CLASS[r.status])}>
-                        {REPORT_STATUS_LABELS[r.status]}
+                        {reportStatusLabel(r.status)}
                       </span>
                     </Link>
                   </Td>
@@ -173,6 +176,9 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
 function ReportsCardGrid({
   items, isLoading,
 }: { items: ReportListItem[]; isLoading: boolean }) {
+  const reportStatusLabel = useLabel('reportStatus')
+  const reportTypesLabel = useLabel('reportTypes')
+
   if (isLoading) {
     return <CardsSkeleton />
   }
@@ -197,12 +203,12 @@ function ReportsCardGrid({
                   {r.child.first_names} {r.child.last_name}
                 </p>
                 <span className={cn('shrink-0 rounded-full px-3 py-1 text-xs font-semibold', REPORT_STATUS_BADGE_CLASS[r.status])}>
-                  {REPORT_STATUS_LABELS[r.status]}
+                  {reportStatusLabel(r.status)}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', REPORT_TYPE_PILLS[r.report_type])}>
-                  {REPORT_TYPE_LABELS[r.report_type]}
+                  {reportTypesLabel(r.report_type)}
                 </span>
                 <span className="text-sm text-muted-foreground">{r.period_label}</span>
               </div>

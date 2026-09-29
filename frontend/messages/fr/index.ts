@@ -11,8 +11,9 @@ import enums from './enums.json'
 import errors from './errors.json'
 import marketing from './marketing.json'
 import nav from './nav.json'
+import reports from './reports.json'
 
-export const messages = { common, enums, errors, marketing, nav } as const
+export const messages = { common, enums, errors, marketing, nav, reports } as const
 
 export type Messages = typeof messages
 

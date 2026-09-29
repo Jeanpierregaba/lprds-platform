@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Search, UserCog, X } from 'lucide-react'
@@ -12,9 +13,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { rbacApi } from '@/lib/api/rbac.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { STAFF_TYPE_LABELS } from '@/types/staff'
 
 export function AssignmentTab() {
+  const staffTypesLabel = useLabel('staffTypes')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -113,7 +114,7 @@ export function AssignmentTab() {
                     </div>
                     {staff.staff_type && (
                       <span className="inline-block shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                        {STAFF_TYPE_LABELS[staff.staff_type]}
+                        {staffTypesLabel(staff.staff_type)}
                       </span>
                     )}
                   </button>

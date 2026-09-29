@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLabel } from '@/lib/i18n/labels'
 import { toast } from 'sonner'
 
 import { Checkbox } from '@/components/ui/checkbox'
@@ -10,11 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { organizationApi } from '@/lib/api/organization.api'
 import { reportsApi } from '@/lib/api/reports.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { REPORT_TYPE_LABELS, type ReportType } from '@/types/reports'
-
-const REPORT_TYPES = Object.keys(REPORT_TYPE_LABELS) as ReportType[]
+import { REPORT_TYPES, type ReportType } from '@/types/reports'
 
 export function SettingsTab() {
+  const reportTypesLabel = useLabel('reportTypes')
   const queryClient = useQueryClient()
 
   const { data: departments, isLoading: isLoadingDepartments } = useQuery({
@@ -60,7 +60,7 @@ export function SettingsTab() {
               <TableRow>
                 <TableHead>Département</TableHead>
                 {REPORT_TYPES.map((rt) => (
-                  <TableHead key={rt} className="text-center">{REPORT_TYPE_LABELS[rt]}</TableHead>
+                  <TableHead key={rt} className="text-center">{reportTypesLabel(rt)}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>

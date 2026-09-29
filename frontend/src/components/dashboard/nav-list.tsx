@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { type NavItem } from './nav-items'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -15,6 +17,7 @@ export function NavList({
   /** Pastilles de comptage par href (ex. non-lus messagerie) — masquées à 0. */
   badges?: Record<string, number>
 }) {
+  const t = useTranslations('nav')
   const pathname = usePathname()
 
   const activeHref = (() => {
@@ -46,7 +49,7 @@ export function NavList({
             )}
           >
             <Icon className="size-4 shrink-0" />
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{t(item.labelKey)}</span>
             {count > 0 && (
               <Badge variant="secondary" className="ml-auto shrink-0">
                 {count}

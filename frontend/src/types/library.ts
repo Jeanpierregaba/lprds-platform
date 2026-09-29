@@ -41,11 +41,8 @@ export interface BookUpdatePayload {
 
 export type LendingStatus = 'active' | 'overdue' | 'returned'
 
-export const LENDING_STATUS_LABELS: Record<LendingStatus, string> = {
-  active: 'En cours',
-  overdue: 'En retard',
-  returned: 'Rendu',
-}
+/** Libellés dans les catalogues (`enums.lendingStatus`). */
+export const LENDING_STATUSES = ['active', 'overdue', 'returned'] as const
 
 export interface Lending {
   id:               string

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLabelMap } from '@/lib/i18n/labels'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
-import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
+import { STAFF_TYPES, type StaffType } from '@/types/staff'
 import { useRouter } from '@/i18n/navigation'
 
 const schema = z.object({
@@ -35,6 +36,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export default function NewStaffPage() {
+  const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
@@ -122,12 +124,12 @@ export default function NewStaffPage() {
                 control={control}
                 name="staff_type"
                 render={({ field }) => (
-                  <Select items={STAFF_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
+                  <Select items={staffTypesLabels} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger id="staff_type" className="w-full" aria-invalid={!!errors.staff_type}>
                       <SelectValue placeholder="Choisir un type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(STAFF_TYPE_LABELS).map(([value, label]) => (
+                      {Object.entries(staffTypesLabels).map(([value, label]) => (
                         <SelectItem key={value} value={value}>{label}</SelectItem>
                       ))}
                     </SelectContent>

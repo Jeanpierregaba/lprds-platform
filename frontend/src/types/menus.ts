@@ -15,24 +15,11 @@ export interface DayMenu {
 export const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as const
 export type Weekday = (typeof WEEKDAYS)[number]
 
-export const WEEKDAY_LABELS: Record<Weekday, string> = {
-  monday: 'Lundi',
-  tuesday: 'Mardi',
-  wednesday: 'Mercredi',
-  thursday: 'Jeudi',
-  friday: 'Vendredi',
-}
-
+/** Libellés dans les catalogues (`enums.weekdays`). */
 export const MEAL_SLOTS = ['collation', 'dejeuner', 'dessert', 'gouter'] as const
 export type MealSlot = (typeof MEAL_SLOTS)[number]
 
-export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
-  collation: 'Collation',
-  dejeuner: 'Déjeuner',
-  dessert: 'Dessert',
-  gouter: 'Goûter',
-}
-
+/** Libellés dans les catalogues (`enums.mealSlots`). */
 export type WeekContent = Record<Weekday, DayMenu>
 
 export interface Menu extends WeekContent {

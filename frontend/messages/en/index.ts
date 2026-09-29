@@ -13,7 +13,8 @@ import enums from './enums.json'
 import errors from './errors.json'
 import marketing from './marketing.json'
 import nav from './nav.json'
+import reports from './reports.json'
 
-export const messages = { common, enums, errors, marketing, nav } satisfies Messages
+export const messages = { common, enums, errors, marketing, nav, reports } satisfies Messages
 
 export default messages

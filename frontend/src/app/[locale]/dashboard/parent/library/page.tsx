@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useLabel } from '@/lib/i18n/labels'
 import { BookMarked, BookOpen, LibraryBig } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +12,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { libraryApi } from '@/lib/api/library.api'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
-import { LENDING_STATUS_LABELS, type LendingStatus } from '@/types/library'
+import { type LendingStatus } from '@/types/library'
 
 const STATUS_BADGE_VARIANT: Record<LendingStatus, 'default' | 'outline' | 'destructive'> = {
   active: 'default',
@@ -24,6 +25,7 @@ function formatDate(iso: string) {
 }
 
 export default function ParentLibraryPage() {
+  const lendingStatusLabel = useLabel('lendingStatus')
   const { data: books, isLoading: booksLoading } = useQuery({
     queryKey: ['library', 'mine', 'books'],
     queryFn: () => libraryApi.listMyBooks().then((r) => r.data),
@@ -146,7 +148,7 @@ export default function ParentLibraryPage() {
                         <TableCell>{formatDate(lending.due_date)}</TableCell>
                         <TableCell>
                           <Badge variant={STATUS_BADGE_VARIANT[lending.status]}>
-                            {LENDING_STATUS_LABELS[lending.status]}
+                            {lendingStatusLabel(lending.status)}
                           </Badge>
                           {lending.overdue_days != null && (
                             <div className="mt-0.5 text-xs text-destructive">
@@ -171,7 +173,7 @@ export default function ParentLibraryPage() {
                       <p className="truncate text-xs text-muted-foreground">{lending.author}</p>
                     </div>
                     <Badge variant={STATUS_BADGE_VARIANT[lending.status]} className="shrink-0">
-                      {LENDING_STATUS_LABELS[lending.status]}
+                      {lendingStatusLabel(lending.status)}
                     </Badge>
                   </div>
                   {lending.overdue_days != null && (

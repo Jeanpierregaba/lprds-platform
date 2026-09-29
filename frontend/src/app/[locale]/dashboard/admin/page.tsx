@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useLabel } from '@/lib/i18n/labels'
 import { motion } from 'framer-motion'
 import {
   ArrowRight, Baby, BellRing, BookOpen, Cake, FileText, MessageCircle,
@@ -19,7 +20,7 @@ import { parentsApi } from '@/lib/api/parents.api'
 import { reportsApi } from '@/lib/api/reports.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { cn } from '@/lib/utils/cn'
-import { WEEKDAYS, WEEKDAY_LABELS, type Weekday } from '@/types/menus'
+import { WEEKDAYS, type Weekday } from '@/types/menus'
 import type { DailyStatus } from '@/types/attendance'
 import { Link } from '@/i18n/navigation'
 
@@ -192,6 +193,7 @@ function ActionCard({
 }
 
 export default function AdminDashboardPage() {
+  const weekdaysLabel = useLabel('weekdays')
   const today = todayIso()
 
   const { data: children, isLoading: loadingChildren } = useQuery({
@@ -436,7 +438,7 @@ export default function AdminDashboardPage() {
                   <span className="flex size-9 items-center justify-center rounded-xl bg-orange text-navy shadow-sm">
                     <UtensilsCrossed className="size-5" />
                   </span>
-                  Cantine — {WEEKDAY_LABELS[todayKey]}
+                  Cantine — {weekdaysLabel(todayKey)}
                 </CardTitle>
               </CardHeader>
               <CardContent>

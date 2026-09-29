@@ -44,13 +44,10 @@ export interface PasswordChangePayload {
     new_password:     string
 }
 
-// Mapping rôle → libellé affiché
-export const ROLE_LABELS: Record<UserRole, string> = {
-    superadmin: 'Super Administrateur',
-    admin:      'Administrateur',
-    staff:      'Personnel',
-    parent:     'Parent',
-}
+// Les libellés affichés vivent dans les catalogues (`enums.roles`) —
+// cf. src/lib/i18n/labels.ts. Ici ne restent que les codes échangés avec le
+// backend, qui ne changent jamais de langue.
+export const USER_ROLES = ['superadmin', 'admin', 'staff', 'parent'] as const
   
 // Redirection par rôle après login
   export const ROLE_HOME: Record<UserRole, string> = {

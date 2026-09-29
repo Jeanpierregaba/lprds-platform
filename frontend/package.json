@@ -7,10 +7,11 @@
     "prebuild": "node scripts/stamp-version.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint && node scripts/check-messages.mjs",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check-messages": "node scripts/check-messages.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

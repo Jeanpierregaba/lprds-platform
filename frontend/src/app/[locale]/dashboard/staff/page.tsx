@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -73,6 +75,7 @@ function KpiCard({
 const MODULE_TINTS = ['bg-sky', 'bg-teal', 'bg-pink', 'bg-orange', 'bg-navy', 'bg-primary']
 
 export default function StaffDashboardPage() {
+  const tNav = useTranslations('nav')
   const user = useUser()
   const { permissions } = useMyPermissions()
 
@@ -224,7 +227,7 @@ export default function StaffDashboardPage() {
                       <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm', tint)}>
                         <Icon className="size-5" />
                       </span>
-                      <span className="font-display text-lg font-semibold leading-tight">{m.label}</span>
+                      <span className="font-display text-lg font-semibold leading-tight">{tNav(m.labelKey)}</span>
                       <ArrowRight className="ml-auto size-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
                     </CardContent>
                   </Card>

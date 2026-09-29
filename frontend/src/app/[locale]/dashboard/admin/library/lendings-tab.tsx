@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,7 +29,7 @@ import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
-import { LENDING_STATUS_LABELS, type LendingStatus } from '@/types/library'
+import { LENDING_STATUSES, type LendingStatus } from '@/types/library'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
@@ -194,6 +195,8 @@ function CreateLendingDialog({
 }
 
 export function LendingsTab() {
+  const lendingStatusLabel = useLabel('lendingStatus')
+  const lendingStatusLabels = useLabelMap('lendingStatus', LENDING_STATUSES)
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canLend = user?.role === 'admin' || permissions.has('library:lend')
@@ -236,7 +239,7 @@ export function LendingsTab() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Select
-          items={{ [ALL]: 'Tous les statuts', ...LENDING_STATUS_LABELS }}
+          items={{ [ALL]: 'Tous les statuts', ...lendingStatusLabels }}
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v ?? ALL)}
         >
@@ -245,7 +248,7 @@ export function LendingsTab() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Tous les statuts</SelectItem>
-            {Object.entries(LENDING_STATUS_LABELS).map(([value, label]) => (
+            {Object.entries(lendingStatusLabels).map(([value, label]) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
           </SelectContent>
@@ -299,7 +302,7 @@ export function LendingsTab() {
                 <Td className="text-muted-foreground">{formatDate(lending.due_date)}</Td>
                 <Td>
                   <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[lending.status])}>
-                    {LENDING_STATUS_LABELS[lending.status]}
+                    {lendingStatusLabel(lending.status)}
                   </span>
                   {lending.overdue_days != null && (
                     <div className="mt-0.5 text-xs text-destructive">

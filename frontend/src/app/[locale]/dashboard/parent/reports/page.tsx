@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ArrowRight, Award, CalendarRange, FileText, Sun } from 'lucide-react'
@@ -10,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { reportsApi } from '@/lib/api/reports.api'
-import { REPORT_TYPE_LABELS, type ReportType } from '@/types/reports'
+import { type ReportType } from '@/types/reports'
 import { cn } from '@/lib/utils/cn'
 import { PageMotion } from '@/components/dashboard/shared/page'
 import { CardsEmptyState } from '@/components/dashboard/shared/cards'
@@ -37,6 +38,7 @@ function initials(first: string, last: string) {
 }
 
 export default function ParentReportsPage() {
+  const reportTypesLabel = useLabel('reportTypes')
   const [childId, setChildId] = useState(ALL)
   const [skip, setSkip] = useState(0)
   const { children } = useMyChildren()
@@ -125,7 +127,7 @@ export default function ParentReportsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium', style.soft)}>
                           <Icon className="size-3.5 shrink-0" />
-                          {REPORT_TYPE_LABELS[r.report_type]}
+                          {reportTypesLabel(r.report_type)}
                         </span>
                         {published && <span className="text-xs text-muted-foreground">Publié le {published}</span>}
                       </div>

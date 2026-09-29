@@ -1,24 +1,28 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { Award, CalendarRange, Sun } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
 import { reportsApi } from '@/lib/api/reports.api'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
-import { REPORT_STATUS_LABELS, type ReportStatus, type ReportType } from '@/types/reports'
+import { REPORT_STATUSES, type ReportStatus, type ReportType } from '@/types/reports'
 import { StatusList } from './status-list'
 import { MissingList } from './missing-list'
 
 type StatusTab = ReportStatus | 'missing'
 
-const STATUS_TABS: { value: StatusTab; label: string; active: 'navy' | 'primary' | 'destructive' | 'secondary' | 'orange' }[] = [
-  { value: 'draft', label: REPORT_STATUS_LABELS.draft, active: 'navy' },
-  { value: 'submitted', label: REPORT_STATUS_LABELS.submitted, active: 'primary' },
-  { value: 'rejected', label: REPORT_STATUS_LABELS.rejected, active: 'destructive' },
-  { value: 'validated', label: REPORT_STATUS_LABELS.validated, active: 'secondary' },
-  { value: 'missing', label: 'Non soumis', active: 'orange' },
+/** Couleur de la pastille par statut — invariant, contrairement au libellé,
+ *  qui dépend désormais de la langue et se résout donc dans le composant. */
+const STATUS_TAB_STYLE: { value: StatusTab; active: 'navy' | 'primary' | 'destructive' | 'secondary' | 'orange' }[] = [
+  { value: 'draft', active: 'navy' },
+  { value: 'submitted', active: 'primary' },
+  { value: 'rejected', active: 'destructive' },
+  { value: 'validated', active: 'secondary' },
+  { value: 'missing', active: 'orange' },
 ]
 
 function todayIso() {
@@ -33,6 +37,8 @@ function Count({ value }: { value: number | undefined }) {
 /** Un type de rapport : 5 pills de statut (brouillon, soumis, rejeté, validé,
  * non-soumis) avec compteurs. */
 export function TypeTab({ reportType }: { reportType: ReportType }) {
+  const tTabs = useTranslations('reports.tabs')
+  const reportStatusLabel = useLabel('reportStatus')
   const [status, setStatus] = useState<StatusTab>('submitted')
   const [missingDate, setMissingDate] = useState(todayIso())
   const [missingSearch, setMissingSearch] = useState('')
@@ -61,15 +67,15 @@ export function TypeTab({ reportType }: { reportType: ReportType }) {
   return (
     <Tabs value={status} onValueChange={(v) => v && setStatus(v as StatusTab)}>
       <PillsTabsList>
-        {STATUS_TABS.map((tab) => (
+        {STATUS_TAB_STYLE.map((tab) => (
           <PillsTrigger key={tab.value} value={tab.value} active={tab.active}>
-            {tab.label}
+            {tab.value === 'missing' ? tTabs('missing') : reportStatusLabel(tab.value)}
             <Count value={countFor(tab.value)} />
           </PillsTrigger>
         ))}
       </PillsTabsList>
 
-      {(Object.keys(REPORT_STATUS_LABELS) as ReportStatus[]).map((s) => (
+      {REPORT_STATUSES.map((s) => (
         <TabPanel key={s} value={s}>
           {status === s && <StatusList reportType={reportType} status={s} />}
         </TabPanel>

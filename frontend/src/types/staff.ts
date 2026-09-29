@@ -7,15 +7,11 @@ export type StaffType =
   | 'secretaire'
   | 'restaurateur'
 
-export const STAFF_TYPE_LABELS: Record<StaffType, string> = {
-  administrateur: 'Administrateur',
-  educateur:      'Éducateur/trice',
-  prestataire:    'Prestataire',
-  directrice:     'Directeur/trice',
-  redacteur:      'Rédacteur/trice',
-  secretaire:     'Secrétaire',
-  restaurateur:   'Restaurateur/trice',
-}
+/** Libellés dans les catalogues (`enums.staffTypes`). */
+export const STAFF_TYPES = [
+  'administrateur', 'educateur', 'prestataire', 'directrice',
+  'redacteur', 'secretaire', 'restaurateur',
+] as const
 
 export interface StaffListItem {
   id:         string

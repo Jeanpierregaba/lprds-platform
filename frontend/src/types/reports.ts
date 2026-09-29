@@ -1,18 +1,9 @@
 export type ReportType = 'quotidien' | 'bi_mensuel' | 'annuel'
 export type ReportStatus = 'draft' | 'submitted' | 'rejected' | 'validated'
 
-export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
-  quotidien: 'Quotidien',
-  bi_mensuel: 'Bi-mensuel',
-  annuel: 'Annuel',
-}
-
-export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
-  draft: 'Brouillon',
-  submitted: 'Soumis',
-  rejected: 'Rejeté',
-  validated: 'Validé',
-}
+/** Libellés dans les catalogues (`enums.reportTypes`, `enums.reportStatus`). */
+export const REPORT_TYPES = ['quotidien', 'bi_mensuel', 'annuel'] as const
+export const REPORT_STATUSES = ['draft', 'submitted', 'rejected', 'validated'] as const
 
 /** Pastilles pleines des statuts (sans `variant`, le défaut convient) :
  *  brouillon = blanc, soumis = jaune, rejeté = rouge, validé = vert. */
@@ -25,14 +16,11 @@ export const REPORT_STATUS_BADGE_CLASS: Record<ReportStatus, string> = {
 
 // Les 6 domaines partagent les mêmes clés entre bi_mensuel (texte libre) et
 // annuel (notation + observation) — même convention de nommage côté backend.
-export const DOMAIN_LABELS = {
-  oral_written_language: 'Développement et structuration du langage oral et écrit',
-  physical_activities: "Agir, s'exprimer, comprendre à travers les activités physiques",
-  artistic_activities: "Agir, s'exprimer, comprendre à travers les activités artistiques",
-  math_foundations: 'L’acquisition des premiers outils mathématiques',
-  world_exploration: 'Explorer le monde',
-  english: 'Anglais',
-} as const
+/** Libellés dans les catalogues (`enums.reportDomains`). */
+export const DOMAIN_KEYS = [
+  'oral_written_language', 'physical_activities', 'artistic_activities',
+  'math_foundations', 'world_exploration', 'english',
+] as const
 
 export interface UserBrief {
   id:         string

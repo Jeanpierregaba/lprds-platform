@@ -1,12 +1,13 @@
 'use client'
 
 import { Tabs } from '@/components/ui/tabs'
+import { useLabel } from '@/lib/i18n/labels'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
-import { REPORT_TYPE_LABELS } from '@/types/reports'
 import { TYPE_TAB_META, TypeTab } from './type-tab'
 
 export default function ReportsPage() {
+  const reportTypesLabel = useLabel('reportTypes')
   return (
     <PageMotion>
       <PageHeader
@@ -18,7 +19,7 @@ export default function ReportsPage() {
         <PillsTabsList>
           {TYPE_TAB_META.map((tab) => (
             <PillsTrigger key={tab.value} value={tab.value} active={tab.active} icon={tab.icon}>
-              {REPORT_TYPE_LABELS[tab.value]}
+              {reportTypesLabel(tab.value)}
             </PillsTrigger>
           ))}
         </PillsTabsList>

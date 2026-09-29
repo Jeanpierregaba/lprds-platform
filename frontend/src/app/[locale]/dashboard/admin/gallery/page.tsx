@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { FileVideo, Images } from 'lucide-react'
 
@@ -9,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { galleryApi } from '@/lib/api/gallery.api'
 import { useUser } from '@/lib/stores/auth.store'
-import { GALLERY_SOURCE_BADGE_LABEL, isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { isVideo, type GalleryMediaItem } from '@/types/gallery'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { GalleryFilters, EMPTY_FILTERS, toParams, type GalleryFilterState } from './gallery-filters'
 import { MediaThumb } from './media-thumb'
@@ -18,6 +19,7 @@ import { MediaLightbox } from './media-lightbox'
 const PAGE_SIZE = 30
 
 export default function GalleryPage() {
+  const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
   const user = useUser()
   const staffReportsOnly = user?.role === 'staff'
   const [filters, setFilters] = useState<GalleryFilterState>(EMPTY_FILTERS)
@@ -74,7 +76,7 @@ export default function GalleryPage() {
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:opacity-100">
                 <Badge variant="secondary" className="text-xs">
-                  {GALLERY_SOURCE_BADGE_LABEL[item.source]}
+                  {gallerySourceBadgesLabel(item.source)}
                 </Badge>
               </div>
             </button>

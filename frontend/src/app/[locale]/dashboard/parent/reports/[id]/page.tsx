@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -15,7 +16,7 @@ import { reportsApi } from '@/lib/api/reports.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
-import { REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
+import { type ReportAttachment } from '@/types/reports'
 import { ContentView } from '@/app/[locale]/dashboard/admin/reports/content-view'
 
 function formatDate(iso: string | null) {
@@ -23,6 +24,7 @@ function formatDate(iso: string | null) {
 }
 
 export default function ParentReportDetailPage() {
+  const reportTypesLabel = useLabel('reportTypes')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
@@ -78,7 +80,7 @@ export default function ParentReportDetailPage() {
             <div className="min-w-0">
               <CardTitle className="break-words">{report.child.first_names} {report.child.last_name}</CardTitle>
               <CardDescription>
-                {REPORT_TYPE_LABELS[report.report_type]} · {report.period_label}
+                {reportTypesLabel(report.report_type)} · {report.period_label}
               </CardDescription>
             </div>
             {report.report_type === 'annuel' && (

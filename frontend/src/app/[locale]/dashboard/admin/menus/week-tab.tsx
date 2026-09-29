@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Coffee, Cookie, IceCream2, Loader2, Utensils } from 'lucide-react'
@@ -23,7 +24,7 @@ import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { addDays, mondayOf, parseIsoDate, toIsoDate } from '@/lib/utils/dates'
 import {
-  MEAL_SLOTS, MEAL_SLOT_LABELS, WEEKDAYS, WEEKDAY_LABELS, emptyWeek,
+  MEAL_SLOTS, WEEKDAYS, emptyWeek,
   type DayMenu, type MealSlot, type Weekday, type WeekContent,
 } from '@/types/menus'
 
@@ -50,6 +51,8 @@ export function WeekTab({
   departmentId: string
   onDepartmentChange: (departmentId: string) => void
 }) {
+  const mealSlotsLabel = useLabel('mealSlots')
+  const weekdaysLabel = useLabel('weekdays')
   const queryClient = useQueryClient()
   const [content, setContent] = useState<WeekContent>(emptyWeek())
 
@@ -210,7 +213,7 @@ export function WeekTab({
                         const isToday = dayDates[day] === today
                         return (
                           <TableHead key={day} className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wide text-primary-foreground">
-                            <div>{WEEKDAY_LABELS[day]}</div>
+                            <div>{weekdaysLabel(day)}</div>
                             <div className="text-xs font-normal normal-case text-primary-foreground/70">{formatShortDate(dayDates[day])}</div>
                             {isToday && <Badge className="mt-1 border-transparent bg-navy text-white">Aujourd&apos;hui</Badge>}
                           </TableHead>
@@ -226,7 +229,7 @@ export function WeekTab({
                           <TableCell className="px-5 py-4 font-medium">
                             <div className="flex items-center gap-1.5 text-muted-foreground">
                               <Icon className="size-4" />
-                              <span className="text-foreground">{MEAL_SLOT_LABELS[slot]}</span>
+                              <span className="text-foreground">{mealSlotsLabel(slot)}</span>
                             </div>
                           </TableCell>
                           {WEEKDAYS.map((day) => (
@@ -253,7 +256,7 @@ export function WeekTab({
                   return (
                     <div key={day} className="px-4 py-3">
                       <div className="mb-2 flex items-center gap-2">
-                        <h3 className="font-medium">{WEEKDAY_LABELS[day]}</h3>
+                        <h3 className="font-medium">{weekdaysLabel(day)}</h3>
                         <span className="text-sm text-muted-foreground">{formatShortDate(dayDates[day])}</span>
                         {isToday && <Badge variant="default">Aujourd&apos;hui</Badge>}
                       </div>
@@ -264,7 +267,7 @@ export function WeekTab({
                             <div key={slot}>
                               <label className="mb-0.5 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                                 <Icon className="size-4" />
-                                {MEAL_SLOT_LABELS[slot]}
+                                {mealSlotsLabel(slot)}
                               </label>
                               <Input
                                 value={content[day][slot] ?? ''}

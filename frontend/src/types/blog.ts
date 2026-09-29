@@ -1,9 +1,7 @@
 export type ArticleStatus = 'draft' | 'published'
 
-export const ARTICLE_STATUS_LABELS: Record<ArticleStatus, string> = {
-  draft: 'Brouillon',
-  published: 'Publié',
-}
+/** Libellés dans les catalogues (`enums.articleStatus`). */
+export const ARTICLE_STATUSES = ['draft', 'published'] as const
 
 export interface BlogUserBrief {
   id: string

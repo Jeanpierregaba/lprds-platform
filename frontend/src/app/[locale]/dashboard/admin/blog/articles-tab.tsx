@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { Newspaper, Plus } from 'lucide-react'
 
@@ -12,7 +13,7 @@ import { cn } from '@/lib/utils/cn'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { AuthMedia } from './auth-media'
-import { ARTICLE_STATUS_LABELS, type ArticleStatus } from '@/types/blog'
+import { ARTICLE_STATUSES, type ArticleStatus } from '@/types/blog'
 import { Link, useRouter } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
@@ -28,6 +29,8 @@ function formatDate(iso: string | null) {
 }
 
 export function ArticlesTab() {
+  const articleStatusLabel = useLabel('articleStatus')
+  const articleStatusLabels = useLabelMap('articleStatus', ARTICLE_STATUSES)
   const router = useRouter()
   const [status, setStatus] = useState<string>(ALL)
   const [tagId, setTagId] = useState<string>(ALL)
@@ -67,7 +70,7 @@ export function ArticlesTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
           <Select
-            items={{ [ALL]: 'Tous les statuts', ...ARTICLE_STATUS_LABELS }}
+            items={{ [ALL]: 'Tous les statuts', ...articleStatusLabels }}
             value={status}
             onValueChange={(v) => setStatus(v ?? ALL)}
           >
@@ -76,7 +79,7 @@ export function ArticlesTab() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Tous les statuts</SelectItem>
-              {Object.entries(ARTICLE_STATUS_LABELS).map(([value, label]) => (
+              {Object.entries(articleStatusLabels).map(([value, label]) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
@@ -168,7 +171,7 @@ export function ArticlesTab() {
                 </Td>
                 <Td>
                   <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', STATUS_PILLS[article.status])}>
-                    {ARTICLE_STATUS_LABELS[article.status]}
+                    {articleStatusLabel(article.status)}
                   </span>
                 </Td>
                 <Td className="text-muted-foreground">{formatDate(article.published_at)}</Td>

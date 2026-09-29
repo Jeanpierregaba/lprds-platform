@@ -1,6 +1,8 @@
 'use client'
 
 import { Controller, type UseFormReturn } from 'react-hook-form'
+import { DOMAIN_KEYS } from '@/types/reports'
+import { useLabel } from '@/lib/i18n/labels'
 
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -8,13 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { AnnualContentForm } from '@/lib/reports/content-schemas'
 import type { ReportVocabulary } from '@/types/reports'
-import { DOMAIN_LABELS } from '@/types/reports'
-
-const DOMAIN_KEYS = Object.keys(DOMAIN_LABELS) as (keyof typeof DOMAIN_LABELS)[]
 
 export function AnnualFields({
   form, vocabulary,
 }: { form: UseFormReturn<AnnualContentForm>; vocabulary: ReportVocabulary }) {
+  const reportDomainsLabel = useLabel('reportDomains')
   const { register, control, formState: { errors } } = form
 
   return (
@@ -22,7 +22,7 @@ export function AnnualFields({
       {DOMAIN_KEYS.map((key) => (
         <Card key={key}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">{DOMAIN_LABELS[key]}</CardTitle>
+            <CardTitle className="text-sm">{reportDomainsLabel(key)}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">

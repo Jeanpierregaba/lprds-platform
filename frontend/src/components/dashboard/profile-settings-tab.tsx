@@ -1,6 +1,7 @@
 'use client'
 
 import { useForm } from 'react-hook-form'
+import { useLabel } from '@/lib/i18n/labels'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -14,7 +15,6 @@ import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authApi } from '@/lib/api/auth.api'
 import { useUser } from '@/lib/stores/auth.store'
-import { ROLE_LABELS } from '@/types/auth'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 
 const schema = z.object({
@@ -32,6 +32,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export function ProfileSettingsTab() {
+  const rolesLabel = useLabel('roles')
   const user = useUser()
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
@@ -69,7 +70,7 @@ export function ProfileSettingsTab() {
             <div>
               <Badge variant="default">
                 <ShieldCheck className="mr-1 size-3" />
-                {ROLE_LABELS[user.role]}
+                {rolesLabel(user.role)}
               </Badge>
             </div>
           </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,7 +20,6 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink } from '@/components/dashboard/shared/page'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
-import { ARTICLE_STATUS_LABELS } from '@/types/blog'
 import { AuthMedia } from '../auth-media'
 import { useRouter } from '@/i18n/navigation'
 
@@ -30,6 +30,7 @@ function formatDateTime(iso: string) {
 }
 
 export default function ArticleDetailPage() {
+  const articleStatusLabel = useLabel('articleStatus')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -139,7 +140,7 @@ export default function ArticleDetailPage() {
               </CardDescription>
             </div>
             <Badge variant={article.status === 'published' ? 'default' : 'outline'}>
-              {ARTICLE_STATUS_LABELS[article.status]}
+              {articleStatusLabel(article.status)}
             </Badge>
           </div>
         </CardHeader>

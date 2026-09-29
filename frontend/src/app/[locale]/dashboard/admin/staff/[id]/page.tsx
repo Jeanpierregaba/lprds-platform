@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLabelMap } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
@@ -27,7 +28,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
-import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
+import { STAFF_TYPES, type StaffType } from '@/types/staff'
 
 const infoSchema = z.object({
   first_name: z.string().min(1, 'Prénom requis').max(100),
@@ -48,6 +49,7 @@ const resetSchema = z.object({
 type ResetForm = z.infer<typeof resetSchema>
 
 export default function StaffDetailPage() {
+  const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [resetOpen, setResetOpen] = useState(false)
@@ -236,12 +238,12 @@ export default function StaffDetailPage() {
                     control={control}
                     name="staff_type"
                     render={({ field }) => (
-                      <Select items={STAFF_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
+                      <Select items={staffTypesLabels} value={field.value} onValueChange={field.onChange}>
                         <SelectTrigger id="staff_type" className="w-full" aria-invalid={!!infoErrors.staff_type}>
                           <SelectValue placeholder="Choisir un type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(STAFF_TYPE_LABELS).map(([value, label]) => (
+                          {Object.entries(staffTypesLabels).map(([value, label]) => (
                             <SelectItem key={value} value={value}>{label}</SelectItem>
                           ))}
                         </SelectContent>

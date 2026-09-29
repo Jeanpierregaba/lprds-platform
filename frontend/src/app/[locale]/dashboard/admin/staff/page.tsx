@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Eye, Loader2, Plus, QrCode, UserCheck, UserRound, UserX } from 'lucide-react'
@@ -21,13 +22,15 @@ import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/component
 import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem, StatusPill } from '@/components/dashboard/shared/cards'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
-import { STAFF_TYPE_LABELS, type StaffListItem, type StaffType } from '@/types/staff'
+import { STAFF_TYPES, type StaffListItem, type StaffType } from '@/types/staff'
 import { Link } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
 
 export default function StaffListPage() {
+  const staffTypesLabel = useLabel('staffTypes')
+  const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
@@ -84,7 +87,7 @@ export default function StaffListPage() {
           onChange={setSearch}
         />
         <Select
-          items={{ [ALL]: 'Tous les types', ...STAFF_TYPE_LABELS }}
+          items={{ [ALL]: 'Tous les types', ...staffTypesLabels }}
           value={staffType}
           onValueChange={(v) => setStaffType(v ?? ALL)}
         >
@@ -93,7 +96,7 @@ export default function StaffListPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Tous les types</SelectItem>
-            {Object.entries(STAFF_TYPE_LABELS).map(([value, label]) => (
+            {Object.entries(staffTypesLabels).map(([value, label]) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
           </SelectContent>
@@ -167,7 +170,7 @@ export default function StaffListPage() {
                 </Td>
                 <Td>
                   <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
-                    {s.staff_type ? STAFF_TYPE_LABELS[s.staff_type] : '—'}
+                    {s.staff_type ? staffTypesLabel(s.staff_type) : '—'}
                   </Link>
                 </Td>
                 <Td>
@@ -237,6 +240,7 @@ function StaffCard({
   canWrite: boolean
   canQr: boolean
 }) {
+  const staffTypesLabel = useLabel('staffTypes')
   const queryClient = useQueryClient()
   const detailHref = `/dashboard/admin/staff/${member.id}`
   const [qrOpen, setQrOpen] = useState(false)
@@ -275,7 +279,7 @@ function StaffCard({
           Code: <span className="font-mono">{member.matricule ?? '—'}</span>
         </p>
         <p className="text-sm">
-          <span className="font-medium">Poste:</span> {member.staff_type ? STAFF_TYPE_LABELS[member.staff_type] : '—'}
+          <span className="font-medium">Poste:</span> {member.staff_type ? staffTypesLabel(member.staff_type) : '—'}
         </p>
         <p className="truncate text-sm text-muted-foreground" title={member.email}>{member.email}</p>
 

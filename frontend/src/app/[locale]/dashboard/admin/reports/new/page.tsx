@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabelMap } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { FileUp, Loader2, Search, X } from 'lucide-react'
@@ -20,7 +21,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { useUser } from '@/lib/stores/auth.store'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
-import { REPORT_TYPE_LABELS, type ReportType } from '@/types/reports'
+import { REPORT_TYPES, type ReportType } from '@/types/reports'
 import type { ChildListItem } from '@/types/children'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
@@ -42,6 +43,7 @@ const isAllowedMediaType = (type: string): boolean =>
   (type.startsWith('image/') || type.startsWith('video/')) && type !== 'image/svg+xml'
 
 export default function NewReportPage() {
+  const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
   const router = useRouter()
   const user = useUser()
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
@@ -301,7 +303,7 @@ export default function NewReportPage() {
                   <div className="space-y-2">
                     <Label htmlFor="report_type">Type de rapport</Label>
                     <Select
-                      items={REPORT_TYPE_LABELS}
+                      items={reportTypesLabels}
                       value={reportType}
                       onValueChange={(v) => setReportType((v as ReportType) ?? '')}
                     >
@@ -309,7 +311,7 @@ export default function NewReportPage() {
                         <SelectValue placeholder="Choisir un type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(REPORT_TYPE_LABELS)
+                        {Object.entries(reportTypesLabels)
                           .filter(([value]) => allowedTypeValues.has(value as ReportType))
                           .map(([value, label]) => (
                             <SelectItem key={value} value={value}>{label}</SelectItem>

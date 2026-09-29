@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useLabel } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -29,7 +30,7 @@ import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualConte
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink } from '@/components/dashboard/shared/page'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
-import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
+import { REPORT_STATUS_BADGE_CLASS, type ReportAttachment } from '@/types/reports'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
@@ -44,6 +45,8 @@ function formatDateTime(iso: string) {
 }
 
 export default function ReportDetailPage() {
+  const reportStatusLabel = useLabel('reportStatus')
+  const reportTypesLabel = useLabel('reportTypes')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -203,11 +206,11 @@ export default function ReportDetailPage() {
             <div>
               <CardTitle>{report.child.first_names} {report.child.last_name}</CardTitle>
               <CardDescription>
-                {REPORT_TYPE_LABELS[report.report_type]} · {report.period_label}
+                {reportTypesLabel(report.report_type)} · {report.period_label}
               </CardDescription>
             </div>
             <Badge className={REPORT_STATUS_BADGE_CLASS[report.status]}>
-              {REPORT_STATUS_LABELS[report.status]}
+              {reportStatusLabel(report.status)}
             </Badge>
           </div>
         </CardHeader>

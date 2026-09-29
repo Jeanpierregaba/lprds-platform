@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useLabel } from '@/lib/i18n/labels'
 import { motion } from 'framer-motion'
 import {
   ArrowRight, Baby, BookMarked, FileText, Images, Megaphone,
@@ -16,8 +17,7 @@ import { messagingApi } from '@/lib/api/messaging.api'
 import { parentsApi } from '@/lib/api/parents.api'
 import { reportsApi } from '@/lib/api/reports.api'
 import { cn } from '@/lib/utils/cn'
-import { WEEKDAY_LABELS, type Weekday } from '@/types/menus'
-import { REPORT_TYPE_LABELS } from '@/types/reports'
+import { type Weekday } from '@/types/menus'
 import { Link } from '@/i18n/navigation'
 
 function formatLongDate() {
@@ -80,6 +80,8 @@ function KpiCard({
 const CHILD_TINTS = ['bg-sky', 'bg-teal', 'bg-pink', 'bg-orange', 'bg-navy']
 
 export default function ParentDashboardPage() {
+  const reportTypesLabel = useLabel('reportTypes')
+  const weekdaysLabel = useLabel('weekdays')
   const user = useUser()
 
   const { data: children = [], isLoading: loadingChildren } = useQuery({
@@ -263,7 +265,7 @@ export default function ParentDashboardPage() {
                           {r.child.first_names} {r.child.last_name}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
-                          {REPORT_TYPE_LABELS[r.report_type]} · {r.period_label}
+                          {reportTypesLabel(r.report_type)} · {r.period_label}
                         </span>
                       </span>
                       {!r.is_read ? (
@@ -292,7 +294,7 @@ export default function ParentDashboardPage() {
                   <span className="flex size-9 items-center justify-center rounded-xl bg-orange text-navy shadow-sm">
                     <UtensilsCrossed className="size-5" />
                   </span>
-                  Cantine — {WEEKDAY_LABELS[weekday]}
+                  Cantine — {weekdaysLabel(weekday)}
                 </CardTitle>
               </CardHeader>
               <CardContent>

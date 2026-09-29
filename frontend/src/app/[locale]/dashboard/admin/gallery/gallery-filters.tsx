@@ -1,6 +1,8 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useLabelMap } from '@/lib/i18n/labels'
+import { REPORT_TYPES } from '@/types/reports'
 
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -8,8 +10,7 @@ import { Button } from '@/components/ui/button'
 import { childrenApi } from '@/lib/api/children.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { staffApi } from '@/lib/api/staff.api'
-import { GALLERY_SOURCE_LABELS, type GalleryMediaParams } from '@/types/gallery'
-import { REPORT_TYPE_LABELS } from '@/types/reports'
+import { GALLERY_SOURCES, type GalleryMediaParams } from '@/types/gallery'
 
 export const ALL = '__all__'
 
@@ -57,6 +58,8 @@ export function GalleryFilters({
    * le sélecteur de source est masqué, la page force `source=report`. */
   hideSource?: boolean
 }) {
+  const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
+  const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
   const { data: children } = useQuery({
     queryKey: ['children', 'options'],
     queryFn: () => childrenApi.list({ limit: 200 }).then((r) => r.data.items),
@@ -87,11 +90,11 @@ export function GalleryFilters({
   return (
     <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
       {!hideSource && (
-      <Select items={{ [ALL]: 'Toutes les sources', ...GALLERY_SOURCE_LABELS }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
+      <Select items={{ [ALL]: 'Toutes les sources', ...gallerySourcesLabels }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
         <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Toutes les sources</SelectItem>
-          {Object.entries(GALLERY_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          {Object.entries(gallerySourcesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
       )}
@@ -124,11 +127,11 @@ export function GalleryFilters({
         </SelectContent>
       </Select>
 
-      <Select items={{ [ALL]: 'Tous les types', ...REPORT_TYPE_LABELS }} value={filters.reportType} onValueChange={(v) => set('reportType', v ?? ALL)}>
+      <Select items={{ [ALL]: 'Tous les types', ...reportTypesLabels }} value={filters.reportType} onValueChange={(v) => set('reportType', v ?? ALL)}>
         <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Tous les types" /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Tous les types</SelectItem>
-          {Object.entries(REPORT_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          {Object.entries(reportTypesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
 

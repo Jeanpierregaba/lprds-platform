@@ -1,6 +1,7 @@
 'use client'
 
 import { Download, Loader2 } from 'lucide-react'
+import { useLabel } from '@/lib/i18n/labels'
 
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -11,8 +12,7 @@ import { MediaThumb } from './media-thumb'
 import { galleryApi } from '@/lib/api/gallery.api'
 import { downloadBlob } from '@/lib/utils/download'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { REPORT_TYPE_LABELS } from '@/types/reports'
-import { GALLERY_SOURCE_BADGE_LABEL, type GalleryMediaItem } from '@/types/gallery'
+import { type GalleryMediaItem } from '@/types/gallery'
 import { toast } from 'sonner'
 import { useState } from 'react'
 
@@ -23,6 +23,8 @@ function formatDateTime(iso: string) {
 export function MediaLightbox({
   item, onOpenChange,
 }: { item: GalleryMediaItem | null; onOpenChange: (open: boolean) => void }) {
+  const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
+  const reportTypesLabel = useLabel('reportTypes')
   const [isDownloading, setIsDownloading] = useState(false)
 
   if (!item) return null
@@ -50,8 +52,8 @@ export function MediaLightbox({
         <MediaThumb item={item} controls className="max-h-[50dvh] w-full rounded-md" />
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="secondary">{GALLERY_SOURCE_BADGE_LABEL[item.source]}</Badge>
-          {item.report_type && <Badge variant="outline">{REPORT_TYPE_LABELS[item.report_type]}</Badge>}
+          <Badge variant="secondary">{gallerySourceBadgesLabel(item.source)}</Badge>
+          {item.report_type && <Badge variant="outline">{reportTypesLabel(item.report_type)}</Badge>}
           {item.announcement_title && <Badge variant="outline">Diffusion : {item.announcement_title}</Badge>}
           {item.child && <Badge variant="outline">{item.child.first_names} {item.child.last_name}</Badge>}
           {item.conversation_parent && (

@@ -1,13 +1,12 @@
 import { Badge } from '@/components/ui/badge'
+import { useLabel } from '@/lib/i18n/labels'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { DOMAIN_LABELS, type ReportType, type ReportVocabulary } from '@/types/reports'
+import { DOMAIN_KEYS, type ReportType, type ReportVocabulary } from '@/types/reports'
 import { normalizeActivities } from '@/lib/reports/content-schemas'
 import type {
   AnnualReportContent, BiMensuelReportContent, DailyReportContent, DomainAssessment,
 } from '@/types/reports'
-
-const DOMAIN_KEYS = Object.keys(DOMAIN_LABELS) as (keyof typeof DOMAIN_LABELS)[]
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -65,6 +64,7 @@ function Section({
 export function ContentView({
   reportType, content, vocabulary,
 }: { reportType: ReportType; content: Record<string, unknown>; vocabulary: ReportVocabulary }) {
+  const reportDomainsLabel = useLabel('reportDomains')
   if (reportType === 'quotidien') {
     const c = content as unknown as DailyReportContent
     const activities = normalizeActivities(c.activities)
@@ -129,7 +129,7 @@ export function ContentView({
     return (
       <div className="space-y-4">
         {DOMAIN_KEYS.map((key) => (
-          <Field key={key} label={DOMAIN_LABELS[key]} value={c[key]} />
+          <Field key={key} label={reportDomainsLabel(key)} value={c[key]} />
         ))}
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Comportement &amp; attitude en classe</p>
@@ -156,7 +156,7 @@ export function ContentView({
         return (
           <Card key={key}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{DOMAIN_LABELS[key]}</CardTitle>
+              <CardTitle className="text-sm">{reportDomainsLabel(key)}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <Badge variant="outline" className="font-normal">

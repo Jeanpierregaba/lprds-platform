@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { FileVideo, Images } from 'lucide-react'
 
@@ -9,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AuthMedia } from '@/components/media/auth-media'
 import { galleryApi } from '@/lib/api/gallery.api'
-import { GALLERY_SOURCE_BADGE_LABEL, GALLERY_SOURCE_LABELS, isVideo, type GalleryMediaItem } from '@/types/gallery'
+import { GALLERY_SOURCES, isVideo, type GalleryMediaItem } from '@/types/gallery'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { MediaLightbox } from '@/app/[locale]/dashboard/admin/gallery/media-lightbox'
@@ -19,6 +20,8 @@ const ALL = '__all__'
 const PAGE_SIZE = 30
 
 export default function ParentGalleryPage() {
+  const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
+  const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
   const [source, setSource] = useState(ALL)
   const [childId, setChildId] = useState(ALL)
   const [skip, setSkip] = useState(0)
@@ -53,11 +56,11 @@ export default function ParentGalleryPage() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <Select items={{ [ALL]: 'Toutes les sources', ...GALLERY_SOURCE_LABELS }} value={source} onValueChange={(v) => setSource(v ?? ALL)}>
+        <Select items={{ [ALL]: 'Toutes les sources', ...gallerySourcesLabels }} value={source} onValueChange={(v) => setSource(v ?? ALL)}>
           <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Toutes les sources</SelectItem>
-            {Object.entries(GALLERY_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+            {Object.entries(gallerySourcesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -103,7 +106,7 @@ export default function ParentGalleryPage() {
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100 max-sm:opacity-100">
                 <Badge variant="secondary" className="text-xs">
-                  {GALLERY_SOURCE_BADGE_LABEL[item.source]}
+                  {gallerySourceBadgesLabel(item.source)}
                 </Badge>
               </div>
             </button>

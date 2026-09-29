@@ -1,6 +1,8 @@
 'use client'
 
 import { Controller, type UseFormReturn } from 'react-hook-form'
+import { DOMAIN_KEYS } from '@/types/reports'
+import { useLabel } from '@/lib/i18n/labels'
 
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -8,13 +10,11 @@ import { Separator } from '@/components/ui/separator'
 import { CheckboxGroup } from './checkbox-group'
 import type { BiMensuelContentForm } from '@/lib/reports/content-schemas'
 import type { ReportVocabulary } from '@/types/reports'
-import { DOMAIN_LABELS } from '@/types/reports'
-
-const DOMAIN_KEYS = Object.keys(DOMAIN_LABELS) as (keyof typeof DOMAIN_LABELS)[]
 
 export function BiMensuelFields({
   form, vocabulary,
 }: { form: UseFormReturn<BiMensuelContentForm>; vocabulary: ReportVocabulary }) {
+  const reportDomainsLabel = useLabel('reportDomains')
   const { register, control, formState: { errors } } = form
 
   return (
@@ -22,7 +22,7 @@ export function BiMensuelFields({
       <h3 className="text-sm font-semibold">Activités &amp; apprentissages</h3>
       {DOMAIN_KEYS.map((key) => (
         <div key={key} className="space-y-2">
-          <Label htmlFor={key}>{DOMAIN_LABELS[key]}</Label>
+          <Label htmlFor={key}>{reportDomainsLabel(key)}</Label>
           <Textarea id={key} rows={2} {...register(key)} aria-invalid={!!errors[key]} />
           {errors[key] && <p className="text-sm text-destructive">{errors[key]?.message}</p>}
         </div>

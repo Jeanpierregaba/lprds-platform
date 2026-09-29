@@ -461,4 +461,66 @@ MESSAGES: dict[str, str] = {
     "reports.pdf.column.rating": "Notation",
     "reports.pdf.column.observation": "Observation de l'éducatrice",
     "reports.pdf.filename": "bulletin-annuel-{year}-{name}.pdf",
+    # ── export des présences (PDF + Excel) ──────────────
+    "attendance.status.present": "Présent",
+    "attendance.status.late": "Retard",
+    "attendance.status.absent": "Absent",
+    "attendance.status.not_expected": "Non attendu",
+    "attendance.status.exempt": "Exempté",
+    "attendance.person.child": "Enfant",
+    "attendance.person.staff": "Personnel",
+    "attendance.export.title": "Export des présences",
+    "attendance.export.sheet": "Présences",
+    "attendance.export.period": "Période du {date_from} au {date_to}",
+    "attendance.export.row_count": "{count} ligne(s)",
+    "attendance.export.column.type": "Type",
+    "attendance.export.column.name": "Nom",
+    "attendance.export.column.matricule": "Matricule",
+    "attendance.export.column.date": "Date",
+    "attendance.export.column.status": "Statut",
+    "attendance.export.column.arrival": "Arrivée",
+    "attendance.export.column.departure": "Départ",
+    "attendance.export.column.late": "Retard (min)",
+    "attendance.export.column.meal": "Cantine",
+    "attendance.export.yes": "Oui",
+    "attendance.export.no": "Non",
+    "attendance.export.filename.children": "enfants",
+    "attendance.export.filename.staff": "personnel",
+    "attendance.export.filename.both": "presences",
+    # ── libellé de période d'un rapport (calculé à la lecture) ──
+    "reports.period.quotidien": "{day} {month} {year}",
+    "reports.period.bi_mensuel": "{first}–{last} {month} {year}",
+    "reports.period.annuel": "Année {year}",
+    # ── export / modèle des fiches enfants ──────────────
+    "children.export.sheet": "Enfants",
+    "children.export.filename": "enfants_{date}.xlsx",
+    "children.export.filename_csv": "enfants_{date}.csv",
+    "children.template.filename": "modele_enfants.xlsx",
+    "children.template.filename_csv": "modele_enfants.csv",
+    "children.template.help_sheet": "Aide",
+    "children.template.help.column": "Colonne",
+    "children.template.help.rule": "Règle",
+    "children.template.help.matricule": (
+        "Vide = création. Renseignez le matricule (export) pour mettre à jour."
+    ),
+    "children.template.help.names": "Obligatoires.",
+    "children.template.help.usual_name": (
+        "Optionnel — repris dans les notes si différent des prénoms."
+    ),
+    "children.template.help.dates": (
+        "AAAA-MM-JJ (ou JJ/MM/AAAA). Admission ≥ naissance."
+    ),
+    "children.template.help.address": (
+        "Obligatoire (mention par défaut si vide, signalée)."
+    ),
+    "children.template.help.status": "actif / inactif (vide = actif).",
+    "children.template.help.section": (
+        "Nom exact de la section. Inconnu = sans section + avertissement."
+    ),
+    "children.template.help.guardians": (
+        "Au moins UN tuteur complet (nom, prénoms, tél) par enfant."
+    ),
+    "children.template.help.authorized": (
+        "Personnes autorisées à récupérer l'enfant."
+    ),
 }

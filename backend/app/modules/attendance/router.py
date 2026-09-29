@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 from app.modules.attendance import service
 from app.modules.attendance.models import PersonType
 from app.modules.attendance.schemas import (
@@ -310,6 +310,7 @@ async def export_attendance(
         user.establishment_id, file_format, person_type, date_from, date_to, db,
         department_id=department_id, section_id=section_id,
         child_id=child_id, staff_id=staff_id,
+        locale=coerce_locale(user.locale),
     )
     media_type = (
         "application/pdf"

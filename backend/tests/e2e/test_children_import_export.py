@@ -86,6 +86,16 @@ def test_import_create_and_template(client):
     ck("Nom fichier modèle", r.headers["content-disposition"].split("filename=")[1].strip('"'),
        "modele_enfants.xlsx")
 
+    # Le nom du fichier suit la langue du compte (le contenu aussi : titres de
+    # feuille et feuille d'aide ; les en-têtes de colonnes, eux, sont le format
+    # d'échange et restent identiques pour que l'export reste réimportable).
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=adm)
+    r_en = c.get("/children/import/template", params={"file_format": "xlsx"}, headers=adm)
+    ck("Nom fichier modèle en anglais",
+       r_en.headers["content-disposition"].split("filename=")[1].strip('"'),
+       "children-template.xlsx")
+    c.patch("/auth/me/locale", json={"locale": "fr"}, headers=adm)
+
     payload = _csv_bytes(TWO_ROWS)
     r = c.post("/children/import",
                files={"file": ("import.csv", payload, "text/csv")}, headers=adm)

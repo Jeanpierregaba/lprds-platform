@@ -202,3 +202,83 @@ def test_permissions_catalog_exposes_codes_only(client):
     ck("catalogue non vide", len(perms) > 0, True)
     ck("aucun libellé renvoyé", [p for p in perms if "label" in p], [])
     ck("chaque entrée porte son code", all(p.get("code") for p in perms), True)
+
+
+# ── Documents générés ───────────────────────────────────────────
+def test_period_label_follows_reader_not_database():
+    """Le libellé de période est recalculé à la lecture.
+
+    La colonne `reports.period_label` garde la version française de la
+    création : si l'affichage la lisait, un parent anglophone verrait
+    « 16–31 juillet 2026 » dans une interface anglaise.
+    """
+    from datetime import date
+
+    from app.modules.reports.models import ReportType
+    from app.modules.reports.service import period_label
+
+    cases = [
+        (ReportType.QUOTIDIEN, date(2026, 7, 20), date(2026, 7, 20),
+         "20 juillet 2026", "20 July 2026"),
+        (ReportType.BI_MENSUEL, date(2026, 7, 16), date(2026, 7, 31),
+         "16–31 juillet 2026", "16–31 July 2026"),
+        (ReportType.ANNUEL, date(2026, 1, 1), date(2026, 12, 31),
+         "Année 2026", "Year 2026"),
+    ]
+    for report_type, start, end, fr, en in cases:
+        ck(f"{report_type} en FR", period_label(report_type, start, end, "fr"), fr)
+        ck(f"{report_type} en EN", period_label(report_type, start, end, "en"), en)
+
+
+def test_attendance_export_renders_in_both_languages():
+    """Les lignes d'export portent des codes ; PDF et Excel posent les libellés.
+
+    Contrôlé sur le classeur Excel, dont le contenu est lisible sans analyser
+    un PDF : le PDF partage exactement les mêmes clés et la même liste de
+    colonnes (`_COLUMN_KEYS`).
+    """
+    import io
+    from datetime import date, datetime
+
+    import openpyxl
+
+    from app.modules.attendance.export import (
+        render_attendance_pdf,
+        render_attendance_xlsx,
+    )
+    from app.modules.attendance.schemas import AttendanceExportRow
+
+    rows = [
+        AttendanceExportRow(
+            person_type="child", name="Ana Kossou", matricule="LPRDS-A1B2C",
+            date=date(2026, 9, 29), status="late",
+            arrival_time=datetime(2026, 9, 29, 8, 40), departure_time=None,
+            late_minutes=10, meal_taken=None,
+        ),
+        AttendanceExportRow(
+            person_type="staff", name="Tata Victoire", matricule="LPRDS-D2Y",
+            date=date(2026, 9, 29), status="exempt", arrival_time=None,
+            departure_time=None, late_minutes=None, meal_taken=True,
+        ),
+    ]
+    expected = {
+        "fr": ("Présences", "Statut", "Enfant", "Retard", "Oui"),
+        "en": ("Attendance", "Status", "Child", "Late", "Yes"),
+    }
+    for locale, (sheet, status_header, child, late, yes) in expected.items():
+        content = render_attendance_xlsx(
+            "Crèche LPRDS", date(2026, 9, 1), date(2026, 9, 30), rows, locale,
+        )
+        ws = openpyxl.load_workbook(io.BytesIO(content)).active
+        ck(f"[{locale}] nom de la feuille", ws.title, sheet)
+        ck(f"[{locale}] en-tête de statut", ws.cell(row=5, column=5).value, status_header)
+        ck(f"[{locale}] type de personne", ws.cell(row=6, column=1).value, child)
+        ck(f"[{locale}] statut traduit", ws.cell(row=6, column=5).value, late)
+        ck(f"[{locale}] cantine traduite", ws.cell(row=7, column=9).value, yes)
+
+        # Le PDF doit au moins se construire dans les deux langues : une clé
+        # manquante y passerait sinon inaperçue jusqu'au téléchargement réel.
+        pdf = render_attendance_pdf(
+            "Crèche LPRDS", date(2026, 9, 1), date(2026, 9, 30), rows, locale,
+        )
+        ck(f"[{locale}] PDF produit", pdf.startswith(b"%PDF"), True)

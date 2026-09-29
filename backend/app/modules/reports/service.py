@@ -65,10 +65,28 @@ from app.modules.reports.schemas import (
 
 logger = logging.getLogger(__name__)
 
-_FRENCH_MONTHS = [
-    "", "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-]
+def period_label(
+    report_type: ReportType | str,
+    period_start: date,
+    period_end: date,
+    locale: Locale | str | None = None,
+) -> str:
+    """Libellé de période, recalculé À LA LECTURE depuis les dates stockées.
+
+    La colonne `reports.period_label` conserve la version française posée à la
+    création ; elle n'est jamais ce qui s'affiche. Un libellé figé en base ne
+    pourrait pas suivre la langue du lecteur — or le même rapport est lu par
+    une éducatrice francophone et un parent anglophone.
+    """
+    month = t(f"date.month.{period_start.month}", locale)
+    if report_type == ReportType.ANNUEL:
+        return t("reports.period.annuel", locale, year=period_start.year)
+    if report_type == ReportType.BI_MENSUEL:
+        return t("reports.period.bi_mensuel", locale,
+                 first=period_start.day, last=period_end.day,
+                 month=month, year=period_start.year)
+    return t("reports.period.quotidien", locale,
+             day=period_start.day, month=month, year=period_start.year)
 
 
 # ── Paramètres département ───────────────────────────────────────
@@ -488,7 +506,7 @@ async def get_my_report_pdf(
         render_annual_report_pdf,
         establishment_name=report.establishment.name,
         child_full_name=f"{child.first_names} {child.last_name}",
-        period_label=report.period_label,
+        period_label=_label_of(report, locale),
         content=report.content,
         locale=locale,
     )
@@ -529,10 +547,20 @@ async def _ensure_department_allows(
         )
 
 
+def _label_of(report: "Report", locale: Locale | str | None = None) -> str:
+    """Libellé de période d'un rapport chargé — raccourci sur `period_label()`."""
+    return period_label(
+        report.report_type, report.period_start, report.period_end, locale
+    )
+
+
 def _period_for(report_type: ReportType, reference: date) -> tuple[date, date, str]:
+    """(début, fin, libellé français). Le libellé n'alimente que la colonne
+    `reports.period_label` ; l'affichage passe par `period_label()`."""
     if report_type == ReportType.QUOTIDIEN:
-        label = f"{reference.day} {_FRENCH_MONTHS[reference.month]} {reference.year}"
-        return reference, reference, label
+        return reference, reference, period_label(
+            report_type, reference, reference, Locale.FR
+        )
 
     if report_type == ReportType.BI_MENSUEL:
         last_day = calendar.monthrange(reference.year, reference.month)[1]
@@ -540,12 +568,11 @@ def _period_for(report_type: ReportType, reference: date) -> tuple[date, date, s
             start, end = date(reference.year, reference.month, 1), date(reference.year, reference.month, 15)
         else:
             start, end = date(reference.year, reference.month, 16), date(reference.year, reference.month, last_day)
-        label = f"{start.day}–{end.day} {_FRENCH_MONTHS[reference.month]} {reference.year}"
-        return start, end, label
+        return start, end, period_label(report_type, start, end, Locale.FR)
 
     # ANNUEL
     start, end = date(reference.year, 1, 1), date(reference.year, 12, 31)
-    return start, end, f"Année {reference.year}"
+    return start, end, period_label(report_type, start, end, Locale.FR)
 
 
 async def _led_group_ids(staff_id: uuid.UUID, db: AsyncSession) -> set[uuid.UUID]:
@@ -652,7 +679,7 @@ async def _notify_parents(report: Report) -> None:
                 child_first_names=child.first_names,
                 child_last_name=child.last_name,
                 report_type=report.report_type,
-                period_label=report.period_label,
+                period_label=_label_of(report, coerce_locale(parent.locale)),
                 locale=coerce_locale(parent.locale),
             )
         except EmailDeliveryError:
@@ -689,7 +716,7 @@ async def _send_report_push_notifications(report: Report, db) -> int:
                 sub,
                 t("push.report.title", locale),
                 t("push.report.body", locale,
-                  period=report.period_label, child=child.first_names),
+                  period=_label_of(report, locale), child=child.first_names),
                 {"report_id": str(report.id), "child_id": str(child.id)},
             )
             if success:
@@ -828,7 +855,7 @@ def _to_list_item(report: Report) -> ReportListItem:
         report_type=ReportType(report.report_type),
         period_start=report.period_start,
         period_end=report.period_end,
-        period_label=report.period_label,
+        period_label=_label_of(report),
         status=report.status,
         created_by=_user_brief(report.created_by),
         submitted_at=report.submitted_at,
@@ -859,7 +886,7 @@ def _to_parent_list_item(report: Report, *, is_read: bool) -> ParentReportListIt
         id=report.id,
         child=_child_brief(report.child),
         report_type=ReportType(report.report_type),
-        period_label=report.period_label,
+        period_label=_label_of(report),
         validated_at=report.validated_at,
         is_read=is_read,
     )
@@ -875,7 +902,7 @@ async def _to_parent_detail(
         report_type=ReportType(report.report_type),
         period_start=report.period_start,
         period_end=report.period_end,
-        period_label=report.period_label,
+        period_label=_label_of(report),
         summary=report.summary,
         content=report.content,
         validated_at=report.validated_at,

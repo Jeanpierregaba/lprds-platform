@@ -10,7 +10,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import redis_client
-from app.core.i18n import coerce_locale, format_long_date, t
+from app.core.i18n import (
+    DEFAULT_LOCALE,
+    Locale,
+    coerce_locale,
+    format_long_date,
+    t,
+)
 from app.modules.attendance import email as attendance_email
 from app.modules.attendance.models import (
     AttendanceEvent,
@@ -730,18 +736,13 @@ async def delete_staff_schedule(
 
 
 # ── Export des présences ─────────────────────────────────────────
-_STATUS_LABELS = {
-    "present": "Présent",
-    "late": "Retard",
-    "absent": "Absent",
-    "not_expected": "Non attendu",
-    "exempt": "Exempté",
-}
-
+# Les lignes d'export portent des CODES (`present`, `child`…) ; les libellés
+# sont posés par le rendu, dans la langue du document — sans quoi un même
+# calcul produirait des documents figés en français.
 _FILENAME_SCOPE = {
-    ExportPersonType.CHILDREN: "enfants",
-    ExportPersonType.STAFF: "personnel",
-    ExportPersonType.BOTH: "presences",
+    ExportPersonType.CHILDREN: "children",
+    ExportPersonType.STAFF: "staff",
+    ExportPersonType.BOTH: "both",
 }
 
 
@@ -757,6 +758,7 @@ async def get_attendance_export(
     section_id: uuid.UUID | None = None,
     child_id: uuid.UUID | None = None,
     staff_id: uuid.UUID | None = None,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> tuple[bytes, str]:
     """Construit l'export agrégé (statut par personne × jour) et le rend dans
     le format demandé. Retourne (octets du fichier, nom de fichier).
@@ -794,17 +796,18 @@ async def get_attendance_export(
         effective_scope = ExportPersonType.CHILDREN
     elif staff_id:
         effective_scope = ExportPersonType.STAFF
-    filename = (
-        f"{_FILENAME_SCOPE[effective_scope]}_{date_from.isoformat()}_{date_to.isoformat()}.{ext}"
+    scope_label = t(
+        f"attendance.export.filename.{_FILENAME_SCOPE[effective_scope]}", locale
     )
-    if file_format == ExportFileFormat.PDF:
-        content = await asyncio.to_thread(
-            render_attendance_pdf, establishment_name, date_from, date_to, rows
-        )
-    else:
-        content = await asyncio.to_thread(
-            render_attendance_xlsx, establishment_name, date_from, date_to, rows
-        )
+    filename = f"{scope_label}_{date_from.isoformat()}_{date_to.isoformat()}.{ext}"
+    renderer = (
+        render_attendance_pdf
+        if file_format == ExportFileFormat.PDF
+        else render_attendance_xlsx
+    )
+    content = await asyncio.to_thread(
+        renderer, establishment_name, date_from, date_to, rows, locale
+    )
     return content, filename
 
 
@@ -953,11 +956,11 @@ async def _build_export_rows(
                 departure = _latest(day_events, EventType.DEPARTURE)
                 status_, late = _compute_status(arrival, weekday, expected, tz, grace)
                 rows.append(AttendanceExportRow(
-                    person_type="Enfant",
+                    person_type="child",
                     name=f"{child.first_names} {child.last_name}".strip(),
                     matricule=child.matricule,
                     date=current,
-                    status=_STATUS_LABELS.get(status_, status_),
+                    status=status_,
                     arrival_time=_to_local(arrival, tz),
                     departure_time=_to_local(departure, tz),
                     late_minutes=late,
@@ -982,11 +985,11 @@ async def _build_export_rows(
                     status_, late = _compute_status(arrival, weekday, expected, tz, grace)
                 name = member.nickname or f"{member.first_name} {member.last_name}".strip()
                 rows.append(AttendanceExportRow(
-                    person_type="Personnel",
+                    person_type="staff",
                     name=name,
                     matricule=member.matricule,
                     date=current,
-                    status=_STATUS_LABELS.get(status_, status_),
+                    status=status_,
                     arrival_time=_to_local(arrival, tz),
                     departure_time=_to_local(departure, tz),
                     late_minutes=late,

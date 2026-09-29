@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core import storage
 from app.core.config import settings
-from app.core.i18n import t
+from app.core.i18n import current_locale, t
 from app.modules.auth.models import User
 from app.modules.children import io as children_io
 from app.modules.children.export import (
@@ -300,12 +300,14 @@ async def export_children(
     children = list((await db.execute(query)).scalars().all())
 
     today = date.today().isoformat()
+    locale = current_locale()
     if file_format == "xlsx":
-        content = await asyncio.to_thread(render_children_xlsx, children, False)
-        return content, f"enfants_{today}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content = await asyncio.to_thread(render_children_xlsx, children, False, locale)
+        return (content, t("children.export.filename", date=today),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     if file_format == "csv":
         content = await asyncio.to_thread(render_children_csv, children)
-        return content, f"enfants_{today}.csv", "text/csv; charset=utf-8"
+        return content, t("children.export.filename_csv", date=today), "text/csv; charset=utf-8"
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=t("errors.children.bad_format"),
@@ -314,12 +316,14 @@ async def export_children(
 
 async def import_template(file_format: str) -> tuple[bytes, str, str]:
     """Modèle vierge + ligne d'exemple (et feuille 'Aide' en XLSX)."""
+    locale = current_locale()
     if file_format == "xlsx":
-        content = await asyncio.to_thread(render_children_xlsx, [], True)
-        return content, "modele_enfants.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content = await asyncio.to_thread(render_children_xlsx, [], True, locale)
+        return (content, t("children.template.filename"),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     if file_format == "csv":
         content = await asyncio.to_thread(render_template_csv)
-        return content, "modele_enfants.csv", "text/csv; charset=utf-8"
+        return content, t("children.template.filename_csv"), "text/csv; charset=utf-8"
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=t("errors.children.bad_format"),

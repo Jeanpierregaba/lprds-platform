@@ -210,6 +210,10 @@ class Report(Base):
     report_type: Mapped[str] = mapped_column(String(20), nullable=False)
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    # Libellé français posé à la création — trace lisible en base (requêtes
+    # manuelles, export SQL). ⚠️ Ce n'est PAS ce qui s'affiche : l'API et les
+    # documents recalculent le libellé dans la langue du lecteur, via
+    # `reports/service.py::period_label()`.
     period_label: Mapped[str] = mapped_column(String(50), nullable=False)
 
     status: Mapped[str] = mapped_column(

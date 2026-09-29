@@ -426,4 +426,68 @@ MESSAGES: dict[str, str] = {
     "reports.pdf.column.rating": "Rating",
     "reports.pdf.column.observation": "Teacher's observation",
     "reports.pdf.filename": "annual-report-{year}-{name}.pdf",
+    # ── export des présences (PDF + Excel) ──────────────
+    "attendance.status.present": "Present",
+    "attendance.status.late": "Late",
+    "attendance.status.absent": "Absent",
+    "attendance.status.not_expected": "Not expected",
+    "attendance.status.exempt": "Exempt",
+    "attendance.person.child": "Child",
+    "attendance.person.staff": "Staff",
+    "attendance.export.title": "Attendance export",
+    "attendance.export.sheet": "Attendance",
+    "attendance.export.period": "Period from {date_from} to {date_to}",
+    "attendance.export.row_count": "{count} row(s)",
+    "attendance.export.column.type": "Type",
+    "attendance.export.column.name": "Name",
+    "attendance.export.column.matricule": "Reference",
+    "attendance.export.column.date": "Date",
+    "attendance.export.column.status": "Status",
+    "attendance.export.column.arrival": "Arrival",
+    "attendance.export.column.departure": "Departure",
+    "attendance.export.column.late": "Late (min)",
+    "attendance.export.column.meal": "Lunch",
+    "attendance.export.yes": "Yes",
+    "attendance.export.no": "No",
+    "attendance.export.filename.children": "children",
+    "attendance.export.filename.staff": "staff",
+    "attendance.export.filename.both": "attendance",
+    # ── libellé de période d'un rapport (calculé à la lecture) ──
+    "reports.period.quotidien": "{day} {month} {year}",
+    "reports.period.bi_mensuel": "{first}–{last} {month} {year}",
+    "reports.period.annuel": "Year {year}",
+    # ── export / modèle des fiches enfants ──────────────
+    "children.export.sheet": "Children",
+    "children.export.filename": "children_{date}.xlsx",
+    "children.export.filename_csv": "children_{date}.csv",
+    "children.template.filename": "children-template.xlsx",
+    "children.template.filename_csv": "children-template.csv",
+    "children.template.help_sheet": "Help",
+    "children.template.help.column": "Column",
+    "children.template.help.rule": "Rule",
+    "children.template.help.matricule": (
+        "Leave empty to create. Enter the reference (from an export) to update."
+    ),
+    "children.template.help.names": "Required.",
+    "children.template.help.usual_name": (
+        "Optional — added to the notes when it differs from the first names."
+    ),
+    "children.template.help.dates": (
+        "YYYY-MM-DD (or DD/MM/YYYY). Admission on or after date of birth."
+    ),
+    "children.template.help.address": (
+        "Required (a default wording is used, and flagged, when empty)."
+    ),
+    "children.template.help.status": (
+        "actif / inactif (empty means actif)."
+    ),
+    "children.template.help.section": (
+        "The section's exact name. Unknown = left unassigned, with a warning."
+    ),
+    "children.template.help.guardians": (
+        "At least ONE complete guardian (surname, first names, phone) per child."
+    ),
+    "children.template.help.authorized": (
+        "People authorised to collect the child."
+    ),
 }

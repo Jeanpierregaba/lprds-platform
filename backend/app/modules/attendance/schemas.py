@@ -243,13 +243,17 @@ class ExportPersonType(StrEnum):
 
 
 class AttendanceExportRow(BaseModel):
-    """Une ligne de l'export : statut agrégé d'une personne pour UN jour."""
+    """Une ligne de l'export : statut agrégé d'une personne pour UN jour.
 
-    person_type:    str            # libellé : "Enfant" / "Personnel"
+    Structure interne (jamais sérialisée vers un client) : elle porte des
+    CODES, le rendu PDF/Excel posant les libellés dans la langue du document.
+    """
+
+    person_type:    str            # code : "child" | "staff"
     name:           str
     matricule:      str | None
     date:           date_
-    status:         str            # libellé FR : Présent / Retard / Absent / Non attendu / Exempté
+    status:         str            # code : present | late | absent | not_expected | exempt
     arrival_time:   datetime | None
     departure_time: datetime | None
     late_minutes:   int | None

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -11,7 +12,7 @@ import { cn } from '@/lib/utils/cn'
 import type { Message } from '@/types/messaging'
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 export function MessageBubble({

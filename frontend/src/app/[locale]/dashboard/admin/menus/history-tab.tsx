@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
 import { History } from 'lucide-react'
 
@@ -16,11 +17,11 @@ import { ListPagination } from '@/components/dashboard/shared/pagination'
 const PAGE_SIZE = 20
 
 function formatDate(iso: string) {
-  return parseIsoDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return parseIsoDate(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'short', timeStyle: 'short' })
 }
 
 export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string, departmentId: string) => void }) {

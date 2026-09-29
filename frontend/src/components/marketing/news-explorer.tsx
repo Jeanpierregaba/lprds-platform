@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Newspaper, Search } from 'lucide-react'
@@ -8,7 +9,7 @@ import { Reveal } from './reveal'
 import type { PublicBlogPostPreview, PublicBlogTag } from '@/types/public-blog'
 import { Link } from '@/i18n/navigation'
 
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+const dateFormatter = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 
 /** Image à la une de l'article (chemins relatifs proxés par le rewrite /api/v1/*), placeholder sinon. */
 function ArticleCover({ coverUrl, title }: { coverUrl: string | null; title: string }) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -21,13 +22,18 @@ import { ROLE_HOME } from '@/types/auth'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { Link, useRouter } from '@/i18n/navigation'
 
-const loginSchema = z.object({
-    email:    z.string().email('Email invalide'),
-    password: z.string().min(1, 'Mot de passe requis'),
+/** Le schéma est construit dans le composant : ses messages d'erreur sont
+ *  traduits, donc il ne peut plus vivre au niveau module. */
+const makeLoginSchema = (t: (k: string) => string) =>
+  z.object({
+    email:    z.string().email(t('validation.email')),
+    password: z.string().min(1, t('validation.passwordRequired')),
   })
-  type LoginForm = z.infer<typeof loginSchema>
-  
+  type LoginForm = z.infer<ReturnType<typeof makeLoginSchema>>
+
   export default function LoginPage() {
+    const t = useTranslations('auth')
+    const loginSchema = makeLoginSchema(t)
     const router    = useRouter()
     const setSession = useAuthStore((s) => s.setSession)
     const [showPwd, setShowPwd] = useState(false)
@@ -44,7 +50,7 @@ const loginSchema = z.object({
         
             setSession(tokens, user)
 
-            toast.success(`Bonjour ${user.first_name} !`)
+            toast.success(t('login.welcome', { name: user.first_name }))
             router.push(ROLE_HOME[user.role])
         } catch (err) {
             toast.error(getApiErrorMessage(err))
@@ -74,26 +80,26 @@ const loginSchema = z.object({
             <div className="flex justify-center mb-4">
               <Image
                 src="/images/marketing/logo.png"
-                alt="Les Petits Rayons de Soleil"
+                alt={t('login.logoAlt')}
                 width={148}
                 height={90}
                 className="h-16 w-auto"
               />
             </div>
-            <CardTitle className="text-2xl text-center">Connexion</CardTitle>
+            <CardTitle className="text-2xl text-center">{t('login.title')}</CardTitle>
             <CardDescription className="text-center">
-              Accédez à votre espace LPRDS
+              {t('login.subtitle')}
             </CardDescription>
           </CardHeader>
 
                     <CardContent>
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
                         <div className="space-y-2">
-                            <Label htmlFor="email">Adresse email</Label>
+                            <Label htmlFor="email">{t('fields.email')}</Label>
                             <Input
                             id="email"
                             type="email"
-                            placeholder="vous@exemple.com"
+                            placeholder={t('fields.emailPlaceholder')}
                             autoComplete="email"
                             autoFocus
                             {...register('email')}
@@ -110,12 +116,12 @@ const loginSchema = z.object({
 
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
-                            <Label htmlFor="password">Mot de passe</Label>
+                            <Label htmlFor="password">{t('fields.password')}</Label>
                             <Link
                                 href="/auth/reset-password"
                                 className="text-sm text-muted-foreground hover:text-primary transition-colors"
                             >
-                                Mot de passe oublié ?
+                                {t('login.forgot')}
                             </Link>
                             </div>
                             <div className="relative">
@@ -131,7 +137,7 @@ const loginSchema = z.object({
                                 type="button"
                                 onClick={() => setShowPwd((v) => !v)}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                                aria-label={showPwd ? 'Masquer' : 'Afficher'}
+                                aria-label={showPwd ? t('fields.hidePassword') : t('fields.showPassword')}
                             >
                                 {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
@@ -152,8 +158,8 @@ const loginSchema = z.object({
                   disabled={isSubmitting}
                 >
                   {isSubmitting
-                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connexion...</>
-                  : 'Se connecter'}
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('login.submitting')}</>
+                  : t('login.submit')}
                 </Button>
                         </form>
                     </CardContent>

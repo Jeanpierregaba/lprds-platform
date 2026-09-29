@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Megaphone } from 'lucide-react'
 
@@ -16,7 +17,7 @@ import type { Announcement, AnnouncementListResponse } from '@/types/messaging'
 const key = ['parent', 'announcements'] as const
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export function AnnouncementsTab() {

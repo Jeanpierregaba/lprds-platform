@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -88,7 +89,7 @@ const DOCUMENT_ALLOWED_TYPES = [
 
 function formatDate(iso: string) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('fr-FR')
+  return new Date(iso).toLocaleDateString(intlLocale())
 }
 
 export default function NewChildPage() {

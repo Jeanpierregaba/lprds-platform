@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -26,7 +27,7 @@ import { useRouter } from '@/i18n/navigation'
 const NO_TAG = '__no_tag__'
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export default function ArticleDetailPage() {

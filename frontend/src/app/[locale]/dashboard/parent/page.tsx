@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { motion } from 'framer-motion'
 import {
@@ -21,7 +22,7 @@ import { type Weekday } from '@/types/menus'
 import { Link } from '@/i18n/navigation'
 
 function formatLongDate() {
-  return new Date().toLocaleDateString('fr-FR', {
+  return new Date().toLocaleDateString(intlLocale(), {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
@@ -333,7 +334,7 @@ export default function ParentDashboardPage() {
                     <li key={l.id} className="text-sm">
                       <span className="block truncate font-medium">{l.book_title}</span>
                       <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span className="min-w-0 truncate">{l.child_name} · retour le {new Date(l.due_date + 'T00:00:00').toLocaleDateString('fr-FR')}</span>
+                        <span className="min-w-0 truncate">{l.child_name} · retour le {new Date(l.due_date + 'T00:00:00').toLocaleDateString(intlLocale())}</span>
                         {l.status === 'overdue' || l.overdue_days != null ? (
                           <span className="shrink-0 rounded-full bg-destructive px-2.5 py-0.5 font-semibold text-white">En retard</span>
                         ) : null}

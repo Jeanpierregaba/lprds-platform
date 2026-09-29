@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -44,7 +45,7 @@ const resetSchema = z.object({
 type ResetForm = z.infer<typeof resetSchema>
 
 function formatDateTime(iso: string | null) {
-  return iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
+  return iso ? new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 }
 
 export default function ParentDetailPage() {

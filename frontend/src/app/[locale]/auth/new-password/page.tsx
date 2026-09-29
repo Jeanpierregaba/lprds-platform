@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -16,18 +18,19 @@ import { authApi } from '@/lib/api/auth.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { useRouter } from '@/i18n/navigation'
 
-const pwdSchema = z.object({
+const makePwdSchema = (t: (k: string) => string) =>
+  z.object({
     new_password: z.string()
-      .min(8, '8 caractères minimum')
-      .regex(/[A-Z]/, 'Une majuscule requise')
-      .regex(/[0-9]/, 'Un chiffre requis'),
+      .min(8, t('validation.passwordMin'))
+      .regex(/[A-Z]/, t('validation.passwordUpper'))
+      .regex(/[0-9]/, t('validation.passwordDigit')),
     confirm: z.string(),
   }).refine((d) => d.new_password === d.confirm, {
-    message: 'Les mots de passe ne correspondent pas',
+    message: t('validation.passwordMismatch'),
     path: ['confirm'],
 })
 
-type Form = z.infer<typeof pwdSchema>
+type Form = z.infer<ReturnType<typeof makePwdSchema>>
 
 export default function NewPasswordPage() {
     return (
@@ -38,6 +41,8 @@ export default function NewPasswordPage() {
 }
 
 function NewPasswordForm() {
+    const t = useTranslations('auth')
+    const pwdSchema = makePwdSchema(t)
     const router       = useRouter()
     const searchParams = useSearchParams()
     const token        = searchParams.get('token')
@@ -47,12 +52,12 @@ function NewPasswordForm() {
 
     const onSubmit = async ({ new_password }: Form) => {
       if (!token) {
-        toast.error('Lien invalide ou expiré')
+        toast.error(t('newPassword.invalidLink'))
         return
       }
       try {
         await authApi.confirmReset({ token, new_password })
-        toast.success('Mot de passe mis à jour. Connectez-vous.')
+        toast.success(t('newPassword.success'))
         router.push('/auth/login')
       } catch (err) {
         toast.error(getApiErrorMessage(err))
@@ -65,32 +70,32 @@ return (
             transition={{ duration:0.4, ease:'easeOut' }} className="w-full max-w-md">
             <Card>
                 <CardHeader className="pb-4">
-                    <CardTitle>Nouveau mot de passe</CardTitle>
-                    <CardDescription>Entrez votre nouveau mot de passe.</CardDescription>
+                    <CardTitle>{t('newPassword.title')}</CardTitle>
+                    <CardDescription>{t('newPassword.subtitle')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Nouveau mot de passe</Label>
+                            <Label>{t('fields.newPassword')}</Label>
                             <Input type="password" {...register('new_password')} autoFocus />
                             {errors.new_password && (
                             <p className="text-sm text-destructive">{errors.new_password.message}</p>
                             )}
                         </div>
                         <div className="space-y-2">
-                            <Label>Confirmer le mot de passe</Label>
+                            <Label>{t('fields.confirmPassword')}</Label>
                             <Input type="password" {...register('confirm')} />
                             {errors.confirm && (
                             <p className="text-sm text-destructive">{errors.confirm.message}</p>
                             )}
                                         </div>
                         <p className="text-xs text-muted-foreground">
-                            8 caractères minimum · 1 majuscule · 1 chiffre
+                            {t('newPassword.hint')}
                         </p>
                         <Button type="submit" className="w-full" disabled={isSubmitting}>
                             {isSubmitting
-                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enregistrement...</>
-                            : 'Enregistrer'}
+                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> {t('newPassword.submitting')}</>
+                            : t('newPassword.submit')}
                         </Button>
                     </form>
                 </CardContent>

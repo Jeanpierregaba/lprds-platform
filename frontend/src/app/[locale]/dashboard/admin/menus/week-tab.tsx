@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -36,11 +37,11 @@ const MEAL_SLOT_ICONS: Record<MealSlot, React.ElementType> = {
 }
 
 function formatDate(iso: string) {
-  return parseIsoDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return parseIsoDate(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function formatShortDate(iso: string) {
-  return parseIsoDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return parseIsoDate(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' })
 }
 
 export function WeekTab({

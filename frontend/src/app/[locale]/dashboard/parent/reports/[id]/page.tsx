@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -20,7 +21,7 @@ import { type ReportAttachment } from '@/types/reports'
 import { ContentView } from '@/app/[locale]/dashboard/admin/reports/content-view'
 
 function formatDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'long' }) : '—'
+  return iso ? new Date(iso).toLocaleDateString(intlLocale(), { dateStyle: 'long' }) : '—'
 }
 
 export default function ParentReportDetailPage() {

@@ -1,6 +1,7 @@
 'use client'
 
 import { Download, Loader2 } from 'lucide-react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 
 import {
@@ -17,7 +18,7 @@ import { toast } from 'sonner'
 import { useState } from 'react'
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'long', timeStyle: 'short' })
 }
 
 export function MediaLightbox({

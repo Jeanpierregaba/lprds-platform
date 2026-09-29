@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronDown, Loader2, MessagesSquare, Paperclip, Plus, Send } from 'lucide-react'
@@ -23,7 +24,7 @@ import { cn } from '@/lib/utils'
 import type { Conversation, ConversationListResponse } from '@/types/messaging'
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'short', timeStyle: 'short' })
 }
 
 const conversationsKey = ['messaging', 'conversations'] as const

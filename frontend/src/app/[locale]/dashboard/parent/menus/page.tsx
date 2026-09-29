@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react'
 
@@ -15,11 +16,11 @@ import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import type { Menu, Weekday } from '@/types/menus'
 
 function formatDate(iso: string) {
-  return parseIsoDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return parseIsoDate(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function formatShortDate(iso: string) {
-  return parseIsoDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return parseIsoDate(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' })
 }
 
 export default function ParentMenusPage() {

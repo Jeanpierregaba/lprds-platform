@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
@@ -611,7 +612,7 @@ function formatBytes(bytes: number) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR')
+  return new Date(iso).toLocaleDateString(intlLocale())
 }
 
 function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {

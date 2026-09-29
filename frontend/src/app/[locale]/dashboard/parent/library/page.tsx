@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { BookMarked, BookOpen, LibraryBig } from 'lucide-react'
 
@@ -21,7 +22,7 @@ const STATUS_BADGE_VARIANT: Record<LendingStatus, 'default' | 'outline' | 'destr
 }
 
 function formatDate(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR')
+  return new Date(iso + 'T00:00:00').toLocaleDateString(intlLocale())
 }
 
 export default function ParentLibraryPage() {

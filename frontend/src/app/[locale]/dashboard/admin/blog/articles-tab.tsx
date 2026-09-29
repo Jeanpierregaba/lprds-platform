@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { Newspaper, Plus } from 'lucide-react'
@@ -25,7 +26,7 @@ const STATUS_PILLS: Record<ArticleStatus, string> = {
 }
 
 function formatDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString('fr-FR') : '—'
+  return iso ? new Date(iso).toLocaleDateString(intlLocale()) : '—'
 }
 
 export function ArticlesTab() {

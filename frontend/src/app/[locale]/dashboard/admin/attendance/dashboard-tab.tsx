@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { motion } from 'framer-motion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -44,13 +45,13 @@ function todayIso() {
 
 function formatTime(iso: string | null, timeZone?: string) {
   if (!iso) return '—'
-  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 /** « HH:MM » depuis un ISO (pour pré-remplir les champs time), '' si absent. */
 function toHHMM(iso: string | null, timeZone?: string) {
   if (!iso) return ''
-  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 function matchesStat(status: DailyStatusValue, key: StatKey) {
@@ -243,7 +244,7 @@ function CorrectionDialog({
     onError: (err) => toast.error(err instanceof Error ? err.message : getApiErrorMessage(err)),
   })
 
-  const prettyDate = new Date(`${date}T00:00`).toLocaleDateString('fr-FR', {
+  const prettyDate = new Date(`${date}T00:00`).toLocaleDateString(intlLocale(), {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 

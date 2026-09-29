@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Baby, Download, Eye, FileSpreadsheet, FileUp, Loader2, Plus, QrCode, UserCheck, UserX } from 'lucide-react'
@@ -33,7 +34,7 @@ const PAGE_SIZE = 20
 const ALL = '__all__'
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR')
+  return new Date(iso).toLocaleDateString(intlLocale())
 }
 
 function downloadBlob(blob: Blob, fallbackName: string, disposition?: string) {

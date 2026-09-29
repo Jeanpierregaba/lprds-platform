@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -41,7 +42,7 @@ const STATUS_PILLS: Record<LendingStatus, string> = {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR')
+  return new Date(iso + 'T00:00:00').toLocaleDateString(intlLocale())
 }
 
 const lendingFormSchema = z.object({

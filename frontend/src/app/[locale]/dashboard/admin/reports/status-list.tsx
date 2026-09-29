@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { Eye, FileText, Plus } from 'lucide-react'
@@ -28,7 +29,7 @@ const REPORT_TYPE_PILLS: Record<ReportType, string> = {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR')
+  return new Date(iso).toLocaleDateString(intlLocale())
 }
 
 /** Liste paginée pour UN type et UN statut fixés (l'onglet parent porte les pills). */

@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { intlLocale } from '@/lib/utils/locale-format'
 
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -23,7 +24,7 @@ function todayIso() {
 }
 
 function formatLongDate() {
-  return new Date().toLocaleDateString('fr-FR', {
+  return new Date().toLocaleDateString(intlLocale(), {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }

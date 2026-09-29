@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck } from 'lucide-react'
 
@@ -22,7 +23,7 @@ function todayIso() {
 
 function formatTime(iso: string | null, timeZone?: string) {
   if (!iso) return '—'
-  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return timeZone ? formatTimeIn(iso, timeZone) : new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function StaffAttendancePage() {

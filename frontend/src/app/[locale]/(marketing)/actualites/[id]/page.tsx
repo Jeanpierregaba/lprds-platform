@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { getLocale } from 'next-intl/server'
+import { intlLocaleFor } from '@/lib/utils/locale-format'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Newspaper } from 'lucide-react'
@@ -9,7 +11,6 @@ import { fetchPublicBlogPost, fetchPublicBlogPosts } from '@/lib/api/public-blog
 import type { PublicBlogPostPreview } from '@/types/public-blog'
 import { Link } from '@/i18n/navigation'
 
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function NewsArticlePage({ params }: { params: Promise<{ id: string }> }) {
+  // Page rendue côté serveur : la locale vient du segment d'URL, pas du
+  // cookie — `intlLocale()` y retomberait invariablement sur le français.
+  const dateFormatter = new Intl.DateTimeFormat(
+    intlLocaleFor(await getLocale()),
+    { day: 'numeric', month: 'long', year: 'numeric' },
+  )
   const { id } = await params
   const article = await fetchPublicBlogPost(id)
   if (!article) notFound()

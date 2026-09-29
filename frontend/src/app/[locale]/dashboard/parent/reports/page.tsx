@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -30,7 +31,7 @@ const TYPE_STYLE: Record<ReportType, { tint: string; soft: string; icon: typeof 
 
 function formatDate(iso: string | null) {
   if (!iso) return null
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function initials(first: string, last: string) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Pencil, Plus, Tags, Trash2 } from 'lucide-react'
@@ -19,7 +20,7 @@ import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { BlogTag } from '@/types/blog'
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR')
+  return new Date(iso).toLocaleDateString(intlLocale())
 }
 
 export function TagsTab() {

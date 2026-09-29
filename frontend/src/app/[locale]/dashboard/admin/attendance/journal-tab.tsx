@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
 import { ScrollText } from 'lucide-react'
 
@@ -43,14 +44,14 @@ const PERSON_TYPE_PILLS: Record<string, string> = {
 function formatDateTime(iso: string, timeZone?: string) {
   if (timeZone) {
     try {
-      return new Intl.DateTimeFormat('fr-FR', {
+      return new Intl.DateTimeFormat(intlLocale(), {
         dateStyle: 'short', timeStyle: 'short', timeZone,
       }).format(new Date(iso))
     } catch {
       // repli local ci-dessous
     }
   }
-  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'short', timeStyle: 'short' })
 }
 
 export function JournalTab() {

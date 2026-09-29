@@ -1,3 +1,5 @@
+import { intlLocale } from '@/lib/utils/locale-format'
+
 export function mondayOf(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay() // 0 = dimanche .. 6 = samedi
@@ -39,10 +41,10 @@ export function todayLocalIso() {
 export function formatTimeIn(iso: string | null, timeZone: string): string {
   if (!iso) return '—'
   try {
-    return new Intl.DateTimeFormat('fr-FR', {
+    return new Intl.DateTimeFormat(intlLocale(), {
       hour: '2-digit', minute: '2-digit', timeZone,
     }).format(new Date(iso))
   } catch {
-    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    return new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
   }
 }

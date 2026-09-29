@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { motion } from 'framer-motion'
 import {
@@ -29,7 +30,7 @@ function todayIso() {
 }
 
 function formatLongDate() {
-  return new Date().toLocaleDateString('fr-FR', {
+  return new Date().toLocaleDateString(intlLocale(), {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
@@ -261,14 +262,14 @@ export default function AdminDashboardPage() {
         id: c.id,
         name: `${c.first_names} ${c.last_name}`,
         day: birth.getDate(),
-        dayLabel: birth.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }),
+        dayLabel: birth.toLocaleDateString(intlLocale(), { day: 'numeric', month: 'long' }),
         age: now.getFullYear() - birth.getFullYear(),
         section: c.section?.name ?? null,
         isToday: birth.getDate() === now.getDate(),
       }
     })
     .sort((a, b) => a.day - b.day)
-  const monthYearLabel = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const monthYearLabel = now.toLocaleDateString(intlLocale(), { month: 'long', year: 'numeric' })
 
   const weekday = now.getDay()
   const todayKey: Weekday | null = weekday >= 1 && weekday <= 5 ? WEEKDAYS[weekday - 1]! : null

@@ -3,16 +3,30 @@ from pathlib import Path
 from fastapi_mail import FastMail, MessageSchema, MessageType, ConnectionConfig
 from jinja2 import Environment, FileSystemLoader
 from app.core.config import settings
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.modules.auth.models import UserRole
 
 logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-_jinja = Environment(
-    loader=FileSystemLoader(TEMPLATES_DIR),
-    autoescape=True,
-)
+# Un environnement par langue : les templates vivent dans `templates/<locale>/`.
+# Séparer les fichiers plutôt que truffer un template unique de conditions
+# garde chacun lisible — un email est avant tout une mise en page.
+_jinja = {
+    loc: Environment(loader=FileSystemLoader(TEMPLATES_DIR / loc), autoescape=True)
+    for loc in ("fr", "en")
+}
+
+
+def render(templates_dir: Path, name: str, locale: Locale, /, **ctx: object) -> str:
+    """Rend `name` dans la langue demandée, pour n'importe quel module.
+
+    Centralisé ici comme `send_html_email` : chaque module garde ses propres
+    templates, seul le mécanisme de résolution par langue est partagé.
+    """
+    env = Environment(loader=FileSystemLoader(templates_dir / locale.value), autoescape=True)
+    return env.get_template(name).render(**ctx)
 
 _mail_config = ConnectionConfig(
     MAIL_USERNAME=settings.mail_username,
@@ -56,19 +70,11 @@ async def send_html_email(*, to: str, subject: str, html: str) -> None:
     await _send(message)
 
 
+# Le sujet devient une clé : son texte dépend de la langue du destinataire.
 _ROLE_CONFIG: dict[UserRole, dict] = {
-    UserRole.ADMIN: {
-        "template": "welcome_admin.html",
-        "subject": "Bienvenue sur LPRDS — Accès administrateur",
-    },
-    UserRole.STAFF: {
-        "template": "welcome_staff.html",
-        "subject": "Bienvenue sur LPRDS — Votre espace personnel",
-    },
-    UserRole.PARENT: {
-        "template": "welcome_parent.html",
-        "subject": "Bienvenue sur LPRDS — Espace famille",
-    },
+    UserRole.ADMIN: {"template": "welcome_admin.html", "subject_key": "emails.welcome_admin.subject"},
+    UserRole.STAFF: {"template": "welcome_staff.html", "subject_key": "emails.welcome_staff.subject"},
+    UserRole.PARENT: {"template": "welcome_parent.html", "subject_key": "emails.welcome_parent.subject"},
 }
 
 
@@ -79,9 +85,10 @@ async def send_welcome_email(
     role: UserRole,
     temp_password: str,
     establishment_name: str = "",
+    locale: Locale = DEFAULT_LOCALE,
 ) -> None:
     config = _ROLE_CONFIG[role]
-    html = _jinja.get_template(config["template"]).render(
+    html = _jinja[locale.value].get_template(config["template"]).render(
         first_name=first_name,
         email=email,
         temp_password=temp_password,
@@ -90,7 +97,7 @@ async def send_welcome_email(
         platform_name="LPRDS",
     )
     message = MessageSchema(
-        subject=config["subject"],
+        subject=t(config["subject_key"], locale),
         recipients=[email],
         body=html,
         subtype=MessageType.html,
@@ -103,15 +110,16 @@ async def send_reset_email(
     email: str,
     first_name: str,
     reset_token: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> None:
     reset_url = f"{settings.frontend_url}/auth/new-password?token={reset_token}"
-    html = _jinja.get_template("reset_password.html").render(
+    html = _jinja[locale.value].get_template("reset_password.html").render(
         first_name=first_name,
         reset_url=reset_url,
         expire_minutes=settings.reset_token_expire_minutes,
     )
     message = MessageSchema(
-        subject="Réinitialisation de votre mot de passe LPRDS",
+        subject=t("emails.reset_password.subject", locale),
         recipients=[email],
         body=html,
         subtype=MessageType.html,
@@ -124,6 +132,7 @@ async def send_credentials_reset_email(
     email: str,
     first_name: str,
     new_password: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> None:
     """
     Reset « administré » : l'admin a défini un nouveau mot de passe, on le
@@ -131,14 +140,14 @@ async def send_credentials_reset_email(
     lien à cliquer et aucune redéfinition imposée — le mot de passe fourni est
     le mot de passe final.
     """
-    html = _jinja.get_template("parent_password_reset.html").render(
+    html = _jinja[locale.value].get_template("parent_password_reset.html").render(
         first_name=first_name,
         email=email,
         new_password=new_password,
         login_url=f"{settings.frontend_url}/auth/login",
     )
     message = MessageSchema(
-        subject="Votre mot de passe LPRDS a été réinitialisé",
+        subject=t("emails.parent_password_reset.subject", locale),
         recipients=[email],
         body=html,
         subtype=MessageType.html,

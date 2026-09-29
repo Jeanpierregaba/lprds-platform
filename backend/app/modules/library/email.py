@@ -10,11 +10,10 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.config import settings
-from app.modules.auth.email import send_html_email
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
+from app.modules.auth.email import render, send_html_email
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
-
-_jinja = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
 
 
 async def send_due_reminder_email(
@@ -22,8 +21,12 @@ async def send_due_reminder_email(
     to: str,
     parent_first_name: str,
     items: list[dict],  # [{"child_name", "book_title", "due_date", "overdue_days"}]
+    locale: Locale = DEFAULT_LOCALE,
 ) -> None:
-    html = _jinja.get_template("library_due_reminder.html").render(
+    html = render(
+        TEMPLATES_DIR,
+        "library_due_reminder.html",
+        locale,
         parent_first_name=parent_first_name,
         items=items,
         library_url=f"{settings.frontend_url}/dashboard/parent/library",
@@ -31,6 +34,6 @@ async def send_due_reminder_email(
     )
     await send_html_email(
         to=to,
-        subject="Retour de livres à la bibliothèque",
+        subject=t("emails.library_reminder.subject", locale),
         html=html,
     )

@@ -103,7 +103,7 @@ async def create_announcement(
     # Push : audience ciblée si départements cochés, sinon tous les parents.
     await send_push_to_establishment_parents(
         establishment_id,
-        "Nouvelle diffusion",
+        "push.announcement.title",
         announcement.title,
         db,
         {"type": "announcement", "announcement_id": str(announcement.id),
@@ -489,11 +489,11 @@ async def send_message(
     # rapport — jamais bloquant) : aux admins si l'expéditeur est le parent,
     # au seul parent de la conversation si l'expéditeur est un admin.
     sender_label = f"{sender.nickname or sender.first_name} {sender.last_name or ''}".strip()
-    preview = body.strip()[:120] or "Nouvelle pièce jointe"
+    preview = body.strip()[:120] or t("push.new_attachment")
     if sender.role == UserRole.ADMIN:
         await send_push_to_establishment_parents(
             conversation.establishment_id,
-            "Nouveau message de l'établissement",
+            "push.message_from_school.title",
             preview,
             db,
             {"type": "message", "conversation_id": str(conversation.id)},
@@ -502,10 +502,12 @@ async def send_message(
     else:
         await send_push_to_establishment_admins(
             conversation.establishment_id,
-            "Nouveau message",
-            f"Un nouveau message de {sender_label}",
+            "push.message.title",
+            None,
             db,
             {"type": "message", "conversation_id": str(conversation.id)},
+            body_key="push.message.body",
+            body_params={"sender": sender_label},
         )
     return response
 

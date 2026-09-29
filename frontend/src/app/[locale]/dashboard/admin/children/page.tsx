@@ -347,10 +347,10 @@ export default function ChildrenListPage() {
                 <div key={row.ligne} className="rounded-md border border-border p-3 text-sm">
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={row.statut === 'rejeté' ? 'destructive' : row.statut === 'créé' ? 'default' : 'secondary'}
+                      variant={row.statut === 'rejected' ? 'destructive' : row.statut === 'created' ? 'default' : 'secondary'}
                       className="shrink-0"
                     >
-                      {row.statut}
+                      {t(`import.status.${row.statut}`)}
                     </Badge>
                     <span className="text-muted-foreground">{t('import.line', { n: row.ligne })}</span>
                     {row.matricule && <span className="font-mono text-xs">{row.matricule}</span>}

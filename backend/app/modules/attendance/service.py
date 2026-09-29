@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import redis_client
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, format_long_date, t
 from app.modules.attendance import email as attendance_email
 from app.modules.attendance.models import (
     AttendanceEvent,
@@ -1023,12 +1023,6 @@ async def _events_for_range(
 
 
 # ── Enquête d'absence (parents des absents) ─────────────────────
-_FRENCH_WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
-_FRENCH_MONTHS = [
-    "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
-    "août", "septembre", "octobre", "novembre", "décembre",
-]
-
 _ABSENCE_NOTIFY_TTL_SECONDS = 48 * 3600
 
 
@@ -1100,10 +1094,6 @@ async def send_absence_inquiries(
         select(Establishment).where(Establishment.id == establishment_id)
     )
     establishment_name = establishment.name if establishment else "Établissement"
-    date_label = (
-        f"{_FRENCH_WEEKDAYS[target_date.weekday()]} {target_date.day} "
-        f"{_FRENCH_MONTHS[target_date.month - 1]} {target_date.year}"
-    )
 
     # Enfants déjà notifiés aujourd'hui → ignorés (nouveaux absents seuls),
     # sauf relance individuelle forcée (qui repose quand même la clé).
@@ -1169,6 +1159,10 @@ async def send_absence_inquiries(
     for entry in by_parent.values():
         parent = entry["parent"]
         cnames: list[str] = entry["children"]
+        # Un envoi par parent, dans SA langue : le libellé de date comme le
+        # corps du message sont donc rendus ici, pas en amont de la boucle.
+        parent_locale = coerce_locale(parent.locale)
+        date_label = format_long_date(target_date, parent_locale)
         try:
             await attendance_email.send_absence_inquiry_email(
                 to=parent.email,
@@ -1176,6 +1170,7 @@ async def send_absence_inquiries(
                 children_names=cnames,
                 date_label=date_label,
                 establishment_name=establishment_name,
+                locale=parent_locale,
             )
             email_sent = True
         except Exception:
@@ -1187,10 +1182,11 @@ async def send_absence_inquiries(
             await send_message(
                 conversation=conversation,
                 sender=sender,
-                body=(
-                    f"Bonjour, {kids} a été noté absent le {date_label} "
-                    f"(aucune arrivée enregistrée). Pouvez-vous nous indiquer "
-                    f"le motif de cette absence ? Merci."
+                body=t(
+                    "conversations.absence_inquiry",
+                    parent_locale,
+                    children=kids,
+                    date=date_label,
                 ),
                 db=db,
             )

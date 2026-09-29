@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from app.core import rate_limit
 from app.core.config import settings
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 from app.modules.auth.models import User, UserRole
 from app.modules.auth.schemas import (
     LoginRequest, TokenResponse,
@@ -199,6 +199,7 @@ async def create_user(
                 email=user.email,
                 first_name=user.first_name,
                 role=user.role,
+                locale=coerce_locale(user.locale),
                 temp_password=temp_password,
                 establishment_name=estab_name,
             )
@@ -227,6 +228,7 @@ async def request_password_reset(
             await send_reset_email(
                 email=user.email,
                 first_name=user.first_name,
+                locale=coerce_locale(user.locale),
                 reset_token=token,
             )
         except EmailDeliveryError:

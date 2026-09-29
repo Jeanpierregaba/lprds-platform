@@ -136,11 +136,13 @@ export interface ChildUpdatePayload {
 export const CHILDREN_EXPORT_FORMATS = ['xlsx', 'csv'] as const
 export type ChildrenExportFormat = (typeof CHILDREN_EXPORT_FORMATS)[number]
 
+export type ChildImportStatus = 'created' | 'updated' | 'rejected'
+
 export interface ChildImportRowResult {
   ligne:         number
   matricule:     string | null
-  /** "créé" | "mis à jour" | "rejeté" */
-  statut:        string
+  /** Code stable renvoyé par l'API : "created" | "updated" | "rejected". */
+  statut:        ChildImportStatus
   avertissements: string[]
   erreur:         string | null
 }

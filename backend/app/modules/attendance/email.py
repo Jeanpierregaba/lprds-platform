@@ -10,11 +10,10 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.config import settings
-from app.modules.auth.email import send_html_email
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
+from app.modules.auth.email import render, send_html_email
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
-
-_jinja = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
 
 
 async def send_absence_inquiry_email(
@@ -24,8 +23,12 @@ async def send_absence_inquiry_email(
     children_names: list[str],
     date_label: str,
     establishment_name: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> None:
-    html = _jinja.get_template("absence_inquiry.html").render(
+    html = render(
+        TEMPLATES_DIR,
+        "absence_inquiry.html",
+        locale,
         parent_first_name=parent_first_name,
         children_names=children_names,
         date_label=date_label,
@@ -35,8 +38,9 @@ async def send_absence_inquiry_email(
     )
     await send_html_email(
         to=to,
-        subject=f"Absence de {children_names[0]} — {date_label}"
+        subject=t("emails.absence_inquiry.subject_one", locale,
+                  child=children_names[0], date=date_label)
         if len(children_names) == 1
-        else f"Absences du {date_label}",
+        else t("emails.absence_inquiry.subject_many", locale, date=date_label),
         html=html,
     )

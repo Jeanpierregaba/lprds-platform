@@ -1,5 +1,5 @@
 import logging
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 import uuid
 
 from fastapi import HTTPException, status
@@ -58,6 +58,7 @@ async def create_parent(
             email=parent.email,
             first_name=parent.first_name,
             role=UserRole.PARENT,
+            locale=coerce_locale(parent.locale),
             temp_password=payload.password,
             establishment_name=estab_name,
         )
@@ -185,6 +186,7 @@ async def reset_parent_password(
         await send_credentials_reset_email(
             email=parent.email,
             first_name=parent.first_name,
+            locale=coerce_locale(parent.locale),
             new_password=new_password,
         )
     except EmailDeliveryError as exc:

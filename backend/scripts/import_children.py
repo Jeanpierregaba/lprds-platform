@@ -65,7 +65,7 @@ import app.core.models  # noqa: F401 — registre central (résolution des mappe
 from app.core.database import AsyncSessionLocal
 from app.modules.children import io as children_io
 from app.modules.children.io import (
-    ADDRESS_FALLBACK,
+    address_fallback,
     RowError,
     clean,
     clean_email,
@@ -259,7 +259,7 @@ def build_payload(
 
     residence_address = real_text(row.get("address"))
     if not residence_address:
-        residence_address = ADDRESS_FALLBACK
+        residence_address = address_fallback()
         warnings.append("adresse manquante → mention par défaut")
 
     behavioral = real_text(row.get("behavioral_notes"))

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; color: #1c1c1c; line-height: 1.5;">
+  <p>Hello {{ parent_first_name }},</p>
+  <p>
+    {% if children_names|length == 1 %}
+    <strong>{{ children_names[0] }}</strong> was marked <strong>absent</strong>
+    {% else %}
+    <strong>{{ children_names|join(', ') }}</strong> were marked <strong>absent</strong>
+    {% endif %}
+    on {{ date_label }} at {{ establishment_name }} (no arrival was scanned).
+  </p>
+  <p>
+    Could you let us know the reason for this absence by replying to this
+    email, or directly from your
+    <a href="{{ frontend_url }}">{{ platform_name }} messages</a>?
+  </p>
+  <p>Thank you,<br>The {{ establishment_name }} team</p>
+</body>
+</html>

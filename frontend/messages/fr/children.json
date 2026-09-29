@@ -29,7 +29,12 @@
     "title": "Import des fiches enfants",
     "summary": "{created} créée(s) · {updated} mise(s) à jour · {rejected} rejetée(s)",
     "line": "Ligne {n}",
-    "noRows": "Aucune ligne traitée."
+    "noRows": "Aucune ligne traitée.",
+    "status": {
+      "created": "créée",
+      "updated": "mise à jour",
+      "rejected": "rejetée"
+    }
   },
   "card": {
     "open": "Ouvrir la fiche de {name}",

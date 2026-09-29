@@ -240,4 +240,121 @@ MESSAGES: dict[str, str] = {
     "errors.messaging.bad_file_type_video": (
         "File type not allowed: {content_type}. Allowed: {allowed}, or any image (except SVG) or any video."
     ),
+    # ── emails ──────────────────────────────────────────
+    "emails.welcome_admin.subject": "Welcome to LPRDS — Administrator access",
+    "emails.welcome_staff.subject": "Welcome to LPRDS — Your personal area",
+    "emails.welcome_parent.subject": "Welcome to LPRDS — Family area",
+    "emails.reset_password.subject": "Reset your LPRDS password",
+    "emails.parent_password_reset.subject": "Your LPRDS password has been reset",
+    "emails.report_available.subject": "A new report is available — {child}",
+    "emails.absence_inquiry.subject_one": "{child} absent — {date}",
+    "emails.absence_inquiry.subject_many": "Absences on {date}",
+    "emails.library_reminder.subject": "Library books due back",
+    "reports.types.quotidien": "daily",
+    "reports.types.bi_mensuel": "twice-monthly",
+    "reports.types.annuel": "annual",
+    # ── push ────────────────────────────────────────────
+    "push.announcement.title": "New announcement",
+    "push.message_from_school.title": "New message from the school",
+    "push.message.title": "New message",
+    "push.message.body": "A new message from {sender}",
+    "push.report.title": "Report approved",
+    "push.report.body": "A new “{period}” report is available for {child}.",
+    "push.new_attachment": "New attachment",
+    # ── dates (libellés longs : emails, messages, documents) ──
+    "date.long": "{weekday} {day} {month} {year}",
+    "date.weekday.0": "Monday",
+    "date.weekday.1": "Tuesday",
+    "date.weekday.2": "Wednesday",
+    "date.weekday.3": "Thursday",
+    "date.weekday.4": "Friday",
+    "date.weekday.5": "Saturday",
+    "date.weekday.6": "Sunday",
+    "date.month.1": "January",
+    "date.month.2": "February",
+    "date.month.3": "March",
+    "date.month.4": "April",
+    "date.month.5": "May",
+    "date.month.6": "June",
+    "date.month.7": "July",
+    "date.month.8": "August",
+    "date.month.9": "September",
+    "date.month.10": "October",
+    "date.month.11": "November",
+    "date.month.12": "December",
+    # ── validation (ValueError Pydantic → 422) ──────────
+    "validation.timezone_unknown": (
+        "Unknown time zone: “{value}”. Use an IANA name, "
+        "e.g. “Africa/Porto-Novo”"
+    ),
+    "validation.departure_before_arrival": (
+        "The departure time must be later than the arrival time"
+    ),
+    "validation.password_requirements": "The password must contain: {missing}",
+    "validation.password_uppercase": "an uppercase letter",
+    "validation.password_digit": "a digit",
+    "validation.birth_date_future": "The date of birth cannot be in the future",
+    "validation.admission_before_birth": (
+        "The admission date cannot precede the date of birth"
+    ),
+    "validation.nap_duration_required": "The nap duration is required when nap = yes",
+    "validation.nap_duration_forbidden": "No nap duration should be given when nap = no",
+    "validation.activity_required": "At least one activity is required",
+    "validation.establishment_code": (
+        "The code must be 2 to 10 alphanumeric characters "
+        "(letters or digits), with no spaces or accents"
+    ),
+    # ── messages injectés en conversation ───────────────
+    "conversations.absence_inquiry": (
+        "Hello, {children} was marked absent on {date} (no arrival was "
+        "recorded). Could you let us know the reason for this absence? "
+        "Thank you."
+    ),
+    "conversations.library_reminder.intro": (
+        "Library reminder: some borrowed books are due back."
+    ),
+    "conversations.library_reminder.line": (
+        "• {book} — {child} — due back on {due_date}{overdue}"
+    ),
+    "conversations.library_reminder.overdue_one": " ({days} day overdue)",
+    "conversations.library_reminder.overdue_many": " ({days} days overdue)",
+    # ── import de fiches enfants (rapport ligne par ligne) ──
+    "import.file.unsupported_format": (
+        "unsupported format — .xlsx or .csv only"
+    ),
+    "import.file.xlsx_unreadable": "unreadable Excel file ({reason})",
+    "import.file.no_headers": "empty sheet, or no header row",
+    "import.file.csv_no_headers": "empty CSV, or no header row",
+    "import.file.no_rows": "no data rows",
+    "import.file.bad_encoding": "unreadable encoding (neither UTF-8 nor Windows-1252)",
+    "import.row.empty": "entirely empty row",
+    "import.row.phone_missing": "missing phone number",
+    "import.row.phone_unusable": "unusable phone number ({phone}…)",
+    "import.row.phone_secondary_ignored": (
+        "secondary number ignored (phone longer than 20 characters)"
+    ),
+    "import.row.email_invalid": "invalid email ignored ({email})",
+    "import.row.guardian_incomplete": (
+        "guardian {slot} incomplete (surname + first names required)"
+    ),
+    "import.row.guardian_phone_missing": "guardian {slot}: missing phone number",
+    "import.row.guardian_warning": "guardian {slot}: {warning}",
+    "import.row.guardian_duplicate_ignored": (
+        "duplicate guardian {slot} ignored ({name})"
+    ),
+    "import.row.guardian_duplicate_merged": (
+        "duplicate guardian {slot} merged ({name}: {phones})"
+    ),
+    "import.row.authorized_incomplete": (
+        "authorised person {slot} incomplete (surname + first names required)"
+    ),
+    "import.row.authorized_phone_missing": (
+        "authorised person {slot}: missing phone number"
+    ),
+    "import.row.address_missing": "missing address → default wording used",
+    "import.row.address_fallback": "Address not provided",
+    "import.row.section_unknown": "unknown section ({section}) → left unassigned",
+    "import.row.usual_name_note": "Usual name: {name}.",
+    "import.row.status_unknown": "unknown status ({value}) — 'actif' or 'inactif'",
+    "import.row.date_invalid": "invalid {field} ({value}) — YYYY-MM-DD or DD/MM/YYYY",
 }

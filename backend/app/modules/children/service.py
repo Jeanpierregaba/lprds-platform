@@ -269,9 +269,9 @@ async def import_children(
         report_lines.append(result)
 
     return ChildImportReportResponse(
-        crees=sum(1 for r in report_lines if r.statut == "créé"),
-        mis_a_jour=sum(1 for r in report_lines if r.statut == "mis à jour"),
-        rejetees=sum(1 for r in report_lines if r.statut == "rejeté"),
+        crees=sum(1 for r in report_lines if r.statut == "created"),
+        mis_a_jour=sum(1 for r in report_lines if r.statut == "updated"),
+        rejetees=sum(1 for r in report_lines if r.statut == "rejected"),
         lignes=report_lines,
     )
 
@@ -339,7 +339,7 @@ async def _import_one_row(
             row, sections_by_name
         )
     except children_io.RowError as exc:
-        return ChildImportRowResult(ligne=ligne, statut="rejeté", erreur=str(exc))
+        return ChildImportRowResult(ligne=ligne, statut="rejected", erreur=str(exc))
 
     try:
         matricule = row.get("matricule", "").strip()
@@ -347,13 +347,13 @@ async def _import_one_row(
             child_id = existing.get(matricule)
             if child_id is None:
                 return ChildImportRowResult(
-                    ligne=ligne, matricule=matricule, statut="rejeté",
+                    ligne=ligne, matricule=matricule, statut="rejected",
                     erreur="matricule inconnu dans cet établissement",
                 )
             await _apply_import_update(child_id, fields, is_active, establishment_id, db)
             await db.commit()
             return ChildImportRowResult(
-                ligne=ligne, matricule=matricule, statut="mis à jour",
+                ligne=ligne, matricule=matricule, statut="updated",
                 avertissements=warnings,
             )
         child = await _apply_import_create(fields, establishment_id, db)
@@ -363,7 +363,7 @@ async def _import_one_row(
         await db.refresh(child)
         existing[child.matricule] = child.id
         return ChildImportRowResult(
-            ligne=ligne, matricule=child.matricule, statut="créé",
+            ligne=ligne, matricule=child.matricule, statut="created",
             avertissements=warnings,
         )
     except (ValidationError, children_io.RowError) as exc:
@@ -372,13 +372,13 @@ async def _import_one_row(
         await db.rollback()
         return ChildImportRowResult(
             ligne=ligne, matricule=row.get("matricule") or None,
-            statut="rejeté", erreur=message,
+            statut="rejected", erreur=message,
         )
     except HTTPException as exc:
         await db.rollback()
         return ChildImportRowResult(
             ligne=ligne, matricule=row.get("matricule") or None,
-            statut="rejeté", erreur=exc.detail,
+            statut="rejected", erreur=exc.detail,
         )
 
 

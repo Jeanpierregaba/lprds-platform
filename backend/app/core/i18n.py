@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
+from datetime import date
 from enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -154,3 +155,21 @@ def t(key: str, locale: Locale | str | None = None, /, **params: object) -> str:
     except (KeyError, IndexError):
         logger.warning("i18n: interpolation impossible pour '%s' (%s)", key, resolved)
         return template
+
+
+def format_long_date(value: date, locale: Locale | str | None = None) -> str:
+    """Date en toutes lettres — « mardi 29 septembre 2026 », « Tuesday 29 September 2026 ».
+
+    Pas de `strftime("%A %d %B %Y")` : celui-ci dépend de la locale *système*
+    du conteneur (souvent `C`, donc anglais quoi qu'on demande) et l'ordre des
+    segments est figé dans le code. Ici l'ordre vient du catalogue
+    (`date.long`), donc d'une langue, et reste modifiable sans toucher au code.
+    """
+    return t(
+        "date.long",
+        locale,
+        weekday=t(f"date.weekday.{value.weekday()}", locale),
+        day=value.day,
+        month=t(f"date.month.{value.month}", locale),
+        year=value.year,
+    )

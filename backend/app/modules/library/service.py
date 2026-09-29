@@ -20,7 +20,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSession
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.library import email as library_email
@@ -472,11 +472,13 @@ async def return_lending(
 async def _notify_parent(db: AsyncSession, parent: User, items: list[dict]) -> None:
     """Rappel au parent : email best-effort + message injecté dans sa conversation
     admin↔parent (via le chemin admin — la messagerie est hors-RBAC)."""
+    locale = coerce_locale(parent.locale)
     try:
         await library_email.send_due_reminder_email(
             to=parent.email,
             parent_first_name=parent.first_name,
             items=items,
+            locale=locale,
         )
     except Exception:  # noqa: BLE001 — best-effort (cf. docstring du module)
         logger.exception(
@@ -495,19 +497,29 @@ async def _notify_parent(db: AsyncSession, parent: User, items: list[dict]) -> N
         )
 
         conversation = await get_or_create_own_conversation(parent, db)
-        lines = [
-            "Rappel de la bibliothèque : des livres empruntés doivent être rendus."
-        ]
+        lines = [t("conversations.library_reminder.intro", locale)]
         for item in items:
             overdue_part = ""
             if item["status"] == "overdue":
-                overdue_part = (
-                    f" (retard : {item['overdue_days']} "
-                    f"jour{'s' if item['overdue_days'] > 1 else ''})"
+                days = item["overdue_days"]
+                # Accord porté par deux clés distinctes plutôt que par un
+                # « s » ajouté en Python : la règle de pluriel appartient à
+                # la langue, pas au code appelant.
+                suffix = "one" if days <= 1 else "many"
+                overdue_part = t(
+                    f"conversations.library_reminder.overdue_{suffix}",
+                    locale,
+                    days=days,
                 )
             lines.append(
-                f"• {item['book_title']} — {item['child_name']} — retour prévu "
-                f"le {item['due_date']}{overdue_part}"
+                t(
+                    "conversations.library_reminder.line",
+                    locale,
+                    book=item["book_title"],
+                    child=item["child_name"],
+                    due_date=item["due_date"],
+                    overdue=overdue_part,
+                )
             )
         await send_message(
             conversation=conversation, sender=admin, body="\n".join(lines), db=db

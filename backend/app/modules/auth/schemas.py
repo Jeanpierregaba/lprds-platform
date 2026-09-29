@@ -3,18 +3,19 @@ from typing import Annotated, Literal
 import uuid
 from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator
 from app.modules.auth.models import UserRole
+from app.core.i18n import t
 
 
 # ── Politique de mot de passe (partagée par tous les modules) ───
 def validate_password_strength(v: str) -> str:
     errors = []
     if not any(c.isupper() for c in v):
-        errors.append("une majuscule")
+        errors.append(t("validation.password_uppercase"))
     if not any(c.isdigit() for c in v):
-        errors.append("un chiffre")
+        errors.append(t("validation.password_digit"))
     if errors:
         raise ValueError(
-            f"Le mot de passe doit contenir : {', '.join(errors)}"
+            t("validation.password_requirements", missing=", ".join(errors))
         )
     return v
 

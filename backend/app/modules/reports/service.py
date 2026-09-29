@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 from app.modules.attendance.models import AttendanceEvent, AttendanceSettings, EventType, PersonType
 from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
@@ -647,6 +647,7 @@ async def _notify_parents(report: Report) -> None:
                 child_last_name=child.last_name,
                 report_type=report.report_type,
                 period_label=report.period_label,
+                locale=coerce_locale(parent.locale),
             )
         except EmailDeliveryError:
             logger.exception(
@@ -675,10 +676,14 @@ async def _send_report_push_notifications(report: Report, db) -> int:
         subscriptions = sub_result.scalars().all()
 
         for sub in subscriptions:
+            # Le rendu se fait ici, par parent : le même rapport notifie
+            # plusieurs comptes, qui n'ont pas forcément la même langue.
+            locale = coerce_locale(parent.locale)
             success = await send_push_to_subscription(
                 sub,
-                "Rapport validé",
-                f"Un nouveau rapport '{report.period_label}' est disponible pour {child.first_names}.",
+                t("push.report.title", locale),
+                t("push.report.body", locale,
+                  period=report.period_label, child=child.first_names),
                 {"report_id": str(report.id), "child_id": str(child.id)},
             )
             if success:

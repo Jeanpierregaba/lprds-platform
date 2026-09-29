@@ -6,16 +6,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.modules.attendance.models import EventType, PersonType
+from app.core.i18n import t
 
 
 def _validate_timezone(v: str) -> str:
     try:
         ZoneInfo(v)
     except ZoneInfoNotFoundError as exc:
-        raise ValueError(
-            f"Fuseau horaire inconnu : « {v} ». Utilisez un nom IANA, "
-            "ex. « Africa/Porto-Novo »"
-        ) from exc
+        raise ValueError(t("validation.timezone_unknown", value=v)) from exc
     return v
 
 
@@ -168,7 +166,7 @@ class AttendanceSettingsRequest(BaseModel):
     @model_validator(mode="after")
     def check_order(self) -> "AttendanceSettingsRequest":
         if self.expected_departure_time <= self.expected_arrival_time:
-            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+            raise ValueError(t("validation.departure_before_arrival"))
         return self
 
 
@@ -196,7 +194,7 @@ class AttendanceGeneralSettingsRequest(BaseModel):
     @model_validator(mode="after")
     def check_order(self) -> "AttendanceGeneralSettingsRequest":
         if self.staff_expected_departure_time <= self.staff_expected_arrival_time:
-            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+            raise ValueError(t("validation.departure_before_arrival"))
         return self
 
 
@@ -222,7 +220,7 @@ class StaffScheduleRequest(BaseModel):
     @model_validator(mode="after")
     def check_order(self) -> "StaffScheduleRequest":
         if self.expected_departure_time <= self.expected_arrival_time:
-            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+            raise ValueError(t("validation.departure_before_arrival"))
         return self
 
 

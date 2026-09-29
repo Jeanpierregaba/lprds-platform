@@ -29,7 +29,12 @@
     "title": "Importing children's records",
     "summary": "{created} created · {updated} updated · {rejected} rejected",
     "line": "Row {n}",
-    "noRows": "No rows processed."
+    "noRows": "No rows processed.",
+    "status": {
+      "created": "created",
+      "updated": "updated",
+      "rejected": "rejected"
+    }
   },
   "card": {
     "open": "Open {name}'s record",

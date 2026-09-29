@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
+from app.core.i18n import t
 
 
 # ── Parents / Tuteurs ───────────────────────────────────────────
@@ -79,11 +80,9 @@ class ChildCreateRequest(BaseModel):
     @model_validator(mode="after")
     def check_dates(self) -> "ChildCreateRequest":
         if self.birth_date > date.today():
-            raise ValueError("La date de naissance ne peut pas être dans le futur")
+            raise ValueError(t("validation.birth_date_future"))
         if self.admission_date < self.birth_date:
-            raise ValueError(
-                "La date d'admission ne peut pas précéder la date de naissance"
-            )
+            raise ValueError(t("validation.admission_before_birth"))
         return self
 
 
@@ -181,7 +180,9 @@ class ChildImportRowResult(BaseModel):
 
     ligne: int
     matricule: str | None = None
-    statut: str  # "créé" | "mis à jour" | "rejeté"
+    # Code stable, jamais un libellé : le frontend traduit (cf. claude.md,
+    # « la base ne dépend jamais du texte affiché »).
+    statut: str  # "created" | "updated" | "rejected"
     avertissements: list[str] = []
     erreur: str | None = None
 

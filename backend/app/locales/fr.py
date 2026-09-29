@@ -273,4 +273,121 @@ MESSAGES: dict[str, str] = {
     "errors.messaging.bad_file_type_video": (
         "Type de fichier non autorisé : {content_type}. Autorisés : {allowed} ou toute image (hors SVG) ou toute vidéo."
     ),
+    # ── emails ──────────────────────────────────────────
+    "emails.welcome_admin.subject": "Bienvenue sur LPRDS — Accès administrateur",
+    "emails.welcome_staff.subject": "Bienvenue sur LPRDS — Votre espace personnel",
+    "emails.welcome_parent.subject": "Bienvenue sur LPRDS — Espace famille",
+    "emails.reset_password.subject": "Réinitialisation de votre mot de passe LPRDS",
+    "emails.parent_password_reset.subject": "Votre mot de passe LPRDS a été réinitialisé",
+    "emails.report_available.subject": "Nouveau rapport disponible — {child}",
+    "emails.absence_inquiry.subject_one": "Absence de {child} — {date}",
+    "emails.absence_inquiry.subject_many": "Absences du {date}",
+    "emails.library_reminder.subject": "Retour de livres à la bibliothèque",
+    "reports.types.quotidien": "quotidien",
+    "reports.types.bi_mensuel": "bi-mensuel",
+    "reports.types.annuel": "annuel",
+    # ── push ────────────────────────────────────────────
+    "push.announcement.title": "Nouvelle diffusion",
+    "push.message_from_school.title": "Nouveau message de l'établissement",
+    "push.message.title": "Nouveau message",
+    "push.message.body": "Un nouveau message de {sender}",
+    "push.report.title": "Rapport validé",
+    "push.report.body": (
+        "Un nouveau rapport « {period} » est disponible pour {child}."
+    ),
+    "push.new_attachment": "Nouvelle pièce jointe",
+    # ── dates (libellés longs : emails, messages, documents) ──
+    "date.long": "{weekday} {day} {month} {year}",
+    "date.weekday.0": "lundi",
+    "date.weekday.1": "mardi",
+    "date.weekday.2": "mercredi",
+    "date.weekday.3": "jeudi",
+    "date.weekday.4": "vendredi",
+    "date.weekday.5": "samedi",
+    "date.weekday.6": "dimanche",
+    "date.month.1": "janvier",
+    "date.month.2": "février",
+    "date.month.3": "mars",
+    "date.month.4": "avril",
+    "date.month.5": "mai",
+    "date.month.6": "juin",
+    "date.month.7": "juillet",
+    "date.month.8": "août",
+    "date.month.9": "septembre",
+    "date.month.10": "octobre",
+    "date.month.11": "novembre",
+    "date.month.12": "décembre",
+    # ── validation (ValueError Pydantic → 422) ──────────
+    "validation.timezone_unknown": (
+        "Fuseau horaire inconnu : « {value} ». Utilisez un nom IANA, "
+        "ex. « Africa/Porto-Novo »"
+    ),
+    "validation.departure_before_arrival": (
+        "L'heure de départ doit être après l'heure d'arrivée"
+    ),
+    "validation.password_requirements": "Le mot de passe doit contenir : {missing}",
+    "validation.password_uppercase": "une majuscule",
+    "validation.password_digit": "un chiffre",
+    "validation.birth_date_future": "La date de naissance ne peut pas être dans le futur",
+    "validation.admission_before_birth": (
+        "La date d'admission ne peut pas précéder la date de naissance"
+    ),
+    "validation.nap_duration_required": "La durée de la sieste est requise si sieste = oui",
+    "validation.nap_duration_forbidden": (
+        "Pas de durée de sieste à renseigner si sieste = non"
+    ),
+    "validation.activity_required": "Au moins une activité est requise",
+    "validation.establishment_code": (
+        "Le code doit contenir 2 à 10 caractères alphanumériques "
+        "(lettres ou chiffres), sans espace ni accent"
+    ),
+    # ── messages injectés en conversation ───────────────
+    "conversations.absence_inquiry": (
+        "Bonjour, {children} a été noté absent le {date} (aucune arrivée "
+        "enregistrée). Pouvez-vous nous indiquer le motif de cette absence ? "
+        "Merci."
+    ),
+    "conversations.library_reminder.intro": (
+        "Rappel de la bibliothèque : des livres empruntés doivent être rendus."
+    ),
+    "conversations.library_reminder.line": (
+        "• {book} — {child} — retour prévu le {due_date}{overdue}"
+    ),
+    "conversations.library_reminder.overdue_one": " (retard : {days} jour)",
+    "conversations.library_reminder.overdue_many": " (retard : {days} jours)",
+    # ── import de fiches enfants (rapport ligne par ligne) ──
+    "import.file.unsupported_format": (
+        "format non pris en charge — .xlsx ou .csv uniquement"
+    ),
+    "import.file.xlsx_unreadable": "fichier Excel illisible ({reason})",
+    "import.file.no_headers": "feuille vide ou sans en-têtes",
+    "import.file.csv_no_headers": "CSV vide ou sans en-têtes",
+    "import.file.no_rows": "aucune ligne de données",
+    "import.file.bad_encoding": "encodage illisible (ni UTF-8 ni Windows-1252)",
+    "import.row.empty": "ligne entièrement vide",
+    "import.row.phone_missing": "téléphone manquant",
+    "import.row.phone_unusable": "téléphone inexploitable ({phone}…)",
+    "import.row.phone_secondary_ignored": (
+        "numéro secondaire ignoré (téléphone > 20 car.)"
+    ),
+    "import.row.email_invalid": "email invalide ignoré ({email})",
+    "import.row.guardian_incomplete": "tuteur_{slot} incomplet (nom + prénoms requis)",
+    "import.row.guardian_phone_missing": "tuteur_{slot} : téléphone manquant",
+    "import.row.guardian_warning": "tuteur_{slot} : {warning}",
+    "import.row.guardian_duplicate_ignored": (
+        "tuteur_{slot} en double ignoré ({name})"
+    ),
+    "import.row.guardian_duplicate_merged": (
+        "tuteur_{slot} en double fusionné ({name} : {phones})"
+    ),
+    "import.row.authorized_incomplete": (
+        "autorise_{slot} incomplet (nom + prénoms requis)"
+    ),
+    "import.row.authorized_phone_missing": "autorise_{slot} : téléphone manquant",
+    "import.row.address_missing": "adresse manquante → mention par défaut",
+    "import.row.address_fallback": "Adresse non renseignée",
+    "import.row.section_unknown": "section inconnue ({section}) → sans section",
+    "import.row.usual_name_note": "Nom usuel : {name}.",
+    "import.row.status_unknown": "statut inconnu ({value}) — 'actif' ou 'inactif'",
+    "import.row.date_invalid": "{field} invalide ({value}) — AAAA-MM-JJ ou JJ/MM/AAAA",
 }

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.i18n import coerce_locale, t
 from app.core import redis
 from app.modules.auth.models import User, UserRole
 from app.modules.messaging.models import Announcement, Conversation, Message
@@ -120,15 +121,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def send_push_to_establishment_parents(
     establishment_id: uuid.UUID,
-    title: str,
-    body: str,
+    title_key: str,
+    body: str | None,
     db: AsyncSession,
     data: Optional[dict] = None,
     *,
     parent_ids: Optional[set[uuid.UUID]] = None,
+    body_key: str | None = None,
+    body_params: Optional[dict] = None,
 ) -> int:
     """Envoie un push aux parents d'un établissement, restreint à `parent_ids`
-    si fourni (diffusion ciblée par départements) — sinon tous les parents."""
+    si fourni (diffusion ciblée par départements) — sinon tous les parents.
+
+    ⚠️ `title_key` est une CLÉ, pas un texte : un même appel touche plusieurs
+    parents, chacun avec sa propre langue. Le rendu se fait donc par
+    destinataire, à l'intérieur de la boucle.
+
+    `body` reste littéral quand il porte du contenu saisi (titre d'une
+    diffusion, extrait d'un message) — cela ne se traduit pas. Pour un corps
+    rédigé par la plateforme, passer `body_key` (+ `body_params`)."""
     # Récupérer tous les users role=parent de l'établissement
     filters = [
         User.establishment_id == establishment_id,
@@ -150,9 +161,11 @@ async def send_push_to_establishment_parents(
         )
         subscriptions = sub_result.scalars().all()
 
+        locale = coerce_locale(parent.locale)
+        text = body if body is not None else t(body_key or "", locale, **(body_params or {}))
         for sub in subscriptions:
             success = await send_push_to_subscription(
-                sub, title, body, data
+                sub, t(title_key, locale), text, data
             )
             if success:
                 sent += 1
@@ -162,12 +175,16 @@ async def send_push_to_establishment_parents(
 
 async def send_push_to_establishment_admins(
     establishment_id: uuid.UUID,
-    title: str,
-    body: str,
+    title_key: str,
+    body: str | None,
     db: AsyncSession,
     data: Optional[dict] = None,
+    *,
+    body_key: str | None = None,
+    body_params: Optional[dict] = None,
 ) -> int:
-    """Envoie un push à tous les admins d'un établissement."""
+    """Envoie un push à tous les admins d'un établissement (cf. la version
+    parents pour la raison d'être des clés plutôt que des textes)."""
     result = await db.execute(
         select(User).where(
             User.establishment_id == establishment_id,
@@ -184,9 +201,12 @@ async def send_push_to_establishment_admins(
         )
         subscriptions = sub_result.scalars().all()
 
+        locale = coerce_locale(admin.locale)
+        text = body if body is not None else t(body_key or "", locale, **(body_params or {}))
+
         for sub in subscriptions:
             success = await send_push_to_subscription(
-                sub, title, body, data
+                sub, t(title_key, locale), text, data
             )
             if success:
                 sent += 1

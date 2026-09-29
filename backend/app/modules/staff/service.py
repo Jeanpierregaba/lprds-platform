@@ -1,5 +1,5 @@
 import logging
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 import uuid
 
 from fastapi import HTTPException, status
@@ -84,6 +84,7 @@ async def create_staff(
             email=member.email,
             first_name=member.first_name,
             role=UserRole.STAFF,
+            locale=coerce_locale(member.locale),
             temp_password=payload.password,
             establishment_name=establishment.name,
         )
@@ -229,6 +230,7 @@ async def reset_staff_password(
         await send_credentials_reset_email(
             email=member.email,
             first_name=member.first_name,
+            locale=coerce_locale(member.locale),
             new_password=new_password,
         )
     except EmailDeliveryError as exc:

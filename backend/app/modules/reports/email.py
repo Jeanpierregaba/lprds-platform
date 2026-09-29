@@ -10,17 +10,12 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from app.core.config import settings
-from app.modules.auth.email import send_html_email
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
+from app.modules.auth.email import render, send_html_email
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-_jinja = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
 
-_TYPE_LABELS = {
-    "quotidien": "quotidien",
-    "bi_mensuel": "bi-mensuel",
-    "annuel": "annuel",
-}
 
 
 async def send_report_available_email(
@@ -31,18 +26,22 @@ async def send_report_available_email(
     child_last_name: str,
     report_type: str,
     period_label: str,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> None:
     child_name = f"{child_first_names} {child_last_name}"
-    html = _jinja.get_template("report_available.html").render(
+    html = render(
+        TEMPLATES_DIR,
+        "report_available.html",
+        locale,
         parent_first_name=parent_first_name,
         child_name=child_name,
-        report_type_label=_TYPE_LABELS.get(report_type, report_type),
+        report_type_label=t(f"reports.types.{report_type}", locale),
         period_label=period_label,
         portal_url=f"{settings.frontend_url}/parent/reports",
         platform_name="LPRDS",
     )
     await send_html_email(
         to=to,
-        subject=f"Nouveau rapport disponible — {child_name}",
+        subject=t("emails.report_available.subject", locale, child=child_name),
         html=html,
     )

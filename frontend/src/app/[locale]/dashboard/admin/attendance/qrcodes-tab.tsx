@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -41,6 +43,7 @@ export function QrCodesTab() {
 }
 
 function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
+  const t = useTranslations('attendance')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -108,17 +111,17 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
     <div className="grid gap-4 pt-2 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Rechercher</CardTitle>
+          <CardTitle className="text-base">{t('qr.search')}</CardTitle>
           <CardDescription>
-            Par nom{personType === 'child' ? ', prénoms' : ', surnom'} ou matricule.
+            {personType === 'child' ? t('qr.searchHintChild') : t('qr.searchHintStaff')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher... (2 lettres min)"
-              aria-label="Rechercher une personne par nom ou matricule"
+              placeholder={t('qr.searchPlaceholder')}
+              aria-label={t('qr.searchAria')}
               className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -133,7 +136,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                   <Skeleton className="h-4 w-2/3" />
                 </div>
               ) : results.length === 0 ? (
-                <p className="p-3 text-sm text-muted-foreground">Aucun résultat.</p>
+                <p className="p-3 text-sm text-muted-foreground">{t('qr.noResult')}</p>
               ) : (
                 <>
                   {results.map((r) => (
@@ -149,7 +152,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                       <span className="shrink-0 font-mono text-xs text-muted-foreground">{r.sub ?? '—'}</span>
                     </button>
                   ))}
-                  <p className="p-2 text-center text-xs text-muted-foreground">10 premiers résultats — affinez la recherche.</p>
+                  <p className="p-2 text-center text-xs text-muted-foreground">{t('qr.topResults')}</p>
                 </>
               )}
             </div>
@@ -159,14 +162,14 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">QR code</CardTitle>
-          <CardDescription>{selected ? selected.label : 'Sélectionnez une personne.'}</CardDescription>
+          <CardTitle className="text-base">{t('qr.title')}</CardTitle>
+          <CardDescription>{selected ? selected.label : t('qr.selectPerson')}</CardDescription>
         </CardHeader>
         <CardContent>
           {!selectedId ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
               <QrCode className="size-8" />
-              <p className="text-sm">Aucune sélection.</p>
+              <p className="text-sm">{t('qr.noSelection')}</p>
             </div>
           ) : isLoadingQr ? (
             <div className="flex flex-col items-center gap-3 py-4">
@@ -180,7 +183,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- data URI, no next/image optimization to gain */}
               <img
                 src={qrcode.qr_image}
-                alt={`QR code de ${selected?.label}`}
+                alt={t('qr.imageAlt', { name: selected?.label ?? '' })}
                 className="size-48 rounded-md border border-border bg-white p-2"
               />
               <p className="font-mono text-sm text-muted-foreground">{qrcode.matricule}</p>
@@ -189,7 +192,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                   collisions entre homonymes) comme nom de fichier. */}
                 <Button variant="outline" size="sm" render={<a href={qrcode.qr_image} download={`qr-${qrcode.matricule}.png`} />}>
                   <Download className="mr-1.5 size-4" />
-                  Télécharger
+                  {t('qr.download')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -200,16 +203,16 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                       setTokenCopied(true)
                       setTimeout(() => setTokenCopied(false), 2000)
                     } catch {
-                      toast.error('Copie impossible — copiez le jeton depuis la saisie manuelle du scan.')
+                      toast.error(t('qr.copyFailed'))
                     }
                   }}
                 >
                   {tokenCopied ? <Check className="mr-1.5 size-4" /> : <Copy className="mr-1.5 size-4" />}
-                  {tokenCopied ? 'Copié !' : 'Copier le jeton'}
+                  {tokenCopied ? t('qr.copied') : t('qr.copyToken')}
                 </Button>
               </div>
               <p className="max-w-xs text-center text-xs text-muted-foreground">
-                Collez ce jeton dans la saisie manuelle de l&apos;onglet Scanner en dépannage.
+                {t('qr.tokenHint')}
               </p>
               {personType === 'child' && cardData && (
                 <Button

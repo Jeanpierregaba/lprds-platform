@@ -6,6 +6,7 @@
  * manquante côté anglais devient une erreur TypeScript au lieu de se découvrir
  * en production sous la forme d'un libellé brut affiché à l'écran.
  */
+import attendance from './attendance.json'
 import auth from './auth.json'
 import children from './children.json'
 import common from './common.json'
@@ -15,7 +16,7 @@ import marketing from './marketing.json'
 import nav from './nav.json'
 import reports from './reports.json'
 
-export const messages = { auth, children, common, enums, errors, marketing, nav, reports } as const
+export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, reports } as const
 
 export type Messages = typeof messages
 

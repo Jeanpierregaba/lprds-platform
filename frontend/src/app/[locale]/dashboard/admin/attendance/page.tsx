@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText, Settings } from 'lucide-react'
 
@@ -16,6 +18,7 @@ import { ScanTab } from './scan-tab'
 import { SettingsTab } from './settings-tab'
 
 export default function AttendancePage() {
+  const t = useTranslations('attendance')
   const user = useUser()
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const isAdmin = user?.role === 'admin'
@@ -40,8 +43,8 @@ export default function AttendancePage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Présences"
-        description="Suivi journalier, journal des scans, QR codes et paramètres de présence."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       {!isLoadingPermissions && !showRead && !showWrite && !showScan ? (

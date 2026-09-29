@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
@@ -18,17 +20,6 @@ import type { PersonType } from '@/types/attendance'
 
 const PAGE_SIZE = 25
 const ALL = '__all__'
-
-const EVENT_LABELS: Record<string, string> = {
-  arrival: 'Arrivée',
-  departure: 'Départ',
-  meal: 'Cantine',
-}
-
-const PERSON_TYPE_LABELS: Record<string, string> = {
-  child: 'Enfant',
-  staff: 'Personnel',
-}
 
 const EVENT_PILLS: Record<string, string> = {
   arrival: 'bg-pale-green text-white',
@@ -55,6 +46,9 @@ function formatDateTime(iso: string, timeZone?: string) {
 }
 
 export function JournalTab() {
+  const t = useTranslations('attendance')
+  const eventLabel = (v: string) => t.has(`eventTypes.${v}`) ? t(`eventTypes.${v}`) : v
+  const personTypeLabel = (v: string) => v === 'child' ? t('journal.children') : t('journal.staff')
   const [personType, setPersonType] = useState<string>(ALL)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -91,19 +85,19 @@ export function JournalTab() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label className="text-white font-semibold text-sm">Type</Label>
+          <Label className="text-white font-semibold text-sm">{t('journal.type')}</Label>
           <Select
-            items={{ [ALL]: 'Tous', child: 'Enfants', staff: 'Personnel' }}
+            items={{ [ALL]: t('journal.all'), child: t('journal.children'), staff: t('journal.staff') }}
             value={personType}
             onValueChange={(v) => setPersonType(v ?? ALL)}
           >
             <SelectTrigger className="h-9 w-full sm:w-44">
-              <SelectValue placeholder="Tous" />
+              <SelectValue placeholder={t('journal.all')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tous</SelectItem>
-              <SelectItem value="child">Enfants</SelectItem>
-              <SelectItem value="staff">Personnel</SelectItem>
+              <SelectItem value={ALL}>{t('journal.all')}</SelectItem>
+              <SelectItem value="child">{t('journal.children')}</SelectItem>
+              <SelectItem value="staff">{t('journal.staff')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -119,12 +113,12 @@ export function JournalTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th>Horodatage</Th>
-          <Th>Type</Th>
-          <Th>Événement</Th>
-          <Th>Personne</Th>
-          <Th>Scanné par</Th>
-          <Th>Accompagnateur</Th>
+          <Th>{t('journal.columns.timestamp')}</Th>
+          <Th>{t('journal.columns.type')}</Th>
+          <Th>{t('journal.columns.event')}</Th>
+          <Th>{t('journal.columns.person')}</Th>
+          <Th>{t('journal.columns.scannedBy')}</Th>
+          <Th>{t('journal.columns.companion')}</Th>
         </DataTableHead>
         <TableBody>
           {isLoading ? (
@@ -134,7 +128,7 @@ export function JournalTab() {
           ) : invalidRange ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-48 text-center">
-                <p className="font-medium text-foreground">La date de fin doit être postérieure ou égale à la date de début.</p>
+                <p className="font-medium text-foreground">{t('journal.badRange')}</p>
               </Td>
             </TableRow>
           ) : isError ? (
@@ -153,7 +147,7 @@ export function JournalTab() {
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <ScrollText className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucun événement pour ces filtres.</p>
+                  <p className="font-medium text-foreground">{t('journal.empty')}</p>
                 </div>
               </Td>
             </TableRow>
@@ -169,12 +163,12 @@ export function JournalTab() {
                       <Td className="text-muted-foreground">{formatDateTime(event.scanned_at, data?.timezone)}</Td>
                       <Td>
                         <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', PERSON_TYPE_PILLS[event.person_type])}>
-                          {PERSON_TYPE_LABELS[event.person_type]}
+                          {personTypeLabel(event.person_type)}
                         </span>
                       </Td>
                       <Td>
                         <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', EVENT_PILLS[event.event_type])}>
-                          {EVENT_LABELS[event.event_type] ?? event.event_type}
+                          {eventLabel(event.event_type) ?? event.event_type}
                         </span>
                       </Td>
                       <Td className="font-medium">
@@ -195,7 +189,7 @@ export function JournalTab() {
       </DataTable>
 
       <ListPagination
-        label={<>{total} événement{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        label={<>{t('journal.count', { count: total })} {isFetching && !isLoading && t('journal.refreshing')}</>}
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}

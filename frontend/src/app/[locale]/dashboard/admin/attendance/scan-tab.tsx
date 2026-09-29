@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import jsQR from 'jsqr'
@@ -16,12 +18,6 @@ import { cn } from '@/lib/utils/cn'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { AttendanceEvent, EventType, VerifyQrResponse } from '@/types/attendance'
 
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  arrival: 'Arrivée',
-  departure: 'Départ',
-  meal: 'Cantine',
-}
-
 type CameraState = 'idle' | 'starting' | 'scanning' | 'denied' | 'unsupported'
 
 function personLabel(event: AttendanceEvent) {
@@ -36,15 +32,20 @@ interface EventOption {
   suggested: boolean
 }
 
-function buildOptions(verified: VerifyQrResponse): EventOption[] {
+/** `eventLabel` est passé en paramètre : cette fonction vit hors composant,
+ *  où aucun traducteur n'est accessible. */
+function buildOptions(
+  verified: VerifyQrResponse,
+  eventLabel: (v: string) => string,
+): EventOption[] {
   const isChild = verified.person_type === 'child'
   const options: EventOption[] = []
 
   if (isChild) {
     // Enfant : Arrivée puis Départ. Le voyant suggère Départ si arrivé mais pas parti.
     const suggested = verified.has_arrived && !verified.has_departed
-    options.push({ type: 'arrival', label: EVENT_TYPE_LABELS.arrival, suggested: !suggested })
-    options.push({ type: 'departure', label: EVENT_TYPE_LABELS.departure, suggested })
+    options.push({ type: 'arrival', label: eventLabel('arrival'), suggested: !suggested })
+    options.push({ type: 'departure', label: eventLabel('departure'), suggested })
   } else {
     // Personnel : Arrivée → Cantine → Départ. Priorité au prochain geste logique.
     let suggestedType: EventType
@@ -53,14 +54,16 @@ function buildOptions(verified: VerifyQrResponse): EventOption[] {
     else if (!verified.has_departed) suggestedType = 'departure'
     else suggestedType = 'arrival' // cycle complet : on repart sur une arrivée
 
-    options.push({ type: 'arrival', label: EVENT_TYPE_LABELS.arrival, suggested: suggestedType === 'arrival' })
-    options.push({ type: 'meal', label: EVENT_TYPE_LABELS.meal, suggested: suggestedType === 'meal' })
-    options.push({ type: 'departure', label: EVENT_TYPE_LABELS.departure, suggested: suggestedType === 'departure' })
+    options.push({ type: 'arrival', label: eventLabel('arrival'), suggested: suggestedType === 'arrival' })
+    options.push({ type: 'meal', label: eventLabel('meal'), suggested: suggestedType === 'meal' })
+    options.push({ type: 'departure', label: eventLabel('departure'), suggested: suggestedType === 'departure' })
   }
   return options
 }
 
 export function ScanTab() {
+  const t = useTranslations('attendance')
+  const eventLabel = (v: string) => t.has(`eventTypes.${v}`) ? t(`eventTypes.${v}`) : v
   const queryClient = useQueryClient()
 
   const [cameraState, setCameraState] = useState<CameraState>('idle')
@@ -133,12 +136,12 @@ export function ScanTab() {
       const raw = err instanceof Error ? err.message : ''
       setCameraError(
         /permission|denied|notallowed/i.test(raw)
-          ? "Accès à la caméra refusé — autorisez-la dans les réglages du navigateur."
+          ? t('scan.errPermission')
           : /notfound|nodevice|no device/i.test(raw)
-            ? 'Aucune caméra détectée sur cet appareil.'
+            ? t('scan.errNoDevice')
             : /notreadable|inuse|track/i.test(raw)
-              ? 'Caméra déjà utilisée par une autre application.'
-              : "Impossible d'accéder à la caméra."
+              ? t('scan.errInUse')
+              : t('scan.errGeneric')
       )
     }
   }, [scanLoop])
@@ -189,7 +192,7 @@ export function ScanTab() {
         companion_phone: companionPhone || undefined,
       }).then((r) => r.data),
     onSuccess: (event) => {
-      toast.success(`${EVENT_TYPE_LABELS[event.event_type]} enregistré(e) — ${personLabel(event)}`)
+      toast.success(t('scan.recorded', { event: eventLabel(event.event_type), person: personLabel(event) }))
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
       resetToIdle()
     },
@@ -207,7 +210,7 @@ export function ScanTab() {
   }
 
   const isChild = verified?.person_type === 'child'
-  const eventOptions = verified ? buildOptions(verified) : []
+  const eventOptions = verified ? buildOptions(verified, eventLabel) : []
 
   // Le geste choisi existe-t-il déjà aujourd'hui ? Si oui, on demande
   // confirmation avant de créer un doublon (journal append-only).
@@ -231,8 +234,8 @@ export function ScanTab() {
     <div className="mx-auto max-w-md space-y-4 pt-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Scanner un badge</CardTitle>
-          <CardDescription>Activez la caméra et présentez le QR code.</CardDescription>
+          <CardTitle className="text-base">{t('scan.title')}</CardTitle>
+          <CardDescription>{t('scan.hint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {decodedPayload && verified && eventOptions.length > 0 ? (
@@ -242,14 +245,14 @@ export function ScanTab() {
                 <div className="text-sm">
                   <p className="font-medium text-foreground">{verified.display_name}</p>
                   <p className="text-muted-foreground">
-                    {isChild ? 'Enfant' : 'Personnel'}
+                    {isChild ? t('scan.child') : t('scan.staff')}
                     {verified.matricule ? ` · ${verified.matricule}` : ''}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Choisissez l&apos;événement</Label>
+                <Label>{t('scan.chooseEvent')}</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {eventOptions.map((opt) => (
                     <Button
@@ -267,19 +270,19 @@ export function ScanTab() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {eventOptions.some((o) => o.suggested)
-                    ? 'Le voyant clignotant indique l&apos;événement suggéré en fonction du pointage du jour.'
-                    : 'Aucune suggestion — pointez le geste souhaité.'}
+                    ? t('scan.suggestionHint')
+                    : t('scan.noSuggestion')}
                 </p>
               </div>
 
               {isChild && selectedType && selectedType !== 'meal' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="companion_name">Accompagnateur (enfant, optionnel)</Label>
+                    <Label htmlFor="companion_name">{t('scan.companionName')}</Label>
                     <Input id="companion_name" value={companionName} onChange={(e) => setCompanionName(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="companion_phone">Téléphone accompagnateur</Label>
+                    <Label htmlFor="companion_phone">{t('scan.companionPhone')}</Label>
                     <Input id="companion_phone" value={companionPhone} onChange={(e) => setCompanionPhone(e.target.value)} />
                   </div>
                 </div>
@@ -287,7 +290,7 @@ export function ScanTab() {
 
               <div className="flex gap-2">
                 <Button type="button" variant="outline" className="flex-1" onClick={resetToIdle} disabled={scanMutation.isPending}>
-                  Annuler
+                  {t('scan.cancel')}
                 </Button>
                 <Button
                   type="button"
@@ -295,15 +298,18 @@ export function ScanTab() {
                   onClick={onValidate}
                   disabled={!selectedType || scanMutation.isPending}
                 >
-                  {scanMutation.isPending ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Enregistrement...</> : 'Valider'}
+                  {scanMutation.isPending ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> {t('scan.saving')}</> : t('scan.validate')}
                 </Button>
               </div>
               <ConfirmDialog
                 open={confirmDuplicate}
                 onOpenChange={setConfirmDuplicate}
-                title="Événement déjà pointé aujourd'hui"
-                description={`Ce geste (${selectedType ? EVENT_TYPE_LABELS[selectedType].toLowerCase() : ''}) existe déjà pour ${verified?.display_name ?? 'cette personne'} aujourd'hui. Créer quand même un doublon ?`}
-                confirmLabel="Pointer quand même"
+                title={t('scan.duplicateTitle')}
+                description={t('scan.duplicateBody', {
+                  event: selectedType ? eventLabel(selectedType).toLowerCase() : '',
+                  person: verified?.display_name ?? t('scan.thisPerson'),
+                })}
+                confirmLabel={t('scan.duplicateConfirm')}
                 onConfirm={() => {
                   setConfirmDuplicate(false)
                   scanMutation.mutate()
@@ -316,17 +322,17 @@ export function ScanTab() {
                 <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                   <div className="space-y-2">
-                    <p className="font-medium">QR code invalide</p>
+                    <p className="font-medium">{t('scan.invalidQr')}</p>
                     <p className="text-muted-foreground">{scanError}</p>
                     <Button type="button" variant="outline" size="sm" onClick={resetToIdle}>
-                      Scanner un autre badge
+                      {t('scan.scanAnother')}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
                   <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
-                  <span><CheckCircle2 className="mr-1 inline size-4" /> Vérification du QR code...</span>
+                  <span><CheckCircle2 className="mr-1 inline size-4" /> {t('scan.verifying')}</span>
                 </div>
               )}
             </div>
@@ -340,18 +346,18 @@ export function ScanTab() {
                     {cameraState === 'denied' ? (
                       <>
                         <AlertTriangle className="size-8 text-destructive" />
-                        <p className="text-sm">Accès caméra refusé ou indisponible.</p>
+                        <p className="text-sm">{t('scan.cameraDenied')}</p>
                         {cameraError && <p className="text-xs text-white/70">{cameraError}</p>}
                       </>
                     ) : cameraState === 'unsupported' ? (
                       <>
                         <AlertTriangle className="size-8 text-destructive" />
-                        <p className="text-sm">Caméra non prise en charge par ce navigateur.</p>
+                        <p className="text-sm">{t('scan.cameraUnsupported')}</p>
                       </>
                     ) : cameraState === 'starting' ? (
                       <>
                         <Loader2 className="size-8 animate-spin text-white/70" />
-                        <p className="text-sm text-white/70">Démarrage...</p>
+                        <p className="text-sm text-white/70">{t('scan.starting')}</p>
                       </>
                     ) : (
                       <QrCode className="size-8 text-white/70" />
@@ -362,22 +368,22 @@ export function ScanTab() {
 
               <Button type="button" onClick={startCamera} disabled={cameraState === 'starting' || cameraState === 'scanning'} className="w-full">
                 <Camera className="mr-1.5 size-4" />
-                Scanner
+                {t('scan.startCamera')}
               </Button>
 
               <details className="rounded-md border border-border p-3 text-sm">
                 <summary className="cursor-pointer font-medium">
                   <Keyboard className="mr-1.5 inline size-4" />
-                  Saisie manuelle (dépannage)
+                  {t('scan.manualEntry')}
                 </summary>
                 <div className="mt-3 flex gap-2">
                   <Input
-                    placeholder="Coller le jeton QR..."
+                    placeholder={t('scan.manualPlaceholder')}
                     value={manualPayload}
                     onChange={(e) => setManualPayload(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') onManualSubmit() }}
                   />
-                  <Button type="button" variant="outline" onClick={onManualSubmit}>Envoyer</Button>
+                  <Button type="button" variant="outline" onClick={onManualSubmit}>{t('scan.manualSubmit')}</Button>
                 </div>
               </details>
             </>

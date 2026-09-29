@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -50,6 +52,7 @@ function periodRange(period: PeriodType): { from: string; to: string } {
 }
 
 export function ExportTab() {
+  const t = useTranslations('attendance')
   const [period, setPeriod] = useState<PeriodType>('week')
   // Période initiale = semaine en cours (sinon le premier export part vide).
   const [dateFrom, setDateFrom] = useState(() => periodRange('week').from)
@@ -127,11 +130,11 @@ export function ExportTab() {
 
   const download = async () => {
     if (!dateFrom || !dateTo) {
-      toast.error('Sélectionnez une période.')
+      toast.error(t('export.noPeriod'))
       return
     }
     if (dateTo < dateFrom) {
-      toast.error('La date de fin doit être postérieure ou égale à la date de début.')
+      toast.error(t('export.badRange'))
       return
     }
     // Même plafond que le backend (422 au-delà) : refusé avant l'appel.
@@ -139,7 +142,7 @@ export function ExportTab() {
       (new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000
     ) + 1
     if (days > 366) {
-      toast.error('La période ne peut pas dépasser 366 jours.')
+      toast.error(t('export.tooLong'))
       return
     }
     setDownloading(true)
@@ -183,29 +186,27 @@ export function ExportTab() {
   return (
     <div className="mt-2 space-y-4">
       <p className="text-sm text-white font-semibold">
-        Export agrégé des présences (statut par personne et par jour) en PDF ou Excel,
-        pour les enfants et/ou le personnel. Période limitée à 366 jours.
+        {t('export.intro')}
       </p>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Personne précise (facultatif)</CardTitle>
+          <CardTitle className="text-base">{t('export.personTitle')}</CardTitle>
           <CardDescription>
-            Recherchez un enfant ou un membre du personnel pour n&apos;exporter que lui.
-            Tant qu&apos;une personne est sélectionnée, les filtres ci-dessous sont ignorés.
+            {t('export.personHint')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {selectedPerson ? (
               <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-                <Badge variant="outline">{selectedPerson.kind === 'child' ? 'Enfant' : 'Personnel'}</Badge>
+                <Badge variant="outline">{selectedPerson.kind === 'child' ? t('export.child') : t('export.staff')}</Badge>
                 <span className="min-w-0 truncate text-sm font-medium">{selectedPerson.label}</span>
                 {selectedPerson.sub && <span className="min-w-0 shrink-0 truncate text-xs text-muted-foreground">{selectedPerson.sub}</span>}
               <button
                 type="button"
                 onClick={() => setSelectedPerson(null)}
                 className="ml-auto shrink-0 text-xs text-muted-foreground hover:text-foreground"
-                aria-label="Retirer la personne sélectionnée"
+                aria-label={t('export.removePerson')}
               >
                 <X className="size-4" />
               </button>
@@ -216,8 +217,8 @@ export function ExportTab() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Rechercher par nom, prénom ou surnom (2 lettres min)…"
-                  aria-label="Rechercher une personne précise"
+                  placeholder={t('export.searchPlaceholder')}
+                  aria-label={t('export.searchAria')}
                   value={personSearch}
                   onChange={(e) => setPersonSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Escape') setPersonSearch('') }}
@@ -229,7 +230,7 @@ export function ExportTab() {
                   {searching ? (
                     <p className="px-3 py-2 text-sm text-muted-foreground">Recherche…</p>
                   ) : results.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">Aucune personne trouvée.</p>
+                    <p className="px-3 py-2 text-sm text-muted-foreground">{t('export.noPerson')}</p>
                   ) : (
                     results.map((p) => (
                       <button
@@ -238,7 +239,7 @@ export function ExportTab() {
                         onClick={() => pickPerson(p)}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
                       >
-                        <Badge variant="outline">{p.kind === 'child' ? 'Enfant' : 'Personnel'}</Badge>
+                        <Badge variant="outline">{p.kind === 'child' ? t('export.child') : t('export.staff')}</Badge>
                         <span className="min-w-0 truncate font-medium">{p.label}</span>
                         {p.sub && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{p.sub}</span>}
                       </button>
@@ -254,21 +255,21 @@ export function ExportTab() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Période</CardTitle>
-            <CardDescription>Presets rapides ou période personnalisée.</CardDescription>
+            <CardTitle className="text-base">{t('export.periodTitle')}</CardTitle>
+            <CardDescription>{t('export.periodHint')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Type de période</Label>
+              <Label>{t('export.periodType')}</Label>
               <Select value={period} onValueChange={(v) => applyPeriod(v as PeriodType)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choisir une période" />
+                  <SelectValue placeholder={t('export.choosePeriod')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="day">Jour</SelectItem>
-                  <SelectItem value="week">Semaine (lundi → dimanche)</SelectItem>
-                  <SelectItem value="month">Mois</SelectItem>
-                  <SelectItem value="custom">Personnalisée</SelectItem>
+                  <SelectItem value="day">{t('export.day')}</SelectItem>
+                  <SelectItem value="week">{t('export.week')}</SelectItem>
+                  <SelectItem value="month">{t('export.month')}</SelectItem>
+                  <SelectItem value="custom">{t('export.custom')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -282,7 +283,7 @@ export function ExportTab() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="date_to">Au</Label>
+                <Label htmlFor="date_to">{t('export.to')}</Label>
                 <Input
                   id="date_to" type="date" value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
@@ -296,19 +297,19 @@ export function ExportTab() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Contenu &amp; format</CardTitle>
-            <CardDescription>Qui exporter et dans quel format.</CardDescription>
+            <CardDescription>{t('export.scopeHint')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Personnes</Label>
+              <Label>{t('export.people')}</Label>
               <Select value={personType} onValueChange={(v) => setPersonType(v as ExportPersonType)} disabled={!!selectedPerson}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choisir qui exporter" />
+                  <SelectValue placeholder={t('export.choosePeople')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="both">Enfants + Personnel</SelectItem>
-                  <SelectItem value="children">Enfants uniquement</SelectItem>
-                  <SelectItem value="staff">Personnel uniquement</SelectItem>
+                  <SelectItem value="both">{t('export.both')}</SelectItem>
+                  <SelectItem value="children">{t('export.childrenOnly')}</SelectItem>
+                  <SelectItem value="staff">{t('export.staffOnly')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -316,13 +317,13 @@ export function ExportTab() {
             {personType !== 'staff' && (
               <>
                 <div className="space-y-2">
-                  <Label>Département (enfants)</Label>
+                  <Label>{t('export.department')}</Label>
                   <Select value={departmentId} onValueChange={(v) => { setDepartmentId(v ?? ''); setSectionId('') }} disabled={!!selectedPerson}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Tous les départements" />
+                      <SelectValue placeholder={t('export.allDepartments')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tous les départements</SelectItem>
+                      <SelectItem value="">{t('export.allDepartments')}</SelectItem>
                       {(departments ?? []).map((d) => (
                         <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
@@ -330,10 +331,10 @@ export function ExportTab() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Section (enfants)</Label>
+                  <Label>{t('export.section')}</Label>
                   <Select value={sectionId} onValueChange={(v) => setSectionId(v ?? '')} disabled={!departmentId || !!selectedPerson}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder={departmentId ? 'Toutes les sections' : 'Choisissez un département d’abord'} />
+                      <SelectValue placeholder={departmentId ? t('export.allSections') : t('export.pickDepartmentFirst')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">Toutes les sections</SelectItem>
@@ -347,10 +348,10 @@ export function ExportTab() {
             )}
 
             <div className="space-y-2">
-              <Label>Format</Label>
+              <Label>{t('export.format')}</Label>
               <Select value={format} onValueChange={(v) => setFormat(v as ExportFileFormat)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choisir un format" />
+                  <SelectValue placeholder={t('export.chooseFormat')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pdf">
@@ -369,9 +370,9 @@ export function ExportTab() {
       <div className="flex justify-end">
         <Button onClick={download} disabled={downloading || !dateFrom || !dateTo || dateTo < dateFrom}>
           {downloading ? (
-            <><Loader2 className="mr-2 size-4 animate-spin" /> Génération...</>
+            <><Loader2 className="mr-2 size-4 animate-spin" /> {t('export.generating')}</>
           ) : (
-            <><CalendarRange className="mr-2 size-4" /> Exporter</>
+            <><CalendarRange className="mr-2 size-4" /> {t('export.submit')}</>
           )}
         </Button>
       </div>

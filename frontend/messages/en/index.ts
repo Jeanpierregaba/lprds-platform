@@ -8,6 +8,7 @@
  */
 import type { Messages } from '../fr'
 
+import attendance from './attendance.json'
 import auth from './auth.json'
 import children from './children.json'
 import common from './common.json'
@@ -17,6 +18,6 @@ import marketing from './marketing.json'
 import nav from './nav.json'
 import reports from './reports.json'
 
-export const messages = { auth, children, common, enums, errors, marketing, nav, reports } satisfies Messages
+export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, reports } satisfies Messages
 
 export default messages

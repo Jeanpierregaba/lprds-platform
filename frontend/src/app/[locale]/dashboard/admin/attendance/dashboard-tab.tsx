@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useMemo, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { motion } from 'framer-motion'
@@ -151,6 +153,7 @@ function CorrectionDialog({
   date: string
   onClose: () => void
 }) {
+  const t = useTranslations('attendance')
   const queryClient = useQueryClient()
   const personFilter = target.personType === 'child'
     ? { child_id: target.personId }
@@ -198,7 +201,7 @@ function CorrectionDialog({
         : { staff_id: target.personId }
       if (arrivalDirty) {
         ops.push({
-          label: 'arrivée',
+          label: t('dashboard.opArrival'),
           run: () => arrivalEvent
             ? attendanceApi.updateEvent(arrivalEvent.id, { scanned_at: `${date}T${arrival}` })
             : attendanceApi.createManualEvent({
@@ -208,7 +211,7 @@ function CorrectionDialog({
       }
       if (departureDirty) {
         ops.push({
-          label: 'départ',
+          label: t('dashboard.opDeparture'),
           run: () => departureEvent
             ? attendanceApi.updateEvent(departureEvent.id, { scanned_at: `${date}T${departure}` })
             : attendanceApi.createManualEvent({
@@ -218,7 +221,7 @@ function CorrectionDialog({
       }
       if (mealDirty) {
         ops.push({
-          label: 'cantine',
+          label: t('dashboard.opMeal'),
           run: () => mealEvent
             ? attendanceApi.updateEvent(mealEvent.id, { scanned_at: `${date}T${meal}` })
             : attendanceApi.createManualEvent({
@@ -232,13 +235,13 @@ function CorrectionDialog({
       const failed = ops.filter((_, i) => results[i]?.status === 'rejected')
       if (failed.length > 0) {
         throw new Error(
-          `Échec de la correction (${failed.map((op) => op.label).join(', ')}) — les autres heures sont enregistrées.`
+          t('dashboard.correctFailed', { fields: failed.map((op) => op.label).join(', ') })
         )
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
-      toast.success('Heures corrigées.')
+      toast.success(t('dashboard.corrected'))
       onClose()
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : getApiErrorMessage(err)),
@@ -252,7 +255,7 @@ function CorrectionDialog({
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Corriger les heures</DialogTitle>
+          <DialogTitle>{t('dashboard.correctTitle')}</DialogTitle>
           <DialogDescription>
             {target.displayName} — {prettyDate}
           </DialogDescription>
@@ -265,7 +268,7 @@ function CorrectionDialog({
         ) : (
           <div className={`grid gap-4 py-2 ${target.personType === 'staff' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
             <div className="space-y-1.5">
-              <Label htmlFor="correct-arrival">Arrivée</Label>
+              <Label htmlFor="correct-arrival">{t('dashboard.arrival')}</Label>
               <Input
                 id="correct-arrival"
                 type="time"
@@ -277,7 +280,7 @@ function CorrectionDialog({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="correct-departure">Départ</Label>
+              <Label htmlFor="correct-departure">{t('dashboard.departure')}</Label>
               <Input
                 id="correct-departure"
                 type="time"
@@ -290,7 +293,7 @@ function CorrectionDialog({
             </div>
             {target.personType === 'staff' && (
               <div className="space-y-1.5">
-                <Label htmlFor="correct-meal">Cantine</Label>
+                <Label htmlFor="correct-meal">{t('dashboard.meal')}</Label>
                 <Input
                   id="correct-meal"
                   type="time"
@@ -309,12 +312,12 @@ function CorrectionDialog({
           la ligne correspondante.
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Annuler</Button>
+          <Button variant="outline" onClick={onClose}>{t('dashboard.cancel')}</Button>
           <Button
             onClick={() => save.mutate()}
             disabled={!(arrivalDirty || departureDirty || mealDirty) || save.isPending || isLoading}
           >
-            {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+            {save.isPending ? t('dashboard.saving') : t('dashboard.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -322,13 +325,13 @@ function CorrectionDialog({
   )
 }
 
-const STAT_DEFS: { key: StatKey; label: string; icon: typeof Users; tint: string; hint: string }[] = [
-  { key: 'total', label: 'Total', icon: Users, tint: 'bg-sky text-white', hint: 'Personnes suivies ce jour' },
-  { key: 'present', label: 'Présents', icon: UserCheck, tint: 'bg-pale-green text-white', hint: 'Arrivés à l\u2019heure ou en retard' },
-  { key: 'absent', label: 'Absents', icon: UserX, tint: 'bg-destructive text-white', hint: 'Jour ouvré sans arrivée' },
-  { key: 'late', label: 'En retard', icon: AlarmClock, tint: 'bg-warning text-warning-foreground', hint: 'Arrivés après l\u2019horaire attendu' },
-  { key: 'not_expected', label: 'Non attendus', icon: CalendarOff, tint: 'bg-muted text-muted-foreground', hint: 'Week-end : aucune présence attendue' },
-  { key: 'exempt', label: 'Exemptés', icon: ShieldCheck, tint: 'bg-teal text-white', hint: 'Personnel exempté de pointage' },
+const STAT_DEFS: { key: StatKey; icon: typeof Users; tint: string }[] = [
+  { key: 'total', icon: Users, tint: 'bg-sky text-white' },
+  { key: 'present', icon: UserCheck, tint: 'bg-pale-green text-white' },
+  { key: 'absent', icon: UserX, tint: 'bg-destructive text-white' },
+  { key: 'late', icon: AlarmClock, tint: 'bg-warning text-warning-foreground' },
+  { key: 'not_expected', icon: CalendarOff, tint: 'bg-muted text-muted-foreground' },
+  { key: 'exempt', icon: ShieldCheck, tint: 'bg-teal text-white' },
 ]
 
 function StatCards({
@@ -339,15 +342,16 @@ function StatCards({
   onSelect: (key: StatKey) => void
   selected?: StatKey | null
 }) {
+  const t = useTranslations('attendance')
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-      {STAT_DEFS.map(({ key, label, icon: Icon, tint, hint }, i) => (
+      {STAT_DEFS.map(({ key, icon: Icon, tint }, i) => (
         <motion.button
           key={key}
           type="button"
           onClick={() => onSelect(key)}
           className="text-left"
-          title={hint}
+          title={t(`dashboard.cardHints.${key}`)}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: i * 0.06 }}
@@ -366,7 +370,7 @@ function StatCards({
               <span>
                 <span className="block font-display text-2xl font-semibold leading-none">{counts[key]}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  {key === 'total' ? totalLabel : label}
+                  {key === 'total' ? totalLabel : t(`dashboard.cards.${key}`)}
                 </span>
               </span>
             </CardContent>
@@ -406,6 +410,7 @@ function PaginationControls({
   pageCount: number
   onChange: (page: number) => void
 }) {
+  const t = useTranslations('attendance')
   if (pageCount <= 1) return null
   return (
     <div className="flex items-center justify-end gap-2 px-2 py-3">
@@ -414,13 +419,13 @@ function PaginationControls({
       </span>
       <Button
         type="button" variant="outline" size="icon" className="h-10 w-10"
-        disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="Page précédente"
+        disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label={t('dashboard.prevPage')}
       >
         <ChevronLeft className="size-4" />
       </Button>
       <Button
         type="button" variant="outline" size="icon" className="h-10 w-10"
-        disabled={page >= pageCount} onClick={() => onChange(page + 1)} aria-label="Page suivante"
+        disabled={page >= pageCount} onClick={() => onChange(page + 1)} aria-label={t('dashboard.nextPage')}
       >
         <ChevronRight className="size-4" />
       </Button>
@@ -442,16 +447,9 @@ function ModalPersonRow({ name, status, arrival, departure, timeZone }: { name: 
   )
 }
 
-const STAT_TITLES: Record<StatKey, string> = {
-  total: 'Liste complète',
-  present: 'Présents',
-  absent: 'Absents',
-  late: 'En retard',
-  not_expected: 'Non attendus',
-  exempt: 'Exemptés',
-}
 
 function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
+  const t = useTranslations('attendance')
   const queryClient = useQueryClient()
   const [departmentId, setDepartmentId] = useState<string>(ALL)
   const [sectionId, setSectionId] = useState<string>(ALL)
@@ -509,14 +507,17 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
       section_id: sectionId === ALL ? undefined : sectionId,
     }).then((r) => r.data),
     onSuccess: (result) => {
-      const parts = [`${result.notified.length} parent(s) prévenu(s)`]
+      const parts = [t('dashboard.notifiedCount', { count: result.notified.length })]
       if (result.skipped_no_parent.length > 0) {
-        parts.push(`${result.skipped_no_parent.length} sans compte parent (${result.skipped_no_parent.join(', ')})`)
+        parts.push(t('dashboard.skippedNoParent', {
+          count: result.skipped_no_parent.length,
+          names: result.skipped_no_parent.join(', '),
+        }))
       }
       if (result.already_notified.length > 0) {
-        parts.push(`déjà prévenus : ${result.already_notified.join(', ')}`)
+        parts.push(t('dashboard.alreadyNotified', { names: result.already_notified.join(', ') }))
       }
-      toast.success(`Enquête d'absence envoyée — ${parts.join(' · ')}.`)
+      toast.success(t('dashboard.notifySent', { details: parts.join(' · ') }))
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -529,11 +530,11 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
       attendanceApi.sendAbsenceInquiries({ date, child_id: childId }).then((r) => r.data),
     onSuccess: (result) => {
       if (result.notified.length > 0) {
-        toast.success(`Parent(s) de ${result.notified[0]?.children_names.join(', ')} relancé(s).`)
+        toast.success(t('dashboard.relaunched', { names: result.notified[0]?.children_names.join(', ') ?? '' }))
       } else if (result.skipped_no_parent.length > 0) {
-        toast.warning(`Aucun compte parent pour ${result.skipped_no_parent.join(', ')}.`)
+        toast.warning(t('dashboard.noParentAccount', { names: result.skipped_no_parent.join(', ') }))
       } else {
-        toast.info('Aucun parent à relancer.')
+        toast.info(t('dashboard.nothingToRelaunch'))
       }
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
     },
@@ -571,36 +572,36 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Rechercher un enfant (nom, prénom)…"
-            aria-label="Rechercher un enfant"
+            placeholder={t('dashboard.searchChild')}
+            aria-label={t('dashboard.searchChildAria')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select
-          items={{ [ALL]: 'Tous les départements', ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
+          items={{ [ALL]: t('dashboard.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
           value={departmentId}
           onValueChange={(v) => { setDepartmentId(v ?? ALL); setSectionId(ALL) }}
         >
           <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Tous les départements" />
+            <SelectValue placeholder={t('dashboard.allDepartments')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tous les départements</SelectItem>
+            <SelectItem value={ALL}>{t('dashboard.allDepartments')}</SelectItem>
             {departments?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select
-          items={{ [ALL]: 'Toutes les sections', ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
+          items={{ [ALL]: t('dashboard.allSections'), ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
           value={sectionId}
           onValueChange={(v) => setSectionId(v ?? ALL)}
         >
           <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Toutes les sections" />
+            <SelectValue placeholder={t('dashboard.allSections')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Toutes les sections</SelectItem>
+            <SelectItem value={ALL}>{t('dashboard.allSections')}</SelectItem>
             {sections?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -610,21 +611,21 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
           className="h-10"
           disabled={counts.absent === 0 || notifyMutation.isPending}
           onClick={() => setConfirmNotify(true)}
-          title={counts.absent === 0 ? 'Aucun absent ce jour' : 'Envoyer un email + message aux parents des absents'}
+          title={counts.absent === 0 ? t('dashboard.noAbsentToday') : t('dashboard.notifyHint')}
         >
           {notifyMutation.isPending
             ? <Loader2 className="mr-1.5 size-4 animate-spin" />
             : <Mail className="mr-1.5 size-4" />}
-          Prévenir les parents{counts.absent > 0 ? ` (${counts.absent})` : ''}
+          {t('dashboard.notifyParents')}{counts.absent > 0 ? ` (${counts.absent})` : ''}
         </Button>
       </div>
 
       <ConfirmDialog
         open={confirmNotify}
         onOpenChange={setConfirmNotify}
-        title="Prévenir les parents des absents ?"
+        title={t('dashboard.notifyTitle')}
         description={`${counts.absent} enfant(s) sans arrivée ce jour. Un email et un message seront envoyés aux comptes parents assignés pour connaître le motif — les enfants déjà prévenus aujourd'hui sont ignorés.`}
-        confirmLabel={notifyMutation.isPending ? 'Envoi…' : 'Envoyer'}
+        confirmLabel={notifyMutation.isPending ? t('dashboard.sending') : t('dashboard.send')}
         confirmDisabled={notifyMutation.isPending}
         onConfirm={() => {
           setConfirmNotify(false)
@@ -634,11 +635,11 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
 
       <DataTable footer={<PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />}>
         <DataTableHead>
-          <Th>Enfant</Th>
-          <Th>Statut</Th>
-          <Th>Arrivée</Th>
-          <Th>Départ</Th>
-          <Th>Retard</Th>
+          <Th>{t('dashboard.child')}</Th>
+          <Th>{t('dashboard.status')}</Th>
+          <Th>{t('dashboard.arrival')}</Th>
+          <Th>{t('dashboard.departure')}</Th>
+          <Th>{t('dashboard.late')}</Th>
           <Th className="w-10" />
         </DataTableHead>
         <TableBody>
@@ -659,7 +660,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
           ) : visibleItems.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-40 text-center text-muted-foreground">
-                {search.trim() ? 'Aucun enfant ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
+                {search.trim() ? t('dashboard.noChildMatch') : t('dashboard.noData')}
               </Td>
             </TableRow>
           ) : (
@@ -675,7 +676,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                   timeZone: data?.timezone,
                 }) : undefined}
                 className={canCorrect ? 'cursor-pointer' : undefined}
-                title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
+                title={canCorrect ? t('dashboard.clickToCorrect') : undefined}
               >
                 <Td className="font-medium">
                   {item.child.first_names} {item.child.last_name}
@@ -692,7 +693,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                       variant="ghost"
                       size="sm"
                       className="h-10 gap-1.5"
-                      title="Relancer les parents de cet enfant"
+                      title={t('dashboard.relaunchHint')}
                       disabled={relaunchMutation.isPending}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -716,9 +717,9 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
       <ConfirmDialog
         open={relaunchTarget !== null}
         onOpenChange={(open) => !open && setRelaunchTarget(null)}
-        title={`Relancer les parents de ${relaunchTarget?.name ?? ''} ?`}
-        description="Un email et un message seront renvoyés aux comptes parents assignés, même s'ils ont déjà été prévenus aujourd'hui."
-        confirmLabel={relaunchMutation.isPending ? 'Envoi…' : 'Relancer'}
+        title={t('dashboard.relaunchTitle', { name: relaunchTarget?.name ?? '' })}
+        description={t('dashboard.relaunchBody')}
+        confirmLabel={relaunchMutation.isPending ? t('dashboard.sending') : t('dashboard.relaunch')}
         confirmDisabled={relaunchMutation.isPending}
         onConfirm={() => {
           if (relaunchTarget) relaunchMutation.mutate(relaunchTarget.id)
@@ -729,7 +730,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
       <StatusModal
         open={modal !== null}
         onClose={() => setModal(null)}
-        title={modal ? `${STAT_TITLES[modal]} — enfants` : ''}
+        title={modal ? t('dashboard.modalChildren', { title: t(`dashboard.modalTitles.${modal}`) }) : ''}
         subtitle={modal ? `${modalItems.length} enfant${modalItems.length > 1 ? 's' : ''}` : ''}
       >
         {modalItems.length === 0 ? (
@@ -759,6 +760,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
 }
 
 function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
+  const t = useTranslations('attendance')
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'daily', 'staff', { date }],
     queryFn: () => attendanceApi.getStaffDaily({ date }).then((r) => r.data),
@@ -816,8 +818,8 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Rechercher (nom, prénom, surnom)…"
-            aria-label="Rechercher un membre du personnel"
+            placeholder={t('dashboard.searchStaff')}
+            aria-label={t('dashboard.searchStaffAria')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -827,12 +829,12 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
 
       <DataTable footer={<PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />}>
         <DataTableHead>
-          <Th>Personnel</Th>
-          <Th>Statut</Th>
-          <Th>Arrivée</Th>
-          <Th>Départ</Th>
-          <Th>Retard</Th>
-          <Th>Cantine</Th>
+          <Th>{t('dashboard.staffColumn')}</Th>
+          <Th>{t('dashboard.status')}</Th>
+          <Th>{t('dashboard.arrival')}</Th>
+          <Th>{t('dashboard.departure')}</Th>
+          <Th>{t('dashboard.late')}</Th>
+          <Th>{t('dashboard.meal')}</Th>
         </DataTableHead>
         <TableBody>
           {isLoading ? (
@@ -852,7 +854,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
           ) : visibleItems.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-40 text-center text-muted-foreground">
-                {search.trim() ? 'Aucun membre ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
+                {search.trim() ? t('dashboard.noStaffMatch') : t('dashboard.noData')}
               </Td>
             </TableRow>
           ) : (
@@ -868,7 +870,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                   timeZone: data?.timezone,
                 }) : undefined}
                 className={canCorrect ? 'cursor-pointer' : undefined}
-                title={canCorrect ? 'Cliquer pour corriger les heures' : undefined}
+                title={canCorrect ? t('dashboard.clickToCorrect') : undefined}
               >
                 <Td className="font-medium">
                   {item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
@@ -893,7 +895,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
       <StatusModal
         open={modal !== null}
         onClose={() => setModal(null)}
-        title={modal ? `${STAT_TITLES[modal]} — personnel` : ''}
+        title={modal ? t('dashboard.modalStaff', { title: t(`dashboard.modalTitles.${modal}`) }) : ''}
         subtitle={modal ? `${modalItems.length} personne${modalItems.length > 1 ? 's' : ''}` : ''}
       >
         {modalItems.length === 0 ? (

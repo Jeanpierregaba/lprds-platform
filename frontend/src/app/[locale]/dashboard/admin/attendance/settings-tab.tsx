@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -33,21 +35,22 @@ const toInputTime = (t: string | null | undefined) => (t ?? '').slice(0, 5)
 const toApiTime = (t: string) => (t.length > 5 ? t : `${t}:00`)
 
 export function SettingsTab() {
+  const t = useTranslations('attendance')
   return (
     <div className="pt-2">
       <Tabs defaultValue="general">
         <PillsTabsList>
           <PillsTrigger value="general" active="primary" icon={Globe}>
-            Général
+            {t('settings.tabs.general')}
           </PillsTrigger>
           <PillsTrigger value="departments" active="teal" icon={Building}>
-            Départements
+            {t('settings.tabs.departments')}
           </PillsTrigger>
           <PillsTrigger value="staff" active="sky" icon={Clock}>
-            Personnel
+            {t('settings.tabs.staff')}
           </PillsTrigger>
           <PillsTrigger value="exemptions" active="navy" icon={ShieldOff}>
-            Exemptions
+            {t('settings.tabs.exemptions')}
           </PillsTrigger>
         </PillsTabsList>
         <TabPanel value="general">
@@ -76,6 +79,7 @@ const generalSchema = z.object({
 type GeneralForm = z.infer<typeof generalSchema>
 
 function GeneralSettings() {
+  const t = useTranslations('attendance')
   const queryClient = useQueryClient()
 
   const { data: settings, isLoading } = useQuery({
@@ -107,7 +111,7 @@ function GeneralSettings() {
         staff_expected_departure_time: toApiTime(values.staff_expected_departure_time),
         late_grace_minutes: values.late_grace_minutes,
       })
-      toast.success('Paramètres généraux enregistrés.')
+      toast.success(t('settings.generalSaved'))
       queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'general'] })
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -123,21 +127,21 @@ function GeneralSettings() {
   return (
     <Card className="mt-2 max-w-md">
       <CardHeader>
-        <CardTitle className="text-base">Fuseau horaire &amp; horaires du personnel</CardTitle>
+        <CardTitle className="text-base">{t('settings.generalTitle')}</CardTitle>
         <CardDescription>
-          Un seul horaire pour tout le personnel de l&apos;établissement — les enfants sont configurés par département.
+          {t('settings.generalHint')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="timezone">Fuseau horaire (IANA)</Label>
+            <Label htmlFor="timezone">{t('settings.timezone')}</Label>
             <Input id="timezone" placeholder="Africa/Porto-Novo" {...register('timezone')} aria-invalid={!!errors.timezone} />
             {errors.timezone && <p className="text-sm text-destructive">{errors.timezone.message}</p>}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="staff_expected_arrival_time">Arrivée attendue</Label>
+              <Label htmlFor="staff_expected_arrival_time">{t('settings.arrival')}</Label>
               <Input
                 id="staff_expected_arrival_time" type="time"
                 {...register('staff_expected_arrival_time')}
@@ -148,7 +152,7 @@ function GeneralSettings() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff_expected_departure_time">Départ attendu</Label>
+              <Label htmlFor="staff_expected_departure_time">{t('settings.departure')}</Label>
               <Input
                 id="staff_expected_departure_time" type="time"
                 {...register('staff_expected_departure_time')}
@@ -160,7 +164,7 @@ function GeneralSettings() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="late_grace_minutes">Tolérance avant retard (minutes)</Label>
+            <Label htmlFor="late_grace_minutes">{t('settings.grace')}</Label>
             <Input
               id="late_grace_minutes" type="number" min={0} max={120}
               {...register('late_grace_minutes', { valueAsNumber: true })}
@@ -176,7 +180,7 @@ function GeneralSettings() {
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('settings.saving')}</> : t('settings.save')}
             </Button>
           </div>
         </form>
@@ -192,6 +196,7 @@ const departmentSchema = z.object({
 type DepartmentForm = z.infer<typeof departmentSchema>
 
 function DepartmentSettings() {
+  const t = useTranslations('attendance')
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<Department | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -238,7 +243,7 @@ function DepartmentSettings() {
         expected_arrival_time: toApiTime(values.expected_arrival_time),
         expected_departure_time: toApiTime(values.expected_departure_time),
       })
-      toast.success('Horaires enregistrés.')
+      toast.success(t('settings.schedulesSaved'))
       setDialogOpen(false)
       queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'department', editing.id] })
     } catch (err) {
@@ -249,7 +254,7 @@ function DepartmentSettings() {
   return (
     <div className="mt-2 space-y-4">
       <p className="text-sm text-white font-semibold">
-        Horaires attendus pour les enfants — configurables par département (le personnel a un horaire unique, cf. Général).
+        {t('settings.departmentsHint')}
       </p>
 
       <Card>
@@ -257,9 +262,9 @@ function DepartmentSettings() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Département</TableHead>
-                <TableHead>Arrivée attendue</TableHead>
-                <TableHead>Départ attendu</TableHead>
+                <TableHead>{t('settings.department')}</TableHead>
+                <TableHead>{t('settings.arrival')}</TableHead>
+                <TableHead>{t('settings.departure')}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -276,7 +281,7 @@ function DepartmentSettings() {
               ) : departments?.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                    Aucun département. Créez-en depuis Organisation.
+                    {t('settings.noDepartment')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -293,7 +298,7 @@ function DepartmentSettings() {
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(dept)}>
-                          {current ? 'Modifier' : 'Configurer'}
+                          {current ? t('settings.edit') : t('settings.configure')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -308,25 +313,25 @@ function DepartmentSettings() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Horaires — {editing?.name}</DialogTitle>
-            <DialogDescription>Utilisés pour calculer les retards des enfants de ce département.</DialogDescription>
+            <DialogTitle>{t('settings.deptDialogTitle', { name: editing?.name ?? '' })}</DialogTitle>
+            <DialogDescription>{t('settings.deptDialogHint')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="expected_arrival_time">Arrivée attendue</Label>
+                <Label htmlFor="expected_arrival_time">{t('settings.arrival')}</Label>
                 <Input id="expected_arrival_time" type="time" {...register('expected_arrival_time')} aria-invalid={!!errors.expected_arrival_time} />
                 {errors.expected_arrival_time && <p className="text-sm text-destructive">{errors.expected_arrival_time.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="expected_departure_time">Départ attendu</Label>
+                <Label htmlFor="expected_departure_time">{t('settings.departure')}</Label>
                 <Input id="expected_departure_time" type="time" {...register('expected_departure_time')} aria-invalid={!!errors.expected_departure_time} />
                 {errors.expected_departure_time && <p className="text-sm text-destructive">{errors.expected_departure_time.message}</p>}
               </div>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+                {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('settings.saving')}</> : t('settings.save')}
               </Button>
             </DialogFooter>
           </form>
@@ -343,6 +348,7 @@ const scheduleSchema = z.object({
 type ScheduleForm = z.infer<typeof scheduleSchema>
 
 function StaffSchedulesSettings() {
+  const t = useTranslations('attendance')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -383,7 +389,7 @@ function StaffSchedulesSettings() {
     mutationFn: ({ staffId, data }: { staffId: string; data: AttendanceSettingsPayload }) =>
       attendanceApi.setStaffSchedule(staffId, data),
     onSuccess: (_data, vars) => {
-      toast.success('Horaire personnalisé enregistré.')
+      toast.success(t('settings.customSaved'))
       setDialogOpen(false)
       queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'staff', vars.staffId] })
     },
@@ -393,7 +399,7 @@ function StaffSchedulesSettings() {
   const deleteMutation = useMutation({
     mutationFn: (staffId: string) => attendanceApi.deleteStaffSchedule(staffId),
     onSuccess: (_data, staffId) => {
-      toast.success('Horaire général rétabli.')
+      toast.success(t('settings.generalRestored'))
       setDialogOpen(false)
       queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'staff', staffId] })
     },
@@ -441,7 +447,7 @@ function StaffSchedulesSettings() {
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Rechercher un membre du personnel..."
+          placeholder={t('settings.searchStaff')}
           className="pl-8"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -453,11 +459,11 @@ function StaffSchedulesSettings() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Personnel</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Horaire</TableHead>
-                <TableHead className="w-32">Arrivée</TableHead>
-                <TableHead className="w-32">Départ</TableHead>
+                <TableHead>{t('settings.staffColumn')}</TableHead>
+                <TableHead>{t('settings.email')}</TableHead>
+                <TableHead>{t('settings.schedule')}</TableHead>
+                <TableHead className="w-32">{t('settings.arrivalShort')}</TableHead>
+                <TableHead className="w-32">{t('settings.departureShort')}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -480,7 +486,7 @@ function StaffSchedulesSettings() {
                       <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                         <UserRound className="size-5" />
                       </div>
-                      <p>{debouncedSearch ? 'Aucun résultat.' : 'Recherchez un membre du personnel.'}</p>
+                      <p>{debouncedSearch ? t('settings.noResult') : t('settings.searchPrompt')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -498,9 +504,9 @@ function StaffSchedulesSettings() {
                         {currentLoading ? (
                           <Skeleton className="h-5 w-24 rounded-full" />
                         ) : current ? (
-                          <Badge variant="outline" className="font-normal">Personnalisé</Badge>
+                          <Badge variant="outline" className="font-normal">{t('settings.custom')}</Badge>
                         ) : (
-                          <Badge variant="secondary" className="font-normal">Horaire général</Badge>
+                          <Badge variant="secondary" className="font-normal">{t('settings.generalSchedule')}</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -511,7 +517,7 @@ function StaffSchedulesSettings() {
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(s)}>
-                          {current ? 'Modifier' : 'Personnaliser'}
+                          {current ? t('settings.edit') : t('settings.customise')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -527,22 +533,21 @@ function StaffSchedulesSettings() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Horaire — {editing ? (editing.nickname || `${editing.first_name} ${editing.last_name}`) : ''}
+              {t('settings.staffDialogTitle', { name: editing ? (editing.nickname || `${editing.first_name} ${editing.last_name}`) : '' })}
             </DialogTitle>
             <DialogDescription>
-              Surcharge l&apos;horaire général pour ce membre du personnel. Rétablissez l&apos;horaire
-              général pour le faire retomber sur le défaut.
+              {t('settings.staffDialogHint')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="expected_arrival_time">Arrivée attendue</Label>
+                <Label htmlFor="expected_arrival_time">{t('settings.arrival')}</Label>
                 <Input id="expected_arrival_time" type="time" {...register('expected_arrival_time')} aria-invalid={!!errors.expected_arrival_time} />
                 {errors.expected_arrival_time && <p className="text-sm text-destructive">{errors.expected_arrival_time.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="expected_departure_time">Départ attendu</Label>
+                <Label htmlFor="expected_departure_time">{t('settings.departure')}</Label>
                 <Input id="expected_departure_time" type="time" {...register('expected_departure_time')} aria-invalid={!!errors.expected_departure_time} />
                 {errors.expected_departure_time && <p className="text-sm text-destructive">{errors.expected_departure_time.message}</p>}
               </div>
@@ -556,13 +561,13 @@ function StaffSchedulesSettings() {
                   onClick={() => deleteMutation.mutate(editing.id)}
                 >
                   <Trash2 className="mr-2 size-4" />
-                  Rétablir l&apos;horaire général
+                  {t('settings.restoreGeneral')}
                 </Button>
               ) : <div />}
               <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>
                 {(isSubmitting || saveMutation.isPending) ? (
                   <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                ) : 'Enregistrer'}
+                ) : t('settings.save')}
               </Button>
             </DialogFooter>
           </form>
@@ -573,6 +578,7 @@ function StaffSchedulesSettings() {
 }
 
 function ExemptionsSettings() {
+  const t = useTranslations('attendance')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -598,7 +604,7 @@ function ExemptionsSettings() {
     mutationFn: ({ staffId, exempt }: { staffId: string; exempt: boolean }) =>
       attendanceApi.setExemption(staffId, exempt),
     onSuccess: () => {
-      toast.success('Exemption mise à jour.')
+      toast.success(t('settings.exemptionSaved'))
       queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'exempt-staff'] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -618,7 +624,7 @@ function ExemptionsSettings() {
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Rechercher un membre du personnel..."
+          placeholder={t('settings.searchStaff')}
           className="pl-8"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -630,9 +636,9 @@ function ExemptionsSettings() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Personnel</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="w-32">Exempté</TableHead>
+                <TableHead>{t('settings.staffColumn')}</TableHead>
+                <TableHead>{t('settings.email')}</TableHead>
+                <TableHead className="w-32">{t('settings.exempt')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -651,7 +657,7 @@ function ExemptionsSettings() {
                       <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                         <UserRound className="size-5" />
                       </div>
-                      <p>{debouncedSearch ? 'Aucun résultat.' : 'Recherchez un membre du personnel.'}</p>
+                      <p>{debouncedSearch ? t('settings.noResult') : t('settings.searchPrompt')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -662,7 +668,7 @@ function ExemptionsSettings() {
                     <TableRow key={staff.id}>
                       <TableCell className="font-medium">
                         {staff.nickname || `${staff.first_name} ${staff.last_name}`}
-                        {exempt && <Badge variant="outline" className="ml-2 font-normal">Exempté</Badge>}
+                        {exempt && <Badge variant="outline" className="ml-2 font-normal">{t('settings.exempt')}</Badge>}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{staff.email}</TableCell>
                       <TableCell>
@@ -670,7 +676,7 @@ function ExemptionsSettings() {
                           checked={exempt}
                           onCheckedChange={(v) => toggleMutation.mutate({ staffId: staff.id, exempt: v })}
                           disabled={pendingId === staff.id}
-                          aria-label={`Exempter ${staff.nickname || staff.first_name} ${staff.last_name}`}
+                          aria-label={t('settings.exemptAria', { name: `${staff.nickname || staff.first_name} ${staff.last_name}` })}
                         />
                       </TableCell>
                     </TableRow>

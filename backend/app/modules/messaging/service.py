@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
+from app.core.i18n import t
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.messaging.models import (
@@ -200,7 +201,7 @@ async def get_announcement(
     if current_user.role == UserRole.PARENT:
         # Hors périmètre → 404 (on ne révèle pas l'existence, comme partout).
         if scope and not (set(scope) & await _parent_department_ids(current_user.id, db)):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
         read_ids = await _read_announcement_ids(current_user.id, db)
         return _announcement_response(
             announcement, is_read=announcement.id in read_ids, attachments=attachments,
@@ -279,7 +280,7 @@ async def mark_announcement_read(
     # Hors périmètre → 404 : un parent ne marque jamais lu ce qu'il ne voit pas.
     scope = await _announcement_department_ids(announcement_id, db)
     if scope and not (set(scope) & await _parent_department_ids(parent.id, db)):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
     existing = await db.scalar(
         select(AnnouncementRead.id).where(
             AnnouncementRead.announcement_id == announcement_id,
@@ -342,7 +343,7 @@ async def start_conversation(
         )
     )
     if not parent:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.parent_not_found"))
 
     conversation = await db.scalar(
         select(Conversation).where(
@@ -415,7 +416,7 @@ async def get_conversation_for_admin(
         )
     )
     if not conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.conversation_not_found"))
     return conversation
 
 
@@ -438,7 +439,7 @@ async def list_messages(
             select(Message).where(Message.id == before_id, *filters)
         )
         if cursor is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
         filters.append(tuple_(Message.created_at, Message.id) < tuple_(cursor.created_at, cursor.id))
     result = await db.execute(
         select(Message)
@@ -521,13 +522,13 @@ async def edit_message(
     if message.created_at + MESSAGE_EDIT_WINDOW < now:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Délai d'édition dépassé (15 minutes)",
+            detail=t("errors.messaging.edit_window_over"),
         )
     body = body.strip()
     if len(body) > 5000 or (not body and not await _message_attachment_count(message.id, db)):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Un message doit contenir un texte de 5000 caractères maximum ou un média",
+            detail=t("errors.messaging.body_or_media"),
         )
     message.body = body
     message.edited_at = now
@@ -552,9 +553,9 @@ async def delete_message(
 ) -> None:
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != requester.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     if message.is_deleted:
         return
     keys = (
@@ -654,11 +655,11 @@ async def _get_owned_message(
 ) -> Message:
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     if message.is_deleted:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Message supprimé")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=t("errors.messaging.message_deleted"))
     return message
 
 
@@ -672,7 +673,7 @@ async def _get_announcement_or_404(
         )
     )
     if not announcement:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
     return announcement
 
 
@@ -727,7 +728,7 @@ async def _validate_scope_departments(
     ).scalars().all()
     if set(rows) != set(unique):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Département introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.department_not_found")
         )
     return unique
 
@@ -969,12 +970,12 @@ def _validate_upload(file: UploadFile, content: bytes, *, allow_video: bool = Fa
     if len(content) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {max_mb} Mo)",
+            detail=t("errors.blog.file_too_large", max_mb=max_mb),
         )
     if not content:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Fichier vide",
+            detail=t("errors.common.empty_file"),
         )
     content_type = file.content_type or ""
     image_ok = (
@@ -985,15 +986,14 @@ def _validate_upload(file: UploadFile, content: bytes, *, allow_video: bool = Fa
         image_ok or video_ok
     ):
         allowed = ", ".join(sorted(settings.messaging_allowed_attachment_types_set))
-        detail = (
-            f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-            f"Autorisés : {allowed} ou toute image (hors SVG)"
-        )
-        if allow_video:
-            detail += " ou toute vidéo"
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=detail + ".",
+            detail=t(
+                "errors.messaging.bad_file_type_video" if allow_video
+                else "errors.messaging.bad_file_type",
+                content_type=content_type or t("errors.common.unknown_type"),
+                allowed=allowed,
+            ),
         )
 
 
@@ -1073,9 +1073,10 @@ def _ensure_message_quota(existing: int, incoming: int) -> None:
     if existing + incoming > MAX_MESSAGE_ATTACHMENTS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Limite de {MAX_MESSAGE_ATTACHMENTS} médias par message "
-                f"atteinte ({existing} déjà joint(s))"
+            detail=t(
+                "errors.messaging.message_media_limit",
+                max_media=MAX_MESSAGE_ATTACHMENTS,
+                existing=existing,
             ),
         )
 
@@ -1084,9 +1085,10 @@ def _ensure_announcement_quota(existing: int, incoming: int) -> None:
     if existing + incoming > MAX_ANNOUNCEMENT_ATTACHMENTS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Limite de {MAX_ANNOUNCEMENT_ATTACHMENTS} médias par diffusion "
-                f"atteinte ({existing} déjà joint(s))"
+            detail=t(
+                "errors.messaging.announcement_media_limit",
+                max_media=MAX_ANNOUNCEMENT_ATTACHMENTS,
+                existing=existing,
             ),
         )
 
@@ -1121,7 +1123,7 @@ async def add_announcement_attachments_batch(
     if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Aucun fichier fourni",
+            detail=t("errors.messaging.no_file"),
         )
     announcement = await db.scalar(
         select(Announcement)
@@ -1133,7 +1135,7 @@ async def add_announcement_attachments_batch(
         .execution_options(populate_existing=True)
     )
     if not announcement:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
     _ensure_announcement_quota(
         await _announcement_attachment_count(announcement.id, db), len(files)
     )
@@ -1168,13 +1170,13 @@ async def add_message_attachments_batch(
     if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Aucun fichier fourni",
+            detail=t("errors.messaging.no_file"),
         )
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message or message.is_deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != uploader.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     _ensure_message_quota(await _message_attachment_count(message.id, db), len(files))
 
     payloads: list[tuple[UploadFile, bytes]] = []
@@ -1207,21 +1209,21 @@ async def remove_message_attachment(
 ) -> None:
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message or message.is_deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != requester.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     attachment = await db.scalar(
         select(Attachment).where(
             Attachment.id == attachment_id, Attachment.message_id == message.id
         )
     )
     if not attachment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found"))
     remaining = await _message_attachment_count(message.id, db)
     if remaining <= 1 and not message.body.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Un message doit garder au moins un média ou un texte",
+            detail=t("errors.messaging.keep_body_or_media"),
         )
     await db.delete(attachment)
     await db.flush()
@@ -1241,7 +1243,7 @@ async def get_attachment_for_download(
 ) -> tuple[Attachment, Path]:
     attachment = await db.scalar(select(Attachment).where(Attachment.id == attachment_id))
     if not attachment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found"))
 
     if attachment.message_id:
         message = await db.scalar(select(Message).where(Message.id == attachment.message_id))
@@ -1250,7 +1252,7 @@ async def get_attachment_for_download(
         )
         if message.is_deleted:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+                status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found")
             )
         establishment_id = conversation.establishment_id
         owner_ok = (
@@ -1273,6 +1275,6 @@ async def get_attachment_for_download(
             )
 
     if establishment_id != current_user.establishment_id or not owner_ok:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found"))
 
     return attachment, storage.resolve_path(attachment.storage_key)

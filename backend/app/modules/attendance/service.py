@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import redis_client
+from app.core.i18n import t
 from app.modules.attendance import email as attendance_email
 from app.modules.attendance.models import (
     AttendanceEvent,
@@ -117,14 +118,14 @@ async def scan(
     if recent:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Événement déjà enregistré il y a moins d'une minute",
+            detail=t("errors.attendance.duplicate_scan"),
         )
 
     if person_type == PersonType.CHILD:
         if payload.event_type == EventType.MEAL:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Pas de cantine pour les enfants",
+                detail=t("errors.attendance.no_meal_for_children"),
             )
         child = await _get_active_child_or_404(person_id, establishment_id, db)
         event = AttendanceEvent(
@@ -140,7 +141,7 @@ async def scan(
         if payload.companion_name or payload.companion_phone:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Un accompagnateur n'est pas applicable pour un membre du personnel",
+                detail=t("errors.attendance.no_companion_for_staff"),
             )
         staff = await _get_active_staff_or_404(person_id, establishment_id, db)
         event = AttendanceEvent(
@@ -173,21 +174,21 @@ async def create_manual_event(
     if payload.event_type == EventType.MEAL and payload.person_type == PersonType.CHILD:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Pas de cantine pour les enfants",
+            detail=t("errors.attendance.no_meal_for_children"),
         )
     tz = await _get_timezone(establishment_id, db)
     scanned_at = datetime.combine(payload.date, payload.time, tzinfo=tz)
     if scanned_at > datetime.now(tz=tz):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="L'heure corrigée ne peut pas être dans le futur",
+            detail=t("errors.attendance.time_future"),
         )
 
     if payload.person_type == PersonType.CHILD:
         if not payload.child_id or payload.staff_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="child_id requis pour une correction enfant",
+                detail=t("errors.attendance.child_id_required"),
             )
         child = await _get_active_child_or_404(
             payload.child_id, establishment_id, db
@@ -206,12 +207,12 @@ async def create_manual_event(
         if not payload.staff_id or payload.child_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="staff_id requis pour une correction personnel",
+                detail=t("errors.attendance.staff_id_required"),
             )
         if payload.companion_name or payload.companion_phone:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Un accompagnateur n'est pas applicable pour un membre du personnel",
+                detail=t("errors.attendance.no_companion_for_staff"),
             )
         staff = await _get_active_staff_or_404(
             payload.staff_id, establishment_id, db
@@ -246,7 +247,7 @@ async def update_event(
         )
     )
     if not event:
-        raise HTTPException(status_code=404, detail="Événement introuvable")
+        raise HTTPException(status_code=404, detail=t("errors.attendance.event_not_found"))
 
     scanned_at = payload.scanned_at
     tz = await _get_timezone(establishment_id, db)
@@ -259,7 +260,7 @@ async def update_event(
     if scanned_at > datetime.now(tz=tz):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="L'heure corrigée ne peut pas être dans le futur",
+            detail=t("errors.attendance.time_future"),
         )
     # Cohérence temporelle a minima : une arrivée déplacée après le dernier
     # départ du même jour (ou un départ avant la première arrivée) est
@@ -289,12 +290,12 @@ async def update_event(
     if event.event_type == str(EventType.ARRIVAL) and departures and scanned_at > departures[-1]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="L'arrivée corrigée est après le dernier départ du jour",
+            detail=t("errors.attendance.arrival_after_departure"),
         )
     if event.event_type == str(EventType.DEPARTURE) and arrivals and scanned_at < arrivals[0]:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Le départ corrigé est avant la première arrivée du jour",
+            detail=t("errors.attendance.departure_before_arrival"),
         )
     event.scanned_at = scanned_at
     await db.flush()
@@ -375,7 +376,7 @@ async def list_events(
             )
         )
         if not exists:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found"))
         filters.append(AttendanceEvent.child_id == child_id)
     if staff_id:
         exists = await db.scalar(
@@ -388,13 +389,13 @@ async def list_events(
         if not exists:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Membre du personnel introuvable",
+                detail=t("errors.common.staff_not_found"),
             )
         filters.append(AttendanceEvent.staff_id == staff_id)
     if date_from and date_to and date_from > date_to:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de début doit être antérieure à la date de fin",
+            detail=t("errors.attendance.start_after_end"),
         )
     tz = await _get_timezone(establishment_id, db)
     if date_from:
@@ -606,7 +607,7 @@ async def get_department_settings(
     if not settings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aucun horaire configuré pour ce département",
+            detail=t("errors.attendance.no_department_schedule"),
         )
     return DepartmentAttendanceSettingsResponse.model_validate(settings)
 
@@ -651,7 +652,7 @@ async def get_general_settings(
     if not settings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aucun paramètre de présence configuré pour cet établissement",
+            detail=t("errors.attendance.no_settings"),
         )
     return AttendanceGeneralSettingsResponse.model_validate(settings)
 
@@ -704,7 +705,7 @@ async def get_staff_schedule(
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aucun horaire personnalisé configuré pour ce membre du personnel",
+            detail=t("errors.attendance.no_staff_schedule"),
         )
     return StaffScheduleResponse(
         staff_id=staff.id,
@@ -765,12 +766,12 @@ async def get_attendance_export(
     if date_to < date_from:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de fin doit être postérieure ou égale à la date de début",
+            detail=t("errors.attendance.end_before_start"),
         )
     if (date_to - date_from).days + 1 > 366:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La période d'export ne peut pas dépasser 366 jours",
+            detail=t("errors.attendance.range_too_long"),
         )
 
     establishment = await db.scalar(
@@ -822,7 +823,7 @@ async def _build_export_rows(
     if child_id and staff_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="child_id et staff_id sont exclusifs l'un de l'autre",
+            detail=t("errors.attendance.ids_exclusive"),
         )
     # Export d'une personne précise : on la résout d'abord (404 si hors
     # établissement — on ne révèle pas l'existence, comme partout).
@@ -836,7 +837,7 @@ async def _build_export_rows(
         )
         if not only_child:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable"
+                status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found")
             )
         export_scope = ExportPersonType.CHILDREN
     if staff_id:
@@ -849,7 +850,7 @@ async def _build_export_rows(
         )
         if not only_staff:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Membre du personnel introuvable"
+                status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.staff_not_found")
             )
         export_scope = ExportPersonType.STAFF
 
@@ -1067,7 +1068,7 @@ async def send_absence_inquiries(
             )
         )
         if not child:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found"))
         tz = await _get_timezone(establishment_id, db)
         day_events = await _events_for_day(
             establishment_id, PersonType.CHILD, target_date, db, tz
@@ -1079,7 +1080,7 @@ async def send_absence_inquiries(
         if arrivals:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Cet enfant n'est pas absent pour cette date",
+                detail=t("errors.attendance.child_not_absent"),
             )
         absent_items = [ChildDailyStatus(
             child=_child_brief(child),
@@ -1261,7 +1262,7 @@ async def _get_child_or_404(
         )
     )
     if not child:
-        raise HTTPException(status_code=404, detail="Enfant introuvable")
+        raise HTTPException(status_code=404, detail=t("errors.common.child_not_found"))
     return child
 
 
@@ -1273,7 +1274,7 @@ async def _get_active_child_or_404(
     if not child.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cette fiche enfant est désactivée",
+            detail=t("errors.common.child_inactive"),
         )
     return child
 
@@ -1290,7 +1291,7 @@ async def _get_staff_or_404(
         )
     )
     if not staff:
-        raise HTTPException(status_code=404, detail="Membre du personnel introuvable")
+        raise HTTPException(status_code=404, detail=t("errors.common.staff_not_found"))
     return staff
 
 
@@ -1302,7 +1303,7 @@ async def _get_active_staff_or_404(
     if not staff.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce compte est désactivé",
+            detail=t("errors.attendance.account_disabled"),
         )
     return staff
 
@@ -1454,7 +1455,7 @@ def _tz_of(settings: AttendanceSettings | None) -> ZoneInfo:
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Fuseau horaire invalide configuré ({settings.timezone}) — reconfigurez les paramètres de présence",
+            detail=t("errors.attendance.bad_timezone", timezone=settings.timezone),
         )
 
 

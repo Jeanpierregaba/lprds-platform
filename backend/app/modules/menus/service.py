@@ -1,4 +1,5 @@
 import uuid
+from app.core.i18n import t
 from datetime import date, timedelta
 
 from fastapi import HTTPException, status
@@ -99,7 +100,7 @@ async def _validate_department(
     )
     if not department:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Département introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.department_not_found")
         )
     return department
 
@@ -112,7 +113,7 @@ def _ensure_visible(
     if visible is not None and department_id not in visible:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ce menu ne concerne pas votre département",
+            detail=t("errors.menus.wrong_department"),
         )
 
 
@@ -120,7 +121,7 @@ def _ensure_monday(week_start: date) -> None:
     if week_start.weekday() != 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="week_start doit être un lundi",
+            detail=t("errors.menus.not_monday"),
         )
 
 
@@ -130,7 +131,7 @@ def _ensure_not_past(week_start: date) -> None:
     if week_start < _current_monday():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Impossible de créer/modifier/supprimer le menu d'une semaine déjà passée",
+            detail=t("errors.menus.past_week"),
         )
 
 
@@ -156,7 +157,7 @@ async def create_menu(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un menu existe déjà pour cette semaine et ce département — utilisez PATCH pour le modifier",
+            detail=t("errors.menus.already_exists"),
         )
 
     content = payload.model_dump(mode="json", exclude={"week_start", "department_id"})
@@ -266,7 +267,7 @@ async def get_menu(
     if week_start < _current_monday() and not _can_see_history(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seuls l'admin et le staff restaurateur délégué peuvent consulter l'historique des menus",
+            detail=t("errors.menus.history_restricted"),
         )
     menu = await _get_menu_or_404(week_start, department_id, establishment_id, db)
     names = await _department_names(establishment_id, db)
@@ -348,7 +349,7 @@ async def _get_menu_or_404(
     if not menu:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aucun menu publié pour cette semaine et ce département",
+            detail=t("errors.menus.no_menu"),
         )
     return menu
 

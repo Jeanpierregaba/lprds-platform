@@ -1,4 +1,5 @@
 import logging
+from app.core.i18n import t
 import uuid
 
 from fastapi import HTTPException, status
@@ -41,7 +42,7 @@ async def create_staff(
     if not establishment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Établissement introuvable",
+            detail=t("errors.common.establishment_not_found"),
         )
     await _ensure_email_available(payload.email, db)
 
@@ -90,10 +91,7 @@ async def create_staff(
         logger.exception("Échec d'envoi du mail de bienvenue à %s", member.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Compte non créé : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_account"),
         ) from exc
 
     return StaffResponse.model_validate(member)
@@ -237,10 +235,7 @@ async def reset_staff_password(
         logger.exception("Échec d'envoi du mail de reset à %s", member.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Mot de passe non modifié : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_password"),
         ) from exc
 
 
@@ -276,7 +271,7 @@ async def _get_or_404(
     if not member:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Membre du personnel introuvable",
+            detail=t("errors.common.staff_not_found"),
         )
     return member
 
@@ -286,5 +281,5 @@ async def _ensure_email_available(email: str, db: AsyncSession) -> None:
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
+            detail=t("errors.common.email_exists"),
         )

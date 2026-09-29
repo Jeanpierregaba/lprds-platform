@@ -1,4 +1,5 @@
 import uuid
+from app.core.i18n import t
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -277,7 +278,7 @@ async def remove_child(
     if child.group_id != group.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cet enfant n'appartient pas à ce groupe",
+            detail=t("errors.organization.child_not_in_group"),
         )
     child.group_id = None
     await db.flush()
@@ -304,7 +305,7 @@ async def get_or_404(
                  "groups": "Groupe"}.get(model.__tablename__, "Élément")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"{label} introuvable dans cet établissement",
+            detail=t("errors.organization.label_not_found", label=label),
         )
     return unit
 
@@ -327,12 +328,12 @@ async def _resolve_educatrice(
     if not educatrice:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Éducatrice introuvable dans cet établissement",
+            detail=t("errors.organization.educatrice_not_found"),
         )
     if educatrice.staff_type != str(StaffType.EDUCATEUR):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Seul un membre du personnel de type « educateur » peut mener un groupe",
+            detail=t("errors.organization.educator_type_required"),
         )
     return educatrice
 
@@ -355,10 +356,7 @@ async def _ensure_educatrice_free_in_section(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Cette éducatrice est déjà responsable d'un groupe dans cette "
-                "section. Une éducatrice ne peut mener qu'un groupe par section"
-            ),
+            detail=t("errors.organization.educatrice_busy"),
         )
 
 
@@ -366,10 +364,7 @@ def _ensure_child_matches_section(child, group: Group) -> None:
     if child.section_id != group.section_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "L'enfant doit appartenir à la même section que le groupe. "
-                "Seuls les enfants de la section peuvent y être assignés"
-            ),
+            detail=t("errors.organization.child_wrong_section"),
         )
 
 
@@ -395,7 +390,8 @@ async def _assign_children(
         missing = unique_ids - {c.id for c in children}
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Enfant(s) introuvable(s) : " + ", ".join(str(m) for m in missing),
+            detail=t("errors.organization.children_not_found",
+                     ids=", ".join(str(m) for m in missing)),
         )
     for child in children:
         _ensure_child_matches_section(child, group)
@@ -419,7 +415,7 @@ async def _get_child_or_404(
     if not child:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Enfant introuvable dans cet établissement",
+            detail=t("errors.organization.child_not_found"),
         )
     return child
 
@@ -438,7 +434,7 @@ async def _ensure_department_name_available(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Le département « {name} » existe déjà dans cet établissement",
+            detail=t("errors.organization.department_exists", name=name),
         )
 
 
@@ -456,7 +452,7 @@ async def _ensure_section_name_available(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"La section « {name} » existe déjà dans ce département",
+            detail=t("errors.organization.section_exists", name=name),
         )
 
 
@@ -479,5 +475,5 @@ async def _ensure_group_name_available(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Le groupe « {name} » existe déjà dans cette section",
+            detail=t("errors.organization.group_exists", name=name),
         )

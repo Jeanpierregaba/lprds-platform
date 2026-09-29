@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
+from app.core.i18n import t, coerce_locale, set_request_locale
 from app.modules.auth.models import User, UserRole
 from app.modules.auth.security import decode_token, is_token_revoked
 
@@ -17,7 +18,7 @@ async def get_current_user(
 ) -> User:
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Token invalide ou expire",
+        detail=t("errors.auth.invalid_token"),
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -39,6 +40,10 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise credentials_exc
+
+    # La langue du compte prime sur l'en-tête Accept-Language posé par le
+    # middleware : c'est un choix explicite, l'en-tête n'est qu'une déduction.
+    set_request_locale(coerce_locale(user.locale))
     return user
 
 
@@ -61,7 +66,7 @@ def require_roles(*roles: UserRole):
         if current_user.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Permissions insuffisantes",
+                detail=t("errors.common.insufficient_permissions"),
             )
         return current_user
     return _check

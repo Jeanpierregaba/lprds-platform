@@ -17,6 +17,7 @@ dégrade l'affichage, elle ne casse jamais une réponse HTTP.
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,29 @@ class Locale(StrEnum):
 
 
 DEFAULT_LOCALE: Locale = Locale.FR
+
+
+# ── Langue de la requête en cours ───────────────────────────────
+# Les `HTTPException` sont levées au fond des services, loin du routeur qui
+# connaît la requête. Propager la locale dans chaque signature aurait touché
+# presque toutes les fonctions du backend pour un seul paramètre.
+#
+# Une ContextVar résout cela proprement : elle est isolée par tâche asyncio,
+# donc deux requêtes concurrentes ne se marchent pas dessus, et sa valeur
+# traverse les `await` sans être passée de main en main.
+#
+# Elle est posée deux fois par requête : d'abord depuis `Accept-Language`
+# (middleware), puis affinée par `users.locale` dès que l'utilisateur est
+# authentifié — c'est son choix explicite qui doit primer.
+_request_locale: ContextVar[Locale] = ContextVar("request_locale", default=DEFAULT_LOCALE)
+
+
+def set_request_locale(locale: Locale) -> None:
+    _request_locale.set(locale)
+
+
+def current_locale() -> Locale:
+    return _request_locale.get()
 
 
 def coerce_locale(value: str | None) -> Locale:
@@ -91,16 +115,26 @@ def _catalog(locale: Locale) -> dict[str, str]:
 
 
 def t(key: str, locale: Locale | str | None = None, /, **params: object) -> str:
-    """Traduit `key` dans `locale`, en interpolant `params`.
+    """Traduit `key`, en interpolant `params`.
 
-        t("errors.child_not_found", locale)
-        t("emails.welcome.greeting", locale, first_name=user.first_name)
+        t("errors.children.not_found")                    # langue de la requête
+        t("emails.welcome.greeting", user.locale, first_name=...)  # langue imposée
+
+    Sans `locale`, la langue de la requête en cours est utilisée. On la passe
+    explicitement pour tout ce qui sort du cycle requête/réponse — un email
+    part vers UN destinataire, dans SA langue, qui n'est pas forcément celle
+    de l'admin qui a déclenché l'envoi.
 
     Les paramètres sont interpolés avec `str.format`. Un paramètre manquant
     n'interrompt pas la requête : la chaîne est renvoyée non interpolée et
     l'incident est journalisé — mieux vaut un libellé imparfait qu'une 500.
     """
-    resolved = locale if isinstance(locale, Locale) else coerce_locale(locale)
+    if locale is None:
+        resolved = current_locale()
+    elif isinstance(locale, Locale):
+        resolved = locale
+    else:
+        resolved = coerce_locale(locale)
 
     template = _catalog(resolved).get(key)
     if template is None and resolved is not DEFAULT_LOCALE:

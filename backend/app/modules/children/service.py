@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core import storage
 from app.core.config import settings
+from app.core.i18n import t
 from app.modules.auth.models import User
 from app.modules.children import io as children_io
 from app.modules.children.export import (
@@ -52,7 +53,7 @@ async def create_child(
     if not establishment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Établissement introuvable",
+            detail=t("errors.common.establishment_not_found"),
         )
 
     await _validate_units(payload.department_id, payload.section_id,
@@ -182,7 +183,7 @@ async def update_child(
     if admission < birth:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date d'admission ne peut pas précéder la date de naissance",
+            detail=t("errors.children.admission_before_birth"),
         )
 
     if "guardians" in changes:
@@ -239,7 +240,7 @@ async def import_children(
     if len(content) > children_io.MAX_IMPORT_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Fichier trop volumineux (max 5 Mo)",
+            detail=t("errors.children.file_too_large_fixed"),
         )
 
     try:
@@ -253,7 +254,7 @@ async def import_children(
     if len(rows) > children_io.MAX_IMPORT_ROWS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Trop de lignes (max {children_io.MAX_IMPORT_ROWS})",
+            detail=t("errors.children.too_many_rows", max_rows=children_io.MAX_IMPORT_ROWS),
         )
 
     sections_by_name = await _sections_by_name(establishment_id, db)
@@ -307,7 +308,7 @@ async def export_children(
         return content, f"enfants_{today}.csv", "text/csv; charset=utf-8"
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="format invalide — 'xlsx' ou 'csv'",
+        detail=t("errors.children.bad_format"),
     )
 
 
@@ -321,7 +322,7 @@ async def import_template(file_format: str) -> tuple[bytes, str, str]:
         return content, "modele_enfants.csv", "text/csv; charset=utf-8"
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="format invalide — 'xlsx' ou 'csv'",
+        detail=t("errors.children.bad_format"),
     )
 
 
@@ -406,14 +407,14 @@ async def _apply_import_update(
     if payload_data.get("birth_date") and payload_data["birth_date"] > date.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de naissance ne peut pas être dans le futur",
+            detail=t("errors.children.birth_future"),
         )
     if payload_data.get("admission_date"):
         birth = payload_data.get("birth_date", current.birth_date)
         if payload_data["admission_date"] < birth:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="La date d'admission ne peut pas précéder la date de naissance",
+                detail=t("errors.children.admission_before_birth"),
             )
     payload = ChildUpdateRequest(**payload_data)
     await update_child(child_id, payload, establishment_id, db)
@@ -503,21 +504,22 @@ async def _store_document(
     if len(content_bytes) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.children_max_attachment_mb} Mo)",
+            detail=t("errors.blog.file_too_large", max_mb=settings.children_max_attachment_mb),
         )
     if not content_bytes:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Fichier vide",
+            detail=t("errors.common.empty_file"),
         )
 
     content_type = file.content_type or ""
     if content_type not in settings.children_allowed_attachment_types_set:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Autorisés : {', '.join(sorted(settings.children_allowed_attachment_types_set))}"
+            detail=t(
+                "errors.children.bad_file_type",
+                content_type=content_type or 'inconnu',
+                allowed=', '.join(sorted(settings.children_allowed_attachment_types_set)),
             ),
         )
 
@@ -553,7 +555,7 @@ async def _get_document_or_404(
     if not attachment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document introuvable",
+            detail=t("errors.children.document_not_found"),
         )
     return attachment
 
@@ -623,6 +625,6 @@ async def _get_or_404(
     if not child:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Enfant introuvable",
+            detail=t("errors.common.child_not_found"),
         )
     return child

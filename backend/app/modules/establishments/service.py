@@ -1,4 +1,5 @@
 import uuid
+from app.core.i18n import t
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
@@ -174,7 +175,7 @@ async def remove_admin(
     if not admin or not admin.is_active:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Administrateur introuvable pour cet établissement",
+            detail=t("errors.establishments.admin_not_found"),
         )
 
     # Un établissement sans admin ne serait plus gérable
@@ -182,10 +183,7 @@ async def remove_admin(
     if remaining <= 1:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Impossible de retirer le dernier administrateur. "
-                "Ajoutez un autre administrateur au préalable"
-            ),
+            detail=t("errors.establishments.last_admin"),
         )
 
     admin.is_active = False
@@ -205,10 +203,7 @@ async def ensure_admin_quota(
     if count >= MAX_ADMINS_PER_ESTABLISHMENT:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Cet établissement a déjà {MAX_ADMINS_PER_ESTABLISHMENT} "
-                "administrateurs (maximum atteint)"
-            ),
+            detail=t("errors.establishments.max_admins", max_admins=MAX_ADMINS_PER_ESTABLISHMENT),
         )
 
 
@@ -236,7 +231,7 @@ async def _get_or_404(
     if not establishment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Établissement introuvable",
+            detail=t("errors.common.establishment_not_found"),
         )
     return establishment
 
@@ -280,7 +275,7 @@ async def _ensure_code_available(code: str, db: AsyncSession) -> None:
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Le code établissement « {code} » est déjà utilisé",
+            detail=t("errors.establishments.code_taken", code=code),
         )
 
 
@@ -302,10 +297,7 @@ async def _ensure_no_matricule_issued(
     if exists:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Le code ne peut plus être modifié : des matricules enfants "
-                "ont déjà été émis avec le code actuel"
-            ),
+            detail=t("errors.establishments.code_locked"),
         )
 
 
@@ -314,5 +306,5 @@ async def _ensure_email_available(email: str, db: AsyncSession) -> None:
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
+            detail=t("errors.common.email_exists"),
         )

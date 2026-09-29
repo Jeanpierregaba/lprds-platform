@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.i18n import t
 from app.modules.auth.dependencies import get_active_user, require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.reports import service
@@ -55,7 +56,7 @@ async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
         return user
     if user.role == UserRole.STAFF and _sees_reports(user):
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
@@ -71,7 +72,7 @@ async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
         return user
     if user.role == UserRole.STAFF and _sees_reports(user):
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 # Types de rapport par département : configuration réservée à l'admin —
@@ -93,7 +94,7 @@ async def _read_types(
     codes = user_permission_codes(user)
     if PermissionCode.REPORTS_READ.value in codes or PermissionCode.REPORTS_WRITE.value in codes:
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 @router.get(
@@ -205,7 +206,7 @@ async def list_missing_reports(
     if target > date.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date ne peut pas être dans le futur",
+            detail=t("errors.common.date_future"),
         )
     return await service.list_missing_reports(
         user.establishment_id, user, db,

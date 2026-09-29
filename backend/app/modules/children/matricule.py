@@ -1,6 +1,7 @@
 """Génération des matricules enfants : <CODE ÉTABLISSEMENT>-<5 alphanum>."""
 
 import secrets
+from app.core.i18n import t
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -40,8 +41,5 @@ async def generate_unique_matricule(
 
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=(
-            "Impossible de générer un matricule unique après "
-            f"{_MAX_ATTEMPTS} tentatives"
-        ),
+        detail=t("errors.common.matricule_failed", attempts=_MAX_ATTEMPTS),
     )

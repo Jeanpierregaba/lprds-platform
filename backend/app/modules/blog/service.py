@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
+from app.core.i18n import t
 from app.modules.auth.models import User
 from app.modules.blog.models import (
     Article,
@@ -61,7 +62,7 @@ async def create_tag(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Une étiquette porte déjà ce nom",
+            detail=t("errors.blog.tag_exists"),
         )
     tag = BlogTag(establishment_id=establishment_id, name=payload.name)
     db.add(tag)
@@ -96,7 +97,7 @@ async def update_tag(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Une étiquette porte déjà ce nom",
+            detail=t("errors.blog.tag_exists"),
         )
     tag.name = payload.name
     await db.flush()
@@ -142,7 +143,7 @@ async def update_article(
     if not article.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cette actualité a été supprimée (soft delete)",
+            detail=t("errors.blog.article_deleted"),
         )
     changes = payload.model_dump(exclude_unset=True)
     if "tag_id" in changes and changes["tag_id"]:
@@ -162,21 +163,21 @@ async def publish_article(
     if not article.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cette actualité a été supprimée (soft delete)",
+            detail=t("errors.blog.article_deleted"),
         )
     if article.status == str(ArticleStatus.PUBLISHED):
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Cette actualité est déjà publiée"
+            status_code=status.HTTP_409_CONFLICT, detail=t("errors.blog.already_published")
         )
     if not article.cover_storage_key:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Une image à la une est requise avant publication",
+            detail=t("errors.blog.cover_required"),
         )
     if not article.tag_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Une étiquette est requise avant publication",
+            detail=t("errors.blog.tag_required"),
         )
     article.status = str(ArticleStatus.PUBLISHED)
     article.published_at = datetime.now(timezone.utc)
@@ -245,7 +246,7 @@ async def set_article_cover(
     if not article.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cette actualité a été supprimée (soft delete)",
+            detail=t("errors.blog.article_deleted"),
         )
 
     content_bytes = await file.read()
@@ -253,7 +254,7 @@ async def set_article_cover(
     if not content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="L'image à la une doit être une image (pas une vidéo)",
+            detail=t("errors.blog.cover_must_be_image"),
         )
     _validate_attachment(content_bytes, content_type)
 
@@ -278,7 +279,7 @@ async def get_article_cover_for_staff(
     article = await _get_article_or_404(article_id, establishment_id, db)
     if not article.cover_storage_key:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Aucune image à la une"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.no_cover")
         )
     return article, storage.resolve_path(article.cover_storage_key)
 
@@ -295,7 +296,7 @@ async def add_article_attachment(
     if not article.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cette actualité a été supprimée (soft delete)",
+            detail=t("errors.blog.article_deleted"),
         )
 
     content_bytes = await file.read()
@@ -328,7 +329,7 @@ async def delete_article_attachment(
     )
     if not attachment:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Média introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.media_not_found")
         )
     await storage.delete_file(attachment.storage_key)
     await db.delete(attachment)
@@ -356,7 +357,7 @@ async def create_gallery_category(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Une catégorie porte déjà ce nom",
+            detail=t("errors.blog.category_exists"),
         )
     category = BlogGalleryCategory(establishment_id=establishment_id, name=payload.name)
     db.add(category)
@@ -393,7 +394,7 @@ async def update_gallery_category(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Une catégorie porte déjà ce nom",
+            detail=t("errors.blog.category_exists"),
         )
     category.name = payload.name
     await db.flush()
@@ -420,7 +421,7 @@ async def _get_gallery_category_or_404(
         )
     )
     if not category:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catégorie introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.category_not_found"))
     return category
 
 
@@ -557,7 +558,7 @@ async def get_public_gallery_photo(
         )
     )
     if not photo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.photo_not_found"))
     return photo, storage.resolve_path(photo.storage_key)
 
 
@@ -571,7 +572,7 @@ async def get_public_establishment_or_404(
         )
     )
     if not establishment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Établissement introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.establishment_not_found"))
     return establishment
 
 
@@ -625,7 +626,7 @@ async def get_public_article(
         )
     )
     if not article:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Actualité introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.article_not_found"))
     attachments = await _attachments_for_article(article.id, db)
     return PublicArticleDetail(
         id=article.id, title=article.title, content=article.content,
@@ -657,7 +658,7 @@ async def get_public_cover(
         )
     )
     if not article or not article.cover_storage_key:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.not_found"))
     return article, storage.resolve_path(article.cover_storage_key)
 
 
@@ -674,7 +675,7 @@ async def get_public_attachment(
         )
     )
     if not article:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.not_found"))
     return await _get_attachment_or_404(article.id, attachment_id, db)
 
 
@@ -684,11 +685,11 @@ def _validate_attachment(content_bytes: bytes, content_type: str) -> None:
     if len(content_bytes) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.blog_max_attachment_mb} Mo)",
+            detail=t("errors.blog.file_too_large", max_mb=settings.blog_max_attachment_mb),
         )
     if not content_bytes:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=t("errors.common.empty_file")
         )
     if content_type not in settings.blog_allowed_attachment_types_set and not (
         (content_type.startswith("image/") or content_type.startswith("video/"))
@@ -696,10 +697,7 @@ def _validate_attachment(content_bytes: bytes, content_type: str) -> None:
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Seules les images et vidéos sont acceptées."
-            ),
+            detail=t("errors.blog.bad_file_type", content_type=content_type or 'inconnu'),
         )
 
 
@@ -710,21 +708,21 @@ def _validate_gallery_photo(content_bytes: bytes, content_type: str) -> None:
     if len(content_bytes) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.blog_max_attachment_mb} Mo)",
+            detail=t("errors.blog.file_too_large", max_mb=settings.blog_max_attachment_mb),
         )
     if not content_bytes:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=t("errors.common.empty_file")
         )
     if not content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"La galerie n'accepte que des images : {content_type or 'inconnu'}",
+            detail=t("errors.blog.gallery_images_only", content_type=content_type or 'inconnu'),
         )
     if content_type == "image/svg+xml":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Le format SVG n'est pas autorisé",
+            detail=t("errors.blog.no_svg"),
         )
 
 
@@ -733,7 +731,7 @@ async def _get_tag_or_404(tag_id: uuid.UUID, establishment_id: uuid.UUID, db: As
         select(BlogTag).where(BlogTag.id == tag_id, BlogTag.establishment_id == establishment_id)
     )
     if not tag:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Étiquette introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.tag_not_found"))
     return tag
 
 
@@ -746,7 +744,7 @@ async def _get_article_or_404(
         )
     )
     if not article:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Actualité introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.article_not_found"))
     return article
 
 
@@ -759,7 +757,7 @@ async def _get_attachment_or_404(
         )
     )
     if not attachment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Média introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.media_not_found"))
     return attachment, storage.resolve_path(attachment.storage_key)
 
 
@@ -773,7 +771,7 @@ async def _get_gallery_photo_or_404(
         )
     )
     if not photo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.photo_not_found"))
     return photo
 
 

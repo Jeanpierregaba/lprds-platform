@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
+from app.core.i18n import t
 from app.modules.attendance.models import AttendanceEvent, AttendanceSettings, EventType, PersonType
 from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
@@ -140,15 +141,15 @@ async def create_report(
         )
     )
     if not child:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found"))
     if not child.is_active:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Cette fiche enfant est désactivée"
+            status_code=status.HTTP_409_CONFLICT, detail=t("errors.common.child_inactive")
         )
     if child.department_id is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="L'enfant doit être rattaché à un département pour recevoir des rapports",
+            detail=t("errors.reports.child_no_department"),
         )
 
     group_id = child.group_id
@@ -156,13 +157,13 @@ async def create_report(
         if child.group_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cet enfant n'est affecté à aucun groupe",
+                detail=t("errors.reports.child_no_group"),
             )
         group = await db.get(Group, child.group_id)
         if not group or group.educatrice_id != author.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Vous ne pouvez remplir des rapports que pour les enfants de votre groupe",
+                detail=t("errors.reports.own_group_only"),
             )
 
     await _ensure_department_allows(child.department_id, payload.report_type, db)
@@ -171,7 +172,7 @@ async def create_report(
     if reference > date.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de référence ne peut pas être dans le futur",
+            detail=t("errors.reports.reference_date_future"),
         )
     period_start, period_end, period_label = _period_for(payload.report_type, reference)
 
@@ -185,7 +186,7 @@ async def create_report(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Un rapport {payload.report_type} existe déjà pour cette période",
+            detail=t("errors.reports.period_exists", report_type=payload.report_type),
         )
 
     content = dict(payload.content)
@@ -344,7 +345,7 @@ async def delete_report(
     if report.status != str(ReportStatus.DRAFT):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport encore en brouillon (jamais soumis) peut être supprimé",
+            detail=t("errors.reports.only_draft_deletable"),
         )
     await db.delete(report)
     await db.flush()
@@ -358,7 +359,7 @@ async def submit_report(
     if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport en brouillon ou rejeté peut être soumis",
+            detail=t("errors.reports.only_draft_submittable"),
         )
 
 
@@ -391,7 +392,7 @@ async def validate_report(
     if report.status != str(ReportStatus.SUBMITTED):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport soumis peut être validé",
+            detail=t("errors.reports.only_submitted_validatable"),
         )
 
 
@@ -416,7 +417,7 @@ async def reject_report(
     if report.status != str(ReportStatus.SUBMITTED):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport soumis peut être rejeté",
+            detail=t("errors.reports.only_submitted_rejectable"),
         )
     report.status = str(ReportStatus.REJECTED)
     report.rejected_reason = reason
@@ -437,7 +438,7 @@ async def list_my_reports(
     child_ids = {c.id for c in parent.assigned_children}
     if child_id:
         if child_id not in child_ids:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found"))
         child_ids = {child_id}
     if not child_ids:
         return ParentReportListResponse(total=0, items=[])
@@ -478,7 +479,7 @@ async def get_my_report_pdf(
     if report.report_type != str(ReportType.ANNUEL):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Le téléchargement PDF n'est disponible que pour le rapport annuel",
+            detail=t("errors.reports.pdf_annual_only"),
         )
     child = report.child
     pdf_bytes = await asyncio.to_thread(
@@ -518,7 +519,7 @@ async def _ensure_department_allows(
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Le type de rapport « {report_type} » n'est pas activé pour ce département",
+            detail=t("errors.reports.type_not_enabled", report_type=report_type),
         )
 
 
@@ -557,7 +558,7 @@ async def _authorize_write(report: Report, current_user: User, db: AsyncSession)
             return
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Vous n'êtes pas autorisé à modifier ce rapport",
+        detail=t("errors.reports.cannot_edit"),
     )
 
 
@@ -573,7 +574,7 @@ def _ensure_mutable(report: Report, current_user: User) -> None:
     if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport en brouillon ou rejeté peut être modifié",
+            detail=t("errors.reports.only_draft_editable"),
         )
 
 
@@ -593,7 +594,7 @@ async def _authorize_read(report: Report, current_user: User, db: AsyncSession) 
             in (str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED))
         ):
             return
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.reports.not_found"))
 
 
 async def _get_report_or_404(
@@ -605,7 +606,7 @@ async def _get_report_or_404(
         )
     )
     if not report:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.reports.not_found"))
     return report
 
 
@@ -617,7 +618,7 @@ async def _get_visible_report_or_404(report_id: uuid.UUID, parent: User, db: Asy
     )
     child_ids = {c.id for c in parent.assigned_children}
     if not report or report.child_id not in child_ids:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.reports.not_found"))
     return report
 
 
@@ -903,7 +904,7 @@ def _validate_content(
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Contenu invalide pour un rapport {report_type} : {messages}",
+            detail=t("errors.reports.invalid_content", report_type=report_type, messages=messages),
         ) from exc
     return summary, validated.model_dump(mode="json")
 
@@ -979,20 +980,17 @@ async def add_report_attachment(
     if len(content_bytes) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.reports_max_attachment_mb} Mo)",
+            detail=t("errors.blog.file_too_large", max_mb=settings.reports_max_attachment_mb),
         )
     if not content_bytes:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=t("errors.common.empty_file")
         )
     content_type = file.content_type or ""
     if not _is_allowed_media_type(content_type):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Seules les images et vidéos sont acceptées."
-            ),
+            detail=t("errors.blog.bad_file_type", content_type=content_type or 'inconnu'),
         )
 
     storage_key = await storage.save_file("reports", file.filename or "fichier", content_bytes)
@@ -1033,7 +1031,7 @@ async def delete_report_attachment(
     )
     if not attachment:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found")
         )
     await db.delete(attachment)
     await db.flush()
@@ -1069,7 +1067,7 @@ async def _get_attachment_or_404(
     )
     if not attachment:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found")
         )
     return attachment, storage.resolve_path(attachment.storage_key)
 

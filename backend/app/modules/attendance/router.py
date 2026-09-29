@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.i18n import t
 from app.modules.attendance import service
 from app.modules.attendance.models import PersonType
 from app.modules.attendance.schemas import (
@@ -133,7 +134,7 @@ async def send_absence_inquiries(
     if target > _today.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date ne peut pas être dans le futur",
+            detail=t("errors.common.date_future"),
         )
     return await service.send_absence_inquiries(
         user.establishment_id, user, db,

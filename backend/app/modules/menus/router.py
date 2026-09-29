@@ -1,4 +1,5 @@
 from datetime import date
+from app.core.i18n import t
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -35,7 +36,7 @@ async def _read_history(
     codes = user_permission_codes(user)
     if PermissionCode.MENUS_READ.value in codes or PermissionCode.MENUS_WRITE.value in codes:
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 # ── Écriture (admin ou staff délégué menus:write, TOUS départements) ─

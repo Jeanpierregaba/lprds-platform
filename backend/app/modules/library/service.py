@@ -20,6 +20,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSession
+from app.core.i18n import t
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.library import email as library_email
@@ -112,7 +113,7 @@ async def _get_book_or_404(
     )
     if not book:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Livre introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.library.book_not_found")
         )
     return book
 
@@ -210,7 +211,7 @@ async def _resolve_sections(
     if len(sections) != len(deduped):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Certaines sections n'existent pas dans cet établissement",
+            detail=t("errors.library.unknown_sections"),
         )
     return sections
 
@@ -316,13 +317,13 @@ async def deactivate_book(
     if not book.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce livre est déjà désactivé",
+            detail=t("errors.library.already_deactivated"),
         )
     open_count = await _open_lending_count(db, book.id)
     if open_count > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Impossible de désactiver un livre dont des prêts sont en cours",
+            detail=t("errors.library.active_lendings"),
         )
     book.is_active = False
     await db.flush()
@@ -341,7 +342,7 @@ async def create_lending(
     if not book.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce livre est désactivé : impossible d'enregistrer un prêt",
+            detail=t("errors.library.book_deactivated"),
         )
 
     child = await db.scalar(
@@ -352,7 +353,7 @@ async def create_lending(
     )
     if not child:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found")
         )
 
     today = date.today()
@@ -360,7 +361,7 @@ async def create_lending(
     if borrowed_at > today:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de prêt ne peut pas être dans le futur",
+            detail=t("errors.library.borrow_date_future"),
         )
 
     settings = await get_or_create_library_settings(establishment_id, db)
@@ -371,14 +372,14 @@ async def create_lending(
     if due_date < borrowed_at:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de retour est antérieure à la date de prêt",
+            detail=t("errors.library.due_before_borrow"),
         )
 
     open_count = await _open_lending_count(db, book.id)
     if open_count >= book.total_quantity:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Aucun exemplaire disponible pour ce livre",
+            detail=t("errors.library.no_copy_available"),
         )
 
     lending = BookLending(
@@ -454,12 +455,12 @@ async def return_lending(
     )
     if not lending:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Prêt introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.library.lending_not_found")
         )
     if lending.returned_at is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce prêt a déjà été retourné",
+            detail=t("errors.library.already_returned"),
         )
     lending.returned_at = date.today()
     await db.flush()

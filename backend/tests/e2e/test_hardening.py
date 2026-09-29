@@ -18,9 +18,18 @@ def test_login_rate_limiting(client):
         r = c.post("/auth/login", json={"email": "educ@a.fr", "password": "mauvais"})
         ck("Mauvais mot de passe → 401 (tant que sous le quota)", r.status_code, 401)
 
-    blocked = c.post("/auth/login", json={"email": "educ@a.fr", "password": "mauvais"})
+    # ⚠️ L'en-tête est explicite : /auth/login est un endpoint NON authentifié,
+    # donc la langue ne peut venir que d'Accept-Language. Sans en-tête, la règle
+    # produit renvoie l'anglais (cf. app/core/i18n.py) — ce qu'on vérifie juste
+    # après, plutôt que de dépendre d'un défaut implicite.
+    blocked = c.post("/auth/login", json={"email": "educ@a.fr", "password": "mauvais"},
+                     headers={"Accept-Language": "fr-FR"})
     ck("6e tentative → 429 (quota dépassé)", blocked.status_code, 429)
     ck("  Retry-After implicite dans le message", "secondes" in blocked.json()["detail"], True)
+
+    en = c.post("/auth/login", json={"email": "educ@a.fr", "password": "mauvais"},
+                headers={"Accept-Language": "en-US"})
+    ck("  même erreur en anglais", "seconds" in en.json()["detail"], True)
 
     # Même avec le BON mot de passe : toujours bloqué tant que la fenêtre
     # n'est pas expirée (le compteur ne se remet à zéro que sur succès AVANT

@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException, status
+from app.core.i18n import t
 
 from app.modules.auth.dependencies import get_active_user
 from app.modules.auth.models import User, UserRole
@@ -28,7 +29,7 @@ def require_permission(*codes: PermissionCode):
     async def _check(current_user: User = Depends(get_active_user)) -> User:
         forbidden = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permissions insuffisantes",
+            detail=t("errors.common.insufficient_permissions"),
         )
 
         if current_user.establishment_id is None:

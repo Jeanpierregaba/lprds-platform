@@ -1,4 +1,5 @@
 import logging
+from app.core.i18n import t
 import uuid
 
 from fastapi import HTTPException, status
@@ -64,10 +65,7 @@ async def create_parent(
         logger.exception("Échec d'envoi du mail de bienvenue à %s", parent.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Compte non créé : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_account"),
         ) from exc
 
     await db.refresh(parent)
@@ -195,10 +193,7 @@ async def reset_parent_password(
         logger.exception("Échec d'envoi du mail de reset à %s", parent.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Mot de passe non modifié : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_password"),
         ) from exc
 
 
@@ -225,10 +220,8 @@ async def _resolve_children(
         missing = unique_ids - found
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "Enfant(s) introuvable(s) dans cet établissement : "
-                + ", ".join(str(m) for m in missing)
-            ),
+            detail=t("errors.parents.children_not_found",
+                     ids=", ".join(str(m) for m in missing)),
         )
     return children
 
@@ -250,7 +243,7 @@ async def _get_or_404(
     if not parent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Parent introuvable",
+            detail=t("errors.common.parent_not_found"),
         )
     return parent
 
@@ -260,5 +253,5 @@ async def _ensure_email_available(email: str, db: AsyncSession) -> None:
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
+            detail=t("errors.common.email_exists"),
         )

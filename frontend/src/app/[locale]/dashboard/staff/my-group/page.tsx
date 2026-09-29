@@ -47,7 +47,7 @@ export default function StaffMyGroupPage() {
       ) : items.length === 0 ? (
         <CardsEmptyState
           icon={Baby}
-          title="Aucun groupe ne vous est encore assigné."
+          title={t('portals.noGroup')}
           description={t('portals.myGroupHint')}
         />
       ) : (

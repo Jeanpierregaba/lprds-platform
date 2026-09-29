@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -194,6 +196,7 @@ function ActionCard({
 }
 
 export default function AdminDashboardPage() {
+  const t = useTranslations('admin')
   const weekdaysLabel = useLabel('weekdays')
   const today = todayIso()
 
@@ -275,7 +278,7 @@ export default function AdminDashboardPage() {
   const todayKey: Weekday | null = weekday >= 1 && weekday <= 5 ? WEEKDAYS[weekday - 1]! : null
   const canteen = todayKey
     ? (currentMenus?.items ?? [])
-        .map((m) => ({ department: m.department_name ?? 'Menu', lunch: m[todayKey]?.dejeuner?.trim() || null }))
+        .map((m) => ({ department: m.department_name ?? t('home.defaultMenu'), lunch: m[todayKey]?.dejeuner?.trim() || null }))
         .filter((c) => c.lunch)
     : []
 
@@ -297,10 +300,10 @@ export default function AdminDashboardPage() {
           {formatLongDate()}
         </p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
-          Bonjour, belle journée ensoleillée ☀️
+          {t('home.greeting')}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-white/80">
-          Voici la vie de votre établissement aujourd&apos;hui : présences, messages,
+          {t('home.adminIntro')}
           validations et anniversaires du mois.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
@@ -308,7 +311,7 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/attendance"
             className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
-            Pointer les présences
+            {t('home.scan')}
           </Link>
           <Link
             href="/dashboard/admin/messaging"
@@ -326,26 +329,26 @@ export default function AdminDashboardPage() {
       </motion.section>
 
       <motion.section variants={item} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Enfants actifs" value={children?.total ?? 0} icon={Baby} tint="bg-sky" loading={loadingChildren} href="/dashboard/admin/children" />
-        <KpiCard label="Parents" value={parentsTotal ?? 0} icon={Users} tint="bg-pink" loading={loadingParents} href="/dashboard/admin/parents" />
-        <KpiCard label="Personnel actif" value={staffTotal ?? 0} icon={UserRound} tint="bg-teal" loading={loadingStaff} href="/dashboard/admin/staff" />
-        <KpiCard label="Rapports rejetés" value={rejectedTotal ?? 0} icon={TriangleAlert} tint="bg-orange" loading={false} href="/dashboard/admin/reports" />
+        <KpiCard label={t('home.kpi.activeChildren')} value={children?.total ?? 0} icon={Baby} tint="bg-sky" loading={loadingChildren} href="/dashboard/admin/children" />
+        <KpiCard label={t('home.kpi.parents')} value={parentsTotal ?? 0} icon={Users} tint="bg-pink" loading={loadingParents} href="/dashboard/admin/parents" />
+        <KpiCard label={t('home.kpi.activeStaff')} value={staffTotal ?? 0} icon={UserRound} tint="bg-teal" loading={loadingStaff} href="/dashboard/admin/staff" />
+        <KpiCard label={t('home.kpi.rejectedReports')} value={rejectedTotal ?? 0} icon={TriangleAlert} tint="bg-orange" loading={false} href="/dashboard/admin/reports" />
       </motion.section>
 
       <motion.section variants={item} className="space-y-3">
-        <SectionTitle>Présences du jour</SectionTitle>
+        <SectionTitle>{t('home.attendanceSection')}</SectionTitle>
         <div className="grid gap-4 lg:grid-cols-2">
           <AttendanceCard
-            title="Les enfants sont-ils là ?"
-            subtitle="Pointage du jour enfants"
+            title={t('home.childrenHere')}
+            subtitle={t('home.childrenHereHint')}
             href="/dashboard/admin/attendance"
             statuses={dailyChildren?.items}
             loading={loadingDailyChildren}
             accent="teal"
           />
           <AttendanceCard
-            title="L'équipe est-elle au complet ?"
-            subtitle="Pointage du jour personnel"
+            title={t('home.teamHere')}
+            subtitle={t('home.teamHereHint')}
             href="/dashboard/admin/attendance"
             statuses={dailyStaff?.items}
             loading={loadingDailyStaff}
@@ -355,12 +358,12 @@ export default function AdminDashboardPage() {
       </motion.section>
 
       <motion.section variants={item} className="space-y-3">
-        <SectionTitle>À traiter</SectionTitle>
+        <SectionTitle>{t('home.todo')}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <ActionCard href="/dashboard/admin/messaging" icon={MessageCircle} count={unreadTotal} label="messages non lus" medallion="bg-sky" loading={loadingConversations} />
-          <ActionCard href="/dashboard/admin/reports" icon={FileText} count={submittedTotal} label="rapports à valider" medallion="bg-orange" loading={false} />
-          <ActionCard href="/dashboard/admin/library" icon={BookOpen} count={overdueCount} label="prêts en retard" medallion="bg-pink" loading={false} />
-          <ActionCard href="/dashboard/admin/children" icon={Baby} count={unassignedTotal} label="enfants sans groupe" medallion="bg-teal" loading={false} />
+          <ActionCard href="/dashboard/admin/messaging" icon={MessageCircle} count={unreadTotal} label={t('home.unreadMessagesLabel')} medallion="bg-sky" loading={loadingConversations} />
+          <ActionCard href="/dashboard/admin/reports" icon={FileText} count={submittedTotal} label={t('home.reportsToValidate')} medallion="bg-orange" loading={false} />
+          <ActionCard href="/dashboard/admin/library" icon={BookOpen} count={overdueCount} label={t('home.overdueLendings')} medallion="bg-pink" loading={false} />
+          <ActionCard href="/dashboard/admin/children" icon={Baby} count={unassignedTotal} label={t('home.childrenNoGroup')} medallion="bg-teal" loading={false} />
         </div>
       </motion.section>
 
@@ -369,12 +372,12 @@ export default function AdminDashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 font-display text-xl">
               <Cake className="size-6 text-pink" />
-              Anniversaires du Mois - <span className="capitalize">{monthYearLabel}</span>
+              {t('home.birthdays')} <span className="capitalize">{monthYearLabel}</span>
             </CardTitle>
             <CardDescription>
               {birthdays.length === 0
-                ? 'Aucun anniversaire ce mois-ci.'
-                : `${birthdays.length} enfant${birthdays.length > 1 ? 's' : ''} fête${birthdays.length > 1 ? 'nt' : ''} son anniversaire ce mois-ci`}
+                ? t('home.noBirthday')
+                : t('home.birthdayCount', { count: birthdays.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -386,7 +389,7 @@ export default function AdminDashboardPage() {
               </div>
             ) : birthdays.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                Pensez à vérifier le mois prochain.
+                {t('home.checkNextMonth')}
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -439,7 +442,7 @@ export default function AdminDashboardPage() {
                   <span className="flex size-9 items-center justify-center rounded-xl bg-orange text-navy shadow-sm">
                     <UtensilsCrossed className="size-5" />
                   </span>
-                  Cantine — {weekdaysLabel(todayKey)}
+                  {t('home.canteen', { day: weekdaysLabel(todayKey) })}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -463,7 +466,7 @@ export default function AdminDashboardPage() {
                   <span className="flex size-9 items-center justify-center rounded-xl bg-sky text-white shadow-sm">
                     <BellRing className="size-5" />
                   </span>
-                  Dernière diffusion
+                  {t('home.lastAnnouncement')}
                 </CardTitle>
                 <CardDescription className="break-words" title={latestAnnouncement.title}>{latestAnnouncement.title}</CardDescription>
               </CardHeader>
@@ -483,7 +486,7 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <Button variant="outline" size="sm" className="mt-3" render={<Link href="/dashboard/admin/messaging" />}>
-                  Voir la messagerie
+                  {t('home.seeMessaging')}
                 </Button>
               </CardContent>
             </Card>
@@ -496,7 +499,7 @@ export default function AdminDashboardPage() {
                   <strong className="font-display text-lg">{draftsTotal}</strong> article{draftsTotal! > 1 ? 's' : ''} en brouillon sur le site vitrine.
                 </p>
                 <Button variant="outline" size="sm" render={<Link href="/dashboard/admin/blog" />}>
-                  Voir le blog
+                  {t('home.seeBlog')}
                 </Button>
               </CardContent>
             </Card>
@@ -504,8 +507,8 @@ export default function AdminDashboardPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="font-display text-lg">Conversations en attente</CardTitle>
-              <CardDescription>Parents sans réponse de l&apos;administration.</CardDescription>
+              <CardTitle className="font-display text-lg">{t('home.pendingConversations')}</CardTitle>
+              <CardDescription>{t('home.pendingConversationsHint')}</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingConversations ? (

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Download, Smartphone, WifiOff, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -46,6 +48,7 @@ const UPDATED_FLAG = 'lprds-sw-updated'
 const INSTALL_DISMISSED_FLAG = 'lprds-install-dismissed'
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('common')
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState<boolean>(false)
   const [offline, setOffline] = useState<boolean>(false)
@@ -63,17 +66,17 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Stockage indisponible (navigation privée) — on recharge quand même.
     }
-    toast.info(`Nouvelle version disponible (${reason}) — actualisation…`)
+    toast.info(t('newVersion', { reason }))
     // Court délai pour laisser le toast s'afficher avant le rechargement.
     window.setTimeout(() => window.location.reload(), 1500)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     // Toast de confirmation après un rechargement provoqué par une mise à jour.
     try {
       if (sessionStorage.getItem(UPDATED_FLAG)) {
         sessionStorage.removeItem(UPDATED_FLAG)
-        toast.success('Application mise à jour.')
+        toast.success(t('appUpdated'))
       }
     } catch {
       // Stockage indisponible — on ignore.
@@ -93,7 +96,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) return
         const { version } = (await res.json()) as { version?: string }
         if (version && version !== APP_VERSION) {
-          applyUpdate('mise à jour détectée')
+          applyUpdate(t('reasonVersion'))
           return
         }
       } catch {
@@ -127,7 +130,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     // Nouveau worker aux commandes (skipWaiting + claim côté SW) : la page
     // tourne encore sur l'ancien code → rechargement auto, sans geste manuel.
     const onControllerChange = () => {
-      if (hadController) applyUpdate('service worker renouvelé')
+      if (hadController) applyUpdate(t('reasonWorker'))
     }
 
     const onOnline = () => {

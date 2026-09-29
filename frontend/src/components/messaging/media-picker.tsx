@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { FileText, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -56,6 +58,7 @@ export function MediaPicker({
   disabled?: boolean
   allowPdf?: boolean
 }) {
+  const t = useTranslations('messaging')
   const inputRef = useRef<HTMLInputElement>(null)
   const [urls, setUrls] = useState<string[]>([])
 
@@ -71,7 +74,7 @@ export function MediaPicker({
     const rejected = incoming.filter((file) => !isAllowedMedia(file, allowPdf))
     if (rejected.length > 0) {
       toast.error(
-        `Fichier(s) ignoré(s) — ${allowPdf ? 'seules les photos, vidéos et PDF sont acceptés' : 'seules les photos et vidéos sont acceptées'} : ${rejected.map((f) => f.name).join(', ')}`
+        `${allowPdf ? t('media.rejectedWithPdf') : t('media.rejectedNoPdf')} ${rejected.map((f) => f.name).join(', ')}`
       )
     }
     const allowed = incoming.filter((file) => isAllowedMedia(file, allowPdf))

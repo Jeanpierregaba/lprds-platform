@@ -63,5 +63,36 @@
   },
   "parentConversation": {
     "placeholder": "Écrire à l’établissement..."
+  },
+  "bubble": {
+    "deleted": "Message supprimé",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "edited": "· modifié",
+    "editAria": "Modifier le message",
+    "editTitle": "Modifier (15 min)",
+    "deleteAria": "Supprimer le message",
+    "deleteTitle": "Supprimer",
+    "deleteConfirmTitle": "Supprimer ce message ?",
+    "deleteConfirmBody": "Le message sera remplacé par « Message supprimé » et ses pièces jointes seront définitivement effacées.",
+    "delete": "Supprimer"
+  },
+  "media": {
+    "prev": "Média précédent",
+    "next": "Média suivant",
+    "removeAttachment": "Retirer cette pièce jointe",
+    "saveToGallery": "Enregistrer dans la galerie",
+    "download": "Télécharger",
+    "rejectedWithPdf": "Fichier(s) ignoré(s) — seules les photos, vidéos et PDF sont acceptés :",
+    "rejectedNoPdf": "Fichier(s) ignoré(s) — seules les photos et vidéos sont acceptées :"
+  },
+  "notifier": {
+    "school": "L’établissement",
+    "newAttachment": "Nouvelle pièce jointe",
+    "newMessage": "Nouveau message — {sender}"
+  },
+  "thread": {
+    "mediaFailed": "Message envoyé, mais les médias ont échoué — ajoutez-les via le trombone du message.",
+    "editWindowOver": "Délai d’édition dépassé — rechargez le fil."
   }
 }

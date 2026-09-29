@@ -63,5 +63,36 @@
   },
   "parentConversation": {
     "placeholder": "Write to the school..."
+  },
+  "bubble": {
+    "deleted": "Message deleted",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edited": "· edited",
+    "editAria": "Edit the message",
+    "editTitle": "Edit (15 min)",
+    "deleteAria": "Delete the message",
+    "deleteTitle": "Delete",
+    "deleteConfirmTitle": "Delete this message?",
+    "deleteConfirmBody": "The message will be replaced by “Message deleted” and its attachments permanently erased.",
+    "delete": "Delete"
+  },
+  "media": {
+    "prev": "Previous media",
+    "next": "Next media",
+    "removeAttachment": "Remove this attachment",
+    "saveToGallery": "Save to the gallery",
+    "download": "Download",
+    "rejectedWithPdf": "File(s) skipped — only photos, videos and PDFs are accepted:",
+    "rejectedNoPdf": "File(s) skipped — only photos and videos are accepted:"
+  },
+  "notifier": {
+    "school": "The school",
+    "newAttachment": "New attachment",
+    "newMessage": "New message — {sender}"
+  },
+  "thread": {
+    "mediaFailed": "Message sent, but the media failed — add them again with the paperclip on the message.",
+    "editWindowOver": "The editing window has passed — reload the thread."
   }
 }

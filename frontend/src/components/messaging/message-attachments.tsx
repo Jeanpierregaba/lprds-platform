@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { Download, ImageOff, Loader2, Paperclip, Share, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,6 +33,7 @@ export function MessageAttachments({
   onRemove?: (attachmentId: string) => void
   removingId?: string | null
 }) {
+  const t = useTranslations('messaging')
   return (
     <>
       {attachments.map((att) => (
@@ -46,7 +49,7 @@ export function MessageAttachments({
               onClick={() => onRemove(att.id)}
               disabled={removingId === att.id}
               aria-label={`Retirer ${att.filename}`}
-              title="Retirer cette pièce jointe"
+              title={t('media.removeAttachment')}
               className="absolute left-1 top-2.5 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive disabled:opacity-60"
             >
               {removingId === att.id
@@ -103,6 +106,7 @@ function MediaPreview({
 }: {
   attachment: Attachment
 }) {
+  const t = useTranslations('messaging')
   const [isPwa, setIsPwa] = useState(false)
   const [visible, setVisible] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -135,7 +139,7 @@ function MediaPreview({
       toast.error(getApiErrorMessage(err))
     }
   }
-  const hint = isPwa ? 'Enregistrer dans la galerie' : 'Télécharger'
+  const hint = isPwa ? t('media.saveToGallery') : t('media.download')
 
   return (
     <span ref={ref} className="mt-1.5 block max-w-full">

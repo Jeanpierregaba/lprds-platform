@@ -9,6 +9,10 @@
     "allGroups": "All classes",
     "allStaff": "All staff",
     "allSources": "All sources",
-    "allTypes": "All types"
+    "allTypes": "All types",
+    "allStaffPlaceholder": "All staff",
+    "allGroupsPlaceholder": "All classes",
+    "dateFrom": "From",
+    "dateTo": "To"
   }
 }

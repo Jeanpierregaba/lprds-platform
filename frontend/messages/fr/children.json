@@ -141,7 +141,7 @@
       "documents": "Documents ({count})"
     },
     "reactivateTitle": "Réactiver cette fiche ?",
-    "deactivateBody": "La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment pas.",
+    "deactivateBody": "La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment jamais.",
     "reactivateBody": "La fiche redeviendra active.",
     "confirm": "Confirmer",
     "save": "Enregistrer",

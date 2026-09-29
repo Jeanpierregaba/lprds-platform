@@ -20,5 +20,17 @@
   "attendanceSettings": "Attendance settings",
   "librarySettings": "Library settings",
   "openMenu": "Open menu",
-  "closeMenu": "Close menu"
+  "closeMenu": "Close menu",
+  "modules": {
+    "children": "Children",
+    "parents": "Parents",
+    "staff": "Staff",
+    "organization": "Organisation",
+    "attendance": "Attendance",
+    "reports": "Reports",
+    "gallery": "Gallery",
+    "menus": "Menus",
+    "blog": "Blog",
+    "library": "Library"
+  }
 }

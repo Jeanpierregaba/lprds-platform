@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, FileDown, Loader2 } from 'lucide-react'
 
@@ -26,6 +28,7 @@ interface CardPreviewModalProps {
 }
 
 export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewModalProps) {
+  const t = useTranslations('common')
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +48,7 @@ export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewMo
     setGenerating(true)
     generateCardImage(cardData)
       .then(setCardImage)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Erreur de génération'))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t('renderError')))
       .finally(() => setGenerating(false))
   }, [open, cardData])
 

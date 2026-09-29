@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BookOpen, ClipboardCheck, FileText, User } from 'lucide-react'
@@ -15,18 +17,19 @@ import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 
 const TABS = [
-  { value: 'profil', label: 'Profil', icon: User },
-  { value: 'presences', label: 'Présences', icon: ClipboardCheck, perm: 'attendance:write' },
+  { value: 'profil', labelKey: 'profil', icon: User },
+  { value: 'presences', labelKey: 'presences', icon: ClipboardCheck, perm: 'attendance:write' },
   // Types activés par département : réservé à l'admin — une éducatrice porte
   // reports:write (elle rédige) mais ne configure pas les types actifs.
-  { value: 'rapports', label: 'Rapports', icon: FileText, adminOnly: true },
+  { value: 'rapports', labelKey: 'rapports', icon: FileText, adminOnly: true },
   {
-    value: 'bibliotheque', label: 'Bibliothèque', icon: BookOpen,
+    value: 'bibliotheque', labelKey: 'bibliotheque', icon: BookOpen,
     perms: ['library:read', 'library:write', 'library:lend'],
   },
 ] as const
 
 function SettingsTabs() {
+  const t = useTranslations('admin')
   const searchParams = useSearchParams()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -53,22 +56,22 @@ function SettingsTabs() {
       <PillsTabsList>
         {visible.includes('profil') && (
           <PillsTrigger value="profil" active="primary" icon={User}>
-            Profil
+            {t('settings.tabs.profil')}
           </PillsTrigger>
         )}
         {visible.includes('presences') && (
           <PillsTrigger value="presences" active="teal" icon={ClipboardCheck}>
-            Présences
+            {t('settings.tabs.presences')}
           </PillsTrigger>
         )}
         {visible.includes('rapports') && (
           <PillsTrigger value="rapports" active="sky" icon={FileText}>
-            Rapports
+            {t('settings.tabs.rapports')}
           </PillsTrigger>
         )}
         {visible.includes('bibliotheque') && (
           <PillsTrigger value="bibliotheque" active="navy" icon={BookOpen}>
-            Bibliothèque
+            {t('settings.tabs.bibliotheque')}
           </PillsTrigger>
         )}
       </PillsTabsList>
@@ -99,11 +102,12 @@ function SettingsTabs() {
 }
 
 export default function AdminSettingsPage() {
+  const t = useTranslations('admin')
   return (
     <PageMotion>
       <PageHeader
-        title="Paramètres"
-        description="Profil et paramètres des modules."
+        title={t('settings.title')}
+        description={t('settings.description')}
       />
 
       <Suspense fallback={null}>

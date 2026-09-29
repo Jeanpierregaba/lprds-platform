@@ -90,7 +90,7 @@ export function GalleryTab() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {total} photo{total > 1 ? 's' : ''} publiée{total > 1 ? 's' : ''} — visibles sur le site vitrine.
+          {t('gallery.count', { count: total })}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Select items={{ [ALL]: t('gallery.allCategories'), ...categoryItems }}

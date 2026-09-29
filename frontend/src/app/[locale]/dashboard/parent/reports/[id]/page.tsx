@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -25,6 +27,7 @@ function formatDate(iso: string | null) {
 }
 
 export default function ParentReportDetailPage() {
+  const t = useTranslations('reports')
   const reportTypesLabel = useLabel('reportTypes')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
@@ -73,7 +76,7 @@ export default function ParentReportDetailPage() {
 
   return (
     <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/parent/reports" label="Retour à la liste" />
+      <BackLink href="/dashboard/parent/reports" label={t('portal.back')} />
 
       <Card>
         <CardHeader>

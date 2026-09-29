@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Fredoka, Work_Sans } from 'next/font/google'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { Providers } from '../providers'
 import { PwaProvider } from '@/components/pwa/pwa-provider'
@@ -31,26 +32,33 @@ const workSans = Work_Sans({
  *  on retombe sur localhost : les balises restent cohérentes et vérifiables. */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
-  description: 'Gestion de crèche et école maternelle',
-  applicationName: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
-  manifest: '/manifest.webmanifest',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'LPRDS',
-  },
-  formatDetection: { telephone: false },
-  icons: {
-    icon: '/icons/icon-192.png',
-    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
-  },
-  other: {
-    'mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-capable': 'yes',
-  },
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string }> },
+): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'common' })
+
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
+    description: t('appDescription'),
+    applicationName: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
+    manifest: '/manifest.webmanifest',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'LPRDS',
+    },
+    formatDetection: { telephone: false },
+    icons: {
+      icon: '/icons/icon-192.png',
+      apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
+    },
+    other: {
+      'mobile-web-app-capable': 'yes',
+      'apple-mobile-web-app-capable': 'yes',
+    },
+  }
 }
 
 export const viewport: Viewport = {

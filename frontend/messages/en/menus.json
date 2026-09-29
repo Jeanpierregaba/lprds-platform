@@ -35,6 +35,7 @@
     "lastModified": "Last modified",
     "view": "View",
     "viewTitle": "View this menu",
-    "empty": "No menus saved yet."
+    "empty": "No menus saved yet.",
+    "count": "{count, plural, one {# week saved} other {# weeks saved}}"
   }
 }

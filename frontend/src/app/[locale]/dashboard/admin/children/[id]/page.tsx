@@ -134,8 +134,8 @@ export default function ChildDetailPage() {
             title={child.is_active ? t('status.confirmTitle') : t('detail.reactivateTitle')}
             description={
               child.is_active
-                ? 'La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment jamais.'
-                : 'La fiche redeviendra active.'
+                ? t('detail.deactivateBody')
+                : t('detail.reactivateBody')
             }
             confirmLabel={t('detail.confirm')}
             onConfirm={() => {

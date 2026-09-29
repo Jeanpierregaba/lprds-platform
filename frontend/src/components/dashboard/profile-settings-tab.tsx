@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useForm } from 'react-hook-form'
 import { useLabel } from '@/lib/i18n/labels'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,31 +19,34 @@ import { authApi } from '@/lib/api/auth.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 
-const schema = z.object({
+type T = (key: string) => string
+
+const makeschema = (t: T) => z.object({
   current_password: z.string().min(1, 'Mot de passe actuel requis'),
   new_password: z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('settings.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
   confirm: z.string(),
 }).refine((d) => d.new_password === d.confirm, {
-  message: 'Les mots de passe ne correspondent pas',
+  message: t('settings.mismatch'),
   path: ['confirm'],
 })
 
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeschema>>
 
 export function ProfileSettingsTab() {
+  const t = useTranslations('admin')
   const rolesLabel = useLabel('roles')
   const user = useUser()
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(schema) })
+    useForm<Form>({ resolver: zodResolver(makeschema(t)) })
 
   const onSubmit = async ({ current_password, new_password }: Form) => {
     try {
       await authApi.changePassword({ current_password, new_password })
-      toast.success('Mot de passe mis à jour.')
+      toast.success(t('settings.updated'))
       reset()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -83,13 +88,13 @@ export function ProfileSettingsTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Changer de mot de passe</CardTitle>
-          <CardDescription>Votre mot de passe actuel vous sera demandé pour confirmer.</CardDescription>
+          <CardTitle className="text-base">{t('settings.passwordTitle')}</CardTitle>
+          <CardDescription>{t('settings.passwordHint')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="current_password">Mot de passe actuel</Label>
+              <Label htmlFor="current_password">{t('settings.currentPassword')}</Label>
               <Input
                 id="current_password"
                 type="password"
@@ -104,7 +109,7 @@ export function ProfileSettingsTab() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="new_password">Nouveau mot de passe</Label>
+              <Label htmlFor="new_password">{t('settings.newPassword')}</Label>
               <Input
                 id="new_password"
                 type="password"
@@ -114,7 +119,7 @@ export function ProfileSettingsTab() {
               {errors.new_password && <p className="text-sm text-destructive">{errors.new_password.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm">Confirmer le nouveau mot de passe</Label>
+              <Label htmlFor="confirm">{t('settings.confirmPassword')}</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -131,7 +136,7 @@ export function ProfileSettingsTab() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting
                   ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                  : 'Mettre à jour le mot de passe'}
+                  : t('settings.submit')}
               </Button>
             </div>
           </form>

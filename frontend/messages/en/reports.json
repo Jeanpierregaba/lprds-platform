@@ -129,5 +129,24 @@
     "teacherObservations": "Teacher's observations",
     "rating": "Rating",
     "observation": "Observation"
+  },
+  "portal": {
+    "empty": "No reports available yet.",
+    "emptyHint": "Reports appear here once the school has approved them.",
+    "back": "Back to the list"
+  },
+  "validation": {
+    "healthStatus": "Health status required",
+    "emptyActivity": "Empty activity",
+    "oneActivity": "At least one activity required",
+    "napDurationRequired": "Length required when nap = yes",
+    "napDurationForbidden": "No length when nap = no",
+    "oneBehavior": "At least one behaviour required",
+    "required": "Required",
+    "oneMood": "At least one mood required",
+    "oneRelation": "At least one relationship required",
+    "oneObservation": "At least one observation required",
+    "ratingRequired": "Rating required",
+    "observationRequired": "Observation required"
   }
 }

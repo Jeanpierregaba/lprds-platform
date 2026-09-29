@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Download, ImageOff, Loader2, Play,
@@ -139,6 +141,7 @@ function AnnouncementMediaViewer({
   onIndexChange: (index: number) => void
   onClose: () => void
 }) {
+  const t = useTranslations('messaging')
   // Index borné : la liste peut rétrécir pendant que le viewer est ouvert
   // (suppression) — sans ça `att` devient undefined après les hooks.
   const safeIndex = media.length === 0 ? 0 : index % media.length
@@ -203,7 +206,7 @@ function AnnouncementMediaViewer({
               className="h-10 w-10"
               onClick={() => onIndexChange((safeIndex - 1 + media.length) % media.length)}
               disabled={media.length < 2}
-              aria-label="Média précédent"
+              aria-label={t('media.prev')}
             >
               <ChevronLeft className="size-4" />
             </Button>
@@ -214,7 +217,7 @@ function AnnouncementMediaViewer({
               className="h-10 w-10"
               onClick={() => onIndexChange((safeIndex + 1) % media.length)}
               disabled={media.length < 2}
-              aria-label="Média suivant"
+              aria-label={t('media.next')}
             >
               <ChevronRight className="size-4" />
             </Button>

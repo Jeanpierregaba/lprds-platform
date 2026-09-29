@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+
 import { intlLocale } from '@/lib/utils/locale-format'
 
 import { useQuery } from '@tanstack/react-query'
@@ -76,6 +77,7 @@ function KpiCard({
 const MODULE_TINTS = ['bg-sky', 'bg-teal', 'bg-pink', 'bg-orange', 'bg-navy', 'bg-primary']
 
 export default function StaffDashboardPage() {
+  const t = useTranslations('admin')
   const tNav = useTranslations('nav')
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -131,52 +133,52 @@ export default function StaffDashboardPage() {
           Bonjour {user?.first_name} ☀️
         </h1>
         <p className="mt-2 max-w-xl text-sm text-white/80">
-          Votre groupe, vos présences et vos rapports du jour — tout commence ici.
+          {t('home.staffIntro')}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href="/dashboard/staff/my-group"
             className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
-            Mon groupe
+            {t('home.myGroup')}
           </Link>
           <Link
             href="/dashboard/staff/attendance"
             className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
-            Pointer les présences
+            {t('home.scan')}
           </Link>
           {canWriteReports && (
             <Link
               href="/dashboard/admin/reports/new"
               className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
             >
-              Nouveau rapport
+              {t('home.newReport')}
             </Link>
           )}
         </div>
       </motion.section>
 
       <motion.section variants={item} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Enfants du groupe" value={myGroup?.total ?? 0} icon={Baby} tint="bg-sky" loading={loadingGroup} href="/dashboard/staff/my-group" />
-        <KpiCard label="Présents aujourd'hui" value={present} icon={UserRound} tint="bg-pale-green" loading={loadingDaily} href="/dashboard/staff/attendance" />
-        <KpiCard label="En retard" value={late} icon={ClipboardCheck} tint="bg-orange" loading={loadingDaily} href="/dashboard/staff/attendance" />
+        <KpiCard label={t('home.kpi.groupChildren')} value={myGroup?.total ?? 0} icon={Baby} tint="bg-sky" loading={loadingGroup} href="/dashboard/staff/my-group" />
+        <KpiCard label={t('home.kpi.presentToday')} value={present} icon={UserRound} tint="bg-pale-green" loading={loadingDaily} href="/dashboard/staff/attendance" />
+        <KpiCard label={t('home.kpi.late')} value={late} icon={ClipboardCheck} tint="bg-orange" loading={loadingDaily} href="/dashboard/staff/attendance" />
         {canValidateReports ? (
-          <KpiCard label="Rapports à valider" value={toValidate ?? 0} icon={FileText} tint="bg-navy" loading={loadingToValidate} href="/dashboard/admin/reports" />
+          <KpiCard label={t('home.kpi.toValidate')} value={toValidate ?? 0} icon={FileText} tint="bg-navy" loading={loadingToValidate} href="/dashboard/admin/reports" />
         ) : canWriteReports ? (
-          <KpiCard label="Brouillons en cours" value={drafts ?? 0} icon={FileText} tint="bg-navy" loading={loadingDrafts} href="/dashboard/admin/reports" />
+          <KpiCard label={t('home.kpi.drafts')} value={drafts ?? 0} icon={FileText} tint="bg-navy" loading={loadingDrafts} href="/dashboard/admin/reports" />
         ) : (
-          <KpiCard label="Absents aujourd'hui" value={absent} icon={Users} tint="bg-pink" loading={loadingDaily} href="/dashboard/staff/attendance" />
+          <KpiCard label={t('home.kpi.absentToday')} value={absent} icon={Users} tint="bg-pink" loading={loadingDaily} href="/dashboard/staff/attendance" />
         )}
       </motion.section>
 
       <motion.section variants={item} className="space-y-3">
-        <SectionTitle>Mon groupe aujourd&apos;hui</SectionTitle>
+        <SectionTitle>{t('home.myGroupToday')}</SectionTitle>
         <Card className="relative overflow-hidden">
           <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-teal opacity-15 blur-2xl" />
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardDescription>Pointage du jour — votre groupe</CardDescription>
+              <CardDescription>{t('home.groupCheckin')}</CardDescription>
               <Link href="/dashboard/staff/attendance" className="inline-flex items-center gap-1 text-xs font-medium text-sky hover:underline">
                 Pointer <ArrowRight className="size-3.5" />
               </Link>
@@ -210,7 +212,7 @@ export default function StaffDashboardPage() {
       </motion.section>
 
       <motion.section variants={item} className="space-y-3">
-        <SectionTitle>Mes modules</SectionTitle>
+        <SectionTitle>{t('home.myModules')}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...STAFF_BASELINE_ITEMS, ...modules].map((m, i) => {
             const tint = MODULE_TINTS[i % MODULE_TINTS.length]
@@ -264,14 +266,14 @@ export default function StaffDashboardPage() {
             className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium transition hover:bg-accent/70"
           >
             <Images className="size-4" />
-            Mes médias
+            {t('home.myMedia')}
           </Link>
           <Link
             href="/dashboard/staff/library"
             className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium transition hover:bg-accent/70"
           >
             <BookOpen className="size-4" />
-            Bibliothèque
+            {t('home.library')}
           </Link>
         </motion.section>
       )}

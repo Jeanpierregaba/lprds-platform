@@ -17,7 +17,9 @@
     "deactivateBody": "“{title}” will no longer be borrowable, but the loan history stays available.",
     "deactivate": "Deactivate",
     "deactivated": "Book removed from the catalogue.",
-    "empty": "No books in the catalogue."
+    "empty": "No books in the catalogue.",
+    "activeLabel": "Active",
+    "inactiveLabel": "Deactivated"
   },
   "lendings": {
     "new": "New loan",

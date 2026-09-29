@@ -141,7 +141,7 @@
       "documents": "Documents ({count})"
     },
     "reactivateTitle": "Reactivate this record?",
-    "deactivateBody": "The record will be deactivated (reversible). It is never deleted — children's records are not removed.",
+    "deactivateBody": "The record will be deactivated (reversible). It is never removed — children's records are never deleted.",
     "reactivateBody": "The record will become active again.",
     "confirm": "Confirm",
     "save": "Save",

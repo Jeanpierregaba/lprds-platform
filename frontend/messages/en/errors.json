@@ -6,5 +6,8 @@
   "unreachable": "Could not reach the server",
   "unexpected": "Something went wrong",
   "insufficientRights": "Insufficient permissions",
-  "notFound": "Not found"
+  "notFound": "Not found",
+  "pushUnsupported": "Push notifications are not supported by this browser.",
+  "pushDenied": "Notification permission denied.",
+  "vapidFailed": "Could not fetch the VAPID key."
 }

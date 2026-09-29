@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import Image from 'next/image'
 import { LogOut, Menu } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,6 +16,7 @@ import { useNavItems } from './use-nav-items'
 import { useRouter } from '@/i18n/navigation'
 
 export function MobileNav() {
+  const t = useTranslations('common')
   const user = useUser()
   const router = useRouter()
   const items = useNavItems()
@@ -77,7 +80,7 @@ export function MobileNav() {
           <button
             type="button"
             onClick={() => {
-              handleLogout().catch(() => toast.error('Erreur lors de la déconnexion'))
+              handleLogout().catch(() => toast.error(t('logoutError')))
             }}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium text-destructive transition-colors outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >

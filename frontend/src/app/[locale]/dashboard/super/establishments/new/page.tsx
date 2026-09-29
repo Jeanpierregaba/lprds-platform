@@ -22,7 +22,7 @@ type T = (key: string) => string
 
 const makeSchema = (t: T) => z.object({
   code:    z.string().min(2, t('establishments.validation.codeMin')).max(10, t('establishments.validation.codeMax'))
-    .regex(/^[A-Za-z0-9]+$/, 'Alphanumérique uniquement'),
+    .regex(/^[A-Za-z0-9]+$/, t('establishments.validation.alphanumeric')),
   name:    z.string().min(1, t('establishments.validation.name')).max(200),
   address: z.string().min(1, t('establishments.validation.address')).max(500),
   email:   z.string().email(t('establishments.validation.email')),
@@ -33,7 +33,7 @@ const makeSchema = (t: T) => z.object({
   admin_email:      z.string().email(t('establishments.validation.email')),
   admin_phone:      z.string().max(20).optional().or(z.literal('')),
   admin_password:   z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('establishments.validation.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
 })

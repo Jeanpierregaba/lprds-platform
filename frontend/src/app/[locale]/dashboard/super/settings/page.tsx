@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { motion } from 'framer-motion'
 import { User } from 'lucide-react'
 
@@ -7,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ProfileSettingsTab } from '@/components/dashboard/profile-settings-tab'
 
 export default function SuperadminSettingsPage() {
+  const t = useTranslations('admin')
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -23,7 +26,7 @@ export default function SuperadminSettingsPage() {
         <TabsList>
           <TabsTrigger value="profil">
             <User className="mr-1.5 size-4" />
-            Profil
+            {t('settings.tabs.profil')}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="profil">

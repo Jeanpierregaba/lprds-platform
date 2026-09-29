@@ -52,7 +52,7 @@ export default function NewParentPage() {
 
   const onSubmit = async (values: Form) => {
     if (children.length === 0) {
-      setChildrenError('Au moins un enfant doit être assigné.')
+      setChildrenError(t('form.childRequired'))
       return
     }
     setChildrenError(null)

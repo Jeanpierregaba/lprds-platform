@@ -9,6 +9,10 @@
     "allGroups": "Tous les groupes",
     "allStaff": "Toute l’équipe",
     "allSources": "Toutes les sources",
-    "allTypes": "Tous les types"
+    "allTypes": "Tous les types",
+    "allStaffPlaceholder": "Toute l’équipe",
+    "allGroupsPlaceholder": "Tous les groupes",
+    "dateFrom": "Date de début",
+    "dateTo": "Date de fin"
   }
 }

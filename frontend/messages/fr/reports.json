@@ -129,5 +129,24 @@
     "teacherObservations": "Observations de l’enseignante",
     "rating": "Notation",
     "observation": "Observation"
+  },
+  "portal": {
+    "empty": "Aucun rapport disponible pour le moment.",
+    "emptyHint": "Les rapports apparaissent ici une fois validés par l’établissement.",
+    "back": "Retour à la liste"
+  },
+  "validation": {
+    "healthStatus": "État de santé requis",
+    "emptyActivity": "Activité vide",
+    "oneActivity": "Au moins une activité requise",
+    "napDurationRequired": "Durée requise si sieste = oui",
+    "napDurationForbidden": "Aucune durée si sieste = non",
+    "oneBehavior": "Au moins un comportement requis",
+    "required": "Requis",
+    "oneMood": "Au moins une humeur requise",
+    "oneRelation": "Au moins une relation requise",
+    "oneObservation": "Au moins une observation requise",
+    "ratingRequired": "Notation requise",
+    "observationRequired": "Observation requise"
   }
 }

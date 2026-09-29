@@ -20,5 +20,17 @@
   "attendanceSettings": "Paramètres présences",
   "librarySettings": "Paramètres bibliothèque",
   "openMenu": "Ouvrir le menu",
-  "closeMenu": "Fermer le menu"
+  "closeMenu": "Fermer le menu",
+  "modules": {
+    "children": "Enfants",
+    "parents": "Parents",
+    "staff": "Personnel",
+    "organization": "Organisation",
+    "attendance": "Présences",
+    "reports": "Rapports",
+    "gallery": "Galerie",
+    "menus": "Menus",
+    "blog": "Blog",
+    "library": "Bibliothèque"
+  }
 }

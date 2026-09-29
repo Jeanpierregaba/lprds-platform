@@ -69,7 +69,8 @@
     "resetPassword": "Réinitialiser le mot de passe",
     "reset": "Réinitialiser",
     "sending": "Envoi...",
-    "resetDone": "Mot de passe réinitialisé et envoyé par email."
+    "resetDone": "Mot de passe réinitialisé et envoyé par email.",
+    "childRequired": "Au moins un enfant doit être assigné."
   },
   "multiselect": {
     "remove": "Retirer {name}",

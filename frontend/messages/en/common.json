@@ -66,5 +66,13 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
-  }
+  },
+  "logoutError": "Could not sign out",
+  "renderError": "Could not generate",
+  "themeSoon": "Dark mode coming soon",
+  "appUpdated": "Application updated.",
+  "newVersion": "A new version is available ({reason}) — refreshing…",
+  "reasonVersion": "update detected",
+  "reasonWorker": "service worker renewed",
+  "appDescription": "Nursery and preschool management"
 }

@@ -121,7 +121,7 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
       </DataTable>
 
       <ListPagination
-        label={<>{total} semaine{total > 1 ? 's' : ''} enregistrée{total > 1 ? 's' : ''}</>}
+        label={t('history.count', { count: total })}
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}

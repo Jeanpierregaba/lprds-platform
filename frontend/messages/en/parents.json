@@ -69,7 +69,8 @@
     "resetPassword": "Reset the password",
     "reset": "Reset",
     "sending": "Sending...",
-    "resetDone": "Password reset and emailed."
+    "resetDone": "Password reset and emailed.",
+    "childRequired": "At least one child must be assigned."
   },
   "multiselect": {
     "remove": "Remove {name}",

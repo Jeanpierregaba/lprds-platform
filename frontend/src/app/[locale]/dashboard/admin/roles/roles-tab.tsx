@@ -37,6 +37,7 @@ const makeSchema = (t: T) => z.object({
 type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export function RolesTab() {
+  const tNav = useTranslations('nav')
   const t = useTranslations('rbac')
   const queryClient = useQueryClient()
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -184,9 +185,9 @@ export function RolesTab() {
                             .filter((p) => p !== undefined)
                           if (items.length === 0) return null
                           return (
-                            <fieldset key={group.module} className="space-y-1.5">
+                            <fieldset key={group.moduleKey} className="space-y-1.5">
                               <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {group.module}
+                                {tNav(`modules.${group.moduleKey}`)}
                               </legend>
                               <div className="grid gap-2.5 sm:grid-cols-2">
                                 {items.map((perm) => checkbox(perm.code, perm.label))}

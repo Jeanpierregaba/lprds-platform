@@ -92,7 +92,7 @@ export default function ParentDetailPage() {
 
   const onSaveInfo = async (values: InfoForm) => {
     if (children.length === 0) {
-      setChildrenError('Au moins un enfant doit être assigné.')
+      setChildrenError(t('form.childRequired'))
       return
     }
     setChildrenError(null)

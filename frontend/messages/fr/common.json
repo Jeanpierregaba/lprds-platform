@@ -66,5 +66,13 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système"
-  }
+  },
+  "logoutError": "Erreur lors de la déconnexion",
+  "renderError": "Erreur de génération",
+  "themeSoon": "Thème sombre bientôt disponible",
+  "appUpdated": "Application mise à jour.",
+  "newVersion": "Nouvelle version disponible ({reason}) — actualisation…",
+  "reasonVersion": "mise à jour détectée",
+  "reasonWorker": "service worker renouvelé",
+  "appDescription": "Gestion de crèche et école maternelle"
 }

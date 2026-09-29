@@ -51,7 +51,7 @@ const makeadminSchema = (t: T) => z.object({
   email:      z.string().email(t('establishments.validation.email')),
   phone:      z.string().max(20).optional().or(z.literal('')),
   password:   z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('establishments.validation.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
 })

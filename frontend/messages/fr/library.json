@@ -17,7 +17,9 @@
     "deactivateBody": "« {title} » ne sera plus empruntable, mais l’historique des prêts restera consultable.",
     "deactivate": "Désactiver",
     "deactivated": "Livre désactivé du catalogue.",
-    "empty": "Aucun livre dans le catalogue."
+    "empty": "Aucun livre dans le catalogue.",
+    "activeLabel": "Actif",
+    "inactiveLabel": "Désactivé"
   },
   "lendings": {
     "new": "Nouveau prêt",

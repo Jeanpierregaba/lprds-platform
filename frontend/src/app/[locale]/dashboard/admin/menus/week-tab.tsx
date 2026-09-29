@@ -173,13 +173,13 @@ export function WeekTab({
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon-sm" className="h-10 w-10" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), -7)))} aria-label="Semaine précédente">
+          <Button variant="outline" size="icon-sm" className="h-10 w-10" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), -7)))} aria-label={t('week.prevWeek')}>
             <ChevronLeft className="size-4" />
           </Button>
           <Button variant="outline" className="h-10" onClick={() => onWeekStartChange(currentMonday)}>
             Aujourd&apos;hui
           </Button>
-          <Button variant="outline" size="icon-sm" className="h-10 w-10" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), 7)))} aria-label="Semaine suivante">
+          <Button variant="outline" size="icon-sm" className="h-10 w-10" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), 7)))} aria-label={t('week.nextWeek')}>
             <ChevronRight className="size-4" />
           </Button>
         </div>

@@ -66,7 +66,8 @@
     "deleteCategoryBody": "Permanent deletion. Its photos stay published, without a category.",
     "categoryCreated": "Category created.",
     "categoryRenamed": "Category renamed.",
-    "categoryDeleted": "Category deleted — its photos stay published, without a category."
+    "categoryDeleted": "Category deleted — its photos stay published, without a category.",
+    "count": "{count, plural, one {# photo published} other {# photos published}} — visible on the public site."
   },
   "form": {
     "back": "Back to the list",

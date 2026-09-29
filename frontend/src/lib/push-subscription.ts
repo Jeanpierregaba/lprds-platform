@@ -1,6 +1,18 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import en from '../../messages/en/errors.json'
+import fr from '../../messages/fr/errors.json'
+import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale } from '@/i18n/routing'
+
+/** Ces messages sortent d'un hook appelé hors rendu : la langue est lue dans
+ *  le cookie, comme pour getApiErrorMessage. */
+function pushError(key: 'pushUnsupported' | 'pushDenied' | 'vapidFailed'): string {
+  if (typeof document === 'undefined') return fr[key]
+  const value = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`))?.[1]
+  return (isAppLocale(value) && value === 'en' ? en : fr)[key]
+}
+void DEFAULT_LOCALE
 import { useAuthStore } from "@/lib/stores/auth.store"
 import { getApiErrorMessage } from "@/lib/utils/api-error"
 
@@ -26,7 +38,7 @@ export function usePushSubscription() {
         isSupported: false,
         isPermissionGranted: null,
         subscription: null,
-        error: "Push notifications ne sont pas supportés par ce navigateur.",
+        error: pushError('pushUnsupported'),
       })
       return false
     }
@@ -46,7 +58,7 @@ export function usePushSubscription() {
       if (permission !== "granted") {
         setResult({
           ...result,
-          error: "Permission de notification refusée par l'utilisateur.",
+          error: pushError('pushDenied'),
         })
       }
       return permission === "granted"
@@ -64,7 +76,7 @@ export function usePushSubscription() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/vapid-public-key`, {
         credentials: "include",
       })
-      if (!res.ok) throw new Error("Impossible de récupérer la clé VAPID")
+      if (!res.ok) throw new Error(pushError('vapidFailed'))
       const { vapidPublicKey } = await res.json()
       return vapidPublicKey
     } catch (err) {

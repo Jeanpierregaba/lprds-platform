@@ -26,6 +26,7 @@ function formatShortDate(iso: string) {
 }
 
 export default function ParentMenusPage() {
+  const tMenus = useTranslations('menus')
   const t = useTranslations('admin')
   const currentMonday = toIsoDate(mondayOf(new Date()))
   const [weekStart, setWeekStart] = useState(currentMonday)
@@ -107,7 +108,7 @@ export default function ParentMenusPage() {
             className="h-10 w-10"
             disabled={isCurrentWeek}
             onClick={() => setWeekStart(toIsoDate(addDays(parseIsoDate(weekStart), -7)))}
-            aria-label="Semaine précédente"
+            aria-label={tMenus('week.prevWeek')}
           >
             <ChevronLeft className="size-4" />
           </Button>

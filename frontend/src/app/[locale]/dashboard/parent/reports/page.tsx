@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -39,6 +41,7 @@ function initials(first: string, last: string) {
 }
 
 export default function ParentReportsPage() {
+  const t = useTranslations('reports')
   const reportTypesLabel = useLabel('reportTypes')
   const [childId, setChildId] = useState(ALL)
   const [skip, setSkip] = useState(0)
@@ -87,8 +90,8 @@ export default function ParentReportsPage() {
       ) : items.length === 0 ? (
         <CardsEmptyState
           icon={FileText}
-          title="Aucun rapport disponible pour le moment."
-          description="Les rapports apparaissent ici une fois validés par l'établissement."
+          title={t('portal.empty')}
+          description={t('portal.emptyHint')}
           heightClass="h-48"
         />
       ) : (

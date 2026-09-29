@@ -1,0 +1,70 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "reset": "Reset",
+    "export": "Export",
+    "download": "Download",
+    "send": "Send",
+    "add": "Add",
+    "remove": "Remove",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "retry": "Try again",
+    "seeMore": "See more",
+    "seeAll": "See all"
+  },
+  "states": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "sending": "Sending…",
+    "empty": "No results",
+    "noData": "Nothing to show",
+    "active": "Active",
+    "inactive": "Inactive",
+    "required": "Required",
+    "optional": "Optional",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "fields": {
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "phone": "Phone",
+    "password": "Password",
+    "nickname": "Nickname",
+    "address": "Address",
+    "date": "Date",
+    "time": "Time",
+    "status": "Status",
+    "notes": "Notes"
+  },
+  "pagination": {
+    "showing": "{from}–{to} of {total}",
+    "perPage": "Per page",
+    "page": "Page {page}"
+  },
+  "locale": {
+    "label": "Language",
+    "fr": "Français",
+    "en": "English",
+    "switchTo": "Switch to {language}"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  }
+}

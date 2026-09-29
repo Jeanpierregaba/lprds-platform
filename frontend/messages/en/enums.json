@@ -1,0 +1,75 @@
+{
+  "roles": {
+    "superadmin": "Super Administrator",
+    "admin": "Administrator",
+    "staff": "Staff",
+    "parent": "Parent"
+  },
+  "staffTypes": {
+    "administrateur": "Administrator",
+    "educateur": "Educator",
+    "prestataire": "Contractor",
+    "directrice": "Director",
+    "redacteur": "Editor",
+    "secretaire": "Secretary",
+    "restaurateur": "Catering staff"
+  },
+  "weekdays": {
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday"
+  },
+  "mealSlots": {
+    "collation": "Morning snack",
+    "dejeuner": "Lunch",
+    "dessert": "Dessert",
+    "gouter": "Afternoon snack"
+  },
+  "reportTypes": {
+    "quotidien": "Daily",
+    "bi_mensuel": "Twice-monthly",
+    "annuel": "Annual"
+  },
+  "reportStatus": {
+    "draft": "Draft",
+    "submitted": "Submitted",
+    "rejected": "Rejected",
+    "validated": "Approved"
+  },
+  "reportDomains": {
+    "oral_written_language": "Developing and structuring spoken and written language",
+    "physical_activities": "Acting, expressing and understanding through physical activity",
+    "artistic_activities": "Acting, expressing and understanding through the arts",
+    "math_foundations": "Building the first mathematical tools",
+    "world_exploration": "Exploring the world",
+    "english": "English"
+  },
+  "articleStatus": {
+    "draft": "Draft",
+    "published": "Published"
+  },
+  "gallerySources": {
+    "report": "Reports",
+    "message": "Messages",
+    "announcement": "Announcements"
+  },
+  "gallerySourceBadges": {
+    "report": "Report",
+    "message": "Message",
+    "announcement": "Announcement"
+  },
+  "lendingStatus": {
+    "active": "On loan",
+    "overdue": "Overdue",
+    "returned": "Returned"
+  },
+  "attendanceStatus": {
+    "present": "Present",
+    "late": "Late",
+    "absent": "Absent",
+    "not_expected": "Not expected",
+    "exempt": "Exempt"
+  }
+}

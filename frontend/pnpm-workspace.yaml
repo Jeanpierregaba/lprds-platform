@@ -1,4 +1,9 @@
 allowBuilds:
+  # Scripts de build non exécutés — c'est déjà le cas depuis toujours dans ce
+  # projet (Next embarque son propre binaire SWC, et le watcher Parcel n'est
+  # utilisé par aucun script). pnpm exige désormais une réponse explicite.
+  '@parcel/watcher': false
+  '@swc/core': false
   core-js: true
   sharp: true
   unrs-resolver: true

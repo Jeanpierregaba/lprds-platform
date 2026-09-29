@@ -1,0 +1,70 @@
+{
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "create": "Créer",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "reset": "Réinitialiser",
+    "export": "Exporter",
+    "download": "Télécharger",
+    "send": "Envoyer",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "retry": "Réessayer",
+    "seeMore": "Voir plus",
+    "seeAll": "Tout voir"
+  },
+  "states": {
+    "loading": "Chargement…",
+    "saving": "Enregistrement…",
+    "sending": "Envoi…",
+    "empty": "Aucun résultat",
+    "noData": "Aucune donnée à afficher",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "required": "Obligatoire",
+    "optional": "Facultatif",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "fields": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "password": "Mot de passe",
+    "nickname": "Surnom",
+    "address": "Adresse",
+    "date": "Date",
+    "time": "Heure",
+    "status": "Statut",
+    "notes": "Notes"
+  },
+  "pagination": {
+    "showing": "{from}–{to} sur {total}",
+    "perPage": "Par page",
+    "page": "Page {page}"
+  },
+  "locale": {
+    "label": "Langue",
+    "fr": "Français",
+    "en": "English",
+    "switchTo": "Passer en {language}"
+  },
+  "theme": {
+    "toggle": "Changer de thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  }
+}

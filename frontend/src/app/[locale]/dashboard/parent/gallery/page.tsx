@@ -12,7 +12,7 @@ import { galleryApi } from '@/lib/api/gallery.api'
 import { GALLERY_SOURCE_BADGE_LABEL, GALLERY_SOURCE_LABELS, isVideo, type GalleryMediaItem } from '@/types/gallery'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
-import { MediaLightbox } from '@/app/dashboard/admin/gallery/media-lightbox'
+import { MediaLightbox } from '@/app/[locale]/dashboard/admin/gallery/media-lightbox'
 import { useMyChildren } from '../use-my-children'
 
 const ALL = '__all__'

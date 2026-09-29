@@ -16,7 +16,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { REPORT_TYPE_LABELS, type ReportAttachment } from '@/types/reports'
-import { ContentView } from '@/app/dashboard/admin/reports/content-view'
+import { ContentView } from '@/app/[locale]/dashboard/admin/reports/content-view'
 
 function formatDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'long' }) : '—'

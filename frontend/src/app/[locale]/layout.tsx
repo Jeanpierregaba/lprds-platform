@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { Fredoka, Work_Sans } from 'next/font/google'
-import { Providers } from './providers'
+import { hasLocale, NextIntlClientProvider } from 'next-intl'
+import { notFound } from 'next/navigation'
+import { Providers } from '../providers'
 import { PwaProvider } from '@/components/pwa/pwa-provider'
-import './globals.css'
+import { routing } from '@/i18n/routing'
+import '../globals.css'
 
 import { Toaster } from '@/components/ui/sonner'
 
@@ -52,18 +55,36 @@ export const viewport: Viewport = {
   themeColor: '#F5AA2D',
 }
 
-export default function RootLayout({
+/** Pré-rend les deux langues au build plutôt qu'à la première visite. */
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }))
+}
+
+export default async function RootLayout({
   children,
-}: { children: React.ReactNode }) {
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+
+  // Le middleware ne laisse normalement passer que des locales connues, mais
+  // une route peut être atteinte hors de ce chemin (pré-rendu, lien forgé) —
+  // une locale inconnue doit donner un 404, jamais un rendu à moitié traduit.
+  if (!hasLocale(routing.locales, locale)) notFound()
+
   return (
-    <html lang="fr" suppressHydrationWarning className={`${fredoka.variable} ${workSans.variable}`}>
+    <html lang={locale} suppressHydrationWarning className={`${fredoka.variable} ${workSans.variable}`}>
     <body>
-      <PwaProvider>
-        <Providers>
-          {children}
-          <Toaster position="top-right" richColors />
-        </Providers>
-      </PwaProvider>
+      <NextIntlClientProvider>
+        <PwaProvider>
+          <Providers>
+            {children}
+            <Toaster position="top-right" richColors />
+          </Providers>
+        </PwaProvider>
+      </NextIntlClientProvider>
     </body>
     </html>
 

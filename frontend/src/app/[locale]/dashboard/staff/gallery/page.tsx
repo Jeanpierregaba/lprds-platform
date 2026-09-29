@@ -11,7 +11,7 @@ import { galleryApi } from '@/lib/api/gallery.api'
 import { isVideo, type GalleryMediaItem } from '@/types/gallery'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
-import { MediaLightbox } from '@/app/dashboard/admin/gallery/media-lightbox'
+import { MediaLightbox } from '@/app/[locale]/dashboard/admin/gallery/media-lightbox'
 
 const PAGE_SIZE = 30
 

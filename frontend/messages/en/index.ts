@@ -1,0 +1,18 @@
+/**
+ * Catalogue anglais — même découpage que le français.
+ *
+ * L'annotation `satisfies Messages` est le filet de sécurité du projet : elle
+ * casse la compilation dès qu'une clé présente en français manque ici. Sans
+ * elle, une clé oubliée ne se verrait qu'à l'exécution, sous la forme du chemin
+ * de la clé affiché tel quel à l'utilisateur.
+ */
+import type { Messages } from '../fr'
+
+import common from './common.json'
+import enums from './enums.json'
+import errors from './errors.json'
+import nav from './nav.json'
+
+export const messages = { common, enums, errors, nav } satisfies Messages
+
+export default messages

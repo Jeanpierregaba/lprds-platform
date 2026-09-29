@@ -1,0 +1,10 @@
+{
+  "invalidData": "Invalid data",
+  "badCredentials": "Incorrect email or password",
+  "forbidden": "Access denied",
+  "serverError": "Server error, please try again later",
+  "unreachable": "Could not reach the server",
+  "unexpected": "Something went wrong",
+  "insufficientRights": "Insufficient permissions",
+  "notFound": "Not found"
+}

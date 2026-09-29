@@ -1,0 +1,14 @@
+{
+  "page": {
+    "title": "Galerie",
+    "description": "Photos et vidéos issues des rapports et de la messagerie."
+  },
+  "filters": {
+    "allChildren": "Tous les enfants",
+    "allDepartments": "Tous les départements",
+    "allGroups": "Tous les groupes",
+    "allStaff": "Toute l’équipe",
+    "allSources": "Toutes les sources",
+    "allTypes": "Tous les types"
+  }
+}

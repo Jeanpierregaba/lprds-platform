@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -24,6 +26,7 @@ const PAGE_SIZE = 20
 const ALL = '__all__'
 
 export function CatalogueTab() {
+  const t = useTranslations('library')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('library:write')
@@ -62,14 +65,14 @@ export function CatalogueTab() {
   const hasPrev = skip > 0
 
   const sectionItems = {
-    [ALL]: 'Toutes les sections',
+    [ALL]: t('catalogue.allSections'),
     ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])),
   }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => libraryApi.deactivateBook(id),
     onSuccess: () => {
-      toast.success('Livre désactivé du catalogue.')
+      toast.success(t('catalogue.deactivated'))
       queryClient.invalidateQueries({ queryKey: ['library-books'] })
       setDeletingBook(null)
     },
@@ -82,10 +85,10 @@ export function CatalogueTab() {
         <div className="flex flex-wrap items-center gap-4">
           <Select items={sectionItems} value={sectionId} onValueChange={(v) => setSectionId(v ?? ALL)}>
             <SelectTrigger className="w-52">
-              <SelectValue placeholder="Toutes les sections" />
+              <SelectValue placeholder={t('catalogue.allSections')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Toutes les sections</SelectItem>
+              <SelectItem value={ALL}>{t('catalogue.allSections')}</SelectItem>
               {(sections ?? []).map((s) => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
@@ -96,7 +99,7 @@ export function CatalogueTab() {
             id="include-inactive-books"
             checked={includeInactive}
             onCheckedChange={setIncludeInactive}
-            label="Inclure les désactivés"
+            label={t('catalogue.includeInactive')}
           />
         </div>
 
@@ -108,7 +111,7 @@ export function CatalogueTab() {
           }}
         >
           <Plus className="mr-1.5 size-4" />
-          Nouveau livre
+          {t('catalogue.new')}
         </Button>
         )}
       </div>
@@ -145,9 +148,9 @@ export function CatalogueTab() {
       <ConfirmDialog
         open={deletingBook !== null}
         onOpenChange={(open) => !open && setDeletingBook(null)}
-        title="Désactiver ce livre ?"
-        description={`« ${deletingBook?.title ?? ''} » ne sera plus empruntable, mais l'historique des prêts restera consultable.`}
-        confirmLabel="Désactiver"
+        title={t('catalogue.deactivateTitle')}
+        description={t('catalogue.deactivateBody', { title: deletingBook?.title ?? '' })}
+        confirmLabel={t('catalogue.deactivate')}
         destructive
         onConfirm={() => deletingBook && deleteMutation.mutate(deletingBook.id)}
       />
@@ -164,6 +167,7 @@ function BooksCardGrid({
   onEdit: (book: Book) => void
   onDeactivate: (book: Book) => void
 }) {
+  const t = useTranslations('library')
   if (isLoading) {
     return <CardsSkeleton />
   }
@@ -172,7 +176,7 @@ function BooksCardGrid({
     return (
       <CardsEmptyState
         icon={BookOpen}
-        title="Aucun livre dans le catalogue."
+        title={t('catalogue.empty')}
         heightClass="h-48"
       />
     )
@@ -201,7 +205,7 @@ function BooksCardGrid({
                 )}
               </div>
               <p className="text-sm">
-                <span className="font-medium">Disponibles :</span>{' '}
+                <span className="font-medium">{t('catalogue.available')}</span>{' '}
                 <span className={book.available_quantity === 0 ? 'font-semibold text-destructive' : undefined}>
                   {book.available_quantity}/{book.total_quantity}
                 </span>
@@ -210,7 +214,7 @@ function BooksCardGrid({
                 <div className="flex flex-wrap gap-2 pt-3">
                   <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={() => onEdit(book)}>
                     <Pencil className="mr-1.5 size-4" />
-                    Modifier
+                    {t('catalogue.edit')}
                   </Button>
                   {book.is_active && (
                     <Button variant="ghost" size="sm" onClick={() => onDeactivate(book)}>

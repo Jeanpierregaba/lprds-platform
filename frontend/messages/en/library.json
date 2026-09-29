@@ -1,0 +1,88 @@
+{
+  "page": {
+    "title": "Library",
+    "description": "Book catalogue, loans to children and return reminders."
+  },
+  "tabs": {
+    "catalogue": "Catalogue",
+    "lendings": "Loans"
+  },
+  "catalogue": {
+    "new": "New book",
+    "allSections": "All groups",
+    "includeInactive": "Include deactivated",
+    "edit": "Edit",
+    "available": "Available:",
+    "deactivateTitle": "Deactivate this book?",
+    "deactivateBody": "“{title}” will no longer be borrowable, but the loan history stays available.",
+    "deactivate": "Deactivate",
+    "deactivated": "Book removed from the catalogue.",
+    "empty": "No books in the catalogue."
+  },
+  "lendings": {
+    "new": "New loan",
+    "newTitle": "New loan",
+    "book": "Book",
+    "chooseBook": "Choose a book…",
+    "child": "Child",
+    "chooseChild": "Choose a child…",
+    "borrowedAt": "Borrowed on",
+    "dueDate": "Due back",
+    "noBookAvailable": "No books available to borrow at the moment.",
+    "submit": "Save the loan",
+    "created": "Loan saved.",
+    "allStatuses": "All statuses",
+    "return": "Return",
+    "returned": "Book returned.",
+    "columns": {
+      "book": "Book",
+      "child": "Child",
+      "borrowedAt": "Borrowed on",
+      "dueDate": "Due back",
+      "status": "Status"
+    },
+    "empty": "No loans recorded.",
+    "bookRequired": "Select a book",
+    "childRequired": "Select a child"
+  },
+  "book": {
+    "editTitle": "Edit the book",
+    "newTitle": "New book",
+    "editHint": "Update the book's details. The available quantity updates automatically.",
+    "newHint": "Add a book to the catalogue and choose the groups it can be borrowed from.",
+    "title": "Title",
+    "titlePlaceholder": "The Little Prince",
+    "author": "Author",
+    "authorPlaceholder": "Antoine de Saint-Exupéry",
+    "description": "Description",
+    "descriptionPlaceholder": "A few words about the book…",
+    "quantity": "Number of copies",
+    "sections": "Groups concerned",
+    "save": "Save",
+    "add": "Add",
+    "created": "Book added to the catalogue.",
+    "updated": "Book updated.",
+    "titleRequired": "Title required",
+    "authorRequired": "Author required",
+    "max200": "200 characters max",
+    "max1000": "1000 characters max",
+    "number": "Enter a number",
+    "integer": "Whole number",
+    "minCopy": "At least 1 copy",
+    "maxCopies": "1000 copies max"
+  },
+  "settings": {
+    "remindersTitle": "Return reminders",
+    "remindersHint": "Automatically remind parents when books are due back.",
+    "daysBefore": "Days before the due date",
+    "defaultLoanDays": "Default loan length (days)",
+    "save": "Save",
+    "saved": "Library settings saved.",
+    "manualTitle": "Send reminders manually",
+    "manualHint": "Contact the parents of loans that are due soon or already overdue, right now.",
+    "sendNow": "Send the reminders now",
+    "nothingToRemind": "No loans to remind about at the moment.",
+    "reminded": "{parents} parent(s) contacted about {lendings} loan(s).",
+    "number": "Enter a number"
+  }
+}

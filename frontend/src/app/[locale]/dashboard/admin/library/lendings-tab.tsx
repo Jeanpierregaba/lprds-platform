@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
@@ -45,14 +47,16 @@ function formatDate(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString(intlLocale())
 }
 
-const lendingFormSchema = z.object({
-  book_id: z.string().min(1, 'Sélectionnez un livre'),
-  child_id: z.string().min(1, 'Sélectionnez un enfant'),
+type T = (key: string) => string
+
+const makeLendingFormSchema = (t: T) => z.object({
+  book_id: z.string().min(1, t('lendings.bookRequired')),
+  child_id: z.string().min(1, t('lendings.childRequired')),
   borrowed_at: z.string().optional(),
   due_date: z.string().optional(),
 })
 
-type LendingFormValues = z.infer<typeof lendingFormSchema>
+type LendingFormValues = z.infer<ReturnType<typeof makeLendingFormSchema>>
 
 function CreateLendingDialog({
   open,
@@ -61,6 +65,7 @@ function CreateLendingDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const t = useTranslations('library')
   const queryClient = useQueryClient()
 
   const { data: books } = useQuery({
@@ -83,7 +88,7 @@ function CreateLendingDialog({
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<LendingFormValues>({
-    resolver: zodResolver(lendingFormSchema),
+    resolver: zodResolver(makeLendingFormSchema(t)),
     defaultValues: { book_id: '', child_id: '', borrowed_at: '', due_date: '' },
   })
 
@@ -113,7 +118,7 @@ function CreateLendingDialog({
         due_date: values.due_date || undefined,
       }),
     onSuccess: () => {
-      toast.success('Prêt enregistré.')
+      toast.success(t('lendings.created'))
       queryClient.invalidateQueries({ queryKey: ['library-lendings'] })
       queryClient.invalidateQueries({ queryKey: ['library-books'] })
       onOpenChange(false)
@@ -125,7 +130,7 @@ function CreateLendingDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nouveau prêt</DialogTitle>
+          <DialogTitle>{t('lendings.newTitle')}</DialogTitle>
           <DialogDescription>
             La date de retour est planifiée selon les paramètres de la bibliothèque (par défaut 14 jours).
           </DialogDescription>
@@ -133,13 +138,13 @@ function CreateLendingDialog({
 
         <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="lending-book">Livre</Label>
+            <Label htmlFor="lending-book">{t('lendings.book')}</Label>
             <Select items={bookItems} value={bookId} onValueChange={(v) => setValue('book_id', v ?? '')}>
               <SelectTrigger id="lending-book" className="w-full">
-                <SelectValue placeholder="Choisir un livre…" />
+                <SelectValue placeholder={t('lendings.chooseBook')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Choisir un livre…</SelectItem>
+                <SelectItem value="">{t('lendings.chooseBook')}</SelectItem>
                 {Object.entries(bookItems).map(([id, label]) => (
                   <SelectItem key={id} value={id}>{label}</SelectItem>
                 ))}
@@ -148,19 +153,19 @@ function CreateLendingDialog({
             {errors.book_id && <p className="text-xs text-destructive">{errors.book_id.message}</p>}
             {availableBooks.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                Aucun livre disponible à la location pour le moment.
+                {t('lendings.noBookAvailable')}
               </p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="lending-child">Enfant</Label>
+            <Label htmlFor="lending-child">{t('lendings.child')}</Label>
             <Select items={childItems} value={childId} onValueChange={(v) => setValue('child_id', v ?? '')}>
               <SelectTrigger id="lending-child" className="w-full">
-                <SelectValue placeholder="Choisir un enfant…" />
+                <SelectValue placeholder={t('lendings.chooseChild')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Choisir un enfant…</SelectItem>
+                <SelectItem value="">{t('lendings.chooseChild')}</SelectItem>
                 {Object.entries(childItems).map(([id, label]) => (
                   <SelectItem key={id} value={id}>{label}</SelectItem>
                 ))}
@@ -171,11 +176,11 @@ function CreateLendingDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="lending-borrowed">Emprunté le</Label>
+              <Label htmlFor="lending-borrowed">{t('lendings.borrowedAt')}</Label>
               <Input id="lending-borrowed" type="date" {...register('borrowed_at')} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="lending-due">Retour prévu</Label>
+              <Label htmlFor="lending-due">{t('lendings.dueDate')}</Label>
               <Input id="lending-due" type="date" {...register('due_date')} />
             </div>
           </div>
@@ -186,7 +191,7 @@ function CreateLendingDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-              Enregistrer le prêt
+              {t('lendings.submit')}
             </Button>
           </DialogFooter>
         </form>
@@ -197,6 +202,7 @@ function CreateLendingDialog({
 
 export function LendingsTab() {
   const lendingStatusLabel = useLabel('lendingStatus')
+  const t = useTranslations('library')
   const lendingStatusLabels = useLabelMap('lendingStatus', LENDING_STATUSES)
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -229,7 +235,7 @@ export function LendingsTab() {
   const returnMutation = useMutation({
     mutationFn: (id: string) => libraryApi.returnLending(id),
     onSuccess: () => {
-      toast.success('Livre rendu.')
+      toast.success(t('lendings.returned'))
       queryClient.invalidateQueries({ queryKey: ['library-lendings'] })
       queryClient.invalidateQueries({ queryKey: ['library-books'] })
     },
@@ -240,15 +246,15 @@ export function LendingsTab() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Select
-          items={{ [ALL]: 'Tous les statuts', ...lendingStatusLabels }}
+          items={{ [ALL]: t('lendings.allStatuses'), ...lendingStatusLabels }}
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v ?? ALL)}
         >
           <SelectTrigger className="h-9 w-full sm:w-44">
-            <SelectValue placeholder="Tous les statuts" />
+            <SelectValue placeholder={t('lendings.allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tous les statuts</SelectItem>
+            <SelectItem value={ALL}>{t('lendings.allStatuses')}</SelectItem>
             {Object.entries(lendingStatusLabels).map(([value, label]) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
@@ -258,18 +264,18 @@ export function LendingsTab() {
 {canLend && (
         <Button onClick={() => setDialogOpen(true)}>
           <ArrowLeftRight className="mr-1.5 size-4" />
-          Nouveau prêt
+          {t('lendings.new')}
         </Button>
         )}
       </div>
 
       <DataTable>
         <DataTableHead>
-          <Th>Livre</Th>
-          <Th>Enfant</Th>
-          <Th>Emprunté le</Th>
-          <Th>Retour prévu</Th>
-          <Th>Statut</Th>
+          <Th>{t('lendings.columns.book')}</Th>
+          <Th>{t('lendings.columns.child')}</Th>
+          <Th>{t('lendings.columns.borrowedAt')}</Th>
+          <Th>{t('lendings.columns.dueDate')}</Th>
+          <Th>{t('lendings.columns.status')}</Th>
           <Th />
         </DataTableHead>
         <TableBody>
@@ -284,7 +290,7 @@ export function LendingsTab() {
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <BookMarked className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucun prêt enregistré.</p>
+                  <p className="font-medium text-foreground">{t('lendings.empty')}</p>
                 </div>
               </Td>
             </TableRow>
@@ -320,7 +326,7 @@ export function LendingsTab() {
                       onClick={() => returnMutation.mutate(lending.id)}
                     >
                       <RotateCcw className="mr-1.5 size-4" />
-                      Rendre
+                      {t('lendings.return')}
                     </Button>
                   )}
                 </Td>

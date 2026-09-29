@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -18,23 +20,26 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 
-const formSchema = z.object({
+type T = (key: string) => string
+
+const makeformSchema = (t: T) => z.object({
   reminders_enabled: z.boolean(),
   reminder_days_before: z
-    .number({ error: 'Saisissez un nombre' })
+    .number({ error: t('settings.number') })
     .int('Nombre entier')
     .min(0, 'Min 0 jour')
     .max(90, 'Max 90 jours'),
   default_loan_days: z
-    .number({ error: 'Saisissez un nombre' })
+    .number({ error: t('settings.number') })
     .int('Nombre entier')
     .min(1, 'Min 1 jour')
     .max(365, 'Max 365 jours'),
 })
 
-type FormValues = z.infer<typeof formSchema>
+type FormValues = z.infer<ReturnType<typeof makeformSchema>>
 
 export function SettingsTab() {
+  const t = useTranslations('library')
   const queryClient = useQueryClient()
   const user = useUser()
   const isAdmin = user?.role === 'admin'
@@ -54,7 +59,7 @@ export function SettingsTab() {
     watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(makeformSchema(t)),
     defaultValues: { reminders_enabled: false, reminder_days_before: 3, default_loan_days: 14 },
   })
 
@@ -73,7 +78,7 @@ export function SettingsTab() {
   const saveMutation = useMutation({
     mutationFn: (values: FormValues) => libraryApi.updateSettings(values),
     onSuccess: () => {
-      toast.success('Paramètres de la bibliothèque enregistrés.')
+      toast.success(t('settings.saved'))
       queryClient.invalidateQueries({ queryKey: ['library-settings'] })
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -84,9 +89,9 @@ export function SettingsTab() {
     onSuccess: (res) => {
       const { reminded_parents, reminded_lendings } = res.data
       if (reminded_lendings === 0) {
-        toast.success('Aucun prêt à rappeler pour le moment.')
+        toast.success(t('settings.nothingToRemind'))
       } else {
-        toast.success(`${reminded_parents} parent(s) relancé(s) pour ${reminded_lendings} prêt(s).`)
+        toast.success(t('settings.reminded', { parents: reminded_parents, lendings: reminded_lendings }))
       }
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -98,10 +103,10 @@ export function SettingsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="size-4" />
-            Rappels de retour
+            {t('settings.remindersTitle')}
           </CardTitle>
           <CardDescription>
-            Rappelez automatiquement aux parents la date de retour des livres.
+            {t('settings.remindersHint')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -125,7 +130,7 @@ export function SettingsTab() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="reminder-days-before">Jours avant l'échéance</Label>
+                <Label htmlFor="reminder-days-before">{t('settings.daysBefore')}</Label>
                 <Input
                   id="reminder-days-before"
                   type="number"
@@ -139,7 +144,7 @@ export function SettingsTab() {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="default-loan-days">Durée de prêt par défaut (jours)</Label>
+                <Label htmlFor="default-loan-days">{t('settings.defaultLoanDays')}</Label>
                 <Input id="default-loan-days" type="number" min={1} max={365} {...register('default_loan_days', { valueAsNumber: true })} />
                 {errors.default_loan_days && (
                   <p className="text-xs text-destructive">{errors.default_loan_days.message}</p>
@@ -150,7 +155,7 @@ export function SettingsTab() {
 {isAdmin && (
             <Button type="submit" disabled={isSubmitting || !settings}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-              Enregistrer
+              {t('settings.save')}
             </Button>
             )}
           </form>
@@ -161,17 +166,17 @@ export function SettingsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Send className="size-4" />
-            Envoi manuel des rappels
+            {t('settings.manualTitle')}
           </CardTitle>
           <CardDescription>
-            Relancez immédiatement les parents des prêts dont l'échéance approche ou est déjà dépassée.
+            {t('settings.manualHint')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {canLend && (
           <Button variant="outline" disabled={remindersMutation.isPending} onClick={() => remindersMutation.mutate()}>
             {remindersMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-            Envoyer les rappels maintenant
+            {t('settings.sendNow')}
           </Button>
           )}
         </CardContent>

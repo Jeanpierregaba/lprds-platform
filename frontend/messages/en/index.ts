@@ -15,6 +15,8 @@ import children from './children.json'
 import common from './common.json'
 import enums from './enums.json'
 import errors from './errors.json'
+import gallery from './gallery.json'
+import library from './library.json'
 import marketing from './marketing.json'
 import menus from './menus.json'
 import nav from './nav.json'
@@ -24,6 +26,6 @@ import rbac from './rbac.json'
 import reports from './reports.json'
 import staff from './staff.json'
 
-export const messages = { attendance, auth, blog, children, common, enums, errors, marketing, menus, nav, organization, parents, rbac, reports, staff } satisfies Messages
+export const messages = { attendance, auth, blog, children, common, enums, errors, gallery, library, marketing, menus, nav, organization, parents, rbac, reports, staff } satisfies Messages
 
 export default messages

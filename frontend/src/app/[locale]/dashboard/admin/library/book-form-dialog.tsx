@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -26,18 +28,20 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import type { Book } from '@/types/library'
 import type { Section } from '@/types/organization'
 
-const formSchema = z.object({
-  title: z.string().trim().min(1, 'Titre requis').max(200, '200 caractères max'),
-  author: z.string().trim().min(1, 'Auteur requis').max(200, '200 caractères max'),
-  description: z.string().max(1000, '1000 caractères max').optional(),
+type T = (key: string) => string
+
+const makeFormSchema = (t: T) => z.object({
+  title: z.string().trim().min(1, t('book.titleRequired')).max(200, t('book.max200')),
+  author: z.string().trim().min(1, t('book.authorRequired')).max(200, t('book.max200')),
+  description: z.string().max(1000, t('book.max1000')).optional(),
   total_quantity: z
-    .number({ error: 'Saisissez un nombre' })
-    .int('Nombre entier')
-    .min(1, 'Au moins 1 exemplaire')
-    .max(1000, '1000 exemplaires max'),
+    .number({ error: t('book.number') })
+    .int(t('book.integer'))
+    .min(1, t('book.minCopy'))
+    .max(1000, t('book.maxCopies')),
 })
 
-type FormValues = z.infer<typeof formSchema>
+type FormValues = z.infer<ReturnType<typeof makeFormSchema>>
 
 interface BookFormDialogProps {
   open: boolean
@@ -47,6 +51,7 @@ interface BookFormDialogProps {
 }
 
 export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormDialogProps) {
+  const t = useTranslations('library')
   const queryClient = useQueryClient()
   const [sectionIds, setSectionIds] = useState<string[]>([])
 
@@ -55,7 +60,7 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(formSchema) })
+  } = useForm<FormValues>({ resolver: zodResolver(makeFormSchema(t)) })
 
   useEffect(() => {
     if (open) {
@@ -83,7 +88,7 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
         : libraryApi.createBook(payload)
     },
     onSuccess: () => {
-      toast.success(book ? 'Livre modifié.' : 'Livre ajouté au catalogue.')
+      toast.success(book ? t('book.updated') : t('book.created'))
       queryClient.invalidateQueries({ queryKey: ['library-books'] })
       onOpenChange(false)
     },
@@ -100,11 +105,11 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{book ? 'Modifier le livre' : 'Nouveau livre'}</DialogTitle>
+          <DialogTitle>{book ? t('book.editTitle') : t('book.newTitle')}</DialogTitle>
           <DialogDescription>
             {book
-              ? 'Modifiez les informations du livre. La quantité disponible se met à jour automatiquement.'
-              : 'Ajoutez un livre au catalogue et choisissez les sections où il sera empruntable.'}
+              ? t('book.editHint')
+              : t('book.newHint')}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,22 +119,22 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="book-title">Titre</Label>
-              <Input id="book-title" placeholder="Le Petit Prince" {...register('title')} />
+              <Label htmlFor="book-title">{t('book.title')}</Label>
+              <Input id="book-title" placeholder={t('book.titlePlaceholder')} {...register('title')} />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="book-author">Auteur</Label>
-              <Input id="book-author" placeholder="Antoine de Saint-Exupéry" {...register('author')} />
+              <Label htmlFor="book-author">{t('book.author')}</Label>
+              <Input id="book-author" placeholder={t('book.authorPlaceholder')} {...register('author')} />
               {errors.author && <p className="text-xs text-destructive">{errors.author.message}</p>}
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="book-description">Description</Label>
+            <Label htmlFor="book-description">{t('book.description')}</Label>
             <Textarea
               id="book-description"
-              placeholder="Quelques mots sur le livre…"
+              placeholder={t('book.descriptionPlaceholder')}
               rows={3}
               {...register('description')}
             />
@@ -137,13 +142,13 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="book-quantity">Nombre d'exemplaires</Label>
+            <Label htmlFor="book-quantity">{t('book.quantity')}</Label>
             <Input id="book-quantity" type="number" min={1} {...register('total_quantity', { valueAsNumber: true })} />
             {errors.total_quantity && <p className="text-xs text-destructive">{errors.total_quantity.message}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label>Sections concernées</Label>
+            <Label>{t('book.sections')}</Label>
             {sections.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Aucune section configurée. Créez d'abord des sections dans le module Organisation.
@@ -172,7 +177,7 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-              {book ? 'Enregistrer' : 'Ajouter'}
+              {book ? t('book.save') : t('book.add')}
             </Button>
           </DialogFooter>
         </form>

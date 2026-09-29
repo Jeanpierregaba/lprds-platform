@@ -1,0 +1,14 @@
+{
+  "page": {
+    "title": "Gallery",
+    "description": "Photos and videos from reports and messages."
+  },
+  "filters": {
+    "allChildren": "All children",
+    "allDepartments": "All departments",
+    "allGroups": "All classes",
+    "allStaff": "All staff",
+    "allSources": "All sources",
+    "allTypes": "All types"
+  }
+}

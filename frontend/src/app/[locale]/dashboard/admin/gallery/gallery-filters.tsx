@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { useLabelMap } from '@/lib/i18n/labels'
 import { REPORT_TYPES } from '@/types/reports'
@@ -58,6 +60,7 @@ export function GalleryFilters({
    * le sélecteur de source est masqué, la page force `source=report`. */
   hideSource?: boolean
 }) {
+  const t = useTranslations('gallery')
   const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
   const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
   const { data: children } = useQuery({
@@ -80,20 +83,20 @@ export function GalleryFilters({
   const set = <K extends keyof GalleryFilterState>(key: K, value: GalleryFilterState[K]) =>
     onChange({ ...filters, [key]: value })
 
-  const childItems = { [ALL]: 'Tous les enfants', ...Object.fromEntries((children ?? []).map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
-  const deptItems = { [ALL]: 'Tous les départements', ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }
-  const groupItems = { [ALL]: 'Tous les groupes', ...Object.fromEntries((groups ?? []).map((g) => [g.id, g.name])) }
-  const staffItems = { [ALL]: 'Toute l’équipe', ...Object.fromEntries((staff ?? []).map((s) => [s.id, `${s.first_name} ${s.last_name}`])) }
+  const childItems = { [ALL]: t('filters.allChildren'), ...Object.fromEntries((children ?? []).map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
+  const deptItems = { [ALL]: t('filters.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }
+  const groupItems = { [ALL]: t('filters.allGroups'), ...Object.fromEntries((groups ?? []).map((g) => [g.id, g.name])) }
+  const staffItems = { [ALL]: t('filters.allStaff'), ...Object.fromEntries((staff ?? []).map((s) => [s.id, `${s.first_name} ${s.last_name}`])) }
 
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS)
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
       {!hideSource && (
-      <Select items={{ [ALL]: 'Toutes les sources', ...gallerySourcesLabels }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
+      <Select items={{ [ALL]: t('filters.allSources'), ...gallerySourcesLabels }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
         <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Toutes les sources</SelectItem>
+          <SelectItem value={ALL}>{t('filters.allSources')}</SelectItem>
           {Object.entries(gallerySourcesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -127,10 +130,10 @@ export function GalleryFilters({
         </SelectContent>
       </Select>
 
-      <Select items={{ [ALL]: 'Tous les types', ...reportTypesLabels }} value={filters.reportType} onValueChange={(v) => set('reportType', v ?? ALL)}>
+      <Select items={{ [ALL]: t('filters.allTypes'), ...reportTypesLabels }} value={filters.reportType} onValueChange={(v) => set('reportType', v ?? ALL)}>
         <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Tous les types" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Tous les types</SelectItem>
+          <SelectItem value={ALL}>{t('filters.allTypes')}</SelectItem>
           {Object.entries(reportTypesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
       </Select>

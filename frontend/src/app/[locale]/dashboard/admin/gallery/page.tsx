@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
@@ -19,6 +21,7 @@ import { MediaLightbox } from './media-lightbox'
 const PAGE_SIZE = 30
 
 export default function GalleryPage() {
+  const t = useTranslations('gallery')
   const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
   const user = useUser()
   const staffReportsOnly = user?.role === 'staff'
@@ -43,8 +46,8 @@ export default function GalleryPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Galerie"
-        description="Photos et vidéos issues des rapports et de la messagerie."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       <GalleryFilters filters={filters} onChange={setFilters} hideSource={staffReportsOnly} />

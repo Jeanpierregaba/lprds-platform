@@ -258,6 +258,22 @@ class AttendanceExportRow(BaseModel):
     meal_taken:     bool | None
 
 
+# ── Enquête d'absence (parents des absents) ─────────────────────
+class AbsentNotifiedParent(BaseModel):
+    parent_name: str
+    children_names: list[str]
+    email_sent: bool
+    message_sent: bool
+
+
+class AbsenceInquiryResponse(BaseModel):
+    date: date_
+    total_absent: int
+    notified: list[AbsentNotifiedParent]
+    skipped_no_parent: list[str]
+    already_notified: list[str]
+
+
 # ── Exemptions staff ─────────────────────────────────────────────
 class StaffExemptionRequest(BaseModel):
     exempt: bool

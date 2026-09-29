@@ -1,6 +1,6 @@
 import { apiClient } from './client'
 import type {
-  AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
+  AbsenceInquiryResponse, AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
   AttendanceSettingsPayload, ChildDailyStatusListResponse, DepartmentAttendanceSettings, EventType,
   ManualEventPayload, PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
   AttendanceExportParams, UpdateEventPayload,
@@ -43,6 +43,9 @@ export const attendanceApi = {
 
   getStaffDaily: (params: { date: string }) =>
     apiClient.get<StaffDailyStatusListResponse>('/api/v1/attendance/daily/staff', { params }),
+
+  sendAbsenceInquiries: (params: { date: string; department_id?: string; section_id?: string; child_id?: string }) =>
+    apiClient.post<AbsenceInquiryResponse>('/api/v1/attendance/absent-notifications', null, { params }),
 
   getDepartmentSettings: (departmentId: string) =>
     apiClient.get<DepartmentAttendanceSettings>(`/api/v1/attendance/settings/departments/${departmentId}`, {

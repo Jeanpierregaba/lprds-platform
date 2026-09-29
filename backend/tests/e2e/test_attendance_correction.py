@@ -160,3 +160,87 @@ def test_manual_correction_permissions(client):
             "person_type": "child", "child_id": child["id"],
             "event_type": "arrival", "date": datetime.now(tz=timezone.utc).date().isoformat(),
             "time": "08:00"}, headers=staff_h).status_code, 403)
+
+
+def test_absence_inquiry_notifications(client):
+    """Enquête d'absence : email + message aux comptes parents des absents,
+    anti-doublon journalier, sans-compte signalés."""
+    from datetime import date as _date, timedelta as _td
+    c = client
+    adm, child1, _staff = _setup(c)
+    child2 = c.post("/children", json={
+        "last_name": "Beta", "first_names": "Lina", "birth_date": "2023-01-01",
+        "admission_date": "2025-01-01", "residence_address": "x",
+        "department_id": c.get("/departments", headers=adm).json()[0]["id"],
+        "section_id": c.get("/sections", headers=adm).json()[0]["id"],
+        "guardians": [{"last_name": "Beta", "first_names": "P", "phone": "+229"}],
+    }, headers=adm).json()
+    c.post("/parents", json={"first_name": "Anaïs", "last_name": "Kossou",
+           "nickname": "Maman Anaïs", "phone": "+229 97", "email": "parent@a.fr",
+           "password": "Parent2026", "child_ids": [child1["id"]]}, headers=adm)
+    par = login(c, "parent@a.fr", "Parent2026")
+
+    day = _date.today()
+    while day.weekday() >= 5:
+        day -= _td(days=1)
+    day_iso = day.isoformat()
+
+    r = c.post(f"/attendance/absent-notifications?date={day_iso}", headers=adm)
+    ck("Enquête 200", r.status_code, 200)
+    body = r.json()
+    ck("2 absents", body["total_absent"], 2)
+    ck("1 parent notifié", len(body["notified"]), 1)
+    ck("Email envoyé (supprimé en test, sans erreur)",
+       body["notified"][0]["email_sent"], True)
+    ck("Message conversation injecté",
+       body["notified"][0]["message_sent"], True)
+    ck("Enfant sans compte signalé",
+       body["skipped_no_parent"], ["Lina Beta"])
+
+    msgs = c.get("/messaging/conversations/me/messages", headers=par).json()["items"]
+    ck("Message d'absence dans la conversation parent",
+       any("absent" in (m["body"] or "") for m in msgs), True)
+
+    r2 = c.post(f"/attendance/absent-notifications?date={day_iso}", headers=adm)
+    ck("Second clic : rien à renvoyer", r2.json()["notified"], [])
+    ck("Déjà notifiés listés", sorted(r2.json()["already_notified"]),
+       ["Emma Alpha", "Lina Beta"])
+
+    ck("Date future → 422", c.post(
+        "/attendance/absent-notifications?date=2099-01-01",
+        headers=adm).status_code, 422)
+
+
+def test_absence_inquiry_individual_relaunch(client):
+    """Relance individuelle : renvoi forcé pour un enfant, 422 si présent, 404 si inconnu."""
+    from datetime import date as _date, timedelta as _td
+    c = client
+    adm, child1, _staff = _setup(c)
+    c.post("/parents", json={"first_name": "Anaïs", "last_name": "Kossou",
+           "nickname": "Maman Anaïs", "phone": "+229 97", "email": "parent@a.fr",
+           "password": "Parent2026", "child_ids": [child1["id"]]}, headers=adm)
+    day = _date.today()
+    while day.weekday() >= 5:
+        day -= _td(days=1)
+    day_iso = day.isoformat()
+
+    c.post(f"/attendance/absent-notifications?date={day_iso}", headers=adm)
+    # Relance individuelle : renvoie malgré l'anti-doublon.
+    r = c.post(f"/attendance/absent-notifications?date={day_iso}&child_id={child1['id']}",
+               headers=adm)
+    ck("Relance individuelle 200", r.status_code, 200)
+    ck("Parent renotifié", len(r.json()["notified"]), 1)
+    ck("Anti-doublon contourné (pas de already_notified)",
+       r.json()["already_notified"], [])
+
+    # Enfant présent (scan d'arrivée) → 422.
+    qr = c.get(f"/attendance/qrcode/child/{child1['id']}", headers=adm).json()
+    c.post("/attendance/scan", json={
+        "qr_payload": qr["qr_payload"], "event_type": "arrival"}, headers=adm)
+    ck("Enfant présent → 422", c.post(
+        f"/attendance/absent-notifications?date={day_iso}&child_id={child1['id']}",
+        headers=adm).status_code, 422)
+    ck("Enfant inconnu → 404", c.post(
+        f"/attendance/absent-notifications?date={day_iso}"
+        "&child_id=00000000-0000-0000-0000-000000000000",
+        headers=adm).status_code, 404)

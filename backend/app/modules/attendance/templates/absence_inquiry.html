@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; color: #1c1c1c; line-height: 1.5;">
+  <p>Bonjour {{ parent_first_name }},</p>
+  <p>
+    {% if children_names|length == 1 %}
+    <strong>{{ children_names[0] }}</strong> a été noté(e) <strong>absent(e)</strong>
+    {% else %}
+    <strong>{{ children_names|join(', ') }}</strong> ont été notés <strong>absents</strong>
+    {% endif %}
+    {{ date_label }} à {{ establishment_name }} (aucune arrivée scannée).
+  </p>
+  <p>
+    Pouvez-vous nous indiquer le motif de cette absence en répondant à cet
+    email, ou directement depuis votre
+    <a href="{{ frontend_url }}">messagerie {{ platform_name }}</a> ?
+  </p>
+  <p>Merci et à bientôt,<br>L'équipe {{ establishment_name }}</p>
+</body>
+</html>

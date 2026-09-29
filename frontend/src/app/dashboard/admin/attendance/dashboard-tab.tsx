@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  AlarmClock, Baby, CalendarOff, ChevronLeft, ChevronRight, Search, ShieldCheck, UserRound, UserCheck, Users, UserX,
+  AlarmClock, Baby, CalendarOff, ChevronLeft, ChevronRight, Loader2, Mail, Search, ShieldCheck, UserRound, UserCheck, Users, UserX,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils/cn'
 import { formatTimeIn, todayLocalIso } from '@/lib/utils/dates'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { StatusBadge } from './status-badge'
 import type { AttendanceEvent, DailyStatusValue, PersonType } from '@/types/attendance'
 
@@ -450,6 +451,7 @@ const STAT_TITLES: Record<StatKey, string> = {
 }
 
 function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
+  const queryClient = useQueryClient()
   const [departmentId, setDepartmentId] = useState<string>(ALL)
   const [sectionId, setSectionId] = useState<string>(ALL)
 
@@ -495,7 +497,47 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
   const [modalPage, setModalPage] = useState(1)
   const [search, setSearch] = useState('')
   const [correcting, setCorrecting] = useState<CorrectionTarget | null>(null)
+  const [confirmNotify, setConfirmNotify] = useState(false)
+  const [relaunchTarget, setRelaunchTarget] = useState<{ id: string; name: string } | null>(null)
   useEffect(() => { setPage(1); setModal(null); setModalPage(1) }, [date, departmentId, sectionId, search])
+
+  const notifyMutation = useMutation({
+    mutationFn: () => attendanceApi.sendAbsenceInquiries({
+      date,
+      department_id: departmentId === ALL ? undefined : departmentId,
+      section_id: sectionId === ALL ? undefined : sectionId,
+    }).then((r) => r.data),
+    onSuccess: (result) => {
+      const parts = [`${result.notified.length} parent(s) prévenu(s)`]
+      if (result.skipped_no_parent.length > 0) {
+        parts.push(`${result.skipped_no_parent.length} sans compte parent (${result.skipped_no_parent.join(', ')})`)
+      }
+      if (result.already_notified.length > 0) {
+        parts.push(`déjà prévenus : ${result.already_notified.join(', ')}`)
+      }
+      toast.success(`Enquête d'absence envoyée — ${parts.join(' · ')}.`)
+      queryClient.invalidateQueries({ queryKey: ['attendance'] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  // Relance individuelle : renvoi forcé pour un seul enfant (l'anti-doublon
+  // journalier est contourné — action explicite, confirmée au clic).
+  const relaunchMutation = useMutation({
+    mutationFn: (childId: string) =>
+      attendanceApi.sendAbsenceInquiries({ date, child_id: childId }).then((r) => r.data),
+    onSuccess: (result) => {
+      if (result.notified.length > 0) {
+        toast.success(`Parent(s) de ${result.notified[0]?.children_names.join(', ')} relancé(s).`)
+      } else if (result.skipped_no_parent.length > 0) {
+        toast.warning(`Aucun compte parent pour ${result.skipped_no_parent.join(', ')}.`)
+      } else {
+        toast.info('Aucun parent à relancer.')
+      }
+      queryClient.invalidateQueries({ queryKey: ['attendance'] })
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
 
   // La recherche ne filtre que le tableau (retrouver vite une ligne) : les
   // cards et les modales portent toujours sur l'ensemble du jour.
@@ -561,7 +603,33 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
             {sections?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10"
+          disabled={counts.absent === 0 || notifyMutation.isPending}
+          onClick={() => setConfirmNotify(true)}
+          title={counts.absent === 0 ? 'Aucun absent ce jour' : 'Envoyer un email + message aux parents des absents'}
+        >
+          {notifyMutation.isPending
+            ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+            : <Mail className="mr-1.5 size-4" />}
+          Prévenir les parents{counts.absent > 0 ? ` (${counts.absent})` : ''}
+        </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmNotify}
+        onOpenChange={setConfirmNotify}
+        title="Prévenir les parents des absents ?"
+        description={`${counts.absent} enfant(s) sans arrivée ce jour. Un email et un message seront envoyés aux comptes parents assignés pour connaître le motif — les enfants déjà prévenus aujourd'hui sont ignorés.`}
+        confirmLabel={notifyMutation.isPending ? 'Envoi…' : 'Envoyer'}
+        confirmDisabled={notifyMutation.isPending}
+        onConfirm={() => {
+          setConfirmNotify(false)
+          notifyMutation.mutate()
+        }}
+      />
 
       <DataTable footer={<PaginationControls page={safePage} pageCount={pageCount} onChange={setPage} />}>
         <DataTableHead>
@@ -570,16 +638,17 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
           <Th>Arrivée</Th>
           <Th>Départ</Th>
           <Th>Retard</Th>
+          <Th className="w-10" />
         </DataTableHead>
         <TableBody>
           {isLoading ? (
             <TableSkeletonRows
               count={5}
-              widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10']}
+              widths={['h-4 w-32', 'h-5 w-16 rounded-full', 'h-4 w-12', 'h-4 w-12', 'h-4 w-10', '']}
             />
           ) : isError ? (
             <TableRow className="hover:bg-transparent">
-              <Td colSpan={5} className="h-40 text-center">
+              <Td colSpan={6} className="h-40 text-center">
                 <p className="font-medium text-foreground">Impossible de charger les présences.</p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
                   Réessayer
@@ -588,7 +657,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
             </TableRow>
           ) : visibleItems.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <Td colSpan={5} className="h-40 text-center text-muted-foreground">
+              <Td colSpan={6} className="h-40 text-center text-muted-foreground">
                 {search.trim() ? 'Aucun enfant ne correspond à cette recherche.' : 'Aucune donnée pour cette date.'}
               </Td>
             </TableRow>
@@ -616,11 +685,45 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                 <Td className="text-muted-foreground">
                   {item.late_minutes != null ? `${item.late_minutes} min` : '—'}
                 </Td>
+                <Td>
+                  {item.status === 'absent' && canCorrect && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 gap-1.5"
+                      title="Relancer les parents de cet enfant"
+                      disabled={relaunchMutation.isPending}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setRelaunchTarget({
+                          id: item.child.id,
+                          name: `${item.child.first_names} ${item.child.last_name}`,
+                        })
+                      }}
+                    >
+                      <Mail className="size-4" />
+                      Contacter
+                    </Button>
+                  )}
+                </Td>
               </TableRow>
             ))
           )}
         </TableBody>
       </DataTable>
+
+      <ConfirmDialog
+        open={relaunchTarget !== null}
+        onOpenChange={(open) => !open && setRelaunchTarget(null)}
+        title={`Relancer les parents de ${relaunchTarget?.name ?? ''} ?`}
+        description="Un email et un message seront renvoyés aux comptes parents assignés, même s'ils ont déjà été prévenus aujourd'hui."
+        confirmLabel={relaunchMutation.isPending ? 'Envoi…' : 'Relancer'}
+        confirmDisabled={relaunchMutation.isPending}
+        onConfirm={() => {
+          if (relaunchTarget) relaunchMutation.mutate(relaunchTarget.id)
+          setRelaunchTarget(null)
+        }}
+      />
 
       <StatusModal
         open={modal !== null}

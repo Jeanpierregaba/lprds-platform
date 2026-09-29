@@ -135,6 +135,21 @@ export interface StaffSchedule {
   expected_departure_time:  string
 }
 
+export interface AbsentNotifiedParent {
+  parent_name:    string
+  children_names: string[]
+  email_sent:     boolean
+  message_sent:   boolean
+}
+
+export interface AbsenceInquiryResponse {
+  date:             string
+  total_absent:     number
+  notified:         AbsentNotifiedParent[]
+  skipped_no_parent: string[]
+  already_notified:  string[]
+}
+
 export type ExportFileFormat = 'pdf' | 'excel'
 export type ExportPersonType = 'children' | 'staff' | 'both'
 

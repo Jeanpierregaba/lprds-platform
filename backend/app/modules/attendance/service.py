@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from datetime import date as date_, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -8,6 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redis import redis_client
+from app.modules.attendance import email as attendance_email
 from app.modules.attendance.models import (
     AttendanceEvent,
     AttendanceSettings,
@@ -22,6 +25,8 @@ from app.modules.attendance.qrcode_utils import (
     render_qr_image,
 )
 from app.modules.attendance.schemas import (
+    AbsenceInquiryResponse,
+    AbsentNotifiedParent,
     AttendanceEventListResponse,
     AttendanceEventResponse,
     AttendanceExportRow,
@@ -51,8 +56,11 @@ from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.establishments.models import Establishment
 from app.modules.organization import service as org_service
-from app.modules.organization.models import Department, Group
+from app.modules.organization.models import Department, Group, Section
+from app.modules.parents.models import parent_children
 from app.modules.attendance.export import render_attendance_pdf, render_attendance_xlsx
+
+logger = logging.getLogger(__name__)
 
 # ── QR code ─────────────────────────────────────────────────────
 async def get_child_qrcode(
@@ -1011,6 +1019,200 @@ async def _events_for_range(
         filters.append(AttendanceEvent.person_type == str(PersonType.STAFF))
     result = await db.execute(select(AttendanceEvent).where(*filters))
     return list(result.scalars().all())
+
+
+# ── Enquête d'absence (parents des absents) ─────────────────────
+_FRENCH_WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+_FRENCH_MONTHS = [
+    "janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+    "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+_ABSENCE_NOTIFY_TTL_SECONDS = 48 * 3600
+
+
+def _absence_notify_key(establishment_id: uuid.UUID, target: date_, child_id: uuid.UUID) -> str:
+    return f"absence-notify:{establishment_id}:{target.isoformat()}:{child_id}"
+
+
+async def send_absence_inquiries(
+    establishment_id: uuid.UUID,
+    sender: User,
+    db: AsyncSession,
+    *,
+    target_date: date_,
+    department_id: uuid.UUID | None = None,
+    section_id: uuid.UUID | None = None,
+    child_id: uuid.UUID | None = None,
+    force: bool = False,
+) -> AbsenceInquiryResponse:
+    """Enquête manuelle : email + message conversation aux comptes parents
+    assignés aux enfants absents (aucune arrivée scannée) — pour connaître le
+    motif de l'absence. Déclenché au clic (pas d'automatisme).
+
+    - Destinataires = comptes parents (role=parent, actifs) assignés à
+      l'enfant via `parent_children`. Sans compte parent → `skipped_no_parent`.
+    - Anti-doublon : un enfant notifié ne l'est plus le même jour (clé Redis
+      48 h) — un second clic ne touche que les nouveaux absents.
+    - `child_id` = relance individuelle d'un seul enfant (404 hors
+      établissement, 422 s'il n'est pas absent) ; `force=True` renvoie même
+      s'il a déjà été notifié aujourd'hui (relance explicite).
+    - Best-effort sur les deux canaux (email + conversation), comme les
+      rappels bibliothèque : échec journalisé, jamais bloquant.
+    """
+    if child_id:
+        child = await db.scalar(
+            select(Child).where(
+                Child.id == child_id, Child.establishment_id == establishment_id
+            )
+        )
+        if not child:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+        tz = await _get_timezone(establishment_id, db)
+        day_events = await _events_for_day(
+            establishment_id, PersonType.CHILD, target_date, db, tz
+        )
+        arrivals = [
+            e for e in day_events.get(child.id, [])
+            if e.event_type == str(EventType.ARRIVAL)
+        ]
+        if arrivals:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Cet enfant n'est pas absent pour cette date",
+            )
+        absent_items = [ChildDailyStatus(
+            child=_child_brief(child),
+            status="absent",
+            arrival_time=None,
+            departure_time=None,
+            late_minutes=None,
+        )]
+    else:
+        daily = await get_children_daily_status(
+            establishment_id, target_date, db,
+            department_id=department_id, section_id=section_id,
+        )
+        absent_items = [i for i in daily.items if i.status == "absent"]
+
+    establishment = await db.scalar(
+        select(Establishment).where(Establishment.id == establishment_id)
+    )
+    establishment_name = establishment.name if establishment else "Établissement"
+    date_label = (
+        f"{_FRENCH_WEEKDAYS[target_date.weekday()]} {target_date.day} "
+        f"{_FRENCH_MONTHS[target_date.month - 1]} {target_date.year}"
+    )
+
+    # Enfants déjà notifiés aujourd'hui → ignorés (nouveaux absents seuls),
+    # sauf relance individuelle forcée (qui repose quand même la clé).
+    fresh: list = []
+    already_notified: list[str] = []
+    for item in absent_items:
+        key = _absence_notify_key(establishment_id, target_date, item.child.id)
+        name = f"{item.child.first_names} {item.child.last_name}".strip()
+        if force:
+            try:
+                await redis_client.set(key, "1", ex=_ABSENCE_NOTIFY_TTL_SECONDS)
+            except Exception:
+                logger.exception("Redis indisponible pour l'anti-doublon d'absence")
+            fresh.append(item)
+            continue
+        try:
+            is_new = await redis_client.set(key, "1", nx=True, ex=_ABSENCE_NOTIFY_TTL_SECONDS)
+        except Exception:
+            logger.exception("Redis indisponible pour l'anti-doublon d'absence — envoi quand même")
+            is_new = True
+        if is_new:
+            fresh.append(item)
+        else:
+            already_notified.append(name)
+
+    # Comptes parents assignés à chaque enfant encore frais.
+    children_names: dict[uuid.UUID, str] = {
+        i.child.id: f"{i.child.first_names} {i.child.last_name}".strip() for i in fresh
+    }
+    parents_by_child: dict[uuid.UUID, list[User]] = {cid: [] for cid in children_names}
+    if children_names:
+        rows = (
+            await db.execute(
+                select(User, parent_children.c.child_id)
+                .join(parent_children, parent_children.c.parent_id == User.id)
+                .where(
+                    User.establishment_id == establishment_id,
+                    User.role == UserRole.PARENT,
+                    User.is_active.is_(True),
+                    parent_children.c.child_id.in_(list(children_names)),
+                )
+            )
+        ).all()
+        for parent, cid in rows:
+            parents_by_child[cid].append(parent)
+
+    # Regroupés par parent : un email + un message par parent.
+    by_parent: dict[uuid.UUID, dict] = {}
+    skipped_no_parent: list[str] = []
+    for cid, cname in children_names.items():
+        parents = [p for p in parents_by_child[cid] if p.email]
+        if not parents:
+            skipped_no_parent.append(cname)
+            continue
+        for parent in parents:
+            entry = by_parent.setdefault(parent.id, {"parent": parent, "children": []})
+            if cname not in entry["children"]:
+                entry["children"].append(cname)
+
+    from app.modules.messaging.service import get_or_create_own_conversation, send_message
+
+    notified: list[AbsentNotifiedParent] = []
+    for entry in by_parent.values():
+        parent = entry["parent"]
+        cnames: list[str] = entry["children"]
+        try:
+            await attendance_email.send_absence_inquiry_email(
+                to=parent.email,
+                parent_first_name=parent.first_name,
+                children_names=cnames,
+                date_label=date_label,
+                establishment_name=establishment_name,
+            )
+            email_sent = True
+        except Exception:
+            logger.exception("Échec d'envoi du mail d'absence vers %s", parent.email)
+            email_sent = False
+        try:
+            conversation = await get_or_create_own_conversation(parent, db)
+            kids = ", ".join(cnames)
+            await send_message(
+                conversation=conversation,
+                sender=sender,
+                body=(
+                    f"Bonjour, {kids} a été noté absent le {date_label} "
+                    f"(aucune arrivée enregistrée). Pouvez-vous nous indiquer "
+                    f"le motif de cette absence ? Merci."
+                ),
+                db=db,
+            )
+            message_sent = True
+        except Exception:
+            logger.exception("Échec d'injection du message d'absence en conversation")
+            message_sent = False
+        notified.append(
+            AbsentNotifiedParent(
+                parent_name=(parent.nickname or f"{parent.first_name} {parent.last_name}".strip()),
+                children_names=cnames,
+                email_sent=email_sent,
+                message_sent=message_sent,
+            )
+        )
+
+    return AbsenceInquiryResponse(
+        date=target_date,
+        total_absent=len(absent_items),
+        notified=notified,
+        skipped_no_parent=sorted(skipped_no_parent),
+        already_notified=sorted(already_notified),
+    )
 
 
 # ── Exemptions ──────────────────────────────────────────────────

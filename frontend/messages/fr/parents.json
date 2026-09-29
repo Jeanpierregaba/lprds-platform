@@ -1,0 +1,77 @@
+{
+  "list": {
+    "title": "Parents",
+    "description": "Gérer les comptes parents connectables.",
+    "new": "Nouveau compte parent",
+    "search": "Rechercher par nom, surnom ou email...",
+    "includeInactive": "Inclure les comptes inactifs",
+    "columns": {
+      "name": "Nom",
+      "email": "Email",
+      "phone": "Téléphone",
+      "children": "Enfants",
+      "status": "Statut"
+    },
+    "emptySearch": "Aucun résultat pour cette recherche.",
+    "empty": "Aucun compte parent pour le moment.",
+    "emptySearchHint": "Essayez un autre nom, surnom ou email.",
+    "emptyHint": "Créez le premier compte pour donner accès à un parent.",
+    "phoneLabel": "Téléphone :",
+    "childrenLabel": "Enfants :",
+    "view": "Voir"
+  },
+  "status": {
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "deactivated": "Compte désactivé.",
+    "reactivated": "Compte réactivé.",
+    "confirmTitle": "Désactiver ce compte ?",
+    "reactivateTitle": "Réactiver ce compte ?",
+    "deactivateBody": "Le compte sera désactivé (réversible). Le parent ne pourra plus se connecter.",
+    "reactivateBody": "Le compte redeviendra accessible.",
+    "confirm": "Confirmer"
+  },
+  "validation": {
+    "firstName": "Prénom requis",
+    "lastName": "Nom requis",
+    "nickname": "Surnom requis",
+    "phone": "Téléphone requis",
+    "email": "Email invalide"
+  },
+  "fields": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "nickname": "Surnom",
+    "nicknamePlaceholder": "Ex. Papa Anaïs",
+    "email": "Email",
+    "phone": "Téléphone",
+    "assignedChildren": "Enfants assignés",
+    "tempPassword": "Mot de passe temporaire",
+    "newPassword": "Nouveau mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
+  },
+  "form": {
+    "back": "Retour à la liste",
+    "newTitle": "Nouveau compte parent",
+    "newHint": "Les identifiants sont envoyés par email dès la création. Au moins un enfant doit être assigné.",
+    "passwordHint": "8 caractères minimum · 1 majuscule · 1 chiffre — envoyé par email au parent.",
+    "submit": "Créer le compte",
+    "submitting": "Création...",
+    "created": "Compte parent créé.",
+    "noRights": "Droits insuffisants — vous n’avez pas la permission de créer un compte parent.",
+    "notFound": "Compte parent introuvable.",
+    "infoTitle": "Informations",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "updated": "Compte parent mis à jour.",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "reset": "Réinitialiser",
+    "sending": "Envoi...",
+    "resetDone": "Mot de passe réinitialisé et envoyé par email."
+  },
+  "multiselect": {
+    "remove": "Retirer {name}",
+    "search": "Rechercher un enfant par nom, prénoms ou matricule..."
+  }
+}

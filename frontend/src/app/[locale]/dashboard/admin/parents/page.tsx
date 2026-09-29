@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -25,6 +27,7 @@ import { Link } from '@/i18n/navigation'
 const PAGE_SIZE = 20
 
 export default function ParentsListPage() {
+  const t = useTranslations('parents')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
@@ -55,13 +58,13 @@ export default function ParentsListPage() {
   return (
     <PageMotion className="space-y-6">
       <PageHeader
-        title="Parents"
-        description="Gérer les comptes parents connectables."
+        title={t('list.title')}
+        description={t('list.description')}
         actions={
           canWrite ? (
           <Button render={<Link href="/dashboard/admin/parents/new" />}>
             <Plus className="mr-1.5 size-4" />
-            Nouveau compte parent
+            {t('list.new')}
           </Button>
           ) : undefined
         }
@@ -69,7 +72,7 @@ export default function ParentsListPage() {
 
       <div className="flex flex-wrap items-center gap-4">
         <SearchInput
-          placeholder="Rechercher par nom, surnom ou email..."
+          placeholder={t('list.search')}
           value={search}
           onChange={setSearch}
         />
@@ -77,7 +80,7 @@ export default function ParentsListPage() {
           id="include-inactive"
           checked={includeInactive}
           onCheckedChange={setIncludeInactive}
-          label="Inclure les comptes inactifs"
+          label={t('list.includeInactive')}
         />
 
         <ViewToggle view={view} onChange={setView} />
@@ -92,11 +95,11 @@ export default function ParentsListPage() {
       ) : (
       <DataTable>
         <DataTableHead>
-          <Th>Nom</Th>
-          <Th>Email</Th>
-          <Th>Téléphone</Th>
-          <Th>Enfants</Th>
-          <Th>Statut</Th>
+          <Th>{t('list.columns.name')}</Th>
+          <Th>{t('list.columns.email')}</Th>
+          <Th>{t('list.columns.phone')}</Th>
+          <Th>{t('list.columns.children')}</Th>
+          <Th>{t('list.columns.status')}</Th>
         </DataTableHead>
         <TableBody>
           {isLoading ? (
@@ -111,17 +114,17 @@ export default function ParentsListPage() {
                     <Users className="size-5" />
                   </div>
                   <p className="font-medium text-foreground">
-                    {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun compte parent pour le moment.'}
+                    {debouncedSearch ? t('list.emptySearch') : t('list.empty')}
                   </p>
                   <p className="max-w-sm text-sm">
                     {debouncedSearch
-                      ? 'Essayez un autre nom, surnom ou email.'
-                      : 'Créez le premier compte pour donner accès à un parent.'}
+                      ? t('list.emptySearchHint')
+                      : t('list.emptyHint')}
                   </p>
                   {!debouncedSearch && canWrite && (
                     <Button render={<Link href="/dashboard/admin/parents/new" />} size="sm" className="mt-1">
                       <Plus className="mr-1.5 size-4" />
-                      Nouveau compte parent
+                      {t('list.new')}
                     </Button>
                   )}
                 </div>
@@ -176,6 +179,7 @@ export default function ParentsListPage() {
 function ParentsCardGrid({
   items, isLoading, hasSearch,
 }: { items: ParentListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  const t = useTranslations('parents')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
@@ -188,7 +192,7 @@ function ParentsCardGrid({
     return (
       <CardsEmptyState
         icon={Users}
-        title={hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun compte parent pour le moment.'}
+        title={hasSearch ? t('list.emptySearch') : t('list.empty')}
       />
     )
   }
@@ -210,6 +214,7 @@ function ParentCard({
   parent: ParentListItem
   canWrite: boolean
 }) {
+  const t = useTranslations('parents')
   const queryClient = useQueryClient()
   const detailHref = `/dashboard/admin/parents/${parent.id}`
   const [confirmToggle, setConfirmToggle] = useState(false)
@@ -217,7 +222,7 @@ function ParentCard({
   const toggleMutation = useMutation({
     mutationFn: () => parentsApi.update(parent.id, { is_active: !parent.is_active }),
     onSuccess: () => {
-      toast.success(parent.is_active ? 'Compte désactivé.' : 'Compte réactivé.')
+      toast.success(parent.is_active ? t('status.deactivated') : t('status.reactivated'))
       queryClient.invalidateQueries({ queryKey: ['parents'] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -239,16 +244,16 @@ function ParentCard({
         </div>
         <p className="truncate text-sm text-muted-foreground" title={parent.email}>{parent.email}</p>
         <p className="text-sm">
-          <span className="font-medium">Téléphone:</span> {parent.phone ?? '—'}
+          <span className="font-medium">{t('list.phoneLabel')}</span> {parent.phone ?? '—'}
         </p>
         <p className="text-sm">
-          <span className="font-medium">Enfants:</span> {parent.children_count}
+          <span className="font-medium">{t('list.childrenLabel')}</span> {parent.children_count}
         </p>
 
         <div className="flex flex-wrap gap-2 pt-3">
           <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/parents/${parent.id}`} />}>
             <Eye className="mr-1.5 size-4" />
-            Voir
+            {t('list.view')}
           </Button>
           {canWrite && (
             parent.is_active ? (
@@ -258,14 +263,14 @@ function ParentCard({
                 onClick={(e) => { e.stopPropagation(); setConfirmToggle(true) }}
               >
                 <UserX className="mr-1.5 size-4" />
-                Désactiver
+                {t('status.deactivate')}
               </Button>
             ) : (
               <Button variant="outline" size="sm" className="rounded-xl" onClick={(e) => { e.stopPropagation(); toggleMutation.mutate() }} disabled={toggleMutation.isPending}>
                 {toggleMutation.isPending
                   ? <Loader2 className="mr-1.5 size-4 animate-spin" />
                   : <UserCheck className="mr-1.5 size-4" />}
-                Réactiver
+                {t('status.reactivate')}
               </Button>
             )
           )}
@@ -276,9 +281,9 @@ function ParentCard({
       <ConfirmDialog
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
-        title="Désactiver ce compte ?"
+        title={t('status.confirmTitle')}
         description={`${parent.nickname ?? `${parent.first_name} ${parent.last_name}`} ne pourra plus se connecter (réversible depuis sa fiche).`}
-        confirmLabel="Désactiver"
+        confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)
           toggleMutation.mutate()

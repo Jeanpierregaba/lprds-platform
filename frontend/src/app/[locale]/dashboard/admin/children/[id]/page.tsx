@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useParams } from 'next/navigation'
@@ -28,16 +30,18 @@ import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Child, ChildDocument } from '@/types/children'
 
-const infoSchema = z.object({
-  last_name: z.string().min(1, 'Nom requis').max(100),
-  first_names: z.string().min(1, 'Prénoms requis').max(200),
-  birth_date: z.string().min(1, 'Date de naissance requise'),
-  admission_date: z.string().min(1, "Date d'admission requise"),
-  residence_address: z.string().min(1, 'Adresse requise').max(500),
+type T = (key: string) => string
+
+const makeInfoSchema = (t: T) => z.object({
+  last_name: z.string().min(1, t('validation.lastName')).max(100),
+  first_names: z.string().min(1, t('validation.firstNames')).max(200),
+  birth_date: z.string().min(1, t('validation.birthDate')),
+  admission_date: z.string().min(1, t('validation.admissionDate')),
+  residence_address: z.string().min(1, t('validation.address')).max(500),
   department_id: z.string(),
   section_id: z.string(),
 })
-type InfoForm = z.infer<typeof infoSchema>
+type InfoForm = z.infer<ReturnType<typeof makeInfoSchema>>
 
 const behaviorSchema = z.object({
   behavioral_notes: z.string().max(2000).optional().or(z.literal('')),
@@ -54,24 +58,25 @@ const medicalSchema = z.object({
 })
 type MedicalForm = z.infer<typeof medicalSchema>
 
-const guardianSchema = z.object({
-  last_name: z.string().min(1, 'Nom requis').max(100),
-  first_names: z.string().min(1, 'Prénoms requis').max(200),
-  phone: z.string().min(1, 'Téléphone requis').max(20),
-  email: z.string().email('Email invalide').optional().or(z.literal('')),
+const makeGuardianSchema = (t: T) => z.object({
+  last_name: z.string().min(1, t('validation.lastName')).max(100),
+  first_names: z.string().min(1, t('validation.firstNames')).max(200),
+  phone: z.string().min(1, t('validation.phone')).max(20),
+  email: z.string().email(t('validation.email')).optional().or(z.literal('')),
 })
-const authorizedPersonSchema = z.object({
-  last_name: z.string().min(1, 'Nom requis').max(100),
-  first_names: z.string().min(1, 'Prénoms requis').max(200),
-  phone: z.string().min(1, 'Téléphone requis').max(20),
+const makeAuthorizedPersonSchema = (t: T) => z.object({
+  last_name: z.string().min(1, t('validation.lastName')).max(100),
+  first_names: z.string().min(1, t('validation.firstNames')).max(200),
+  phone: z.string().min(1, t('validation.phone')).max(20),
 })
-const contactsSchema = z.object({
-  guardians: z.array(guardianSchema).min(1, 'Au moins un tuteur est requis'),
-  authorized_persons: z.array(authorizedPersonSchema),
+const makeContactsSchema = (t: T) => z.object({
+  guardians: z.array(makeGuardianSchema(t)).min(1, t('validation.guardianRequired')),
+  authorized_persons: z.array(makeAuthorizedPersonSchema(t)),
 })
-type ContactsForm = z.infer<typeof contactsSchema>
+type ContactsForm = z.infer<ReturnType<typeof makeContactsSchema>>
 
 export default function ChildDetailPage() {
+  const t = useTranslations('children')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const user = useUser()
@@ -91,7 +96,7 @@ export default function ChildDetailPage() {
   const toggleActiveMutation = useMutation({
     mutationFn: () => childrenApi.setStatus(id, !child?.is_active),
     onSuccess: () => {
-      toast.success(child?.is_active ? 'Fiche désactivée.' : 'Fiche réactivée.')
+      toast.success(child?.is_active ? t('status.deactivated') : t('status.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -107,7 +112,7 @@ export default function ChildDetailPage() {
 
   return (
     <PageMotion className="max-w-3xl space-y-4">
-      <BackLink href="/dashboard/admin/children" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/children" label={t('form.back')} />
 
       <div className="flex items-center justify-between">
         <div>
@@ -121,18 +126,18 @@ export default function ChildDetailPage() {
         {canArchive && (
         <>
           <Button variant={child.is_active ? 'destructive' : 'outline'} onClick={() => setConfirmArchive(true)}>
-            {child.is_active ? 'Désactiver' : 'Réactiver'}
+            {child.is_active ? t('status.deactivate') : t('status.reactivate')}
           </Button>
           <ConfirmDialog
             open={confirmArchive}
             onOpenChange={setConfirmArchive}
-            title={child.is_active ? 'Désactiver cette fiche ?' : 'Réactiver cette fiche ?'}
+            title={child.is_active ? t('status.confirmTitle') : t('detail.reactivateTitle')}
             description={
               child.is_active
                 ? 'La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment jamais.'
                 : 'La fiche redeviendra active.'
             }
-            confirmLabel="Confirmer"
+            confirmLabel={t('detail.confirm')}
             onConfirm={() => {
               setConfirmArchive(false)
               toggleActiveMutation.mutate()
@@ -144,11 +149,11 @@ export default function ChildDetailPage() {
 
       <Tabs defaultValue="infos">
         <TabsList>
-          <TabsTrigger value="infos">Infos</TabsTrigger>
-          <TabsTrigger value="behavior">Comportement</TabsTrigger>
-          <TabsTrigger value="medical">Médical</TabsTrigger>
-          <TabsTrigger value="contacts">Tuteurs ({child.guardians.length})</TabsTrigger>
-          <TabsTrigger value="documents">Documents ({child.documents.length})</TabsTrigger>
+          <TabsTrigger value="infos">{t('detail.tabs.infos')}</TabsTrigger>
+          <TabsTrigger value="behavior">{t('detail.tabs.behavior')}</TabsTrigger>
+          <TabsTrigger value="medical">{t('detail.tabs.medical')}</TabsTrigger>
+          <TabsTrigger value="contacts">{t('detail.tabs.contacts', { count: child.guardians.length })}</TabsTrigger>
+          <TabsTrigger value="documents">{t('detail.tabs.documents', { count: child.documents.length })}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="infos">
@@ -174,13 +179,14 @@ export default function ChildDetailPage() {
 type TabProps = { childId: string; child: Child; onSaved: () => void; canWrite: boolean }
 
 function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
+  const t = useTranslations('children')
   const { data: departments } = useQuery({
     queryKey: ['departments', { includeInactive: false }],
     queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
   })
 
   const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm<InfoForm>({
-    resolver: zodResolver(infoSchema),
+    resolver: zodResolver(makeInfoSchema(t)),
     defaultValues: {
       last_name: child.last_name,
       first_names: child.first_names,
@@ -213,7 +219,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
         department_id: values.department_id || null,
         section_id: values.section_id || null,
       })
-      toast.success('Fiche mise à jour.')
+      toast.success(t('detail.updated'))
       onSaved()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -226,36 +232,36 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="last_name">Nom</Label>
+              <Label htmlFor="last_name">{t('fields.lastName')}</Label>
               <Input id="last_name" {...register('last_name')} aria-invalid={!!errors.last_name} />
               {errors.last_name && <p className="text-sm text-destructive">{errors.last_name.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="first_names">Prénoms</Label>
+              <Label htmlFor="first_names">{t('fields.firstNames')}</Label>
               <Input id="first_names" {...register('first_names')} aria-invalid={!!errors.first_names} />
               {errors.first_names && <p className="text-sm text-destructive">{errors.first_names.message}</p>}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="birth_date">Date de naissance</Label>
+              <Label htmlFor="birth_date">{t('fields.birthDate')}</Label>
               <Input id="birth_date" type="date" {...register('birth_date')} aria-invalid={!!errors.birth_date} />
               {errors.birth_date && <p className="text-sm text-destructive">{errors.birth_date.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="admission_date">Date d&apos;admission</Label>
+              <Label htmlFor="admission_date">{t('fields.admissionDate')}</Label>
               <Input id="admission_date" type="date" {...register('admission_date')} aria-invalid={!!errors.admission_date} />
               {errors.admission_date && <p className="text-sm text-destructive">{errors.admission_date.message}</p>}
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="residence_address">Adresse de résidence</Label>
+            <Label htmlFor="residence_address">{t('fields.address')}</Label>
             <Input id="residence_address" {...register('residence_address')} aria-invalid={!!errors.residence_address} />
             {errors.residence_address && <p className="text-sm text-destructive">{errors.residence_address.message}</p>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="department_id">Département</Label>
+              <Label htmlFor="department_id">{t('detail.department')}</Label>
               <Controller
                 control={control}
                 name="department_id"
@@ -266,7 +272,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
                     onValueChange={field.onChange}
                   >
                     <SelectTrigger id="department_id" className="w-full">
-                      <SelectValue placeholder="Aucun" />
+                      <SelectValue placeholder={t('fields.noneM')} />
                     </SelectTrigger>
                     <SelectContent>
                       {departments?.map((d) => (
@@ -278,7 +284,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="section_id">Section</Label>
+              <Label htmlFor="section_id">{t('detail.section')}</Label>
               <Controller
                 control={control}
                 name="section_id"
@@ -289,7 +295,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
                     onValueChange={field.onChange}
                   >
                     <SelectTrigger id="section_id" className="w-full">
-                      <SelectValue placeholder="Aucune" />
+                      <SelectValue placeholder={t('fields.noneF')} />
                     </SelectTrigger>
                     <SelectContent>
                       {sections?.map((s) => (
@@ -304,7 +310,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
           <div className="flex justify-end">
             {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('detail.saving')}</> : t('detail.save')}
             </Button>
           )}
           </div>
@@ -315,6 +321,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
 }
 
 function BehaviorTab({ childId, child, onSaved, canWrite }: TabProps) {
+  const t = useTranslations('children')
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<BehaviorForm>({
     resolver: zodResolver(behaviorSchema),
     defaultValues: {
@@ -329,7 +336,7 @@ function BehaviorTab({ childId, child, onSaved, canWrite }: TabProps) {
         behavioral_notes: values.behavioral_notes || null,
         preferences: values.preferences || null,
       })
-      toast.success('Fiche mise à jour.')
+      toast.success(t('detail.updated'))
       onSaved()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -341,17 +348,17 @@ function BehaviorTab({ childId, child, onSaved, canWrite }: TabProps) {
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="behavioral_notes">Notes comportementales</Label>
+            <Label htmlFor="behavioral_notes">{t('detail.behavioralNotes')}</Label>
             <Textarea id="behavioral_notes" rows={4} {...register('behavioral_notes')} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="preferences">Préférences</Label>
+            <Label htmlFor="preferences">{t('detail.preferences')}</Label>
             <Textarea id="preferences" rows={4} {...register('preferences')} />
           </div>
           <div className="flex justify-end">
             {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('detail.saving')}</> : t('detail.save')}
             </Button>
           )}
           </div>
@@ -362,6 +369,7 @@ function BehaviorTab({ childId, child, onSaved, canWrite }: TabProps) {
 }
 
 function MedicalTab({ childId, child, onSaved, canWrite }: TabProps) {
+  const t = useTranslations('children')
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<MedicalForm>({
     resolver: zodResolver(medicalSchema),
     defaultValues: {
@@ -382,7 +390,7 @@ function MedicalTab({ childId, child, onSaved, canWrite }: TabProps) {
         doctor_name: values.doctor_name || null,
         doctor_phone: values.doctor_phone || null,
       })
-      toast.success('Fiche mise à jour.')
+      toast.success(t('detail.updated'))
       onSaved()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -394,31 +402,31 @@ function MedicalTab({ childId, child, onSaved, canWrite }: TabProps) {
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="medical_notes">Notes médicales</Label>
+            <Label htmlFor="medical_notes">{t('fields.medicalNotes')}</Label>
             <Textarea id="medical_notes" rows={3} {...register('medical_notes')} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="dietary_restrictions">Restrictions alimentaires</Label>
+            <Label htmlFor="dietary_restrictions">{t('fields.dietaryRestrictions')}</Label>
             <Textarea id="dietary_restrictions" rows={3} {...register('dietary_restrictions')} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="medications">Médicaments</Label>
+            <Label htmlFor="medications">{t('fields.medications')}</Label>
             <Textarea id="medications" rows={3} {...register('medications')} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="doctor_name">Médecin traitant</Label>
+              <Label htmlFor="doctor_name">{t('fields.doctorName')}</Label>
               <Input id="doctor_name" {...register('doctor_name')} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="doctor_phone">Téléphone du médecin</Label>
+              <Label htmlFor="doctor_phone">{t('fields.doctorPhone')}</Label>
               <Input id="doctor_phone" {...register('doctor_phone')} />
             </div>
           </div>
           <div className="flex justify-end">
             {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('detail.saving')}</> : t('detail.save')}
             </Button>
           )}
           </div>
@@ -429,8 +437,9 @@ function MedicalTab({ childId, child, onSaved, canWrite }: TabProps) {
 }
 
 function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
+  const t = useTranslations('children')
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<ContactsForm>({
-    resolver: zodResolver(contactsSchema),
+    resolver: zodResolver(makeContactsSchema(t)),
     defaultValues: {
       guardians: child.guardians.map((g) => ({ ...g, email: g.email ?? '' })),
       authorized_persons: child.authorized_persons,
@@ -446,7 +455,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
         guardians: values.guardians.map((g) => ({ ...g, email: g.email || undefined })),
         authorized_persons: values.authorized_persons,
       })
-      toast.success('Contacts mis à jour.')
+      toast.success(t('detail.contactsUpdated'))
       onSaved()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -459,7 +468,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Tuteurs</h3>
+              <h3 className="text-sm font-semibold">{t('form.guardiansHeading')}</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -467,7 +476,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                 onClick={() => guardianFields.append({ last_name: '', first_names: '', phone: '', email: '' })}
               >
                 <Plus className="mr-1.5 size-4" />
-                Ajouter un tuteur
+                {t('form.addGuardian')}
               </Button>
             </div>
             {errors.guardians?.message && (
@@ -484,7 +493,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => guardianFields.remove(index)}
-                        aria-label={`Retirer le tuteur ${index + 1}`}
+                        aria-label={t('form.removeGuardian', { n: index + 1 })}
                       >
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
@@ -492,14 +501,14 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor={`guardians.${index}.last_name`}>Nom</Label>
+                      <Label htmlFor={`guardians.${index}.last_name`}>{t('fields.lastName')}</Label>
                       <Input id={`guardians.${index}.last_name`} {...register(`guardians.${index}.last_name`)} />
                       {errors.guardians?.[index]?.last_name && (
                         <p className="text-sm text-destructive">{errors.guardians[index]?.last_name?.message}</p>
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor={`guardians.${index}.first_names`}>Prénoms</Label>
+                      <Label htmlFor={`guardians.${index}.first_names`}>{t('fields.firstNames')}</Label>
                       <Input id={`guardians.${index}.first_names`} {...register(`guardians.${index}.first_names`)} />
                       {errors.guardians?.[index]?.first_names && (
                         <p className="text-sm text-destructive">{errors.guardians[index]?.first_names?.message}</p>
@@ -508,14 +517,14 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor={`guardians.${index}.phone`}>Téléphone</Label>
+                      <Label htmlFor={`guardians.${index}.phone`}>{t('fields.phone')}</Label>
                       <Input id={`guardians.${index}.phone`} {...register(`guardians.${index}.phone`)} />
                       {errors.guardians?.[index]?.phone && (
                         <p className="text-sm text-destructive">{errors.guardians[index]?.phone?.message}</p>
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor={`guardians.${index}.email`}>Email (optionnel)</Label>
+                      <Label htmlFor={`guardians.${index}.email`}>{t('fields.email')}</Label>
                       <Input id={`guardians.${index}.email`} type="email" {...register(`guardians.${index}.email`)} />
                       {errors.guardians?.[index]?.email && (
                         <p className="text-sm text-destructive">{errors.guardians[index]?.email?.message}</p>
@@ -529,7 +538,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Personnes autorisées</h3>
+              <h3 className="text-sm font-semibold">{t('detail.authorizedHeading')}</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -537,7 +546,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                 onClick={() => authorizedFields.append({ last_name: '', first_names: '', phone: '' })}
               >
                 <Plus className="mr-1.5 size-4" />
-                Ajouter
+                {t('form.add')}
               </Button>
             </div>
             <div className="space-y-4">
@@ -550,21 +559,21 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => authorizedFields.remove(index)}
-                      aria-label={`Retirer la personne ${index + 1}`}
+                      aria-label={t('form.removePerson', { n: index + 1 })}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor={`authorized_persons.${index}.last_name`}>Nom</Label>
+                      <Label htmlFor={`authorized_persons.${index}.last_name`}>{t('fields.lastName')}</Label>
                       <Input id={`authorized_persons.${index}.last_name`} {...register(`authorized_persons.${index}.last_name`)} />
                       {errors.authorized_persons?.[index]?.last_name && (
                         <p className="text-sm text-destructive">{errors.authorized_persons[index]?.last_name?.message}</p>
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor={`authorized_persons.${index}.first_names`}>Prénoms</Label>
+                      <Label htmlFor={`authorized_persons.${index}.first_names`}>{t('fields.firstNames')}</Label>
                       <Input id={`authorized_persons.${index}.first_names`} {...register(`authorized_persons.${index}.first_names`)} />
                       {errors.authorized_persons?.[index]?.first_names && (
                         <p className="text-sm text-destructive">{errors.authorized_persons[index]?.first_names?.message}</p>
@@ -572,7 +581,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor={`authorized_persons.${index}.phone`}>Téléphone</Label>
+                    <Label htmlFor={`authorized_persons.${index}.phone`}>{t('fields.phone')}</Label>
                     <Input id={`authorized_persons.${index}.phone`} {...register(`authorized_persons.${index}.phone`)} />
                     {errors.authorized_persons?.[index]?.phone && (
                       <p className="text-sm text-destructive">{errors.authorized_persons[index]?.phone?.message}</p>
@@ -586,7 +595,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
           <div className="flex justify-end">
             {canWrite && (
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('detail.saving')}</> : t('detail.save')}
             </Button>
           )}
           </div>
@@ -616,13 +625,14 @@ function formatDate(iso: string) {
 }
 
 function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
+  const t = useTranslations('children')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [docToDelete, setDocToDelete] = useState<ChildDocument | null>(null)
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => childrenApi.uploadDocument(childId, file),
     onSuccess: () => {
-      toast.success('Document ajouté.')
+      toast.success(t('detail.docAdded'))
       onSaved()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -631,7 +641,7 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
   const removeMutation = useMutation({
     mutationFn: (documentId: string) => childrenApi.removeDocument(childId, documentId),
     onSuccess: () => {
-      toast.success('Document supprimé.')
+      toast.success(t('detail.docDeleted'))
       onSaved()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -641,9 +651,9 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > DOCUMENT_MAX_MB * 1024 * 1024) {
-        toast.error(`Le fichier dépasse ${DOCUMENT_MAX_MB} Mo.`)
+        toast.error(t('detail.fileTooBig', { max: DOCUMENT_MAX_MB }))
       } else if (!DOCUMENT_ALLOWED_TYPES.includes(file.type)) {
-        toast.error('Seuls les images et PDF sont acceptés.')
+        toast.error(t('detail.badFileType'))
       } else {
         uploadMutation.mutate(file)
       }
@@ -667,7 +677,7 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
         <div className="rounded-md border border-dashed border-border p-6 text-center">
           <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
           <Label htmlFor="document" className="cursor-pointer text-sm font-medium text-primary">
-            Ajouter un document
+            {t('detail.addDocument')}
           </Label>
           <input
             ref={fileInputRef}
@@ -678,7 +688,7 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
             onChange={onFileSelected}
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            Pièces d&apos;identité, certificats, autorisations... (images ou PDF, {DOCUMENT_MAX_MB} Mo max)
+            {t('detail.documentHint', { max: DOCUMENT_MAX_MB })}
           </p>
           <Button
             type="button"
@@ -689,13 +699,13 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
             disabled={uploadMutation.isPending}
           >
             {uploadMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
-            Choisir un fichier
+            {t('detail.chooseFile')}
           </Button>
         </div>
         )}
 
         {child.documents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun document.</p>
+          <p className="text-sm text-muted-foreground">{t('detail.noDocument')}</p>
         ) : (
           <ul className="space-y-2">
             {child.documents.map((doc) => (
@@ -709,14 +719,14 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button type="button" variant="outline" size="sm" onClick={() => onDownload(doc)}>
                     <Download className="mr-1.5 size-3.5" />
-                    Télécharger
+                    {t('detail.download')}
                   </Button>
                   {canWrite && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`Supprimer ${doc.filename}`}
+                    aria-label={t('detail.deleteDoc', { name: doc.filename })}
                     onClick={() => setDocToDelete(doc)}
                   >
                     <Trash2 className="size-4 text-destructive" />
@@ -731,9 +741,9 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
         <ConfirmDialog
           open={!!docToDelete}
           onOpenChange={(open) => !open && setDocToDelete(null)}
-          title="Supprimer ce document ?"
+          title={t('detail.deleteDocTitle')}
           description={`« ${docToDelete?.filename ?? ''} » sera retiré du dossier de l\u2019enfant.`}
-          confirmLabel="Supprimer"
+          confirmLabel={t('detail.delete')}
           destructive
           onConfirm={() => {
             if (docToDelete) removeMutation.mutate(docToDelete.id)

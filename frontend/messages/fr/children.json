@@ -131,5 +131,39 @@
     "dietaryRestrictions": "Restrictions alimentaires :",
     "medications": "Médicaments :",
     "doctor": "Médecin :"
+  },
+  "detail": {
+    "tabs": {
+      "infos": "Infos",
+      "behavior": "Comportement",
+      "medical": "Médical",
+      "contacts": "Tuteurs ({count})",
+      "documents": "Documents ({count})"
+    },
+    "reactivateTitle": "Réactiver cette fiche ?",
+    "deactivateBody": "La fiche sera désactivée (réversible). Elle ne sera plus retirée définitivement — les fiches enfant ne se suppriment pas.",
+    "reactivateBody": "La fiche redeviendra active.",
+    "confirm": "Confirmer",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "updated": "Fiche mise à jour.",
+    "contactsUpdated": "Contacts mis à jour.",
+    "department": "Département",
+    "section": "Section",
+    "behavioralNotes": "Notes comportementales",
+    "preferences": "Préférences",
+    "authorizedHeading": "Personnes autorisées",
+    "addDocument": "Ajouter un document",
+    "documentHint": "Pièces d’identité, certificats, autorisations... (images ou PDF, {max} Mo max)",
+    "chooseFile": "Choisir un fichier",
+    "noDocument": "Aucun document.",
+    "download": "Télécharger",
+    "deleteDoc": "Supprimer {name}",
+    "deleteDocTitle": "Supprimer ce document ?",
+    "delete": "Supprimer",
+    "docAdded": "Document ajouté.",
+    "docDeleted": "Document supprimé.",
+    "fileTooBig": "Le fichier dépasse {max} Mo.",
+    "badFileType": "Seuls les images et PDF sont acceptés."
   }
 }

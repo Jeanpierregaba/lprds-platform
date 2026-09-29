@@ -131,5 +131,39 @@
     "dietaryRestrictions": "Dietary restrictions:",
     "medications": "Medication:",
     "doctor": "Doctor:"
+  },
+  "detail": {
+    "tabs": {
+      "infos": "Details",
+      "behavior": "Behaviour",
+      "medical": "Medical",
+      "contacts": "Guardians ({count})",
+      "documents": "Documents ({count})"
+    },
+    "reactivateTitle": "Reactivate this record?",
+    "deactivateBody": "The record will be deactivated (reversible). It is never deleted — children's records are not removed.",
+    "reactivateBody": "The record will become active again.",
+    "confirm": "Confirm",
+    "save": "Save",
+    "saving": "Saving...",
+    "updated": "Record updated.",
+    "contactsUpdated": "Contacts updated.",
+    "department": "Department",
+    "section": "Group",
+    "behavioralNotes": "Behaviour notes",
+    "preferences": "Preferences",
+    "authorizedHeading": "Authorised people",
+    "addDocument": "Add a document",
+    "documentHint": "ID documents, certificates, consent forms... (images or PDF, {max} MB max)",
+    "chooseFile": "Choose a file",
+    "noDocument": "No documents.",
+    "download": "Download",
+    "deleteDoc": "Delete {name}",
+    "deleteDocTitle": "Delete this document?",
+    "delete": "Delete",
+    "docAdded": "Document added.",
+    "docDeleted": "Document deleted.",
+    "fileTooBig": "The file exceeds {max} MB.",
+    "badFileType": "Only images and PDFs are accepted."
   }
 }

@@ -16,8 +16,9 @@ import enums from './enums.json'
 import errors from './errors.json'
 import marketing from './marketing.json'
 import nav from './nav.json'
+import parents from './parents.json'
 import reports from './reports.json'
 
-export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, reports } satisfies Messages
+export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, parents, reports } satisfies Messages
 
 export default messages

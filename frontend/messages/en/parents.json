@@ -1,0 +1,77 @@
+{
+  "list": {
+    "title": "Parents",
+    "description": "Manage parent accounts that can sign in.",
+    "new": "New parent account",
+    "search": "Search by surname, nickname or email...",
+    "includeInactive": "Include inactive accounts",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "children": "Children",
+      "status": "Status"
+    },
+    "emptySearch": "No results for this search.",
+    "empty": "No parent accounts yet.",
+    "emptySearchHint": "Try another surname, nickname or email.",
+    "emptyHint": "Create the first account to give a parent access.",
+    "phoneLabel": "Phone:",
+    "childrenLabel": "Children:",
+    "view": "View"
+  },
+  "status": {
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deactivated": "Account deactivated.",
+    "reactivated": "Account reactivated.",
+    "confirmTitle": "Deactivate this account?",
+    "reactivateTitle": "Reactivate this account?",
+    "deactivateBody": "The account will be deactivated (reversible). The parent will no longer be able to sign in.",
+    "reactivateBody": "The account will become usable again.",
+    "confirm": "Confirm"
+  },
+  "validation": {
+    "firstName": "First name required",
+    "lastName": "Surname required",
+    "nickname": "Nickname required",
+    "phone": "Phone required",
+    "email": "Invalid email"
+  },
+  "fields": {
+    "firstName": "First name",
+    "lastName": "Surname",
+    "nickname": "Nickname",
+    "nicknamePlaceholder": "e.g. Anaïs's dad",
+    "email": "Email",
+    "phone": "Phone",
+    "assignedChildren": "Assigned children",
+    "tempPassword": "Temporary password",
+    "newPassword": "New password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "form": {
+    "back": "Back to the list",
+    "newTitle": "New parent account",
+    "newHint": "Credentials are emailed as soon as the account is created. At least one child must be assigned.",
+    "passwordHint": "8 characters minimum · 1 capital letter · 1 digit — emailed to the parent.",
+    "submit": "Create account",
+    "submitting": "Creating...",
+    "created": "Parent account created.",
+    "noRights": "Insufficient permissions — you may not create a parent account.",
+    "notFound": "Parent account not found.",
+    "infoTitle": "Details",
+    "save": "Save",
+    "saving": "Saving...",
+    "updated": "Parent account updated.",
+    "resetPassword": "Reset the password",
+    "reset": "Reset",
+    "sending": "Sending...",
+    "resetDone": "Password reset and emailed."
+  },
+  "multiselect": {
+    "remove": "Remove {name}",
+    "search": "Search for a child by surname, first names or ID..."
+  }
+}

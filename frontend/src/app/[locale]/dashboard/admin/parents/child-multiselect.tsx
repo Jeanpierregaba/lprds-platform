@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
@@ -13,6 +15,7 @@ import type { ParentChildBrief } from '@/types/parents'
 export function ChildMultiSelect({
   selected, onChange,
 }: { selected: ParentChildBrief[]; onChange: (children: ParentChildBrief[]) => void }) {
+  const t = useTranslations('parents')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -49,7 +52,7 @@ export function ChildMultiSelect({
                 type="button"
                 onClick={() => remove(c.id)}
                 className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10"
-                aria-label={`Retirer ${c.first_names} ${c.last_name}`}
+                aria-label={t('multiselect.remove', { name: `${c.first_names} ${c.last_name}` })}
               >
                 <X className="size-3" />
               </button>
@@ -61,7 +64,7 @@ export function ChildMultiSelect({
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Rechercher un enfant par nom, prénoms ou matricule..."
+          placeholder={t('multiselect.search')}
           className="pl-8"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

@@ -1,23 +1,17 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Menu, X, MessageCircle, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BRAND } from '@/lib/marketing/data'
+import { BRAND, MARKETING_NAV } from '@/lib/marketing/data'
 import { LocaleSwitcher } from '@/components/locale-switcher'
 import { Link, usePathname } from '@/i18n/navigation'
 
-const NAV_ITEMS = [
-  { name: 'Accueil', href: '/' },
-  { name: 'À Propos', href: '/a-propos' },
-  { name: 'Nos Sections', href: '/nos-sections' },
-  { name: 'Galerie', href: '/galerie' },
-  { name: 'Actualités', href: '/actualites' },
-  { name: 'Contact', href: '/contact' },
-]
-
 export function SiteHeader() {
+  const tNav = useTranslations('marketing.nav')
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
 
@@ -36,7 +30,7 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-7 lg:flex">
-          {NAV_ITEMS.map((item) => {
+          {MARKETING_NAV.map((item) => {
             const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link
@@ -48,7 +42,7 @@ export function SiteHeader() {
                   active && 'text-primary'
                 )}
               >
-                {item.name}
+                {tNav(item.key)}
                 {active && (
                   <span
                     className={cn(
@@ -68,7 +62,7 @@ export function SiteHeader() {
             href={BRAND.whatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Discuter sur WhatsApp"
+            aria-label={tNav('whatsapp')}
             className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-tertiary text-tertiary-foreground transition-all hover:bg-tertiary/90 sm:inline-flex"
           >
             <MessageCircle className="size-5" />
@@ -82,12 +76,12 @@ export function SiteHeader() {
             )}
           >
             <User className="size-4" />
-            Espace Parent
+            {tNav('parentArea')}
           </Link>
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-label={menuOpen ? tNav('closeMenu') : tNav('openMenu')}
             aria-expanded={menuOpen}
             className="inline-flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-black/5 lg:hidden"
           >
@@ -99,14 +93,14 @@ export function SiteHeader() {
       {menuOpen && (
         <div className="mx-auto mt-2 max-h-[calc(100dvh-7rem)] max-w-7xl overflow-y-auto rounded-3xl bg-cream px-4 pb-6 pt-2 shadow-lg ring-1 ring-black/5 lg:hidden">
           <nav className="flex flex-col divide-y divide-border">
-            {NAV_ITEMS.map((item) => (
+            {MARKETING_NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
                 className="py-3 text-base font-medium text-foreground/90 hover:text-primary"
               >
-                {item.name}
+                {tNav(item.key)}
               </Link>
             ))}
           </nav>
@@ -118,7 +112,7 @@ export function SiteHeader() {
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#25D366] text-sm font-medium text-white"
             >
               <MessageCircle className="size-4" />
-              Discuter sur WhatsApp
+              {tNav('whatsapp')}
             </a>
             <Link
               href="/auth/login"
@@ -126,7 +120,7 @@ export function SiteHeader() {
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)] transition-all hover:translate-y-1 hover:shadow-none"
             >
               <User className="size-4" />
-              Espace Parent
+              {tNav('parentArea')}
             </Link>
           </div>
         </div>

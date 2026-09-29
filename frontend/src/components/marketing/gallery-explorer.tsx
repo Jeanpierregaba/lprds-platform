@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
@@ -24,8 +25,9 @@ export function GalleryExplorer({
 
   const visible = filter === 'all' ? items : items.filter((g) => g.category?.id === filter)
   const active = activeIndex !== null ? visible[activeIndex] : null
+  const t = useTranslations('marketing.galleryPage')
   const categoryName = (id: string | null) =>
-    id === null ? 'Sans catégorie' : categories.find((c) => c.id === id)?.name ?? 'Sans catégorie'
+    id === null ? t('uncategorised') : categories.find((c) => c.id === id)?.name ?? t('uncategorised')
 
   const go = (delta: number) => {
     if (activeIndex === null || visible.length === 0) return
@@ -45,7 +47,7 @@ export function GalleryExplorer({
               : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary'
           }`}
         >
-          Tout voir
+          {t('seeAll')}
         </button>
         {categories.map((c) => (
           <button
@@ -67,11 +69,11 @@ export function GalleryExplorer({
         <div className="mt-10 rounded-2xl bg-muted/60 py-16 text-center">
           <p className="font-medium text-foreground">
             {items.length === 0
-              ? 'Aucune photo publiée pour le moment.'
-              : 'Aucune photo dans cette catégorie pour le moment.'}
+              ? t('emptyAll')
+              : t('emptyCategory')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Les photos publiées par l&apos;établissement apparaîtront ici.
+            {t('emptyHint')}
           </p>
         </div>
       ) : (
@@ -112,14 +114,14 @@ export function GalleryExplorer({
               </div>
               <DialogClose
                 className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-white text-foreground shadow-lg transition-colors hover:bg-muted"
-                aria-label="Fermer"
+                aria-label={t('close')}
               >
                 <X className="size-4" />
               </DialogClose>
               <button
                 type="button"
                 onClick={() => go(-1)}
-                aria-label="Image précédente"
+                aria-label={t('previous')}
                 className="absolute left-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-foreground shadow-lg transition-colors hover:bg-white"
               >
                 <ChevronLeft className="size-5" />
@@ -127,7 +129,7 @@ export function GalleryExplorer({
               <button
                 type="button"
                 onClick={() => go(1)}
-                aria-label="Image suivante"
+                aria-label={t('next')}
                 className="absolute right-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-foreground shadow-lg transition-colors hover:bg-white"
               >
                 <ChevronRight className="size-5" />

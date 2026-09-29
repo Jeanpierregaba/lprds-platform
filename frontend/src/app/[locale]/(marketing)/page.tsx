@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { localeAlternates } from '@/i18n/metadata'
+import { getLocale, getTranslations } from 'next-intl/server'
 import Image from 'next/image'
 import { ArrowRight, Newspaper, Baby, Cloud, Sun } from 'lucide-react'
 import { DifferenceTimeline } from '@/components/marketing/difference-timeline'
@@ -9,7 +11,7 @@ import { JoinTimeline } from '@/components/marketing/join-timeline'
 import { MarketingButton } from '@/components/marketing/marketing-button'
 import { Reveal } from '@/components/marketing/reveal'
 import { CtaBand } from '@/components/marketing/cta-band'
-import { STATS, SECTIONS, BRAND } from '@/lib/marketing/data'
+import { buildStats, buildSections, BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, sortByPublished, fetchPublicGallery } from '@/lib/api/public-blog.api'
 import heroImg from '../../../../public/images/marketing/hero-img.png'
 import { Link } from '@/i18n/navigation'
@@ -23,19 +25,33 @@ const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string }>>
 }
 
 
-export const metadata: Metadata = {
-  title: `${BRAND.name} — Crèche, Garderie & École Maternelle à Lomé`,
-  description: 'Crèche, garderie et école maternelle moderne et bienveillante à Lomé, Togo. Un environnement sûr, joyeux et stimulant où chaque enfant explore et rayonne.',
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string }> },
+): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'marketing.home.meta' })
+  return {
+    title: t('title', { name: BRAND.name }),
+    description: t('description'),
+    alternates: localeAlternates('/', locale),
+  }
 }
 
 export default async function HomePage() {
-  const sectionPreview = SECTIONS.slice(0, 3).map((section) => ({
+  const locale = await getLocale()
+  const t = await getTranslations('marketing')
+  const tHome = await getTranslations('marketing.home')
+
+  const sectionPreview = buildSections(t).slice(0, 3).map((section) => ({
     ...section,
     Icon: SECTION_ICONS[section.id] || Baby,
   }))
+  const stats = buildStats(t)
   const newsPreview = sortByPublished(await fetchPublicBlogPosts()).slice(0, 3)
   const galleryPreview = await fetchPublicGallery()
-  const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  // Le format de date suit la langue affichée : « 3 mars 2026 » en français,
+  // « 3 March 2026 » en anglais.
+  const dateFormatter = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <>
@@ -45,7 +61,7 @@ export default async function HomePage() {
         <section className="relative flex flex-1 flex-col overflow-hidden">
           <Image
             src={heroImg}
-            alt="Enfants épanouis dans la cour de la crèche"
+            alt={tHome('hero.imageAlt')}
             fill
             priority
             sizes="100vw"
@@ -56,12 +72,12 @@ export default async function HomePage() {
           <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 pb-10 pt-32 sm:px-6 sm:pb-14 lg:px-8">
             <Reveal>
               <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
-                Crèche · Garderie · Maternelle
+                {tHome('hero.eyebrow')}
               </span>
             </Reveal>
             <Reveal delay={0.08}>
               <h1 className="mt-6 max-w-3xl font-display font-bold text-4xl leading-[1.05] text-white drop-shadow-md sm:text-6xl">
-                Où chaque enfant explore, <br />et rayonne
+                {tHome('hero.titleLine1')} <br />{tHome('hero.titleLine2')}
               </h1>
             </Reveal>
 
@@ -69,23 +85,23 @@ export default async function HomePage() {
               <div className="max-w-xl">
                 <Reveal delay={0.16}>
                   <p className="text-base text-white/85 sm:text-lg">
-                    Votre enfant mérite le meilleur départ dans la vie : un environnement bienveillant et sécurisé, où il peut grandir, apprendre, s’épanouir et révéler pleinement son potentiel.
+                    {tHome('hero.lead')}
                   </p>
                 </Reveal>
                 <Reveal delay={0.24}>
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                     <MarketingButton href="/contact" size="lg" variant="primary" className="w-full sm:w-auto">
-                      Réserver une visite
+                      {tHome('hero.bookVisit')}
                     </MarketingButton>
                     <MarketingButton href="/nos-sections" size="lg" variant="tertiary" className="w-full sm:w-auto">
-                      Découvrir nos sections
+                      {tHome('hero.discoverSections')}
                     </MarketingButton>
                   </div>
                 </Reveal>
               </div>
               <Reveal delay={0.3}>
                 <div className="flex flex-wrap gap-6 sm:gap-10">
-                  {STATS.map((s) => (
+                  {stats.map((s) => (
                     <div key={s.label}>
                       <div className="font-display font-bold text-3xl text-white drop-shadow sm:text-4xl">{s.value}</div>
                       <div className="mt-1 text-xs text-white/75 sm:text-sm">{s.label}</div>
@@ -106,22 +122,22 @@ export default async function HomePage() {
         <Doodle src="/images/marketing/icons-decor/crayon.png" size={52} className="bottom-28 left-[3%] hidden rotate-12 sm:block" delay={2} />
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-5 lg:gap-16">
           <Reveal className="lg:col-span-2 lg:order-2" y={20}>
-            <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">A PROPOS DE NOUS</span>
+            <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">{tHome('about.eyebrow')}</span>
             <h2 className="font-bold text-3xl text-primary sm:text-4xl">
-              Pourquoi Les Petits Rayons de Soleil&nbsp;?
+              {tHome('about.title')}
             </h2>
             <p className="my-6 text-muted-foreground sm:text-lg">
-              Un cadre chaleureux et sécurisé, une équipe passionnée et une pédagogie pensée pour accompagner chaque enfant dans ses découvertes, son autonomie et son épanouissement, de la crèche à la Grande Section. 
+              {tHome('about.body')}
             </p>
 
             <MarketingButton href="/a-propos" size="lg" variant="tertiary">
-                En savoir plus sur nous
+                {tHome('about.cta')}
             </MarketingButton>
 
           </Reveal>
           <Reveal className="relative lg:order-1 lg:col-span-3" delay={0.1}>
             <div className="relative aspect-[4/3] overflow-hidden rounded-[2.5rem] shadow-xl">
-              <Image src="/images/marketing/about-img.png" alt="Éducatrice avec des enfants" fill className="object-cover" sizes="(min-width: 1024px) 60vw, 100vw" />
+              <Image src="/images/marketing/about-img.png" alt={tHome('about.imageAlt')} fill className="object-cover" sizes="(min-width: 1024px) 60vw, 100vw" />
             </div>
           </Reveal>
         </div>
@@ -135,10 +151,10 @@ export default async function HomePage() {
         <Doodle src="/images/marketing/icons-decor/ours-en-peluche.png" size={64} className="bottom-28 right-[3%] hidden rotate-6 md:block" delay={2.4} />
         <div className="mx-auto max-w-6xl">
           <Reveal className="mx-auto max-w-2xl text-center">
-            <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">NOS SECTIONS</span>
-            <h2 className="font-bold text-3xl text-primary sm:text-4xl">Un parcours pensé pour chaque âge</h2>
+            <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">{tHome('sections.eyebrow')}</span>
+            <h2 className="font-bold text-3xl text-primary sm:text-4xl">{tHome('sections.title')}</h2>
             <p className="mt-4 text-muted-foreground sm:text-lg">
-              De la crèche à la grande section, chaque étape a son rythme, ses activités et son équipe dédiée.
+              {tHome('sections.body')}
             </p>
           </Reveal>
           <div className="mt-14 grid grid-cols-1 items-start gap-10 sm:grid-cols-3 sm:gap-8">
@@ -148,7 +164,7 @@ export default async function HomePage() {
                 <Reveal key={section.id} delay={i * 0.08} className={style.offset}>
                   <Link
                     href="/nos-sections"
-                    aria-label={`Découvrir la section ${section.shortTitle} — ${section.ageRange}`}
+                    aria-label={tHome('sections.cardLabel', { name: section.shortTitle, age: section.ageRange })}
                     className="group relative block h-full"
                   >
                     <SectionPinCard
@@ -164,7 +180,7 @@ export default async function HomePage() {
           </div>
           <div className="mt-12 text-center sm:mt-20">
             <MarketingButton href="/nos-sections" variant="tertiary">
-              Voir toutes les sections
+              {tHome('sections.cta')}
               <ArrowRight className="size-4" />
             </MarketingButton>
           </div>
@@ -183,15 +199,15 @@ export default async function HomePage() {
           <div className="mx-auto max-w-6xl">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
               <Reveal>
-                <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">NOTRE GALERIE</span>
-                <h2 className="font-bold text-3xl text-primary sm:text-4xl">La vie à la crèche, en images</h2>
+                <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">{tHome('gallery.eyebrow')}</span>
+                <h2 className="font-bold text-3xl text-primary sm:text-4xl">{tHome('gallery.title')}</h2>
                 <p className="mt-3 max-w-lg text-muted-foreground sm:text-lg">
-                  Ateliers, jeux, repas partagés, siestes paisibles — un aperçu du quotidien de nos petits rayons.
+                  {tHome('gallery.body')}
                 </p>
               </Reveal>
               <Reveal delay={0.1}>
                 <MarketingButton href="/galerie" variant="tertiary">
-                  Toute la galerie
+                  {tHome('gallery.cta')}
                   <ArrowRight className="size-4" />
                 </MarketingButton>
               </Reveal>
@@ -205,7 +221,7 @@ export default async function HomePage() {
                   >
                     <Image
                       src={photo.url}
-                      alt={photo.category?.name ?? 'Photo de la galerie'}
+                      alt={photo.category?.name ?? tHome('gallery.photoAlt')}
                       fill
                       unoptimized
                       className="object-cover transition-transform duration-500 hover:scale-105"
@@ -230,11 +246,11 @@ export default async function HomePage() {
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <Reveal>
-              <h2 className="font-bold text-3xl text-primary sm:text-4xl">Nos dernières actualités</h2>
+              <h2 className="font-bold text-3xl text-primary sm:text-4xl">{tHome('news.title')}</h2>
             </Reveal>
             <Reveal delay={0.1}>
               <MarketingButton href="/actualites" variant="tertiary">
-                Toutes les actualités
+                {tHome('news.cta')}
                 <ArrowRight className="size-4" />
               </MarketingButton>
             </Reveal>
@@ -285,7 +301,7 @@ export default async function HomePage() {
                             <span />
                           )}
                           <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-white">
-                            Lire
+                            {tHome('news.read')}
                             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
                           </span>
                         </div>

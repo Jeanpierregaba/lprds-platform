@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { localeAlternates } from '@/i18n/metadata'
+import { getTranslations } from 'next-intl/server'
 import { Newspaper } from 'lucide-react'
 import { PageHero } from '@/components/marketing/page-hero'
 import { NewsExplorer } from '@/components/marketing/news-explorer'
@@ -6,22 +8,30 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, fetchPublicBlogTags, sortByPublished } from '@/lib/api/public-blog.api'
 
-export const metadata: Metadata = {
-  title: `Actualités — ${BRAND.name}`,
-  description: 'Suivez la vie quotidienne, les événements et les projets pédagogiques des Petits Rayons de Soleil.',
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string }> },
+): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'marketing.newsPage.meta' })
+  return {
+    title: t('title', { name: BRAND.name }),
+    description: t('description'),
+    alternates: localeAlternates('/actualites', locale),
+  }
 }
 
 export const dynamic = 'force-dynamic'
 
 export default async function NewsPage() {
+  const t = await getTranslations('marketing.newsPage')
   const [posts, tags] = await Promise.all([fetchPublicBlogPosts(), fetchPublicBlogTags()])
 
   return (
     <>
       <PageHero
-        title="Toute l’actualité de la crèche"
-        subtitle="Suivez la vie quotidienne, les événements et les projets pédagogiques de nos petits rayons."
-        badge="Actualités"
+        title={t('title')}
+        subtitle={t('subtitle')}
+        badge={t('badge')}
         Icon={Newspaper}
         image="/images/marketing/news-gard.png"
       />

@@ -11,8 +11,9 @@ import type { Messages } from '../fr'
 import common from './common.json'
 import enums from './enums.json'
 import errors from './errors.json'
+import marketing from './marketing.json'
 import nav from './nav.json'
 
-export const messages = { common, enums, errors, nav } satisfies Messages
+export const messages = { common, enums, errors, marketing, nav } satisfies Messages
 
 export default messages

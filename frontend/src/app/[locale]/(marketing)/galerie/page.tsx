@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { localeAlternates } from '@/i18n/metadata'
+import { getTranslations } from 'next-intl/server'
 import { Images } from 'lucide-react'
 import { PageHero } from '@/components/marketing/page-hero'
 import { GalleryExplorer } from '@/components/marketing/gallery-explorer'
@@ -6,23 +8,31 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { BRAND } from '@/lib/marketing/data'
 import { fetchPublicGallery, fetchPublicGalleryCategories } from '@/lib/api/public-blog.api'
 
-export const metadata: Metadata = {
-  title: `Galerie — ${BRAND.name}`,
-  description: 'La vie à la crèche en images : ateliers, jeux extérieurs, repas et fêtes des Petits Rayons de Soleil.',
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string }> },
+): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'marketing.galleryPage.meta' })
+  return {
+    title: t('title', { name: BRAND.name }),
+    description: t('description'),
+    alternates: localeAlternates('/galerie', locale),
+  }
 }
 
 export const dynamic = 'force-dynamic'
 
 export default async function GalleryPage() {
+  const t = await getTranslations('marketing.galleryPage')
   const photos = await fetchPublicGallery()
   const categories = await fetchPublicGalleryCategories()
 
   return (
     <>
       <PageHero
-        title="La vie à la crèche en images"
-        subtitle="Découvrez le quotidien joyeux de nos petits rayons de soleil à travers nos photos."
-        badge="Galerie"
+        title={t('title')}
+        subtitle={t('subtitle')}
+        badge={t('badge')}
         Icon={Images}
         image="/images/marketing/gallery-hero.png"
       />

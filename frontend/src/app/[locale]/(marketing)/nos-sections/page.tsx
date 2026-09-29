@@ -1,22 +1,33 @@
 import type { Metadata } from 'next'
+import { localeAlternates } from '@/i18n/metadata'
+import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 import { Baby } from 'lucide-react'
 import { PageHero } from '@/components/marketing/page-hero'
 import { SectionsExplorer } from '@/components/marketing/sections-explorer'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { BRAND } from '@/lib/marketing/data'
 
-export const metadata: Metadata = {
-  title: `Nos Sections — ${BRAND.name}`,
-  description: 'De la crèche à la grande section maternelle : découvrez nos 7 sections d’âge, leurs activités et leur journée type.',
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string }> },
+): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'marketing.sectionsPage.meta' })
+  return {
+    title: t('title', { name: BRAND.name }),
+    description: t('description'),
+    alternates: localeAlternates('/nos-sections', locale),
+  }
 }
 
 export default function SectionsPage() {
+  const t = useTranslations('marketing.sectionsPage')
   return (
     <>
       <PageHero
-        title="Un parcours pensé pour chaque âge"
-        subtitle="De 3 mois à 8 ans, chaque section a son rythme, ses activités et une équipe dédiée pour accompagner votre enfant."
-        badge="Nos sections"
+        title={t('title')}
+        subtitle={t('subtitle')}
+        badge={t('badge')}
         Icon={Baby}
         image="/images/marketing/our-sec.png"
       />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Newspaper, Search } from 'lucide-react'
 import { Reveal } from './reveal'
@@ -56,10 +57,11 @@ function ArticleCard({ article, delay = 0 }: { article: PublicBlogPostPreview; d
 }
 
 export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPreview[]; tags: PublicBlogTag[] }) {
+  const t = useTranslations('marketing.newsPage')
   const [filter, setFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
 
-  const categories = useMemo(() => [{ id: 'all', name: 'Toutes les actualités' }, ...tags], [tags])
+  const categories = useMemo(() => [{ id: 'all', name: t('allCategories') }, ...tags], [tags, t])
   const featured = articles[0] ?? null
 
   const filtered = useMemo(() => {
@@ -98,7 +100,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher..."
+            placeholder={t('searchPlaceholder')}
             className="h-11 w-full rounded-full border border-border bg-background pl-10 pr-4 text-sm outline-none ring-primary/30 transition-shadow focus:ring-3"
           />
         </div>
@@ -136,7 +138,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
 
       <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
         {filtered.length === 0 ? (
-          <p className="col-span-full py-16 text-center text-muted-foreground">Aucun article ne correspond à votre recherche.</p>
+          <p className="col-span-full py-16 text-center text-muted-foreground">{t('empty')}</p>
         ) : (
           filtered.map((article, i) => <ArticleCard key={article.id} article={article} delay={(i % 3) * 0.06} />)
         )}

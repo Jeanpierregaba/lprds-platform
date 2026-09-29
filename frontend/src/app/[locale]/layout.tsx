@@ -26,7 +26,13 @@ const workSans = Work_Sans({
   display: 'swap',
 })
 
+/** Origine publique du site — sert de base aux URL absolues des balises
+ *  `hreflang`, que les moteurs de recherche exigent absolues. En développement,
+ *  on retombe sur localhost : les balises restent cohérentes et vérifiables. */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
   description: 'Gestion de crèche et école maternelle',
   applicationName: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',

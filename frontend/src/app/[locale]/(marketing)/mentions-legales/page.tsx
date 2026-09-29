@@ -1,34 +1,45 @@
 import type { Metadata } from 'next'
-import { BRAND } from '@/lib/marketing/data'
+import { localeAlternates } from '@/i18n/metadata'
+import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
+import { BRAND, buildBrandCopy } from '@/lib/marketing/data'
 
-export const metadata: Metadata = {
-  title: `Mentions légales — ${BRAND.name}`,
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string }> },
+): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'marketing.legal.meta' })
+  return {
+    title: t('title', { name: BRAND.name }),
+    alternates: localeAlternates('/mentions-legales', locale),
+  }
 }
 
 export default function LegalNoticePage() {
+  const t = useTranslations('marketing')
+  const tLegal = useTranslations('marketing.legal')
+  const brand = buildBrandCopy(t)
+
   return (
     <article className="mx-auto max-w-2xl px-4 pb-16 pt-24 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8">
-      <h1 className="font-display text-2xl text-primary sm:text-3xl">Mentions légales</h1>
+      <h1 className="font-display text-2xl text-primary sm:text-3xl">{tLegal('title')}</h1>
       <div className="mt-8 space-y-6 text-sm leading-relaxed text-muted-foreground">
         <section>
-          <h2 className="font-display text-lg text-foreground">Éditeur du site</h2>
+          <h2 className="font-display text-lg text-foreground">{tLegal('publisherTitle')}</h2>
           <p className="mt-2">
-            {BRAND.name}, crèche, garderie et école maternelle.<br />
-            {BRAND.address}<br />
-            Téléphone : {BRAND.phone}<br />
-            Email : {BRAND.email}
+            {tLegal('publisherBody', { name: BRAND.name })}<br />
+            {brand.address}<br />
+            {tLegal('phoneLabel')} : {BRAND.phone}<br />
+            {tLegal('emailLabel')} : {BRAND.email}
           </p>
         </section>
         <section>
-          <h2 className="font-display text-lg text-foreground">Hébergement</h2>
-          <p className="mt-2">Ce site est hébergé et exploité dans le cadre de la plateforme de gestion {BRAND.name}.</p>
+          <h2 className="font-display text-lg text-foreground">{tLegal('hostingTitle')}</h2>
+          <p className="mt-2">{tLegal('hostingBody', { name: BRAND.name })}</p>
         </section>
         <section>
-          <h2 className="font-display text-lg text-foreground">Propriété intellectuelle</h2>
-          <p className="mt-2">
-            L’ensemble des contenus (textes, images, logo) présents sur ce site est la propriété de {BRAND.name},
-            sauf mention contraire, et ne peut être reproduit sans autorisation préalable.
-          </p>
+          <h2 className="font-display text-lg text-foreground">{tLegal('ipTitle')}</h2>
+          <p className="mt-2">{tLegal('ipBody', { name: BRAND.name })}</p>
         </section>
       </div>
     </article>

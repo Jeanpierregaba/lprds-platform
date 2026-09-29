@@ -9,9 +9,10 @@
 import common from './common.json'
 import enums from './enums.json'
 import errors from './errors.json'
+import marketing from './marketing.json'
 import nav from './nav.json'
 
-export const messages = { common, enums, errors, nav } as const
+export const messages = { common, enums, errors, marketing, nav } as const
 
 export type Messages = typeof messages
 

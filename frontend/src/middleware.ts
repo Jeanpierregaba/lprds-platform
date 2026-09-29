@@ -161,6 +161,11 @@ export const config = {
     // sonde de version) sont aussi exclues : elles doivent rester accessibles
     // sans session — /version.json est sondé par l'auto-update y compris
     // visiteur anonyme.
-    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|offline|version.json).*)',
+    //
+    // `sitemap.xml` et `robots.txt` le sont pour une autre raison : ils ne se
+    // déclinent PAS par langue. Un robot les cherche à la racine du domaine et
+    // nulle part ailleurs ; les laisser passer par la détection de langue
+    // renverrait /sitemap.xml vers /en/sitemap.xml, que rien n'ira lire.
+    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|offline|version.json|sitemap.xml|robots.txt).*)',
   ],
 }

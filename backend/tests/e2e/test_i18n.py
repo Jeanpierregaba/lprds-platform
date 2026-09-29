@@ -133,3 +133,72 @@ def test_locale_endpoint_requires_authentication(client):
         client.patch("/auth/me/locale", json={"locale": "en"}).status_code,
         403,
     )
+
+
+# ── Libellés servis par l'API ───────────────────────────────────
+def test_report_vocabulary_is_fully_translated():
+    """Chaque valeur du vocabulaire des rapports a son libellé dans les DEUX
+    catalogues.
+
+    C'est le seul vocabulaire resté côté backend (le PDF du bulletin annuel
+    lit les mêmes chaînes, cf. `reports/pdf.py`) : ajouter une valeur à un
+    enum de `reports/models.py` sans l'ajouter aux catalogues afficherait le
+    code brut dans le formulaire ET dans le bulletin, sans la moindre erreur.
+    """
+    from app.modules.reports.service import VOCABULARY_GROUPS
+
+    missing = sorted({
+        f"reports.vocabulary.{group}.{code.value}"
+        for group, enum in VOCABULARY_GROUPS.items()
+        for code in enum
+        for catalogue in (CATALOGS[Locale.FR], CATALOGS[Locale.EN])
+        if f"reports.vocabulary.{group}.{code.value}" not in catalogue
+    })
+    ck("valeurs de vocabulaire sans libellé", missing, [])
+
+    # Les deux langues disent bien des choses différentes : un copier-coller
+    # du français dans en.py passerait tous les contrôles structurels.
+    ck("libellé FR", t("reports.vocabulary.acquisition_level.a_consolider", "fr"),
+       "À consolider")
+    ck("libellé EN", t("reports.vocabulary.acquisition_level.a_consolider", "en"),
+       "Needs consolidating")
+
+
+def test_account_locale_wins_over_accept_language(client):
+    """Deux sources de langue, une seule règle : le compte prime dès qu'on est
+    authentifié. Vérifié en envoyant délibérément l'en-tête CONTRAIRE."""
+    from tests.helpers import onboard
+
+    su = login(client, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(client, su, "LPRDS", "admin@a.fr")
+
+    vocab = client.get("/reports/vocabulary",
+                       headers={**adm, "Accept-Language": "en-GB"}).json()
+    ck("compte FR malgré Accept-Language: en",
+       vocab["acquisition_level"]["a_consolider"], "À consolider")
+
+    ck("bascule du compte en anglais",
+       client.patch("/auth/me/locale", json={"locale": "en"},
+                    headers=adm).status_code, 200)
+    vocab = client.get("/reports/vocabulary",
+                       headers={**adm, "Accept-Language": "fr-FR"}).json()
+    ck("compte EN malgré Accept-Language: fr",
+       vocab["acquisition_level"]["a_consolider"], "Needs consolidating")
+    ck("les clés restent les codes stables",
+       sorted(vocab["acquisition_level"]),
+       ["a_consolider", "acquis", "en_cours_acquisition"])
+
+
+def test_permissions_catalog_exposes_codes_only(client):
+    """Contrairement au vocabulaire des rapports, les libellés de permissions
+    n'alimentent aucun document : ils vivent côté frontend, et l'API ne parle
+    donc plus aucune langue ici."""
+    from tests.helpers import onboard
+
+    su = login(client, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(client, su, "LPRDS", "admin@a.fr")
+
+    perms = client.get("/rbac/permissions", headers=adm).json()
+    ck("catalogue non vide", len(perms) > 0, True)
+    ck("aucun libellé renvoyé", [p for p in perms if "label" in p], [])
+    ck("chaque entrée porte son code", all(p.get("code") for p in perms), True)

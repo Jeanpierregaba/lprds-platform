@@ -40,5 +40,30 @@
     "revoke": "Révoquer {name}",
     "assigned": "Rôle attribué.",
     "revoked": "Rôle révoqué."
-  }
+  },
+  "permissions": {
+    "children:read": "Consulter les fiches enfants",
+    "children:write": "Créer et modifier les fiches enfants",
+    "children:archive": "Activer / désactiver une fiche enfant",
+    "parents:read": "Consulter les comptes parents",
+    "parents:write": "Créer, modifier et réinitialiser les comptes parents",
+    "staff:read": "Consulter les comptes du personnel",
+    "staff:write": "Créer, modifier et réinitialiser les comptes du personnel",
+    "organization:read": "Consulter départements, sections et groupes",
+    "organization:write": "Gérer départements, sections et groupes",
+    "attendance:scan": "Scanner les codes QR de présence",
+    "attendance:read": "Consulter les présences et tableaux de bord",
+    "attendance:write": "Configurer les paramètres de présence (horaires, exemptions)",
+    "reports:read": "Consulter les rapports",
+    "reports:write": "Créer, modifier et soumettre des rapports",
+    "reports:validate": "Valider ou rejeter les rapports soumis",
+    "gallery:read": "Consulter la galerie de médias (photos/vidéos des rapports)",
+    "menus:read": "Consulter le menu de la semaine et son historique",
+    "menus:write": "Créer et modifier les menus de la semaine, consulter l'historique",
+    "blog:write": "Rédiger, publier, modifier et supprimer les actualités du site vitrine",
+    "library:read": "Consulter le catalogue et le suivi des prêts de la bibliothèque",
+    "library:write": "Créer, modifier et supprimer les livres du catalogue",
+    "library:lend": "Enregistrer les prêts, retours et rappels de la bibliothèque"
+  },
+  "permissionsOther": "Autres"
 }

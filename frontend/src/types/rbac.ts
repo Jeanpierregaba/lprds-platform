@@ -1,7 +1,8 @@
+/** Catalogue RBAC tel que renvoyé par l'API : des codes, jamais un libellé —
+ *  ceux-ci vivent dans `messages/{locale}/rbac.json` sous `permissions.*`. */
 export interface Permission {
-  id:    string
-  code:  string
-  label: string
+  id:   string
+  code: PermissionCode
 }
 
 /**

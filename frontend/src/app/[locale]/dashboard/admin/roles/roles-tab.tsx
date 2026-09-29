@@ -190,7 +190,7 @@ export function RolesTab() {
                                 {tNav(`modules.${group.moduleKey}`)}
                               </legend>
                               <div className="grid gap-2.5 sm:grid-cols-2">
-                                {items.map((perm) => checkbox(perm.code, perm.label))}
+                                {items.map((perm) => checkbox(perm.code, t(`permissions.${perm.code}`)))}
                               </div>
                             </fieldset>
                           )
@@ -198,10 +198,10 @@ export function RolesTab() {
                         {ungrouped.length > 0 && (
                           <fieldset className="space-y-1.5">
                             <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              Autres
+                              {t('permissionsOther')}
                             </legend>
                             <div className="grid gap-2.5 sm:grid-cols-2">
-                              {ungrouped.map((perm) => checkbox(perm.code, perm.label))}
+                              {ungrouped.map((perm) => checkbox(perm.code, t(`permissions.${perm.code}`)))}
                             </div>
                           </fieldset>
                         )}

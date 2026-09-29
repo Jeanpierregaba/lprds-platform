@@ -39,6 +39,7 @@ import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
 import { ContentView } from '../content-view'
 import { useRouter } from '@/i18n/navigation'
+import { useReportVocabulary } from '@/lib/hooks/use-report-vocabulary'
 
 const rejectSchema = z.object({ reason: z.string().min(1, 'Motif requis') })
 type RejectForm = z.infer<typeof rejectSchema>
@@ -69,10 +70,7 @@ export default function ReportDetailPage() {
     queryFn: () => reportsApi.get(id).then((r) => r.data),
   })
 
-  const { data: vocabulary } = useQuery({
-    queryKey: ['reports', 'vocabulary'],
-    queryFn: () => reportsApi.getVocabulary().then((r) => r.data),
-  })
+  const { data: vocabulary } = useReportVocabulary()
 
   const { dailyForm, bimensuelForm, annualForm } = useReportForms()
 

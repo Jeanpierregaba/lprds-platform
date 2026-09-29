@@ -7,11 +7,19 @@ from app.modules.rbac.models import PermissionCode
 
 
 class PermissionResponse(BaseModel):
+    """Catalogue RBAC : le CODE seul, jamais un libellé.
+
+    Ces libellés n'apparaissent qu'à l'écran (éditeur de rôles) — aucun
+    document généré n'en a besoin, contrairement au vocabulaire des rapports.
+    Ils vivent donc dans les catalogues du frontend, qui traduit par code, et
+    l'API n'a plus à parler une langue. La colonne `permissions.label` reste
+    en base : elle documente le catalogue seedé côté serveur.
+    """
+
     model_config = {"from_attributes": True}
 
-    id:    uuid.UUID
-    code:  str
-    label: str
+    id:   uuid.UUID
+    code: str
 
 
 class RoleCreateRequest(BaseModel):

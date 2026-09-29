@@ -51,20 +51,17 @@ class ReportStatus(StrEnum):
 
 
 # ── Vocabulaire structuré du rapport quotidien ────────────────────
-# Codes stables en base ; les libellés français (affichés au frontend) sont
-# dans les dicts *_LABELS ci-dessous — modifiable sans jamais casser les
-# données déjà stockées (même pattern que PermissionCode/PERMISSION_LABELS).
+# Codes stables en base, libellés hors du code métier : chaque valeur a une
+# entrée "reports.vocabulary.<groupe>.<code>" dans app/locales/{fr,en}.py.
+# Renommer un libellé ne touche donc jamais aux données déjà stockées, et le
+# même catalogue sert l'API (/reports/vocabulary) et le PDF du bulletin.
+# ⚠️ Ajouter une valeur à un enum ci-dessous impose d'ajouter sa clé dans LES
+# DEUX catalogues — `test_reports_vocabulary_is_translated` y veille.
 class HealthStatus(StrEnum):
     BIEN          = "bien"
     A_SURVEILLER  = "a_surveiller"
     MALADE        = "malade"
 
-
-HEALTH_STATUS_LABELS: dict[HealthStatus, str] = {
-    HealthStatus.BIEN: "Bien",
-    HealthStatus.A_SURVEILLER: "À surveiller",
-    HealthStatus.MALADE: "Malade",
-}
 
 
 class MealAmount(StrEnum):
@@ -72,12 +69,6 @@ class MealAmount(StrEnum):
     PEU_MANGE   = "peu_mange"
     RIEN_MANGE  = "rien_mange"
 
-
-MEAL_AMOUNT_LABELS: dict[MealAmount, str] = {
-    MealAmount.BIEN_MANGE: "Bien mangé",
-    MealAmount.PEU_MANGE: "Peu mangé",
-    MealAmount.RIEN_MANGE: "Rien mangé",
-}
 
 
 class Mood(StrEnum):
@@ -88,15 +79,6 @@ class Mood(StrEnum):
     FATIGUE    = "fatigue"
     GRINCHEUX  = "grincheux"
 
-
-MOOD_LABELS: dict[Mood, str] = {
-    Mood.JOYEUX: "😊 Joyeux",
-    Mood.CALME: "😌 Calme",
-    Mood.AGITE: "😤 Agité",
-    Mood.TRISTE: "😢 Triste",
-    Mood.FATIGUE: "😴 Fatigué",
-    Mood.GRINCHEUX: "😠 Grincheux",
-}
 
 
 class BehaviorTag(StrEnum):
@@ -117,24 +99,6 @@ class BehaviorTag(StrEnum):
     PERSEVERANCE                    = "perseverance"
 
 
-BEHAVIOR_TAG_LABELS: dict[BehaviorTag, str] = {
-    BehaviorTag.PLEASANT_DAY: "A passé une agréable journée à la crèche.",
-    BehaviorTag.ENTHUSIASTIC_PARTICIPATION: "A participé avec enthousiasme aux activités.",
-    BehaviorTag.INTERESTED_PARTICIPATION: "A participé avec intérêt aux activités.",
-    BehaviorTag.OBSERVED_BEFORE_PARTICIPATING: "A préféré observer avant de participer.",
-    BehaviorTag.ATTENTIVE_FOCUSED: "S'est montré(e) attentif(ve) et concentré(e).",
-    BehaviorTag.DISTRACTED_MOMENTS: "A eu quelques moments de distraction.",
-    BehaviorTag.CURIOUS_INTERESTED: "A fait preuve de curiosité et d'intérêt.",
-    BehaviorTag.ASSIMILATED_LEARNING: "A bien assimilé les apprentissages de la journée.",
-    BehaviorTag.CAREFUL_APPLICATION: "A réalisé les activités avec soin et application.",
-    BehaviorTag.AUTONOMOUS: "S'est montré(e) autonome dans les activités.",
-    BehaviorTag.NEEDED_SUPPORT: "A eu besoin d'être accompagné(e) dans certaines activités.",
-    BehaviorTag.GOOD_INTERACTION: "A bien interagi avec les autres enfants.",
-    BehaviorTag.FOLLOWED_INSTRUCTIONS: "A respecté les consignes.",
-    BehaviorTag.NEEDED_COMFORT: "A eu besoin d'être consolé(e).",
-    BehaviorTag.PERSEVERANCE: "A fait preuve de persévérance face aux difficultés.",
-}
-
 
 # ── Vocabulaire structuré du rapport bi-mensuel ───────────────────
 class ClassBehavior(StrEnum):
@@ -149,18 +113,6 @@ class ClassBehavior(StrEnum):
     EMOTIONAL     = "emotional"
 
 
-CLASS_BEHAVIOR_LABELS: dict[ClassBehavior, str] = {
-    ClassBehavior.CALM: "😌 Calme",
-    ClassBehavior.JOYFUL: "😊 Joyeux(se)",
-    ClassBehavior.SMILING: "😄 Souriant(e)",
-    ClassBehavior.PARTICIPATIVE: "🙋 Participatif(ve)",
-    ClassBehavior.RESERVED: "🤐 Réservé(e)",
-    ClassBehavior.DYNAMIC: "⚡ Dynamique",
-    ClassBehavior.AGITATED: "😅 Agité(e)",
-    ClassBehavior.TIRED: "😴 Fatigué(e)",
-    ClassBehavior.EMOTIONAL: "😢 Émotif(ve)",
-}
-
 
 class PeerRelation(StrEnum):
     KIND_TO_PEERS     = "kind_to_peers"
@@ -169,14 +121,6 @@ class PeerRelation(StrEnum):
     STRUGGLES_SHARING = "struggles_sharing"
     PREFERS_ALONE     = "prefers_alone"
 
-
-PEER_RELATION_LABELS: dict[PeerRelation, str] = {
-    PeerRelation.KIND_TO_PEERS: "Gentil(le) avec les camarades",
-    PeerRelation.SOCIABLE: "Sociable",
-    PeerRelation.COOPERATIVE: "Coopératif(ve)",
-    PeerRelation.STRUGGLES_SHARING: "A parfois du mal à partager",
-    PeerRelation.PREFERS_ALONE: "Préfère jouer seul(e)",
-}
 
 
 class EmotionManagement(StrEnum):
@@ -188,15 +132,6 @@ class EmotionManagement(StrEnum):
     AUTONOMOUS                   = "autonomous"
 
 
-EMOTION_MANAGEMENT_LABELS: dict[EmotionManagement, str] = {
-    EmotionManagement.CRIED_LITTLE: "A peu pleuré",
-    EmotionManagement.CRIED_A_LOT: "A beaucoup pleuré",
-    EmotionManagement.NEEDED_REASSURANCE: "A eu besoin d'être rassuré(e)",
-    EmotionManagement.EXPRESSES_BETTER: "S'exprime mieux émotionnellement",
-    EmotionManagement.IMPROVING_EMOTION_MANAGEMENT: "En progrès dans la gestion des émotions",
-    EmotionManagement.AUTONOMOUS: "Autonome",
-}
-
 
 # ── Vocabulaire structuré du rapport annuel ───────────────────────
 class AcquisitionLevel(StrEnum):
@@ -204,12 +139,6 @@ class AcquisitionLevel(StrEnum):
     EN_COURS_ACQUISITION = "en_cours_acquisition"
     A_CONSOLIDER          = "a_consolider"
 
-
-ACQUISITION_LEVEL_LABELS: dict[AcquisitionLevel, str] = {
-    AcquisitionLevel.ACQUIS: "Acquis",
-    AcquisitionLevel.EN_COURS_ACQUISITION: "En cours d'acquisition",
-    AcquisitionLevel.A_CONSOLIDER: "À consolider",
-}
 
 
 class DepartmentReportType(Base):

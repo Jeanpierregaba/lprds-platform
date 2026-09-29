@@ -29,6 +29,7 @@ import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
 import { useRouter } from '@/i18n/navigation'
+import { useReportVocabulary } from '@/lib/hooks/use-report-vocabulary'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -114,10 +115,7 @@ export default function NewReportPage() {
     enabled: !!selectedChild?.department,
   })
 
-  const { data: vocabulary, isLoading: isLoadingVocabulary } = useQuery({
-    queryKey: ['reports', 'vocabulary'],
-    queryFn: () => reportsApi.getVocabulary().then((r) => r.data),
-  })
+  const { data: vocabulary, isLoading: isLoadingVocabulary } = useReportVocabulary()
 
   const { dailyForm, bimensuelForm, annualForm } = useReportForms()
 

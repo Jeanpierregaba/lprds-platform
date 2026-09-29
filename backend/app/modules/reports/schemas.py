@@ -181,9 +181,10 @@ class AnnualReportContent(BaseModel):
 
 
 class ReportVocabularyResponse(BaseModel):
-    """Libellés français des listes déroulantes / cases à cocher — pour que le
-    frontend construise le formulaire sans dupliquer ce vocabulaire. Construite
-    explicitement en service.py (pas de valeurs par défaut ici)."""
+    """Libellés des listes déroulantes / cases à cocher, dans la langue de
+    l'appelant — pour que le frontend construise le formulaire sans dupliquer
+    ce vocabulaire. Construite en service.py depuis les catalogues i18n (pas
+    de valeurs par défaut ici) ; les clés restent les codes stables."""
 
     health_status: dict[str, str]
     meal_amount:   dict[str, str]

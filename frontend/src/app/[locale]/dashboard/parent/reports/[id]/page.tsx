@@ -21,6 +21,7 @@ import { downloadBlob } from '@/lib/utils/download'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { type ReportAttachment } from '@/types/reports'
 import { ContentView } from '@/app/[locale]/dashboard/admin/reports/content-view'
+import { useReportVocabulary } from '@/lib/hooks/use-report-vocabulary'
 
 function formatDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString(intlLocale(), { dateStyle: 'long' }) : '—'
@@ -38,10 +39,7 @@ export default function ParentReportDetailPage() {
     queryFn: () => reportsApi.getMine(id).then((r) => r.data),
   })
 
-  const { data: vocabulary } = useQuery({
-    queryKey: ['reports', 'vocabulary'],
-    queryFn: () => reportsApi.getVocabulary().then((r) => r.data),
-  })
+  const { data: vocabulary } = useReportVocabulary()
 
   const markReadMutation = useMutation({
     mutationFn: () => reportsApi.markMineRead(id),

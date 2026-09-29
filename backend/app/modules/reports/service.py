@@ -4,6 +4,7 @@ import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from enum import StrEnum
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, UploadFile, status
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
-from app.core.i18n import coerce_locale, t
+from app.core.i18n import Locale, coerce_locale, t
 from app.modules.attendance.models import AttendanceEvent, AttendanceSettings, EventType, PersonType
 from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
@@ -25,15 +26,15 @@ from app.modules.organization.models import Department, Group, Section
 from app.modules.notifications.service import notify_parents_report_validated
 from app.modules.reports.email import send_report_available_email
 from app.modules.reports.models import (
-    ACQUISITION_LEVEL_LABELS,
-    BEHAVIOR_TAG_LABELS,
-    CLASS_BEHAVIOR_LABELS,
-    EMOTION_MANAGEMENT_LABELS,
-    HEALTH_STATUS_LABELS,
-    MEAL_AMOUNT_LABELS,
-    MOOD_LABELS,
-    PEER_RELATION_LABELS,
+    AcquisitionLevel,
+    BehaviorTag,
+    ClassBehavior,
     DepartmentReportType,
+    EmotionManagement,
+    HealthStatus,
+    MealAmount,
+    Mood,
+    PeerRelation,
     Report,
     ReportAttachment,
     ReportRead,
@@ -482,14 +483,19 @@ async def get_my_report_pdf(
             detail=t("errors.reports.pdf_annual_only"),
         )
     child = report.child
+    locale = coerce_locale(parent.locale)
     pdf_bytes = await asyncio.to_thread(
         render_annual_report_pdf,
         establishment_name=report.establishment.name,
         child_full_name=f"{child.first_names} {child.last_name}",
         period_label=report.period_label,
         content=report.content,
+        locale=locale,
     )
-    filename = f"bulletin-annuel-{report.period_start.year}-{child.last_name}.pdf"
+    filename = t(
+        "reports.pdf.filename", locale,
+        year=report.period_start.year, name=child.last_name,
+    )
     return pdf_bytes, filename
 
 
@@ -1101,14 +1107,36 @@ def _attachment_response(attachment: ReportAttachment) -> ReportAttachmentRespon
 
 
 # ── Vocabulaire (labels FR pour le frontend) ─────────────────────
-def get_vocabulary() -> ReportVocabularyResponse:
-    return ReportVocabularyResponse(
-        health_status={s.value: l for s, l in HEALTH_STATUS_LABELS.items()},
-        meal_amount={s.value: l for s, l in MEAL_AMOUNT_LABELS.items()},
-        mood={s.value: l for s, l in MOOD_LABELS.items()},
-        behavior_tag={s.value: l for s, l in BEHAVIOR_TAG_LABELS.items()},
-        class_behavior={s.value: l for s, l in CLASS_BEHAVIOR_LABELS.items()},
-        peer_relation={s.value: l for s, l in PEER_RELATION_LABELS.items()},
-        emotion_management={s.value: l for s, l in EMOTION_MANAGEMENT_LABELS.items()},
-        acquisition_level={s.value: l for s, l in ACQUISITION_LEVEL_LABELS.items()},
-    )
+# Groupes du vocabulaire : nom exposé par l'API → enum des codes. Les libellés
+# eux-mêmes vivent dans app/locales/{fr,en}.py — ce module ne connaît que les
+# codes, et le PDF du bulletin lit le même catalogue (cf. reports/pdf.py).
+VOCABULARY_GROUPS: dict[str, type[StrEnum]] = {
+    "health_status": HealthStatus,
+    "meal_amount": MealAmount,
+    "mood": Mood,
+    "behavior_tag": BehaviorTag,
+    "class_behavior": ClassBehavior,
+    "peer_relation": PeerRelation,
+    "emotion_management": EmotionManagement,
+    "acquisition_level": AcquisitionLevel,
+}
+
+
+def vocabulary_label(group: str, code: str, locale: Locale | str | None = None) -> str:
+    """Libellé d'UNE valeur de vocabulaire — point d'entrée unique, partagé
+    par l'API et la génération de documents."""
+    return t(f"reports.vocabulary.{group}.{code}", locale)
+
+
+def get_vocabulary(locale: Locale | str | None = None) -> ReportVocabularyResponse:
+    """Libellés des listes/cases du formulaire, dans la langue demandée.
+
+    Contrairement aux permissions RBAC (codes seuls, traduits côté frontend),
+    ce vocabulaire reste rendu ici : le PDF du bulletin annuel a besoin des
+    mêmes chaînes, et une seconde copie côté frontend finirait par diverger.
+    """
+    return ReportVocabularyResponse(**{
+        group: {code.value: vocabulary_label(group, code.value, locale)
+                for code in enum}
+        for group, enum in VOCABULARY_GROUPS.items()
+    })

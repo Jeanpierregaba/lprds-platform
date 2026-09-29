@@ -120,17 +120,21 @@ for (const file of walk(SRC)) {
 // pour qu'un code inconnu du frontend n'empêche pas l'affichage. Le revers,
 // c'est qu'un oubli au catalogue passe inaperçu : « educateur » s'affiche à la
 // place d'« Éducateur/trice », sans la moindre alerte. D'où ce contrôle.
+// Valeur = préfixe COMPLET de la clé : tous ces libellés ne vivent pas sous
+// `enums.*` (les permissions RBAC ont leur propre domaine, par exemple).
 const ENUM_GROUPS = {
-  USER_ROLES: 'roles',
-  STAFF_TYPES: 'staffTypes',
-  WEEKDAYS: 'weekdays',
-  MEAL_SLOTS: 'mealSlots',
-  REPORT_TYPES: 'reportTypes',
-  REPORT_STATUSES: 'reportStatus',
-  DOMAIN_KEYS: 'reportDomains',
-  ARTICLE_STATUSES: 'articleStatus',
-  GALLERY_SOURCES: ['gallerySources', 'gallerySourceBadges'],
-  LENDING_STATUSES: 'lendingStatus',
+  USER_ROLES: 'enums.roles',
+  STAFF_TYPES: 'enums.staffTypes',
+  WEEKDAYS: 'enums.weekdays',
+  MEAL_SLOTS: 'enums.mealSlots',
+  REPORT_TYPES: 'enums.reportTypes',
+  REPORT_STATUSES: 'enums.reportStatus',
+  DOMAIN_KEYS: 'enums.reportDomains',
+  ARTICLE_STATUSES: 'enums.articleStatus',
+  GALLERY_SOURCES: ['enums.gallerySources', 'enums.gallerySourceBadges'],
+  LENDING_STATUSES: 'enums.lendingStatus',
+  PERMISSION_CODES: 'rbac.permissions',
+  CHILD_IMPORT_STATUSES: 'children.import.status',
 }
 
 const typesBlob = readdirSync(join(SRC, 'types'))
@@ -149,10 +153,10 @@ for (const [array, groups] of Object.entries(ENUM_GROUPS)) {
   const values = [...decl[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
   for (const group of [groups].flat()) {
     for (const value of values) {
-      if (!catalogue.has(`enums.${group}.${value}`)) {
+      if (!catalogue.has(`${group}.${value}`)) {
         missing.push({
-          file: 'messages/fr/enums.json',
-          key: `enums.${group}.${value}`,
+          file: `messages/fr/${group.split('.')[0]}.json`,
+          key: `${group}.${value}`,
           reason: `valeur de ${array} sans libellé`,
         })
       }

@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.i18n import t
+from app.core.i18n import coerce_locale, t
 from app.modules.auth.dependencies import get_active_user, require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.reports import service
@@ -61,7 +61,7 @@ async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
 
 async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
     """
-    GET /vocabulary n'expose que des libellés FR statiques (aucune donnée
+    GET /vocabulary n'expose que des libellés statiques (aucune donnée
     d'enfant) — ouvert au staff qui voit les rapports (read/write/validate)
     ET au parent, qui en a besoin pour afficher le contenu de ses rapports
     validés sur son portail (contrairement au reste du module, jamais
@@ -180,12 +180,18 @@ async def list_reports(
 async def get_vocabulary(
     user: User = Depends(_vocabulary_access),
 ) -> ReportVocabularyResponse:
-    """Libellés français des listes déroulantes / cases à cocher du rapport
-    quotidien — pour que le frontend construise le formulaire sans dupliquer
-    ce vocabulaire. Ouvert à reports:read (admin/staff) et au parent (portail,
-    lecture de ses rapports validés). Placé AVANT /{report_id} pour éviter
-    toute ambiguïté de routage (même précaution que /mine/list, cf. claude.md)."""
-    return service.get_vocabulary()
+    """Libellés des listes déroulantes / cases à cocher du rapport, dans la
+    langue de l'appelant — pour que le frontend construise le formulaire sans
+    dupliquer ce vocabulaire (qui sert aussi au PDF du bulletin, d'où son
+    maintien côté backend, contrairement aux libellés RBAC). Ouvert à
+    reports:read (admin/staff) et au parent (portail, lecture de ses rapports
+    validés). Placé AVANT /{report_id} pour éviter toute ambiguïté de routage
+    (même précaution que /mine/list, cf. claude.md).
+
+    ⚠️ Réponse dépendante de la langue : côté frontend, la locale doit faire
+    partie de la clé de cache, sinon un changement de langue sert l'ancienne.
+    """
+    return service.get_vocabulary(coerce_locale(user.locale))
 
 
 @router.get("/missing", response_model=MissingReportResponse)

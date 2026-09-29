@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
@@ -26,25 +28,30 @@ import { cn } from '@/lib/utils'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { useRouter } from '@/i18n/navigation'
 
-const guardianSchema = z.object({
-  last_name: z.string().min(1, 'Nom requis').max(100),
-  first_names: z.string().min(1, 'Prénoms requis').max(200),
-  phone: z.string().min(1, 'Téléphone requis').max(20),
-  email: z.string().email('Email invalide').optional().or(z.literal('')),
+/** Les trois schémas deviennent des fabriques : leurs messages de validation
+ *  sont traduits, donc ils ne peuvent plus être résolus au chargement du
+ *  module. `T` est la signature minimale d'un traducteur next-intl. */
+type T = (key: string) => string
+
+const makeGuardianSchema = (t: T) => z.object({
+  last_name: z.string().min(1, t('validation.lastName')).max(100),
+  first_names: z.string().min(1, t('validation.firstNames')).max(200),
+  phone: z.string().min(1, t('validation.phone')).max(20),
+  email: z.string().email(t('validation.email')).optional().or(z.literal('')),
 })
 
-const authorizedPersonSchema = z.object({
-  last_name: z.string().min(1, 'Nom requis').max(100),
-  first_names: z.string().min(1, 'Prénoms requis').max(200),
-  phone: z.string().min(1, 'Téléphone requis').max(20),
+const makeAuthorizedPersonSchema = (t: T) => z.object({
+  last_name: z.string().min(1, t('validation.lastName')).max(100),
+  first_names: z.string().min(1, t('validation.firstNames')).max(200),
+  phone: z.string().min(1, t('validation.phone')).max(20),
 })
 
-const schema = z.object({
-  last_name: z.string().min(1, 'Nom requis').max(100),
-  first_names: z.string().min(1, 'Prénoms requis').max(200),
-  birth_date: z.string().min(1, 'Date de naissance requise'),
-  admission_date: z.string().min(1, "Date d'admission requise"),
-  residence_address: z.string().min(1, 'Adresse requise').max(500),
+const makeSchema = (t: T) => z.object({
+  last_name: z.string().min(1, t('validation.lastName')).max(100),
+  first_names: z.string().min(1, t('validation.firstNames')).max(200),
+  birth_date: z.string().min(1, t('validation.birthDate')),
+  admission_date: z.string().min(1, t('validation.admissionDate')),
+  residence_address: z.string().min(1, t('validation.address')).max(500),
   department_id: z.string().optional().or(z.literal('')),
   section_id: z.string().optional().or(z.literal('')),
   behavioral_notes: z.string().max(2000).optional().or(z.literal('')),
@@ -56,10 +63,10 @@ const schema = z.object({
   doctor_name: z.string().max(150).optional().or(z.literal('')),
   doctor_phone: z.string().max(20).optional().or(z.literal('')),
 
-  guardians: z.array(guardianSchema).min(1, 'Au moins un tuteur est requis'),
-  authorized_persons: z.array(authorizedPersonSchema),
+  guardians: z.array(makeGuardianSchema(t)).min(1, t('validation.guardianRequired')),
+  authorized_persons: z.array(makeAuthorizedPersonSchema(t)),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 const STEP_FIELDS: Record<number, (keyof Form)[]> = {
   0: ['last_name', 'first_names', 'birth_date', 'admission_date', 'residence_address',
@@ -70,13 +77,7 @@ const STEP_FIELDS: Record<number, (keyof Form)[]> = {
   4: [],
 }
 
-const STEPS = [
-  'Informations de base',
-  'Médical',
-  'Parents / tuteurs',
-  'Documents',
-  'Résumé',
-]
+const STEP_KEYS = ['basic', 'medical', 'guardians', 'documents', 'summary'] as const
 
 const DOCUMENT_MAX_MB = 10
 const DOCUMENT_ALLOWED_TYPES = [
@@ -93,6 +94,8 @@ function formatDate(iso: string) {
 }
 
 export default function NewChildPage() {
+  const t = useTranslations('children')
+  const schema = makeSchema(t)
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('children:write')
@@ -137,7 +140,7 @@ export default function NewChildPage() {
 
   const goNext = async () => {
     const valid = await trigger(STEP_FIELDS[step])
-    if (valid) setStep((s) => Math.min(s + 1, STEPS.length - 1))
+    if (valid) setStep((s) => Math.min(s + 1, STEP_KEYS.length - 1))
   }
   const goPrev = () => setStep((s) => Math.max(s - 1, 0))
 
@@ -186,16 +189,16 @@ export default function NewChildPage() {
           await childrenApi.uploadDocument(data.id, file)
           uploaded += 1
         } catch {
-          toast.error(`Échec de l'envoi de « ${file.name} ».`)
+          toast.error(t('form.uploadFailed', { name: file.name }))
         }
       }
 
       if (documents.length === 0) {
-        toast.success('Fiche enfant créée.')
+        toast.success(t('form.created'))
       } else if (uploaded === documents.length) {
-        toast.success('Fiche enfant créée et documents envoyés.')
+        toast.success(t('form.createdWithDocs'))
       } else {
-        toast.error(`Fiche créée, mais ${documents.length - uploaded} document(s) non envoyé(s).`)
+        toast.error(t('form.partialUpload', { count: documents.length - uploaded }))
       }
       router.push(`/dashboard/admin/children/${data.id}`)
     } catch (err) {
@@ -210,7 +213,7 @@ export default function NewChildPage() {
     )?.[0]
     if (firstInvalidStep !== undefined) {
       setStep(Number(firstInvalidStep))
-      toast.error('Certains champs nécessitent votre attention.')
+      toast.error(t('form.invalidFields'))
     }
   }
 
@@ -219,7 +222,7 @@ export default function NewChildPage() {
   if (!canWrite) {
     return (
       <RightsGuard
-        message="Droits insuffisants — vous n'avez pas la permission de créer une fiche enfant."
+        message={t('form.noRights')}
         backHref="/dashboard/admin/children"
       />
     )
@@ -227,12 +230,12 @@ export default function NewChildPage() {
 
   return (
     <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/children" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/children" label={t('form.back')} />
 
       {/* Indicateur d'étapes */}
       <div className="flex items-center">
-        {STEPS.map((label, i) => (
-          <div key={label} className="flex flex-1 items-center last:flex-none">
+        {STEP_KEYS.map((stepKey, i) => (
+          <div key={stepKey} className="flex flex-1 items-center last:flex-none">
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={cn(
@@ -247,10 +250,10 @@ export default function NewChildPage() {
                 {i < step ? <Check className="size-3.5" /> : i + 1}
               </div>
               <span className={cn('hidden text-center text-xs sm:block', i === step ? 'font-medium text-primary' : 'text-white')}>
-                {label}
+                {t(`form.steps.${stepKey}`)}
               </span>
             </div>
-            {i < STEPS.length - 1 && (
+            {i < STEP_KEYS.length - 1 && (
               <div className={cn('mx-2 h-px flex-1', i < step ? 'bg-primary' : 'bg-border')} />
             )}
           </div>
@@ -259,9 +262,9 @@ export default function NewChildPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Nouvelle fiche enfant</CardTitle>
+          <CardTitle>{t('form.newTitle')}</CardTitle>
           <CardDescription>
-            Étape {step + 1} sur {STEPS.length} — {STEPS[step]}
+            {t('form.stepIndicator', { current: step + 1, total: STEP_KEYS.length })} — {t(`form.steps.${STEP_KEYS[step]}`)}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -279,12 +282,12 @@ export default function NewChildPage() {
                   <div className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="last_name">Nom</Label>
+                        <Label htmlFor="last_name">{t('fields.lastName')}</Label>
                         <Input id="last_name" {...register('last_name')} aria-invalid={!!errors.last_name} />
                         {errors.last_name && <p className="text-sm text-destructive">{errors.last_name.message}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="first_names">Prénoms</Label>
+                        <Label htmlFor="first_names">{t('fields.firstNames')}</Label>
                         <Input id="first_names" {...register('first_names')} aria-invalid={!!errors.first_names} />
                         {errors.first_names && <p className="text-sm text-destructive">{errors.first_names.message}</p>}
                       </div>
@@ -292,26 +295,26 @@ export default function NewChildPage() {
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="birth_date">Date de naissance</Label>
+                        <Label htmlFor="birth_date">{t('fields.birthDate')}</Label>
                         <Input id="birth_date" type="date" {...register('birth_date')} aria-invalid={!!errors.birth_date} />
                         {errors.birth_date && <p className="text-sm text-destructive">{errors.birth_date.message}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="admission_date">Date d&apos;admission</Label>
+                        <Label htmlFor="admission_date">{t('fields.admissionDate')}</Label>
                         <Input id="admission_date" type="date" {...register('admission_date')} aria-invalid={!!errors.admission_date} />
                         {errors.admission_date && <p className="text-sm text-destructive">{errors.admission_date.message}</p>}
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="residence_address">Adresse de résidence</Label>
+                      <Label htmlFor="residence_address">{t('fields.address')}</Label>
                       <Input id="residence_address" {...register('residence_address')} aria-invalid={!!errors.residence_address} />
                       {errors.residence_address && <p className="text-sm text-destructive">{errors.residence_address.message}</p>}
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="department_id">Département (optionnel)</Label>
+                        <Label htmlFor="department_id">{t('fields.department')}</Label>
                         <Controller
                           control={control}
                           name="department_id"
@@ -334,7 +337,7 @@ export default function NewChildPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="section_id">Section (optionnelle)</Label>
+                        <Label htmlFor="section_id">{t('fields.section')}</Label>
                         <Controller
                           control={control}
                           name="section_id"
@@ -361,11 +364,11 @@ export default function NewChildPage() {
                     <Separator />
 
                     <div className="space-y-2">
-                      <Label htmlFor="behavioral_notes">Notes comportementales (optionnel)</Label>
+                      <Label htmlFor="behavioral_notes">{t('fields.behavioralNotes')}</Label>
                       <Textarea id="behavioral_notes" rows={2} {...register('behavioral_notes')} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="preferences">Préférences (optionnel)</Label>
+                      <Label htmlFor="preferences">{t('fields.preferences')}</Label>
                       <Textarea id="preferences" rows={2} {...register('preferences')} />
                     </div>
                   </div>
@@ -374,24 +377,24 @@ export default function NewChildPage() {
                 {step === 1 && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="medical_notes">Notes médicales</Label>
+                      <Label htmlFor="medical_notes">{t('fields.medicalNotes')}</Label>
                       <Textarea id="medical_notes" rows={2} {...register('medical_notes')} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="dietary_restrictions">Restrictions alimentaires</Label>
+                      <Label htmlFor="dietary_restrictions">{t('fields.dietaryRestrictions')}</Label>
                       <Textarea id="dietary_restrictions" rows={2} {...register('dietary_restrictions')} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="medications">Médicaments</Label>
+                      <Label htmlFor="medications">{t('fields.medications')}</Label>
                       <Textarea id="medications" rows={2} {...register('medications')} />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="doctor_name">Médecin traitant</Label>
+                        <Label htmlFor="doctor_name">{t('fields.doctorName')}</Label>
                         <Input id="doctor_name" {...register('doctor_name')} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="doctor_phone">Téléphone du médecin</Label>
+                        <Label htmlFor="doctor_phone">{t('fields.doctorPhone')}</Label>
                         <Input id="doctor_phone" {...register('doctor_phone')} />
                       </div>
                     </div>
@@ -402,7 +405,7 @@ export default function NewChildPage() {
                   <div className="space-y-6">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold">Tuteurs</h3>
+                        <h3 className="text-sm font-semibold">{t('form.guardiansHeading')}</h3>
                         <Button
                           type="button"
                           variant="outline"
@@ -410,7 +413,7 @@ export default function NewChildPage() {
                           onClick={() => guardianFields.append({ last_name: '', first_names: '', phone: '', email: '' })}
                         >
                           <Plus className="mr-1.5 size-4" />
-                          Ajouter un tuteur
+                          {t('form.addGuardian')}
                         </Button>
                       </div>
                       {errors.guardians?.message && (
@@ -420,14 +423,14 @@ export default function NewChildPage() {
                         {guardianFields.fields.map((field, index) => (
                           <div key={field.id} className="space-y-3 rounded-md border border-border p-3">
                             <div className="flex items-center justify-between">
-                              <p className="text-xs font-medium text-muted-foreground">Tuteur {index + 1}</p>
+                              <p className="text-xs font-medium text-muted-foreground">{t('form.guardianN', { n: index + 1 })}</p>
                               {guardianFields.fields.length > 1 && (
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="icon-sm"
                                   onClick={() => guardianFields.remove(index)}
-                                  aria-label={`Retirer le tuteur ${index + 1}`}
+                                  aria-label={t('form.removeGuardian', { n: index + 1 })}
                                 >
                                   <Trash2 className="size-4 text-destructive" />
                                 </Button>
@@ -435,14 +438,14 @@ export default function NewChildPage() {
                             </div>
                             <div className="grid gap-3 sm:grid-cols-2">
                               <div className="space-y-1.5">
-                                <Label htmlFor={`guardians.${index}.last_name`}>Nom</Label>
+                                <Label htmlFor={`guardians.${index}.last_name`}>{t('fields.lastName')}</Label>
                                 <Input id={`guardians.${index}.last_name`} {...register(`guardians.${index}.last_name`)} />
                                 {errors.guardians?.[index]?.last_name && (
                                   <p className="text-sm text-destructive">{errors.guardians[index]?.last_name?.message}</p>
                                 )}
                               </div>
                               <div className="space-y-1.5">
-                                <Label htmlFor={`guardians.${index}.first_names`}>Prénoms</Label>
+                                <Label htmlFor={`guardians.${index}.first_names`}>{t('fields.firstNames')}</Label>
                                 <Input id={`guardians.${index}.first_names`} {...register(`guardians.${index}.first_names`)} />
                                 {errors.guardians?.[index]?.first_names && (
                                   <p className="text-sm text-destructive">{errors.guardians[index]?.first_names?.message}</p>
@@ -451,14 +454,14 @@ export default function NewChildPage() {
                             </div>
                             <div className="grid gap-3 sm:grid-cols-2">
                               <div className="space-y-1.5">
-                                <Label htmlFor={`guardians.${index}.phone`}>Téléphone</Label>
+                                <Label htmlFor={`guardians.${index}.phone`}>{t('fields.phone')}</Label>
                                 <Input id={`guardians.${index}.phone`} {...register(`guardians.${index}.phone`)} />
                                 {errors.guardians?.[index]?.phone && (
                                   <p className="text-sm text-destructive">{errors.guardians[index]?.phone?.message}</p>
                                 )}
                               </div>
                               <div className="space-y-1.5">
-                                <Label htmlFor={`guardians.${index}.email`}>Email (optionnel)</Label>
+                                <Label htmlFor={`guardians.${index}.email`}>{t('fields.email')}</Label>
                                 <Input id={`guardians.${index}.email`} type="email" {...register(`guardians.${index}.email`)} />
                                 {errors.guardians?.[index]?.email && (
                                   <p className="text-sm text-destructive">{errors.guardians[index]?.email?.message}</p>
@@ -472,7 +475,7 @@ export default function NewChildPage() {
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold">Personnes autorisées (optionnel)</h3>
+                        <h3 className="text-sm font-semibold">{t('form.authorizedHeading')}</h3>
                         <Button
                           type="button"
                           variant="outline"
@@ -480,34 +483,34 @@ export default function NewChildPage() {
                           onClick={() => authorizedFields.append({ last_name: '', first_names: '', phone: '' })}
                         >
                           <Plus className="mr-1.5 size-4" />
-                          Ajouter
+                          {t('form.add')}
                         </Button>
                       </div>
                       <div className="space-y-4">
                         {authorizedFields.fields.map((field, index) => (
                           <div key={field.id} className="space-y-3 rounded-md border border-border p-3">
                             <div className="flex items-center justify-between">
-                              <p className="text-xs font-medium text-muted-foreground">Personne {index + 1}</p>
+                              <p className="text-xs font-medium text-muted-foreground">{t('form.personN', { n: index + 1 })}</p>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={() => authorizedFields.remove(index)}
-                                aria-label={`Retirer la personne ${index + 1}`}
+                                aria-label={t('form.removePerson', { n: index + 1 })}
                               >
                                 <Trash2 className="size-4 text-destructive" />
                               </Button>
                             </div>
                             <div className="grid gap-3 sm:grid-cols-2">
                               <div className="space-y-1.5">
-                                <Label htmlFor={`authorized_persons.${index}.last_name`}>Nom</Label>
+                                <Label htmlFor={`authorized_persons.${index}.last_name`}>{t('fields.lastName')}</Label>
                                 <Input id={`authorized_persons.${index}.last_name`} {...register(`authorized_persons.${index}.last_name`)} />
                                 {errors.authorized_persons?.[index]?.last_name && (
                                   <p className="text-sm text-destructive">{errors.authorized_persons[index]?.last_name?.message}</p>
                                 )}
                               </div>
                               <div className="space-y-1.5">
-                                <Label htmlFor={`authorized_persons.${index}.first_names`}>Prénoms</Label>
+                                <Label htmlFor={`authorized_persons.${index}.first_names`}>{t('fields.firstNames')}</Label>
                                 <Input id={`authorized_persons.${index}.first_names`} {...register(`authorized_persons.${index}.first_names`)} />
                                 {errors.authorized_persons?.[index]?.first_names && (
                                   <p className="text-sm text-destructive">{errors.authorized_persons[index]?.first_names?.message}</p>
@@ -515,7 +518,7 @@ export default function NewChildPage() {
                               </div>
                             </div>
                             <div className="space-y-1.5">
-                              <Label htmlFor={`authorized_persons.${index}.phone`}>Téléphone</Label>
+                              <Label htmlFor={`authorized_persons.${index}.phone`}>{t('fields.phone')}</Label>
                               <Input id={`authorized_persons.${index}.phone`} {...register(`authorized_persons.${index}.phone`)} />
                               {errors.authorized_persons?.[index]?.phone && (
                                 <p className="text-sm text-destructive">{errors.authorized_persons[index]?.phone?.message}</p>
@@ -533,7 +536,7 @@ export default function NewChildPage() {
                     <div className="rounded-md border border-dashed border-border p-6 text-center">
                       <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
                       <Label htmlFor="documents" className="cursor-pointer text-sm font-medium text-primary">
-                        Choisir des fichiers
+                        {t('form.chooseFiles')}
                       </Label>
                       <input
                         id="documents"
@@ -580,36 +583,36 @@ export default function NewChildPage() {
                 {step === 4 && (
                   <div className="space-y-5">
                     <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">Informations de base</h3>
+                      <h3 className="text-sm font-semibold">{t('form.steps.basic')}</h3>
                       <div className="grid gap-x-4 gap-y-1.5 rounded-md border border-border p-3 text-sm sm:grid-cols-2">
-                        <p><span className="text-muted-foreground">Nom : </span>{values.last_name || '—'}</p>
-                        <p><span className="text-muted-foreground">Prénoms : </span>{values.first_names || '—'}</p>
-                        <p><span className="text-muted-foreground">Naissance : </span>{formatDate(values.birth_date)}</p>
-                        <p><span className="text-muted-foreground">Admission : </span>{formatDate(values.admission_date)}</p>
-                        <p className="sm:col-span-2"><span className="text-muted-foreground">Adresse : </span>{values.residence_address || '—'}</p>
-                        <p><span className="text-muted-foreground">Département : </span>{departmentName(values.department_id ?? '') ?? '—'}</p>
-                        <p><span className="text-muted-foreground">Section : </span>{sectionName(values.section_id ?? '') ?? '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.lastName')} </span>{values.last_name || '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.firstNames')} </span>{values.first_names || '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.birth')} </span>{formatDate(values.birth_date)}</p>
+                        <p><span className="text-muted-foreground">{t('summary.admission')} </span>{formatDate(values.admission_date)}</p>
+                        <p className="sm:col-span-2"><span className="text-muted-foreground">{t('summary.address')} </span>{values.residence_address || '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.department')} </span>{departmentName(values.department_id ?? '') ?? '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.section')} </span>{sectionName(values.section_id ?? '') ?? '—'}</p>
                         {values.behavioral_notes && (
-                          <p className="sm:col-span-2"><span className="text-muted-foreground">Notes comportementales : </span>{values.behavioral_notes}</p>
+                          <p className="sm:col-span-2"><span className="text-muted-foreground">{t('summary.behavioralNotes')} </span>{values.behavioral_notes}</p>
                         )}
                         {values.preferences && (
-                          <p className="sm:col-span-2"><span className="text-muted-foreground">Préférences : </span>{values.preferences}</p>
+                          <p className="sm:col-span-2"><span className="text-muted-foreground">{t('summary.preferences')} </span>{values.preferences}</p>
                         )}
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">Médical</h3>
+                      <h3 className="text-sm font-semibold">{t('form.steps.medical')}</h3>
                       <div className="space-y-1.5 rounded-md border border-border p-3 text-sm">
-                        <p><span className="text-muted-foreground">Notes médicales : </span>{values.medical_notes || '—'}</p>
-                        <p><span className="text-muted-foreground">Restrictions alimentaires : </span>{values.dietary_restrictions || '—'}</p>
-                        <p><span className="text-muted-foreground">Médicaments : </span>{values.medications || '—'}</p>
-                        <p><span className="text-muted-foreground">Médecin : </span>{values.doctor_name || '—'} {values.doctor_phone && `(${values.doctor_phone})`}</p>
+                        <p><span className="text-muted-foreground">{t('summary.medicalNotes')} </span>{values.medical_notes || '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.dietaryRestrictions')} </span>{values.dietary_restrictions || '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.medications')} </span>{values.medications || '—'}</p>
+                        <p><span className="text-muted-foreground">{t('summary.doctor')} </span>{values.doctor_name || '—'} {values.doctor_phone && `(${values.doctor_phone})`}</p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">Tuteurs ({values.guardians.length})</h3>
+                      <h3 className="text-sm font-semibold">{t('summary.guardiansCount', { count: values.guardians.length })}</h3>
                       <div className="space-y-2">
                         {values.guardians.map((g, i) => (
                           <div key={i} className="rounded-md border border-border p-3 text-sm">
@@ -622,7 +625,7 @@ export default function NewChildPage() {
 
                     {values.authorized_persons.length > 0 && (
                       <div className="space-y-2">
-                        <h3 className="text-sm font-semibold">Personnes autorisées ({values.authorized_persons.length})</h3>
+                        <h3 className="text-sm font-semibold">{t('summary.personsCount', { count: values.authorized_persons.length })}</h3>
                         <div className="space-y-2">
                           {values.authorized_persons.map((p, i) => (
                             <div key={i} className="rounded-md border border-border p-3 text-sm">
@@ -635,9 +638,9 @@ export default function NewChildPage() {
                     )}
 
                     <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">Documents ({documents.length})</h3>
+                      <h3 className="text-sm font-semibold">{t('summary.documentsCount', { count: documents.length })}</h3>
                       {documents.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Aucun document sélectionné.</p>
+                        <p className="text-sm text-muted-foreground">{t('form.noDocument')}</p>
                       ) : (
                         <ul className="space-y-1 text-sm text-muted-foreground">
                           {documents.map((f, i) => <li key={i}>{f.name}</li>)}
@@ -652,12 +655,12 @@ export default function NewChildPage() {
             <div className="mt-6 flex justify-between border-t border-border pt-4">
               <Button type="button" variant="outline" onClick={goPrev} disabled={step === 0}>
                 <ArrowLeft className="mr-1.5 size-4" />
-                Précédent
+                {t('form.previous')}
               </Button>
 
-              {step < STEPS.length - 1 ? (
+              {step < STEP_KEYS.length - 1 ? (
                 <Button key="next" type="button" onClick={goNext}>
-                  Suivant
+                  {t('form.next')}
                   <ArrowRight className="ml-1.5 size-4" />
                 </Button>
               ) : (
@@ -668,8 +671,8 @@ export default function NewChildPage() {
                   onClick={handleSubmit(onSubmit, onInvalid)}
                 >
                   {isSubmitting
-                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> Création...</>
-                    : 'Créer la fiche'}
+                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('form.submitting')}</>
+                    : t('form.submit')}
                 </Button>
               )}
             </div>

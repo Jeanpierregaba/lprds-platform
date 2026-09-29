@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -51,6 +53,7 @@ function downloadBlob(blob: Blob, fallbackName: string, disposition?: string) {
 }
 
 export default function ChildrenListPage() {
+  const t = useTranslations('children')
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -150,8 +153,8 @@ export default function ChildrenListPage() {
   return (
     <PageMotion className="space-y-6">
       <PageHeader
-        title="Enfants"
-        description="Gérer les fiches des enfants de votre établissement."
+        title={t('list.title')}
+        description={t('list.description')}
         actions={
           <>
             <input
@@ -164,23 +167,23 @@ export default function ChildrenListPage() {
             {canWrite && (
             <Button type="button" variant="outline" onClick={downloadTemplate} disabled={loadingTemplate}>
               {loadingTemplate ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileSpreadsheet className="mr-1.5 size-4" />}
-              Modèle
+              {t('list.template')}
             </Button>
             )}
             <Button type="button" variant="outline" onClick={exportChildren} disabled={exporting}>
               {exporting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
-              Exporter
+              {t('list.export')}
             </Button>
             {canWrite && (
             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
               {importing ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <FileUp className="mr-1.5 size-4" />}
-              Importer
+              {t('list.import')}
             </Button>
             )}
             {canWrite && (
             <Button render={<Link href="/dashboard/admin/children/new" />}>
               <Plus className="mr-1.5 size-4" />
-              Nouvelle fiche
+              {t('list.new')}
             </Button>
             )}
           </>
@@ -189,35 +192,35 @@ export default function ChildrenListPage() {
 
       <div className="flex flex-wrap items-center gap-4">
         <SearchInput
-          placeholder="Rechercher par nom, prénoms ou matricule..."
+          placeholder={t('list.search')}
           value={search}
           onChange={setSearch}
         />
         <Select
-          items={{ [ALL]: 'Tous les départements', ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
+          items={{ [ALL]: t('list.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
           value={departmentId}
           onValueChange={(v) => setDepartmentId(v ?? ALL)}
         >
           <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Tous les départements" />
+            <SelectValue placeholder={t('list.allDepartments')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tous les départements</SelectItem>
+            <SelectItem value={ALL}>{t('list.allDepartments')}</SelectItem>
             {departments?.map((d) => (
               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select
-          items={{ [ALL]: 'Toutes les sections', ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
+          items={{ [ALL]: t('list.allSections'), ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
           value={sectionId}
           onValueChange={(v) => setSectionId(v ?? ALL)}
         >
           <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Toutes les sections" />
+            <SelectValue placeholder={t('list.allSections')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Toutes les sections</SelectItem>
+            <SelectItem value={ALL}>{t('list.allSections')}</SelectItem>
             {sections?.map((s) => (
               <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
             ))}
@@ -227,7 +230,7 @@ export default function ChildrenListPage() {
           id="include-inactive"
           checked={includeInactive}
           onCheckedChange={setIncludeInactive}
-          label="Inclure les fiches inactives"
+          label={t('list.includeInactive')}
         />
 
         <ViewToggle view={view} onChange={setView} />
@@ -242,12 +245,12 @@ export default function ChildrenListPage() {
       ) : (
       <DataTable>
         <DataTableHead>
-          <Th>Matricule</Th>
-          <Th>Nom</Th>
-          <Th>Naissance</Th>
-          <Th>Département</Th>
-          <Th>Section</Th>
-          <Th>Statut</Th>
+          <Th>{t('list.columns.matricule')}</Th>
+          <Th>{t('list.columns.name')}</Th>
+          <Th>{t('list.columns.birth')}</Th>
+          <Th>{t('list.columns.department')}</Th>
+          <Th>{t('list.columns.section')}</Th>
+          <Th>{t('list.columns.status')}</Th>
         </DataTableHead>
         <TableBody>
           {isLoading ? (
@@ -262,17 +265,17 @@ export default function ChildrenListPage() {
                     <Baby className="size-5" />
                   </div>
                   <p className="font-medium text-foreground">
-                    {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucune fiche enfant pour le moment.'}
+                    {debouncedSearch ? t('list.emptySearch') : t('list.empty')}
                   </p>
                   <p className="max-w-sm text-sm">
                     {debouncedSearch
-                      ? 'Essayez un autre nom, prénom ou matricule.'
-                      : 'Créez la première fiche pour commencer à gérer les enfants.'}
+                      ? t('list.emptySearchHint')
+                      : t('list.emptyHint')}
                   </p>
                   {!debouncedSearch && canWrite && (
                     <Button render={<Link href="/dashboard/admin/children/new" />} size="sm" className="mt-1">
                       <Plus className="mr-1.5 size-4" />
-                      Nouvelle fiche
+                      {t('list.new')}
                     </Button>
                   )}
                 </div>
@@ -319,7 +322,7 @@ export default function ChildrenListPage() {
       )}
 
       <ListPagination
-        label={<>{total} enfant{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        label={<>{t('list.count', { count: total })} {isFetching && !isLoading && t('list.refreshing')}</>}
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}
@@ -329,10 +332,13 @@ export default function ChildrenListPage() {
       <Dialog open={!!importReport} onOpenChange={(open) => !open && setImportReport(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Import des fiches enfants</DialogTitle>
+            <DialogTitle>{t('import.title')}</DialogTitle>
             <DialogDescription>
-              {importReport?.crees ?? 0} créée(s) · {importReport?.mis_a_jour ?? 0} mise(s) à jour ·{' '}
-              {importReport?.rejetees ?? 0} rejetée(s)
+              {t('import.summary', {
+                created: importReport?.crees ?? 0,
+                updated: importReport?.mis_a_jour ?? 0,
+                rejected: importReport?.rejetees ?? 0,
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
@@ -346,7 +352,7 @@ export default function ChildrenListPage() {
                     >
                       {row.statut}
                     </Badge>
-                    <span className="text-muted-foreground">Ligne {row.ligne}</span>
+                    <span className="text-muted-foreground">{t('import.line', { n: row.ligne })}</span>
                     {row.matricule && <span className="font-mono text-xs">{row.matricule}</span>}
                   </div>
                   {row.erreur && <p className="mt-1 text-destructive">{row.erreur}</p>}
@@ -356,7 +362,7 @@ export default function ChildrenListPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground">Aucune ligne traitée.</p>
+              <p className="text-muted-foreground">{t('import.noRows')}</p>
             )}
           </div>
         </DialogContent>
@@ -368,6 +374,7 @@ export default function ChildrenListPage() {
 function ChildrenCardGrid({
   items, isLoading, hasSearch,
 }: { items: ChildListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  const t = useTranslations('children')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canArchive = user?.role === 'admin' || permissions.has('children:archive')
@@ -381,7 +388,7 @@ function ChildrenCardGrid({
     return (
       <CardsEmptyState
         icon={Baby}
-        title={hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucune fiche enfant pour le moment.'}
+        title={hasSearch ? t('list.emptySearch') : t('list.empty')}
       />
     )
   }
@@ -397,19 +404,27 @@ function ChildrenCardGrid({
   )
 }
 
-function childAgeLabel(birthIso: string): string {
+/** Âge lisible. Les accords (« 1 an » / « 2 ans ») passent par les règles de
+ *  pluriel ICU du catalogue : elles diffèrent d'une langue à l'autre et n'ont
+ *  rien à faire dans le code. */
+function childAgeLabel(
+  birthIso: string,
+  t: (k: string, v?: Record<string, string | number | Date>) => string,
+): string {
   const birth = new Date(birthIso)
   const now = new Date()
   let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
   if (now.getDate() < birth.getDate()) months -= 1
   if (months < 1) {
     const days = Math.max(0, Math.floor((now.getTime() - birth.getTime()) / 86400000))
-    return `${days} jour${days > 1 ? 's' : ''}`
+    return t('card.ageDays', { count: days })
   }
   const years = Math.floor(months / 12)
   const rest = months % 12
-  if (years === 0) return `${months} mois`
-  return rest === 0 ? `${years} an${years > 1 ? 's' : ''}` : `${years} an${years > 1 ? 's' : ''} ${rest} mois`
+  if (years === 0) return t('card.ageMonths', { count: months })
+  return rest === 0
+    ? t('card.ageYears', { count: years })
+    : t('card.ageYearsMonths', { years, months: rest })
 }
 
 function ChildCard({
@@ -419,6 +434,7 @@ function ChildCard({
   canArchive: boolean
   canQr: boolean
 }) {
+  const t = useTranslations('children')
   const queryClient = useQueryClient()
   const detailHref = `/dashboard/admin/children/${child.id}`
   const [qrOpen, setQrOpen] = useState(false)
@@ -427,7 +443,7 @@ function ChildCard({
   const toggleMutation = useMutation({
     mutationFn: () => childrenApi.setStatus(child.id, !child.is_active),
     onSuccess: () => {
-      toast.success(child.is_active ? 'Fiche désactivée.' : 'Fiche réactivée.')
+      toast.success(child.is_active ? t('status.deactivated') : t('status.reactivated'))
       queryClient.invalidateQueries({ queryKey: ['children'] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -443,7 +459,7 @@ function ChildCard({
     <>
       <ClickableCard
         href={detailHref}
-        label={`Ouvrir la fiche de ${child.first_names} ${child.last_name}`}
+        label={t('card.open', { name: `${child.first_names} ${child.last_name}` })}
         inactive={!child.is_active}
       >
       <CardContent className="space-y-1.5 p-5">
@@ -454,25 +470,25 @@ function ChildCard({
           <StatusPill active={child.is_active} shrink />
         </div>
         <p className="text-sm text-muted-foreground">
-          Code: <span className="font-mono">{child.matricule}</span>
+          {t('card.code')} <span className="font-mono">{child.matricule}</span>
         </p>
         <p className="text-sm">
-          <span className="font-medium">Âge:</span> {childAgeLabel(child.birth_date)}
+          <span className="font-medium">{t('card.age')}</span> {childAgeLabel(child.birth_date, t)}
         </p>
         <p className="text-sm">
-          <span className="font-medium">Section:</span>{' '}
+          <span className="font-medium">{t('card.section')}</span>{' '}
           {child.section?.name ?? child.department?.name ?? '—'}
         </p>
 
         <div className="flex flex-wrap gap-2 pt-3">
           <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/children/${child.id}`} />}>
             <Eye className="mr-1.5 size-4" />
-            Voir
+            {t('card.view')}
           </Button>
           {canQr && (
             <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={(e) => { e.stopPropagation(); setQrOpen(true) }}>
               <QrCode className="mr-1.5 size-4" />
-              QR Code
+              {t('card.qrCode')}
             </Button>
           )}
           {canArchive && (
@@ -483,12 +499,12 @@ function ChildCard({
                 onClick={(e) => { e.stopPropagation(); setConfirmToggle(true) }}
               >
                 <UserX className="mr-1.5 size-4" />
-                Désactiver
+                {t('status.deactivate')}
               </Button>
             ) : (
               <Button variant="outline" size="sm" className="rounded-xl" onClick={(e) => { e.stopPropagation(); toggleMutation.mutate() }} disabled={toggleMutation.isPending}>
                 <UserCheck className="mr-1.5 size-4" />
-                Réactiver
+                {t('status.reactivate')}
               </Button>
             )
           )}
@@ -499,7 +515,7 @@ function ChildCard({
       <QrBadgeDialog
         open={qrOpen}
         onOpenChange={setQrOpen}
-        title={`Badge de ${child.first_names}`}
+        title={t('card.badge', { name: child.first_names })}
         subtitle={child.matricule}
         qrImage={qr?.qr_image}
         loading={loadingQr}
@@ -508,9 +524,9 @@ function ChildCard({
       <ConfirmDialog
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
-        title="Désactiver cette fiche ?"
-        description={`${child.first_names} ${child.last_name} ne comptera plus parmi les enfants actifs (réversible depuis sa fiche).`}
-        confirmLabel="Désactiver"
+        title={t('status.confirmTitle')}
+        description={t('status.confirmBody', { name: `${child.first_names} ${child.last_name}` })}
+        confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)
           toggleMutation.mutate()

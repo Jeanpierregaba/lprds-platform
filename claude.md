@@ -126,6 +126,7 @@ app/
 │   │   ├── schemas.py             # Pydantic v2 I/O schemas (horaires staff + export)
 │   │   ├── service.py             # Scan, calcul présence/retard/absence à la volée, export agrégé
 │   │   ├── export.py              # Rendu PDF (reportlab) + Excel (openpyxl) de l'export présence
+│   │   ├── email.py + templates/  # Enquête d'absence envoyée aux parents (best-effort)
 │   │   └── router.py              # Endpoints HTTP /attendance/*
 │   ├── messaging/                 # ⚠️ HORS RBAC — admin/parent uniquement
 │   │   ├── models.py              # Announcement, AnnouncementRead, Conversation, Message, Attachment
@@ -154,12 +155,20 @@ app/
 │   │   ├── service.py             # Règles lundi/passé, contrôle d'accès historique
 │   │   ├── dependencies.py        # get_establishment_member (lecture ouverte à tous)
 │   │   └── router.py              # Endpoints HTTP /menus/*
-│   └── blog/                      # ⚠️ SEUL module avec un volet public sans authentification
-│       ├── models.py              # BlogTag (libre), Article (draft/published, soft delete), ArticleAttachment
-│       ├── schemas.py             # Schémas gestion (internes) + publics (site vitrine)
-│       ├── service.py             # Workflow publication, soft delete, requêtes publiques scopées establishment_code
-│       ├── router.py              # /blog/* — authentifié, blog:write
-│       └── public_router.py       # /public/blog/* — AUCUNE authentification
+│   ├── blog/                      # ⚠️ SEUL module avec un volet public sans authentification
+│   │   ├── models.py              # BlogTag (libre), Article (draft/published, soft delete), ArticleAttachment
+│   │   ├── schemas.py             # Schémas gestion (internes) + publics (site vitrine)
+│   │   ├── service.py             # Workflow publication, soft delete, requêtes publiques scopées establishment_code
+│   │   ├── router.py              # /blog/* — authentifié, blog:write
+│   │   └── public_router.py       # /public/blog/* — AUCUNE authentification
+│   ├── library/
+│   │   ├── models.py              # Livres, prêts, paramètres bibliothèque
+│   │   ├── schemas.py / service.py / router.py / dependencies.py
+│   │   ├── tasks.py               # Relances des prêts en retard
+│   │   └── email.py + templates/  # Emails de rappel (best-effort)
+│   └── notifications/             # Push Web (PWA Phase 2) — cf. section dédiée
+│       ├── models.py              # PushSubscription
+│       └── schemas.py / service.py / router.py
 └── api/
     └── v1/
         └── router.py              # Agrège tous les modules
@@ -235,8 +244,8 @@ public/
 
 La plateforme est installable comme une application native (mobile/desktop) :
 **manifest**, **service worker** (hors-ligne), **bouton d'installation** et
-**voile hors-ligne**. La **Phase 2 (notifications push Web)** est décidée en
-principe (événements : messagerie + rapports publiés) mais non implémentée.
+**voile hors-ligne**. La **Phase 2 (notifications push Web)** est implémentée — cf. section
+« Phase 2 — Notifications Push (PWA) » en fin de fichier.
 
 - **Manifest** (`src/app/manifest.ts`) : `display: standalone`,
   `theme_color #F5AA2D` (Jaune Soleil), `background_color #FFFFFF`, icônes
@@ -288,9 +297,8 @@ principe (événements : messagerie + rapports publiés) mais non implémentée.
 Test local : `pnpm dev` sur `http://localhost:3000` (contexte sécurisé) →
 DevTools > Application > Manifest / Service Workers ; mode hors-ligne = le
 voile s'affiche et la navigation retombe sur `/offline`. En production, le
-service worker exige HTTPS. *(Phase 2 — notifications push : nécessitera un
-module backend dédié avec abonnements `PushSubscription` + clés VAPID, et des
-endpoints d'enregistrement — pas encore écrit.)*
+service worker exige HTTPS.
+
 
 ---
 
@@ -593,36 +601,69 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 ### Règle d'autorisation — `require_permission(*codes)`
 - **Admin** de l'établissement → autorisé d'office (tous les droits chez lui)
 - **Staff** → autorisé si ses rôles **actifs** portent **toutes** les permissions
-  listées (sémantique AND)
+  listées (sémantique AND — pour un OU, voir le pattern `_read_history` du
+  module Menus ou les portails hors RBAC ci-dessous)
 - **Superadmin** → **refusé** (403). Il gère le SaaS et les établissements, pas
   les données des enfants — minimisation RGPD. C'est volontaire, pas un oubli.
 - **Parent** → refusé (son portail dédié est hors RBAC)
 
 ### Granularité bibliothèque — un geste = une permission
+Le module Bibliothèque applique le principe fin (pas de garde groupée) :
 `GET /books`, `/books/{id}`, `/lendings` → `library:read` ;
 `POST /books`, `PATCH/DELETE /books/{id}` → `library:write` ;
 `POST /lendings`, `/lendings/{id}/return`, `/reminders/run` → `library:lend`.
-Socle « Bibliothécaire » = les 3 (accès complet inchangé). Paramètres
-(`GET/PUT /library/settings`) restent **admin uniquement**. Portails hors
-RBAC : `/mine/*` (parent), `/educator/books` (staff).
+Le rôle socle « Bibliothécaire » porte les 3 (accès complet inchangé) ; un
+rôle partiel (ex. lecture seule) n'ouvre que son geste. Les paramètres
+(`GET/PUT /library/settings`) restent **admin uniquement** (décision testée).
+Portails hors RBAC : `/mine/*` (parent), `/educator/books` (staff).
 
-### Portails hors RBAC (rôle + scope, jamais `require_permission`)
-Messagerie (`get_admin`/`get_parent`, staff exclu) ; socle staff
-(`/children/my-group`, `/attendance/daily/my-group`, `/gallery/my-uploads`,
-`/library/educator/books`) ; portails parent (`/parents/me/children`,
-`/reports/mine/*`, `/gallery/mine`, `/library/mine/*`) ; notifications push
-(self-service, aucune permission `notifications:*`) ; blog public
-(`/public/blog/*`). `POST /auth/users` reste une route legacy sans
-granularité — créer via `POST /staff` / `POST /parents`.
+### Portails hors RBAC (pas de permission, rôle + scope)
+Certains endpoints ne passent jamais par `require_permission`, par décision :
+- **Messagerie** : `get_admin` / `get_parent` uniquement (staff exclu partout).
+- **Socle staff** (`require_roles(STAFF)` seul, scopé au groupe mené) :
+  `GET /children/my-group`, `/attendance/daily/my-group`,
+  `/gallery/my-uploads`, `/library/educator/books`.
+- **Portails parent** : `/parents/me/children`, `/reports/mine/*`,
+  `/gallery/mine`, `/library/mine/*` (`get_parent`).
+- **Notifications push** : self-service (`get_current_user`, ses propres
+  abonnements uniquement) — aucune permission `notifications:*` n'est
+  nécessaire ; `GET /vapid-public-key` est public (clé publique uniquement).
+- **Blog public** : `/public/blog/*` sans authentification (vitrine).
 
-### Gating frontend (masquage, le backend fait foi)
-Codes centraux `PermissionCode` + `PERMISSION_GROUPS` (`types/rbac.ts`) ;
-sélecteur de permissions groupé par module dans la gestion des rôles ;
-`useNavItems()` + cartes `/dashboard/staff` (avec `requireAll`) ;
-`canWrite = admin || permissions.has('...:write')` sur les boutons des pages
-enfants/parents/personnel/organisation/bibliothèque/menus et les onglets
-présences ; garde anti deep-link sur les pages `new` ; galerie staff forcée
-`source=report`.
+### Route legacy — `POST /auth/users`
+Route historique de création d'utilisateurs (`require_roles(SUPERADMIN,
+ADMIN)`), sans granularité `staff:write` / `parents:write`. Créer le
+personnel via `POST /staff` et les parents via `POST /parents` (permissions
+fines). Conservée pour compatibilité, pas pour l'usage courant.
+
+### Gating côté frontend (masquage, jamais une sécurité)
+
+Le backend reste la seule autorité (un staff en deep-link sur une page
+interdite reçoit 403). Le frontend masque pour éviter les impasses :
+
+- **Codes centraux** : `PermissionCode` + `PERMISSION_GROUPS`
+  (`types/rbac.ts`, miroir du backend) — jamais de littéral en dur dans le
+  nouveau code ; le dialogue de création de rôle groupe les permissions par
+  module (avec repli « Autres » pour tout code backend inconnu d'ici).
+- **Navigation staff** : `STAFF_MODULE_ITEMS` (`components/dashboard/nav-items.ts`,
+  `permissions: PermissionCode[]`, `requireAll?`) filtrée dans
+  `useNavItems()` — même logique réutilisée sur `/dashboard/staff`
+  (cartes modules, avec `requireAll` respecté partout).
+- **Pattern de page** : `const canWrite = user?.role === 'admin' ||
+  permissions.has('...:write')` (`useMyPermissions()` — l'admin reçoit tout
+  le catalogue via `GET /rbac/me`, donc le test couvre les deux rôles).
+  Appliqué aux boutons créer/modifier/désactiver des pages enfants, parents,
+  personnel (dont l'onglet « Rôles RBAC », **admin uniquement**), organisation,
+  bibliothèque (write/lend séparés, paramètres admin uniquement), menus
+  (`menus:write` sur les cellules + boutons) et aux onglets présences
+  (dashboard/journal/export → `attendance:read`, QR → `:write`, scanner →
+  `:scan`, onglet par défaut = premier permis).
+- **Pages `new`** (enfants/parents/personnel) : garde anti deep-link —
+  message « Droits insuffisants » au lieu du formulaire.
+- **Galerie staff** : `source` forcée à `report`, sélecteur masqué (la
+  messagerie reste hors RBAC, 403 sinon).
+- **Ne pas gater** : portails parent (`/mine/*`, hors RBAC), socle staff,
+  messagerie (admin/parent par rôle), pages publiques.
 
 ---
 
@@ -726,7 +767,9 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 | Personnes autorisées (0-N) | `authorized_persons[]` : `last_name`, `first_names`, `phone` |
 
 ### Règles métier (invariants)
-- **Au moins 1 tuteur** obligatoire à la création (422 sinon)
+- **Tuteur non obligatoire** : une fiche peut être créée/importée sans tuteur
+  (`guardians=[]` accepté — règle assouplie sur demande : les lignes d'import
+  sans tuteur créent la fiche au lieu d'être rejetées)
 - **Dates cohérentes** : naissance non future, admission ≥ naissance — vérifié
   aussi au PATCH partiel (en recroisant avec les valeurs déjà en base)
 - **Département / section doivent appartenir au même établissement** (404 sinon).
@@ -745,6 +788,48 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 - **Parents/tuteurs = fiches de contact**, sans compte de connexion. La colonne
   `guardians.user_id` (nullable) est prévue pour brancher un compte le jour où le
   portail parent arrivera — sans migration de schéma.
+
+### Import one-shot depuis l'export legacy (`backend/scripts/import_children.py`)
+
+Script CLI de migration unique (jamais d'endpoint API pour ça — pas de surface
+d'attaque permanente). Chaque ligne passe par `create_child` (+ `set_child_status`
+si `inactive`) : matricules générés par `children/matricule.py`, validations
+Pydantic natives, rattachement département/section vérifié. **Dry-run par défaut**,
+`--apply` pour écrire ; rapport CSV systématique (`legacy_id → OK + matricule /
+REJETÉE + motif / avertissements`) + `--resume-from-report` (les doublons se
+créent quand même par décision produit : la reprise évite le double import).
+
+Mapping legacy (72 lignes testées : 71 OK, 1 rejetée sur dates incohérentes) :
+`first_name/last_name`, dates ISO, `address` (vide → mention par défaut +
+avertissement), `status` active/inactive, `section` (slug → `--section-map` puis
+repli nom exact, inconnu → NULL + avertissement ; `department_id` dérivé de la
+section), `emergency_contacts_detailed` (JSON : `parent`/`guardian` → `guardians[]`
+dédupliqués par téléphone puis fusion même-nom-tél-différent avec avertissement ;
+autres + `is_pickup_authorized` → `authorized_persons[]` ; autres non autorisés
+ignorés car aucun champ ne les porte), `medical_info_detailed` + `medical_info` +
+`special_needs` → champs médicaux, `dietary_restrictions`/`behavioral_notes`/
+`preferences` homonymes (`"[]"` = vide), `usual_name` → préfixé à
+`behavioral_notes` si non inclus dans `first_names`. Emails invalides → `None` +
+avertissement (jamais de rejet) ; téléphone > 20 car. → 1er segment avant `/` +
+avertissement, sinon rejet.
+
+**Colonnes ignorées** (`IGNORED_COLUMNS` dans le script) : `id`/`created_at`/
+`updated_at` (régénérés), `code_qr_id` (QR legacy — nos QR d'attendance dérivent
+des IDs internes, jamais du matricule), `group_id`/`assigned_educator_id` (IDs
+legacy — assignation aux groupes après coup via `/groups/...`), `photo_url`
+(aucun fichier), `administrative_documents`/`dietary_restrictions`/
+`medical_history`/`allergies`/`special_needs` plats (vides dans l'export),
+`emergency_contacts` plat (vide — seul le JSON est lu).
+
+Garde-fous : vérification `to_regclass` du schéma effectif avant toute écriture
+(sans elle, un `DB_SCHEMA` sans migrations ferait retomber les écritures sur
+`public` — piège vécu en test) ; CSV **jamais versionné** (`**/children_rows*.csv`
+au `.gitignore`, données RGPD).
+
+Runbook VPS : backup `pg_dump` → `scp` + `docker cp` du CSV → `docker compose exec
+backend python scripts/import_children.py --csv /tmp/... --establishment-code
+LPRDS` (dry-run d'abord, `--apply` ensuite) → récupérer le rapport (`docker cp`)
+→ supprimer les CSV (conteneur + VPS). Détail complet dans le docstring du script.
 
 ---
 
@@ -894,6 +979,18 @@ volée** (`attendance/service.py`) à partir des événements du jour, jamais st
 Avantages : traçabilité complète (qui a scanné, quand), plusieurs scans par jour
 sans rien écraser, aucune désynchronisation possible entre un état et son historique.
 
+**Journée locale de bout en bout** : le bucket « jour » est la journée
+[00:00, 24:00) **dans le fuseau configuré** de l'établissement (convertie en
+UTC avec DST via `_local_day_bounds`), jamais minuit UTC — dashboards, journal,
+export et `verify` partagent ce découpage. Les heures affichées (export,
+dashboards) sont converties dans ce fuseau (`_to_local`) ; les réponses
+dashboards/journal exposent `timezone` pour que le frontend affiche la même
+heure que celle qui a décidé du retard.
+
+**Anti-rebond au scan** : même personne + même geste dans les 60 dernières
+secondes → **409** (double-clic ou badge présenté 2 fois) — un geste différent
+reste accepté aussitôt.
+
 Deux contraintes **CHECK** en base (pas seulement applicatives) :
 - exactement une des deux FK (`child_id` / `staff_id`) est renseignée, cohérente
   avec `person_type`
@@ -910,6 +1007,12 @@ parent ou le personnel au scan (arrivée comme départ). Le contenu doit donc ê
   `SECRET_KEY` — pas de nouvelle variable d'env), **pas seulement signé**. Un
   simple token signé (type `itsdangerous`) reste décodable en base64 par
   n'importe qui ; ici le contenu est réellement opaque.
+- **Versionnage + rotation sans casse** : jetons préfixés `v1:` (anciens jetons
+  sans préfixe toujours acceptés) ; `QR_KEY_PREVIOUS` (ancienne valeur de
+  `SECRET_KEY`, cf. `.env.example`) garde les anciens badges lisibles pendant
+  la réimpression — sans elle, toute rotation invalide tout d'un coup.
+- Les endpoints QR renvoient `Cache-Control: private, max-age=3600` (tout jeton
+  émis reste valide, inutile de régénérer l'image à chaque affichage).
 - Le payload n'encode **jamais le matricule**, ni même en clair le type de
   personne — seulement `{type, id interne}` chiffré. Même en cas de faiblesse
   cryptographique hypothétique, le pire qui fuiterait est un UUID interne,
@@ -934,6 +1037,9 @@ GET  /api/v1/attendance/qrcode/child/{id}         # Jeton chiffré + image PNG (
 GET  /api/v1/attendance/qrcode/staff/{id}         # Jeton chiffré + image PNG (attendance:write)
 POST /api/v1/attendance/scan/verify               # Valide un QR + état du jour, sans écrire (attendance:scan)
 POST /api/v1/attendance/scan                      # Enregistre un scan (attendance:scan)
+POST /api/v1/attendance/absent-notifications     # Enquête manuelle d'absence (attendance:write) — ?date= (défaut aujourd'hui, jamais future), ?department_id= &section_id= : email + message conversation aux COMPTES PARENTS assignés aux enfants absents (aucune arrivée), pour connaître le motif. Anti-doublon journalier par enfant (Redis 48 h) : un second clic ne touche que les nouveaux absents. `child_id` = relance individuelle (renvoi forcé, 404 hors établissement, 422 si non absent). Best-effort double canal (comme les rappels biblio). Réponse : total_absent, notified (email_sent/message_sent par parent), skipped_no_parent, already_notified
+POST /api/v1/attendance/events/manual             # Saisie manuelle arrivée/départ (attendance:write)
+PATCH /api/v1/attendance/events/{event_id}        # Rectifie l'heure d'une ligne (attendance:write)
 GET  /api/v1/attendance/events                    # Journal (attendance:read)
 GET  /api/v1/attendance/daily/children            # ?date= &department_id= &section_id=
 GET  /api/v1/attendance/daily/staff                # ?date=
@@ -943,8 +1049,16 @@ GET  /api/v1/attendance/settings/exempt-staff                        # ?exempt_o
 PATCH /api/v1/attendance/settings/exempt-staff/{staff_id}
 GET  /PUT /DELETE /api/v1/attendance/settings/staff/{staff_id}       # horaire personnalisé staff
 GET  /api/v1/attendance/export                      # ?format=&person_type=&date_from=&date_to=
-                                                    #  &department_id=&section_id=
+                                                    #  &department_id=&section_id=&child_id=&staff_id=
 ```
+
+Export agrégé PDF/Excel (statut par personne × jour, max 366 jours) :
+`child_id` / `staff_id` (exclusifs, 422 sinon) restreignent à UNE personne
+précise — 404 si hors établissement — et priment sur `person_type` /
+département / section (le nom de fichier suit le périmètre effectif).
+Heures affichées en heure locale établissement, extension `.xlsx` (l'enum API
+reste `excel`), textes échappés pour le PDF, et **périmètre complet** : les
+inactifs ayant scanné dans la période sont inclus (avec les mêmes filtres).
 
 ### Scan en deux temps — `verify` puis `scan`
 
@@ -971,6 +1085,32 @@ déjà 422 une cantine pour un enfant et un accompagnateur pour un staff. Le
 présenter le bon geste avant d'écrire. La vérification n'écrit **jamais**
 d'événement (append-only préservé).
 
+### Correction manuelle — édition directe de la ligne (décision produit)
+
+Le journal reste append-only **pour les scans** (jamais d'UPDATE sur ce chemin),
+mais une heure fausse ou un scan manquant se corrige **en touchant la ligne** —
+décision explicite (alternative « nouvel event manuel avec flag » écartée) :
+
+- `POST /events/manual` (`attendance:write`) : crée une arrivée/départ —
+  cantine aussi pour le staff (seul l'enfant la refuse, 422) — avec
+  `{person_type, child_id|staff_id, event_type, date, time}` —
+  `date`+`time` interprétés dans le **fuseau de l'établissement**, heure future
+  refusée (422, même repère local que la rectification). `scanned_by` =
+  l'auteur de la correction. Mêmes gardes qu'au scan (personne active, pas de
+  cantine enfant, pas d'accompagnateur staff).
+- `PATCH /events/{event_id}` (`attendance:write`) : ne change que `scanned_at`
+  (naïf = fuseau établissement, aware = normalisé, futur local = 422) —
+  **type et personne inchangés**, la cohérence du journal est préservée.
+  **Cohérence temporelle** : arrivée déplacée après le dernier départ du jour
+  (ou départ avant la première arrivée) → 422. 404 inter-établissement.
+- Pas de suppression de ligne : une heure ne s'efface pas, elle se rectifie.
+- Le statut du jour étant calculé à la volée, la correction est **visible
+  immédiatement** (dashboard, export, pré-remplissage des rapports quotidiens).
+- Côté UI (`dashboard-tab.tsx`) : lignes cliquables (admin ou
+  `attendance:write` uniquement — le dashboard reste lisible avec
+  `attendance:read` seul), dialogue arrivée/départ pré-rempli (1re arrivée /
+  dernier départ, même règle que le backend), PATCH si la ligne existe sinon
+  création manuelle, vide = inchangé.
 
 ### Permissions — trois, pas deux
 
@@ -997,8 +1137,8 @@ séparé pour chacun) :
 | Pas d'arrivée, jour ouvré (lun-ven) | `absent` | `null` |
 | Pas d'arrivée, week-end | `not_expected` | `null` |
 | Arrivée, aucun horaire configuré | `present` | `null` (indéterminable) |
-| Arrivée après l'horaire attendu | `late` | écart en minutes |
-| Arrivée dans les temps | `present` | `0` |
+| Arrivée après l'horaire attendu + tolérance | `late` | écart en minutes |
+| Arrivée dans les temps (+ tolérance) | `present` | `0` |
 | **Staff exempté**, pas d'arrivée | `exempt` | `null` |
 | **Staff exempté**, arrivée quand même | calculé normalement | idem |
 
@@ -1007,14 +1147,11 @@ séparé pour chacun) :
 
 > ⚠️ Pas de gestion de calendrier (congés, jours fériés) dans cette version —
 > volontairement simplifié à « jours ouvrés lun-ven ». Un enfant/staff absent un
-> jour férié apparaîtra `absent`. À enrichir si besoin.
+> jour férié apparaîtra `absent`. Calendrier d'exception à trancher avec le
+> métier si besoin (décision produit en suspens, pas un oubli).
 >
-> Le **bucket « jour »** (quels événements comptent pour la date demandée) reste
-> calculé sur une journée UTC 00:00–24:00, mais la **comparaison de retard**
-> (heure d'arrivée vs horaire attendu) est faite dans le **fuseau horaire
-> configuré** de l'établissement (cf. ci-dessous). Un décalage de fuseau proche
-> de minuit peut donc, en théorie, ranger un événement dans le « mauvais » jour
-> côté bucket — cas limite non traité, à corriger si besoin réel.
+> Le bucket « jour » est la journée locale de l'établissement (cf. « Modèle »
+> ci-dessus) — plus de décalage UTC proche de minuit.
 
 ### Paramètres — fuseau horaire + asymétrie enfants/staff assumée
 
@@ -1023,12 +1160,20 @@ Un seul jeu de **paramètres généraux** par établissement
 staff porteur de `attendance:write` :
 
 - **`timezone`** (nom IANA, ex. `Africa/Porto-Novo`) : utilisé pour **les deux**
-  calculs de retard (enfants ET staff). Validé via `zoneinfo` à la saisie (422
+  calculs de retard (enfants ET staff) **et** tout le bucket « jour »
+  (dashboards, journal, export, verify). Validé via `zoneinfo` à la saisie (422
   si le nom n'existe pas). Défaut implicite `UTC` tant que rien n'est configuré.
+  Une valeur corrompue en base lève une 500 explicite (« reconfigurez ») au lieu
+  d'un calcul faux silencieux.
 - **`staff_expected_arrival_time` / `staff_expected_departure_time`** : **un
   seul horaire pour tout le personnel** de l'établissement — pas de découpe par
   département pour le staff (confirmé : *« Tous les personnels ont une même
   heure d'arrivée et de départ »*).
+- **`late_grace_minutes`** (défaut 0 = aucun pardon) : tolérance en minutes
+  avant qu'une arrivée tardive compte « en retard » — enfants comme staff,
+  dashboards comme export. Migration `7ee86cf2ad2a`.
+- Upserts **atomiques** (`ON CONFLICT`) sur les trois réglages : 2 PUT
+  concurrents ne violent plus les contraintes d'unicité en 500.
 
 Les enfants restent différents : horaires **par département**
 (`department_attendance_settings`, 1 ligne par département,
@@ -1043,7 +1188,9 @@ par département).
 
 **Exemption** (`users.attendance_exempt`, colonne sur `User`, défaut `False`) :
 un staff exempté n'est jamais compté `absent` par défaut, géré via
-`/attendance/settings/exempt-staff`.
+`/attendance/settings/exempt-staff` — qui exige un compte **actif** (409
+sinon : un flag sur un inactif serait invisible, la liste ne montrant que les
+actifs).
 
 ### Horaires personnalisés par membre du personnel (table dédiée)
 
@@ -1063,7 +1210,6 @@ par staff) qui **surcharge** l'horaire général pour le calcul de ses retards :
 Priorité dans `get_staff_daily_status` et l'export : **horaire personnalisé
 d'abord, sinon horaire général** (`staff_expected_arrival_time`). Même
 mécanisme de repli pour les jours sans horaire personnalisé.
-
 ### Export agrégé PDF / Excel (`GET /attendance/export`)
 
 Téléchargement d'un état des présences sur une période (`attendance:read`) —
@@ -1084,25 +1230,32 @@ Absent / Non attendu / Exempté) :
   XLSX via **openpyxl** (dépendance ajoutée, `freeze_panes` + filtre auto).
   Générés via `asyncio.to_thread` (pattern `reports/pdf.py`).
 - Réponse : `Content-Disposition: attachment` + nom de fichier
-  `{presences|enfants|personnel}_{date_from}_{date_to}.{pdf|excel}`.
-- Le module n'a **aucune UI** : l'export est consommé côté frontend, qui
-  télécharge le blob et déclenche le téléchargement navigateur.
+  `{presences|enfants|personnel}_{date_from}_{date_to}.{pdf|xlsx}` (suit le
+  périmètre effectif si `child_id`/`staff_id`).
+- `child_id` / `staff_id` (exclusifs, 422 sinon) restreignent à UNE personne
+  (404 hors établissement) et priment sur `person_type`/département/section.
+- Heures affichées en heure locale établissement, textes échappés pour le PDF.
+- Consommé par l'onglet export du frontend, qui télécharge le blob et
+  déclenche le téléchargement navigateur.
 
 ### Isolation
 Toutes les opérations (scan, QR, dashboards, réglages) sont bornées à
 `current_user.establishment_id`. Scanner ou consulter une personne d'un autre
 établissement → **404**, y compris quand le matricule scanné existe réellement
 mais ailleurs (le matricule seul ne suffit pas à identifier une personne hors
-de son établissement).
+de son établissement). Même discipline pour les filtres : `department_id` /
+`section_id` (dashboard), `child_id` / `staff_id` (journal) hors établissement
+→ **404**, jamais un vide silencieux ; `date_from > date_to` (journal) → 422.
 
 ---
 
 ## Module Messagerie (temps réel)
 
-Deux volets : **diffusions** (un admin publie, tous les parents de
-l'établissement voient) et **conversations privées** (une par parent — pas par
-membre du staff : « l'administration » est collective, n'importe quel admin
-peut répondre dans n'importe quelle conversation).
+Deux volets : **diffusions** (un admin publie pour tous les parents de
+l'établissement **ou** pour un à plusieurs départements cochés avant l'envoi)
+et **conversations privées** (une par parent — pas par membre du staff :
+« l'administration » est collective, n'importe quel admin peut répondre dans
+n'importe quelle conversation ; photos ET vidéos acceptées).
 
 ### ⚠️ HORS RBAC — la seule exception du projet
 
@@ -1155,11 +1308,21 @@ Client ← WS (relais transparent) ←──────────── tous 
   s'applique PAS aux WebSocket — Starlette ne le fait qu'sur le scope `http` —
   donc cette vérification est la seule protection d'origine sur ce endpoint).
 - **Rejet = fermeture avant `accept()`** : un jeton invalide/révoqué ou un rôle
-  non éligible (staff/superadmin) ferme la connexion sans l'accepter. Selon le
-  serveur ASGI, ça se traduit soit par un refus HTTP direct du handshake
+  non éligible (staff/superadmin) ferme la connexion sans l'accepter (code
+  `1008`). Côté client : **pas de reconnexion sur 1008** (sinon boucle
+  infinie), backoff exponentiel + jitter sinon (1s→30s), reconnexion immédiate
+  au retour `online`. Selon le serveur ASGI, ça se traduit soit par un refus HTTP direct du handshake
   (`InvalidStatus`, observé avec uvicorn), soit par une fermeture juste après
   (`ConnectionClosed`, code `1008`) — les deux prouvent la même chose : jamais
   de session WS utilisable sans jeton admin/parent valide.
+- **Heartbeat applicatif** : le client envoie `{"type":"ping"}` toutes les 25 s,
+  le serveur répond `{"type":"pong"}` (seul contenu entrant traité, le reste
+  est ignoré) ; sans pong sous 10 s le client force la fermeture → cycle
+  reconnect + resync (détecte les connexions mortes NAT/proxy idle).
+- **Resync au reconnect** : à chaque réouverture après coupure, le client
+  invalide les clés `messaging/*`, `parent/conversation*`,
+  `parent/announcements` — aucun trou permanent (le publish Redis étant
+  best-effort).
 - **Session DB éphémère** : la connexion n'ouvre une session DB QUE pour la
   phase d'authentification (+ get-or-create de la conversation côté parent),
   commit, puis referme — une connexion WS peut vivre des heures, hors de
@@ -1169,6 +1332,33 @@ Client ← WS (relais transparent) ←──────────── tous 
   |---|---|
   | Parent | `messaging:estab:{id}:announcements` + `messaging:conv:{sa_conversation_id}` |
   | Admin | `messaging:estab:{id}:announcements` + `messaging:estab:{id}:admin` (agrégé : tous les messages de toutes les conversations, pour rafraîchir la liste en direct) |
+
+### Notifications à la réception (conversations privées)
+
+- **Push Web au destinataire** (`send_message`, best-effort) : aux admins si
+  l'expéditeur est le parent, au seul parent de la conversation
+  (`parent_ids={...}`) si l'expéditeur est un admin — couvre l'app fermée.
+- **Temps réel applicatif** : `MessagingSocketProvider` est monté dans
+  `dashboard/layout.tsx` (admin/parent uniquement — le serveur rejetterait les
+  autres rôles), plus seulement sur les pages messagerie. `MessagingNotifier`
+  (même niveau) affiche un **toast au destinataire** à chaque message reçu
+  (nom + extrait, silence pour ses propres messages multi-onglets), sauf sur
+  sa page messagerie où le fil est déjà en direct — et invalide les requêtes
+  de compteurs pour garder les pastilles fraîches hors page messagerie.
+- **Pastilles de non-lus** : par conversation côté admin (existait déjà) +
+  sur l'entrée **Messagerie** de la navigation (sidebar + mobile) via
+  `useMessagingUnread()` (somme côté admin, conversation unique côté parent,
+  mêmes clés react-query que les onglets — aucune requête en double).
+  `NavList` accepte `badges: Record<href, count>` (masquées à 0).
+- **Fil de conversation** (`useConversationThread`, partagé admin/parent) :
+  historique paginé vers le haut (`before_id`, ancrage du scroll, pastille
+  « N nouveaux » quand on n'est pas en bas), `MediaPicker` multi-médias
+  (max 15) avec aperçu avant envoi, édition inline de ses messages (fenêtre
+  15 min, mention « modifié »), suppression douce (confirm `AlertDialog`,
+  placeholder « Message supprimé »), retrait de ses pièces jointes (croix),
+  temps réel `message_updated` / `message_deleted` appliqués au cache.
+  `MessageBubble` rend la bulle + menu (survol) dans les deux portails.
+
 
 ### Endpoints REST
 ```
@@ -1188,6 +1378,9 @@ POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/batch   
 DELETE /api/v1/messaging/conversations/me/messages/{msg_id}/attachments/{att_id}       # retrait auteur
 
 GET    /api/v1/messaging/conversations                     # admin — liste, triée par activité
+POST   /api/v1/messaging/conversations                     # admin — ouvre (get-or-create) une conversation
+                                                           #   avec un parent {parent_id, body?} ; body = 1er
+                                                           #   message d'ouverture (optionnel) — 201
 GET    /api/v1/messaging/conversations/{id}/messages       # admin — ?skip= &limit= &before_id=
 POST   /api/v1/messaging/conversations/{id}/messages       # admin — répond « au nom de l'administration »
 POST   /api/v1/messaging/conversations/{id}/read           # admin
@@ -1196,11 +1389,26 @@ DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}          # suppres
 POST   /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/batch        # lot, max 15
 DELETE /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments/{att_id}     # retrait auteur
 
-POST   /api/v1/messaging/announcements/{id}/attachments                     # admin
+POST   /api/v1/messaging/announcements/{id}/attachments                     # admin — 1 média
+POST   /api/v1/messaging/announcements/{id}/attachments/batch               # admin — lot (tout ou rien)
 POST   /api/v1/messaging/conversations/me/messages/{msg_id}/attachments     # parent
 POST   /api/v1/messaging/conversations/{id}/messages/{msg_id}/attachments   # admin
 GET    /api/v1/messaging/attachments/{id}                                   # admin ou parent — téléchargement
 ```
+
+### Diffusions — médias multiples (max 15, photos/vidéos/PDF)
+
+Une diffusion peut porter jusqu'à **`MAX_ANNOUNCEMENT_ATTACHMENTS = 15`**
+médias, quota imposé à l'upload unitaire comme en lot (**409** au-delà).
+L'envoi en lot (`POST .../attachments/batch`, champ multipart `files`) est
+**tout ou rien** : tous les fichiers sont lus et validés avant toute écriture
+— un fichier invalide ou le dépassement du quota rejette le lot entier, sans
+envoi partiel. Un événement temps réel `announcement_attachment` est publié
+par pièce jointe (même contrat que l'unitaire). Depuis cette évolution, la
+**vidéo est acceptée en diffusion** comme dans les conversations (plafond
+`MESSAGING_MAX_VIDEO_MB`) — le frontend propose sélection multiple +
+prévisualisation (miniatures photo, lecteur vidéo, fiche PDF) avant envoi,
+côté création comme sur une diffusion existante.
 
 Double chemin volontaire : `/me` pour le parent (toujours SA conversation,
 auto-résolue), `/{id}` pour l'admin (n'importe laquelle, par id) — les deux
@@ -1212,30 +1420,67 @@ d'endpoints proprement.
 - vue **parent** : `is_read` (son statut personnel)
 - vue **admin** : `read_count` / `total_parents` (« combien de parents ont vu »)
 
+### Diffusions — ciblage par départements (1 à N, coché avant l'envoi)
+
+UX voulue : la diffusion se rédige **en entier d'abord**, puis l'admin coche
+les départements concernés avant d'envoyer (un seul ou plusieurs) —
+`POST /announcements {title, body, department_ids: [...]}`. **Liste vide =
+broadcast** à tous les parents (comportement historique inchangé).
+
+- Stockage : table d'association `announcement_departments` (aucune ligne =
+  broadcast), relation `Announcement.departments` (`lazy="selectin"`).
+  FK côté département en `RESTRICT` : une suppression ne doit jamais élargir
+  silencieusement une audience ciblée vers un broadcast (les départements ne
+  sont de toute façon que soft-deleted via l'API).
+- **Audience d'un parent** = les départements de SES enfants (via
+  `parent_children` + `children.department_id`, enfants sans département
+  ignorés). Un parent sans enfant dans le périmètre : la diffusion n'apparaît
+  ni en liste, ni au détail, ni en `POST .../read` (**404 partout**, jamais
+  403 — on ne révèle pas l'existence, comme tout le projet).
+- **Compteur admin X/Y sur l'audience réelle** : `total_parents` = parents
+  actifs ayant ≥ 1 enfant dans le périmètre (broadcast = tous les parents).
+  Au `PATCH` du périmètre, les lectures de parents sortis du périmètre sont
+  **supprimées** (sinon `read_count > total`). `PATCH {department_ids: [...]`
+  remplace le ciblage (`[]` = retour au broadcast, `null` = inchangé).
+- **Temps réel & push ciblés** : l'événement WS `announcement` inclut
+  `department_ids` (même canal établissement — le client filtre) ; le push
+  (`send_push_to_establishment_parents(..., parent_ids=...)`) et le
+  téléchargement des pièces jointes de diffusion respectent le périmètre
+  (404 hors périmètre côté parent).
+- Validation : chaque `department_id` doit appartenir à l'établissement
+  (404 sinon, doublons dédupliqués).
+
 ### Conversations — édition, suppression douce, lot de médias
 
 - **Édition** (`PATCH .../messages/{msg_id}`, variantes `/me` + `/{id}`) :
-  **auteur uniquement** (403 sinon), **fenêtre de 15 min** (409 au-delà),
-  corps revalidé (max 5000, vide accepté seulement si ≥ 1 pièce jointe —
-  422 sinon). Pose `edited_at`, publie **`message_updated`**.
+  **auteur uniquement** (403 sinon, même admin sur message parent et
+  inversement), **fenêtre de 15 min** (`MESSAGE_EDIT_WINDOW`, 409 au-delà),
+  corps revalidé (max 5000, vide accepté seulement si le message garde ≥ 1
+  pièce jointe — 422 sinon). Pose `edited_at`, publie **`message_updated`**
+  (message complet). Éditer un message supprimé → 409.
 - **Suppression** (`DELETE .../messages/{msg_id}`, auteur uniquement, tout
-  âge, **idempotente**) : **douce** — ligne conservée (`is_deleted`, corps
-  vidé, `body=null` + `attachments=[]` en réponse), **pièces jointes
-  effacées** (lignes + fichiers). Publie **`message_deleted`**. Exclue des
-  non-lus et non téléchargeable (404).
+  âge, **idempotente** — 204 même si déjà supprimé) : **douce** — la ligne est
+  conservée (`is_deleted=True`, corps vidé, `body=null` + `attachments=[]` en
+  réponse pour garder l'ordre et les accusés du fil), les **pièces jointes
+  sont effacées** (lignes + fichiers). Publie **`message_deleted`**
+  (`{conversation_id, message_id}`). Un message supprimé est **exclu des
+  non-lus** (`_unread_count`, liste admin) et **non téléchargeable** (404).
 - **Lot de médias** (`POST .../messages/{msg_id}/attachments/batch`, champ
-  `files`) : tout-ou-rien, quota **15 par message** (409 au-delà, y compris
-  à l'upload unitaire), auteur uniquement. Un événement `attachment` par pièce.
-- **Retrait d'une pièce jointe** (`DELETE .../attachments/{att_id}`,
-  auteur uniquement) : republie **`message_updated`** ; 422 si dernier média
-  d'un message sans texte.
-- **Pagination curseur** : `before_id` (+ `skip/limit`, défaut 50, max 200),
-  ordre stable `(created_at, id)`, 404 sur curseur inconnu. Écritures
-  concurrentes sérialisées (`SELECT ... FOR UPDATE`).
-- Côté UI (`useConversationThread` partagé) : historique vers le haut avec
-  ancrage, pastille « N nouveaux », `MediaPicker` (aperçu avant envoi),
-  édition inline (« modifié »), suppression (confirm, placeholder), retrait
-  de PJ, `message_updated` / `message_deleted` appliqués au cache.
+  `files`) : même contrat tout-ou-rien que les diffusions, quota
+  **`MAX_MESSAGE_ATTACHMENTS = 15` par message** (409 au-delà, y compris à
+  l'upload unitaire qui passe par le même chemin). Réservé à l'auteur, message
+  non supprimé (404 sinon). Un événement `attachment` est publié par pièce
+  jointe (même contrat que l'unitaire).
+- **Retrait d'une pièce jointe** (`DELETE .../messages/{msg_id}/attachments/{att_id}`,
+  auteur uniquement) : fichier + ligne supprimés, republie **`message_updated`**
+  (message rafraîchi — un seul type d'événement à gérer côté client). Refusé
+  en 422 si c'est le dernier média d'un message sans texte (garde l'invariant
+  « texte ou média »).
+- **Pagination curseur** : `GET .../messages` accepte `before_id` (en plus de
+  `skip/limit`, défaut 50, max 200) — messages strictement antérieurs au
+  curseur `(created_at, id)`, ordre stable déterministe, total inchangé, 404
+  sur curseur inconnu. Le verrouillage en écriture (`SELECT ... FOR UPDATE`)
+  sérialise édition/suppression/uploads concurrents sur un même message.
 
 ### Conversations — un seul niveau de lu/non-lu
 `Message.read_at` = lu **par l'autre côté**, un seul champ (pas de suivi par
@@ -1268,7 +1513,11 @@ deux** — même pattern « double FK nullable + `CHECK`» que
 `AttendanceEvent.child_id`/`staff_id`. Upload en **deux temps** (pas dans le
 même appel que l'envoi du texte) : le message/l'annonce existe déjà, on y
 attache un fichier après coup via un endpoint dédié — ça n'a rien cassé des
-endpoints JSON existants (`send_message` reste inchangé).
+endpoints JSON existants (`send_message` reste inchangé). Côté UI le trombone
+vit dans la barre de saisie (au-dessus du bouton d'envoi), plus sur chaque
+bulle : choisir un fichier crée le message (texte éventuel, corps vide sinon
+— `MessageCreateRequest.body` accepte `""`) puis y attache le média dans la
+foulée, façon WhatsApp.
 
 - **Stockage local uniquement** (`app/core/storage.py`, backend `local` —
   `STORAGE_BACKEND`/`STORAGE_LOCAL_PATH` étaient déjà dans `Settings` mais
@@ -1279,21 +1528,25 @@ endpoints JSON existants (`send_message` reste inchangé).
 - **Écriture disque hors thread principal** (`asyncio.to_thread`) — ne bloque
   pas la boucle asyncio le temps de l'I/O.
 - **Téléchargement authentifié uniquement** : `GET /messaging/attachments/{id}`
-  vérifie l'établissement (404 si différent) et, pour une pièce jointe de
-  message, que le demandeur est admin OU le parent propriétaire de la
-  conversation. **Jamais de fichier servi en statique** (pas de `StaticFiles`
-  mount) — un accès direct au chemin de stockage ne suffirait à rien voir,
-  toute lecture passe par cette vérification.
+  vérifie l'établissement (404 si différent), pour une pièce jointe de
+  message que le demandeur est admin OU le parent propriétaire de la
+  conversation, et pour une pièce jointe de **diffusion ciblée** que le parent
+  est dans le périmètre (404 sinon). **Jamais de fichier servi en statique**
+  (pas de `StaticFiles` mount) — un accès direct au chemin de stockage ne
+  suffirait à rien voir, toute lecture passe par cette vérification.
 - **Validation** : taille max (`MESSAGING_MAX_ATTACHMENT_MB`, défaut 10 Mo,
-  413 sinon) et type MIME — la liste blanche
+  413 sinon — **sauf la vidéo** : `MESSAGING_MAX_VIDEO_MB`, défaut 50 Mo, car
+  10 Mo rendrait tout envoi vidéo impossible) et type MIME — la liste blanche
   (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) est
   complétée par un sur-ensemble : **tout MIME `image/*` est accepté** (sauf
-  `image/svg+xml`), la vidéo reste exclue de la messagerie —
+  `image/svg+xml`) partout, et **tout MIME `video/*` est accepté dans les
+  conversations privées ET les diffusions** (`_validate_upload(allow_video=True)`,
+  plafond vidéo dédié) —
   le `content_type` déclaré par le client n'est **pas** vérifié par analyse du
   contenu (pas de sniffing des octets magiques) : simplification assumée,
   acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
   un client qui mentirait délibérément sur le type.
-- **Poussé en temps réel** comme un message : `{"type": "attachment", message_id, ...}`
+- **Poussé en temps réel** comme un message : `{"type": "attachment", conversation_id, message_id, ...}`
   sur les mêmes canaux (`messaging:conv:{id}` + `messaging:estab:{id}:admin`),
   ou `{"type": "announcement_attachment", ...}` sur le canal diffusions pour
   une pièce jointe d'annonce.
@@ -1339,7 +1592,7 @@ de rapport ne touche que cette table.
 | `nap_duration_minutes` | `int \| None` | **Cohérence imposée** : requis si `nap=true`, doit être absent si `nap=false` (422 sinon) |
 | `bath` / `poop` | `bool` | Requis |
 | `moods` | `list[Mood]`, ≥1 | Cases cochées (au moins une) ; doublons silencieusement dédupliqués, pas une erreur |
-| `activities` | `str`, non vide | Requis |
+| `activities` | `list[str]`, ≥1 | Saisie une par une côté formulaire (input + bouton « + ») ; espaces rognés, entrées vides écartées, au moins une activité réelle exigée (422 sinon). Les rapports historiques stockent encore une `str` : normalisée en liste à la lecture côté frontend (`normalizeActivities`), jamais migrée en base.
 | `behaviors` | `list[BehaviorTag]`, ≥1 | Idem `moods` — dédupliqué automatiquement |
 | `highlight` | `str \| None` | Facultatif (« petit fait marquant ») |
 
@@ -1405,6 +1658,13 @@ dernier scan `departure` du jour, convertis dans le **fuseau horaire configuré*
 de l'établissement (`AttendanceSettings.timezone`, même mécanisme que le
 module Présences — UTC par défaut si non configuré). **Le client reste
 prioritaire** : une valeur fournie n'est jamais écrasée.
+
+Côté formulaire, le remplissage est aussi **visible avant soumission** :
+`useAttendancePrefill` (`lib/reports/`, création + édition d'un brouillon)
+interroge `GET /attendance/daily/children?date=` (ou `/daily/my-group` pour
+une éducatrice sans `attendance:read`) dès que l'enfant et la date sont
+choisis, et renseigne les champs `time` encore vides — une seule fois par
+couple enfant/date, jamais d'écrasement d'une saisie manuelle.
 
 ### Pièces jointes (photos / vidéos)
 
@@ -1477,7 +1737,12 @@ draft ──submit──> submitted ──validate──> validated (publié au 
   └──────reject────────┘  (avec motif, conservé dans rejected_reason)
 ```
 
-- **Modifiable** seulement en `draft` ou `rejected`.
+- **Modifiable** : l'**admin à tout moment** — même `submitted`/`validated`,
+  même déjà lu par le parent (le statut ne change pas, aucune re-notification ;
+  le parent voit le contenu corrigé à sa prochaine visite). Le **staff** reste
+  limité à `draft` / `rejected`. Les médias suivent la même règle : ajout
+  (`POST .../attachments`) et retrait (`DELETE .../attachments/{id}`) possibles
+  pour l'admin quel que soit le statut.
 - **Soumissible** depuis `draft` ou `rejected` (`rejected_reason` est effacé au
   moment de la resoumission — la prochaine décision de l'admin repart neuve).
 - **Supprimable** (hard delete) **seulement en `draft` jamais soumis** — dès
@@ -1496,6 +1761,15 @@ draft ──submit──> submitted ──validate──> validated (publié au 
   d'office, ou un staff de confiance type Directrice/Assistante de direction) :
   n'importe quel rapport `submitted` de l'établissement, sans restriction de
   groupe (contrairement à la création).
+- **Qui VOIT quoi (lecture)** : garde d'entrée en OU — admin, ou staff porteur
+  d'au moins une permission du module (read, write ou validate) ; la sidebar
+  affiche le module dès une permission, la garde ne peut pas être plus étroite
+  (« page visible, données 403 » sinon). Périmètre ensuite :
+  - groupe(s) mené(s) en intégralité (tous statuts) ;
+  - **plus**, pour un porteur de `reports:validate` (ex. directrice SANS groupe
+    mené, cas réel) : le soumis/validé de **tout** l'établissement — sinon le
+    rôle validateur serait inutilisable (la validation elle-même est sans
+    restriction de groupe). Les brouillons/rejetés d'autrui restent invisibles.
 
 ### ⚠️ Auto-publication quand l'auteur est admin
 
@@ -1523,18 +1797,20 @@ Un rapport soumis par un **staff** suit le circuit complet normal.
 
 ### Endpoints
 ```
-GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}]  # reports:write (GET: reports:read)
+GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}]  # GET : lecture ouverte (reports:read OU reports:write — le formulaire de création en a besoin) ; POST/DELETE : ADMIN uniquement (non délégable — une éducatrice porte reports:write mais ne configure pas les types actifs)
 
 GET    /api/v1/reports/vocabulary         # reports:read — labels FR (mood, behavior_tag, ...)
 POST   /api/v1/reports                    # reports:write (+ règle de groupe pour le staff)
-GET    /api/v1/reports                    # reports:read — scope auto par groupe si staff
+GET    /api/v1/reports                    # garde OU (read/write/validate) — scope auto par groupe si staff, + soumis/validé partout si reports:validate ; ?search= (nom/prénoms/matricule)
+GET    /api/v1/reports/missing            # reports:read — NON SOUMIS pour la période contenant la date (?report_type=, défaut quotidien ; date défaut aujourd'hui, jamais future) : seuls les enfants ACTIFS dont le DÉPARTEMENT a ce type activé comptent (cohérent avec la création) ; l'admin voit d'un coup d'œil qui n'a rien soumis sans croiser les absences ; staff = ses groupes uniquement. has_draft = brouillon/rejeté en cours. Côté UI : 5e pill « Non soumis » sous chaque onglet de type (avec sélecteur de date)
 GET    /api/v1/reports/{id}
-PATCH  /api/v1/reports/{id}               # draft/rejected uniquement — revalide le contenu
+PATCH  /api/v1/reports/{id}               # admin : tout statut ; staff : draft/rejected — revalide le contenu
 DELETE /api/v1/reports/{id}               # draft jamais soumis uniquement
 POST   /api/v1/reports/{id}/submit        # admin → auto-validé ; staff → submitted
 POST   /api/v1/reports/{id}/validate      # reports:validate
 POST   /api/v1/reports/{id}/reject        # reports:validate — body {reason}
-POST   /api/v1/reports/{id}/attachments               # reports:write — multipart
+POST   /api/v1/reports/{id}/attachments               # reports:write — multipart (même règle de statut que PATCH)
+DELETE /api/v1/reports/{id}/attachments/{attachment_id}  # retrait d'un média (même règle de statut que PATCH)
 GET    /api/v1/reports/{id}/attachments/{attachment_id}
 
 GET    /api/v1/reports/mine/list          # parent — rapports VALIDÉS de ses enfants
@@ -1577,11 +1853,12 @@ interroge directement `report_attachments` (module Rapports) et `attachments`
 métadonnée — cohérent avec le principe déjà établi ailleurs dans le projet
 (« pas de table polymorphe / pas de FK croisée entre modules indépendants »).
 
-Deux relations ORM pures (aucune migration, pas de nouvelle colonne) ont été
+Trois relations ORM pures (aucune migration, pas de nouvelle colonne) ont été
 ajoutées pour permettre à `gallery/service.py` de remonter jusqu'à
-l'enfant/parent sans requête séparée par élément listé :
+l'enfant/parent/diffusion sans requête séparée par élément listé :
 - `ReportAttachment.report` (`reports/models.py`)
 - `Attachment.message` et `Message.conversation` (`messaging/models.py`)
+- `Attachment.announcement` (`messaging/models.py`, pour la source `announcement`)
 
 Les URL de téléchargement renvoyées par la galerie **pointent toujours vers
 les endpoints authentifiés déjà existants** de chaque module d'origine
@@ -1589,7 +1866,7 @@ les endpoints authentifiés déjà existants** de chaque module d'origine
 `/messaging/attachments/{id}`) — la galerie ne sert jamais elle-même un
 fichier, elle ne fait qu'agréger et filtrer.
 
-### Deux sources traitées différemment — décision explicite
+### Trois sources traitées différemment — décision explicite
 
 Les pièces jointes de messagerie ne sont liées **qu'à un parent** (sa
 conversation), jamais à un enfant précis (un parent peut avoir plusieurs
@@ -1608,22 +1885,30 @@ enfant/groupe/département/éducatrice :
   rapports est posé (`child_id`, `group_id`, `staff_id`, `department_id`,
   `report_type`), la messagerie est **silencieusement exclue** du résultat
   (jamais une erreur : ces filtres n'ont simplement rien à y apporter).
-- **Les diffusions (`Announcement`) sont toujours exclues** de la galerie,
-  y compris côté admin — génériques à tout l'établissement, jamais « une
-  photo de mon enfant » au sens de la demande initiale.
+- **`source=announcement`** : médias des diffusions (jamais liés à un enfant
+  précis, mais utiles établissement-wide). Filtrable par `department_id`
+  (diffusion ciblée vers ce département **ou broadcast**, visible par tous)
+  et par date ; `child_id`, `group_id`, `staff_id`, `report_type` l'excluent
+  silencieusement comme pour les messages. Chaque item expose
+  `announcement_id` + `announcement_title` (regroupement d'affichage) ; le
+  téléchargement réutilise `/messaging/attachments/{id}`, dont le contrôle de
+  périmètre existant s'applique tel quel.
 
 ### Accès — décision explicite
 
-- **Admin** : galerie complète (rapports + messagerie), toujours.
+- **Admin** : galerie complète (rapports + messages + diffusions), toujours.
 - **Staff** : nouvelle permission RBAC délégable `gallery:read` — mais
-  **rapports uniquement**, jamais la messagerie (source=message → 403), qui
-  reste hors RBAC et hors d'atteinte du staff partout ailleurs dans
-  l'application (cf. module Messagerie). Établissement entier une fois la
-  permission accordée, **pas de scoping par groupe** (contrairement à
-  `reports:read`) — modèle de délégation de confiance, comme
-  `reports:validate`, pas un outil d'auto-consultation par groupe.
-- **Parent** : ses enfants uniquement — rapports **validés** de ses enfants +
-  messages de **sa propre conversation** (jamais les diffusions).
+  **rapports uniquement**, jamais la messagerie (`source=message` ou
+  `source=announcement` → 403), qui reste hors RBAC et hors d'atteinte du
+  staff partout ailleurs dans l'application (cf. module Messagerie).
+  Établissement entier une fois la permission accordée, **pas de scoping par
+  groupe** (contrairement à `reports:read`) — modèle de délégation de
+  confiance, comme `reports:validate`, pas un outil d'auto-consultation par
+  groupe.
+- **Parent** : rapports **validés** de ses enfants + messages de **sa propre
+  conversation** + médias des diffusions **actives dans son périmètre**
+  (broadcast, ou ciblées vers un département de l'un de ses enfants — une
+  diffusion désactivée disparaît de sa galerie comme du portail).
 
 > ⚠️ **`gallery:read` n'implique pas `reports:read`.** Un membre du staff avec
 > seulement `gallery:read` voit la liste (miniatures, métadonnées), mais reçoit
@@ -1639,10 +1924,10 @@ GET /api/v1/gallery/media   # gallery:read — admin: tout ; staff: rapports uni
 GET /api/v1/gallery/mine    # parent — ses enfants (rapports validés + messagerie propre)
 ```
 
-Paramètres de `/gallery/media` : `source` (`report`/`message`), `child_id`,
-`group_id`, `staff_id`, `department_id`, `report_type`, `date_from`,
-`date_to`, `skip`, `limit`. Paramètres de `/gallery/mine` : `source`,
-`child_id`, `skip`, `limit`.
+Paramètres de `/gallery/media` : `source` (`report`/`message`/`announcement`),
+`child_id`, `group_id`, `staff_id`, `department_id`, `report_type`,
+`date_from`, `date_to`, `skip`, `limit`. Paramètres de `/gallery/mine` :
+`source`, `child_id`, `skip`, `limit`.
 
 ### Isolation
 Toutes les requêtes sont bornées à `establishment_id` — même principe que le
@@ -1655,6 +1940,13 @@ reste de l'application.
 Menu hebdomadaire (lundi–vendredi) informant les parents des repas servis par
 l'établissement. Une semaine = 5 jours × 4 créneaux, **toujours dans cet ordre
 réel des repas** : collation → déjeuner → dessert → goûter.
+
+### Une ligne = une semaine pour UN département (plus de menu général)
+
+Chaque menu appartient à **un département** (`department_id` obligatoire,
+unicité `(establishment_id, department_id, week_start)`) — il n'existe plus de
+menu « général » d'établissement. La réponse dénormalise `department_name`
+(le parent ne peut pas appeler `/departments`, `organization:read` requis).
 
 ### Une ligne = une semaine entière, contenu typé (pas de `content: dict` ouvert)
 
@@ -1675,42 +1967,58 @@ Nouvelle permission RBAC délégable `menus:write` — typiquement accordée à 
 staff `staff_type=restaurateur`, mais **RBAC seul fait foi** : `staff_type`
 reste une métadonnée descriptive sans effet sur les droits (cf. module Staff),
 n'importe quel staff peut recevoir `menus:write` si l'admin le décide.
+L'écriture couvre TOUS les départements (la restauration reste centrale) :
+`department_id` passé en body (POST) ou query (PATCH/DELETE, 422 si absent),
+vérifié dans l'établissement (404 sinon), 409 par (semaine, département).
 
 **On ne réécrit jamais l'historique** : création, modification (`PATCH`,
 remplace `content` en entier — pas de fusion partielle implicite, comme pour
 les rapports) et suppression sont toutes les trois limitées à la semaine en
 cours ou à venir (`week_start >= lundi de cette semaine`, 422 sinon).
 
-### Lecture — ouverte à tous, sauf l'historique
+### Lecture — scopée aux départements visibles
 
-- **Semaine en cours ou à venir** (`GET /menus/current`, `GET /menus/{week_start}`) :
-  **ouvert à tout acteur de l'établissement** — admin, n'importe quel staff
-  (même sans `menus:write`), parent — aucune permission RBAC requise. Seul le
-  superadmin en est exclu (`establishment_id` NULL, même principe de
-  minimisation RGPD qu'ailleurs).
-- **Semaine passée** (`GET /menus/{week_start}` avec une date antérieure au
-  lundi courant) : réservé à l'admin et au staff avec `menus:write` — 403 pour
-  tous les autres. Le contrôle d'accès prime sur l'existence de la ressource
-  (403 avant 404, comme dans le reste de l'application) : un lecteur non
-  autorisé ne doit jamais pouvoir distinguer « semaine inexistante » de
-  « semaine existante mais interdite ».
-- **`GET /menus`** (liste/historique complet, passé + à venir) : réservé à
-  l'admin et au staff avec `menus:write` — c'est l'outil de gestion, pas la
-  consultation grand public.
+- **Admin / `menus:write`** : tous les départements (gestion).
+- **Parent** : départements de SES enfants — multi-départements = tous les
+  siens (`GET /current` renvoie UN menu par département visible).
+- **Éducatrice** (≥ 1 groupe mené) : départements de ses groupes (menus:read
+  du socle automatique + scope, cf. `ensure_educatrice_baseline_role`).
+- **Autre staff** (aucun groupe, pas de `menus:write`) : tout, comme avant —
+  seuls parents et éducatrices sont scopés (décision explicite).
+- **`GET /menus/departments`** : départements visibles de l'appelant —
+  alimente les sélecteurs UI sans passer par `/departments` (inaccessible
+  parent). Placé AVANT `/{week_start}` dans le router.
+- **Semaine passée** : réservé admin / `menus:write` / `menus:read` — 403 pour
+  les autres. Le contrôle d'accès prime sur l'existence (403 avant 404) :
+  périmètre d'abord, historique ensuite, existence en dernier.
+- **`GET /menus`** (historique, `?department_id=` optionnel) : réservé admin /
+  `menus:read` / `menus:write`, scopé aux départements visibles — jamais les
+  parents (403, inchangé).
 
 ### Endpoints
 ```
-POST   /api/v1/menus                # menus:write — 422 si pas un lundi ou semaine passée
-PATCH  /api/v1/menus/{week_start}    # menus:write — remplace le contenu entier, jamais le passé
-DELETE /api/v1/menus/{week_start}    # menus:write — jamais le passé
-GET    /api/v1/menus                 # menus:write — historique complet, paginé
+POST   /api/v1/menus                # menus:write — department_id obligatoire, 409 par (semaine, dept)
+PATCH  /api/v1/menus/{week_start}?department_id=  # menus:write — remplace le contenu entier
+DELETE /api/v1/menus/{week_start}?department_id=  # menus:write
+GET    /api/v1/menus?department_id=  # admin/menus:read/menus:write — historique scopé, paginé
+GET    /api/v1/menus/departments      # départements visibles (sélecteurs UI)
 
-GET    /api/v1/menus/current         # ouvert à tous — semaine en cours
-GET    /api/v1/menus/{week_start}    # ouvert si >= semaine en cours, sinon menus:write requis
+GET    /api/v1/menus/current         # UN menu par département visible (liste, éventuellement vide)
+GET    /api/v1/menus/{week_start}?department_id=  # 403 hors périmètre, 403 historique sans droit, 404 si rien
 ```
 
-> ⚠️ `/current` placé **avant** `/{week_start}` dans le router — même
-> précaution de routage que `/vocabulary` (rapports) ou `/mine` (galerie).
+> ⚠️ `/departments` et `/current` placés **avant** `/{week_start}` dans le
+> router — même précaution de routage que `/vocabulary` (rapports).
+
+### Registre central — leçon apprise
+
+`menus/models.py` manquait dans `app/core/models.py` (`WeeklyMenu` figurait
+dans `__all__` mais l'import avait été oublié) : l'app tournait quand même
+(import en cascade via le router), mais **l'autogenerate Alembic ne voyait
+jamais la table** et proposait de la SUPPRIMER à chaque revision (fantôme
+`weekly_menus` croisé deux fois avant diagnostic). Règle durcie : après ajout
+au registre, relancer un `alembic revision --autogenerate` à vide pour vérifier
+qu'il ne détecte rien d'inattendu.
 
 ### Isolation
 Toutes les requêtes sont bornées à `establishment_id` — même principe que le
@@ -1816,6 +2124,28 @@ une, médias) avant d'être rendu public via `POST /articles/{id}/publish`.
 `GET /blog/articles` exclut les inactifs par défaut ; `?include_inactive=true`
 les inclut (vue de gestion complète, réservée à `blog:write`).
 
+### Galerie du site vitrine — catégories libres (comme les étiquettes)
+
+Les photos (`blog_gallery_photos`, upload = publication immédiate, suppression
+définitive) sont classées par **catégories créées à la volée** (`blog_gallery_categories`,
+nom unique par établissement — migration `b71c4e02a9f3`). L'ancien enum figé
+`GalleryCategory` (6 codes en dur) est supprimé : à la migration, une catégorie
+a été créée par ancien code retrouvé (libellés FR historiques), photos
+rattachées, sans orphelin.
+
+- CRUD complet `blog:write` : `POST/GET /blog/gallery/categories`,
+  `PATCH/DELETE /blog/gallery/categories/{id}` (409 sur doublon, comme les
+  étiquettes). Supprimer une catégorie **conserve les photos**, qui passent
+  « sans catégorie » (`category_id` NULL, FK `ON DELETE SET NULL`).
+- Upload `POST /blog/gallery` avec `category_id` (Form, **requis**, 404 si hors
+  établissement) ; filtre `GET /blog/gallery?category_id=` ; la réponse expose
+  `category: {id, name} | null`.
+- Côté public : filtre `?category_id=` + `GET
+  /public/blog/{code}/gallery/categories` (pastilles de filtre, seuls id+nom
+  exposés). Le site vitrine (`galerie/page.tsx` + `GalleryExplorer`) charge ses
+  pastilles depuis l'API — plus aucune catégorie en dur côté frontend
+  (`GALLERY_CATEGORIES` / `GALLERY_PHOTO_CATEGORIES` supprimés).
+
 ### Endpoints
 ```
 # Gestion (authentifiée, blog:write)
@@ -1823,6 +2153,13 @@ POST   /api/v1/blog/tags
 GET    /api/v1/blog/tags
 PATCH  /api/v1/blog/tags/{tag_id}
 DELETE /api/v1/blog/tags/{tag_id}                       # suppression définitive
+
+POST   /api/v1/blog/gallery/categories                  # nom libre, unique/établissement
+GET    /api/v1/blog/gallery/categories
+PATCH  /api/v1/blog/gallery/categories/{category_id}    # renommage (409 si doublon)
+DELETE /api/v1/blog/gallery/categories/{category_id}    # définitive — photos conservées, sans catégorie
+POST   /api/v1/blog/gallery                             # multipart category_id + file — publication immédiate
+GET    /api/v1/blog/gallery                             # ?category_id= &skip= &limit=
 
 POST   /api/v1/blog/articles                            # créé en draft
 GET    /api/v1/blog/articles                             # ?status= &tag_id= &include_inactive= &skip= &limit=
@@ -1855,8 +2192,8 @@ site vitrine visible).
 ## Module Bibliothèque (library)
 
 Catalogue de livres multi-sections, prêts aux enfants, retours et rappels.
-Permissions fines par geste : lecture (`library:read`), catalogue
-(`library:write`), prêts (`library:lend`).
+Permissions fines par geste (cf. section RBAC — granularité bibliothèque) :
+lecture (`library:read`), catalogue (`library:write`), prêts (`library:lend`).
 
 ### Endpoints
 ```
@@ -1866,10 +2203,10 @@ GET      /api/v1/library/books                          # library:read — ?sect
 GET      /api/v1/library/books/{id}                     # library:read
 PATCH    /api/v1/library/books/{id}                     # library:write
 DELETE   /api/v1/library/books/{id}                     # library:write — soft delete (409 si prêts en cours)
-POST     /api/v1/library/lendings                       # library:lend
+POST     /api/v1/library/lendings                       # library:lend — {book_id, child_id, borrowed_at?, due_date?}
 GET      /api/v1/library/lendings                       # library:read — ?book_id= &child_id= &status=
 POST     /api/v1/library/lendings/{id}/return           # library:lend (409 si déjà rendu)
-POST     /api/v1/library/reminders/run                  # library:lend — email + message conversation
+POST     /api/v1/library/reminders/run                  # library:lend — relances (email + message conversation)
 
 GET    /api/v1/library/mine/books                       # parent — sections des enfants
 GET    /api/v1/library/mine/lendings                    # parent — ses prêts
@@ -1878,14 +2215,15 @@ GET    /api/v1/library/educator/books                   # staff — livres de sa
 
 ### Règles métier
 - **Quantités** : `available_quantity` décrémenté à chaque prêt, restauré au
-  retour ; prêt impossible sans exemplaire (409) ou sur livre désactivé (409) ;
-  `due_date < borrowed_at` → 422.
-- **Rappels** : prêts en retard relancés une fois par jour max
-  (`last_reminded_on`) — email best-effort + message dans la conversation
-  admin↔parent.
-- **Rôle socle « Bibliothécaire »** : les 3 permissions, attribué
-  automatiquement.
-- **Isolation** : `establishment_id` partout (404) ; superadmin exclu (403).
+  retour ; prêt impossible sans exemplaire disponible (409), ni sur livre
+  désactivé (409) ; `due_date < borrowed_at` → 422.
+- **Rappels** (`POST /reminders/run`) : prêts en retard relancés une fois par
+  jour max (anti-doublon `last_reminded_on`) — email best-effort + message
+  injecté dans la conversation admin↔parent concernée.
+- **Rôle socle « Bibliothécaire »** : attribué automatiquement (les 3
+  permissions) — même pattern que le socle éducatrice.
+- **Isolation** : tout est borné à `establishment_id` (404 inter-établissement) ;
+  superadmin exclu (403).
 
 ---
 
@@ -1899,6 +2237,8 @@ DEBUG=true
 DATABASE_URL=postgresql+asyncpg://adminlprds:lprds@localhost:5432/lprds_database
 REDIS_URL=redis://localhost:6379/0
 SECRET_KEY=<hex 32 bytes>
+# Rotation des badges QR : ancienne SECRET_KEY le temps de réimprimer (vide = aucune)
+QR_KEY_PREVIOUS=
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=30
@@ -1922,9 +2262,12 @@ MAIL_SSL_TLS=false
 MAIL_SUPPRESS_SEND=false
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
-# Pièces jointes messagerie (défauts si absent : 10 Mo) — tout MIME image/*
-# est accepté en plus de la liste (sauf image/svg+xml) ; la vidéo reste exclue
+# Pièces jointes messagerie (défauts si absent : 10 Mo, 50 Mo vidéo) — tout
+# MIME image/* est accepté en plus de la liste (sauf image/svg+xml) ; tout
+# MIME video/* est accepté UNIQUEMENT dans les conversations privées (les
+# diffusions restent images + PDF), avec son propre plafond vidéo.
 MESSAGING_MAX_ATTACHMENT_MB=10
+MESSAGING_MAX_VIDEO_MB=50
 MESSAGING_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf
 # Pièces jointes rapports (défauts si absent : 50 Mo) — tout MIME image/* ou
 # video/* est accepté en plus de la liste (sauf image/svg+xml)
@@ -1935,6 +2278,10 @@ REPORTS_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video
 # seuls types "image/*" (cf. blog/service.py)
 BLOG_MAX_ATTACHMENT_MB=50
 BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
+# Notifications push Web (PWA Phase 2) — clés VAPID (privée JAMAIS exposée au frontend)
+VAPID_PRIVATE_KEY=<vapid privée>
+VAPID_PUBLIC_KEY=<vapid publique>
+VAPID_SUBJECT=mailto:no-reply@lespetitsrayonsdesoleil.fr
 ```
 
 ### Frontend — `lprds-frontend/.env`
@@ -2061,6 +2408,7 @@ tests/
     ├── test_smoke.py                    # santé de l'infra elle-même
     ├── test_core_modules_smoke.py       # golden path : auth, RBAC, organisation,
     │                                     #   enfants, parents, staff, présences, messagerie
+    ├── test_attendance_correction.py      # correction manuelle (PATCH ligne + saisie manuelle, 403 sans write)
     ├── test_reports_workflow.py         # cycle de vie complet (soumission/validation/rejet)
     ├── test_reports_daily_content.py    # contenu structuré quotidien + pièces jointes
     ├── test_reports_bimensuel_content.py
@@ -2212,6 +2560,72 @@ Types    : PascalCase interfaces, SCREAMING_SNAKE pour les constantes
 - PostgreSQL et Redis tournent dans WSL2
 - Accès depuis Windows via `localhost`
 - **Ne jamais travailler dans `/mnt/c/`** — performances I/O catastrophiques
+
+---
+
+## Phase 2 — Notifications Push (PWA)
+
+### Contexte
+La Phase 2 étend le PWA (Phase 1 complete) en ajoutant les notifications push Web pour deux types d'événements :
+- **Messagerie** : nouveau message admin↔parent, nouvelle diffusion
+- **Rapports** : rapport validé → notification aux parents
+
+### Architecture technique
+- **Clés VAPID** générées via `py_vapid`, stockées dans `backend/.env` (`VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`) et exposées via `GET /api/v1/notifications/vapid-public-key`
+- **Bibliothèque** : `pywebpush 2.5.0` (dépendance `base` ajoutée à `requirements/base.txt`)
+- **Modèle** : `push_subscriptions` table (migration `fe76c1320d23`) stockant l'endpoint, les clés p256dh/auth et l'associations user/établishment
+- **Rate-limiting** : les tentatives de push échouent silencieusement (best-effort), jamais d'erreur HTTP remontée
+
+### Module backend `app/modules/notifications/`
+Nouveau module créé avec :
+- `models.py` — modèle `PushSubscription` (user_id FK, establishment_id, endpoint, p256dh, auth_key)
+- `schemas.py` — schémas Pydantic `PushSubscriptionCreate`, `PushSubscriptionResponse`, `PushSubscriptionDelete`
+- `service.py` — fonctions CRUD + `send_push_to_subscription()`, `send_push_to_establishment_parents()`, `send_push_to_establishment_admins()`, `_send_report_push_notifications()`
+- `router.py` — endpoints `POST /subscriptions`, `DELETE /subscriptions/{id}`, `GET /vapid-public-key`, `GET /test`
+
+### Intégration dans les modules existants
+- **Messagerie** (`app/modules/messaging/service.py`) :
+  - `send_message()` : push au DESTINATAIRE après publication — aux admins si
+    l'expéditeur est le parent, au seul parent de la conversation
+    (`parent_ids={...}`) si l'expéditeur est un admin (aperçu du texte, ou
+    « Nouvelle pièce jointe » si corps vide)
+  - `create_announcement()` : push à l'audience de la diffusion (tous les parents, ou parents des départements ciblés) après diffusion
+- **Rapports** (`app/modules/reports/service.py`) :
+  - `validate_report()` : push aux parents en plus des emails après validation
+  - `submit_report` (admin) : push aux parents après validation immédiate
+  - `_send_report_push_notifications()` : nouvelle fonction d'envoi push
+
+### Intégration frontend
+- `frontend/src/lib/push-subscription.ts` — hook `usePushSubscription` gérant :
+  - Détection support navigateur
+  - Demande de permission `Notification.requestPermission()`
+  - Récupération de la clé VAPID publique via `GET /api/v1/notifications/vapid-public-key`
+  - Abonnement `navigator.serviceWorker.pushManager.subscribe()`
+  - Envoi de l'abonnement au backend `POST /api/v1/notifications/subscriptions`
+  - Désabonnement `DELETE /api/v1/notifications/subscriptions`
+- `frontend/public/sw.js` — handlers `push` et `notificationclick` :
+  - Sur `push` : montre une notification avec titre/corps/icône depuis le payload JSON
+  - Sur `notificationclick` : focalise la fenêtre d'application existante ou ouvre `/`
+
+### Événements push notifiés
+- **Messagerie** : nouvel message (title/body avec noms), diffusion admin→parent
+- **Rapports** : rapport validé (title/body avec nom de l'enfant, période)
+
+### Sécurité
+- Les clés VAPID privées ne sont JAMAIS exposées au frontend (seule la clé publique l'est)
+- Les abonnements sont associés à un `user_id` et `establishment_id`
+- L'échec d'envoi push est journalisé, jamais bloquant (best-effort, comme les emails de rapport)
+- Les permissions Notification sont demandées par l'utilisateur via l'interface
+
+### Dépendances ajoutées
+- `pywebpush==2.5.0` dans `requirements/base.txt`
+- `py-vapid==1.9.4` (déjà présent, utilisé pour la génération des clés)
+- Nouvelle table BDD : `push_subscriptions`
+- Module `app/modules/notifications/` complet
+
+### Tests
+- Backend : `pytest` (les tests e2e ont des dépendances de configuration de serveur)
+- Frontend : `pnpm lint && pnpm type-check && pnpm build`
 
 ---
 

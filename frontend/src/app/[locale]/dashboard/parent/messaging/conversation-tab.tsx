@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,6 +21,7 @@ const conversationKey = ['parent', 'conversation-me'] as const
 const messagesKey = ['parent', 'conversation-me-messages'] as const
 
 export function ConversationTab() {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   const markedReadRef = useRef(false)
 
@@ -149,7 +152,7 @@ export function ConversationTab() {
         <div className="flex items-end gap-2 border-t border-border p-3">
           <div className="min-w-0 flex-1">
             <Textarea
-              placeholder="Écrire à l'établissement..."
+              placeholder={t('parentConversation.placeholder')}
               rows={2}
               value={thread.body}
               onChange={(e) => thread.setBody(e.target.value)}
@@ -171,8 +174,8 @@ export function ConversationTab() {
               variant={thread.pickerOpen ? 'secondary' : 'ghost'}
               size="icon"
               className="h-10 w-10"
-              aria-label="Joindre des photos ou vidéos"
-              title="Joindre des photos ou vidéos (avec aperçu avant envoi)"
+              aria-label={t('conversations.attachAria')}
+              title={t('conversations.attachTitle')}
               onClick={() => thread.setPickerOpen((v) => !v)}
               disabled={thread.busy}
             >

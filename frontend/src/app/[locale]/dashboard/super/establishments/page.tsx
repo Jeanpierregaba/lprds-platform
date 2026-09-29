@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -20,6 +22,7 @@ import { Link } from '@/i18n/navigation'
 const PAGE_SIZE = 20
 
 export default function EstablishmentsListPage() {
+  const t = useTranslations('admin')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -59,7 +62,7 @@ export default function EstablishmentsListPage() {
         </div>
         <Button render={<Link href="/dashboard/super/establishments/new" />}>
           <Plus className="mr-1.5 size-4" />
-          Nouvel établissement
+          {t('establishments.new')}
         </Button>
       </div>
 
@@ -67,7 +70,7 @@ export default function EstablishmentsListPage() {
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom ou code..."
+            placeholder={t('establishments.search')}
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -84,11 +87,11 @@ export default function EstablishmentsListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Téléphone</TableHead>
-                <TableHead>Statut</TableHead>
+                <TableHead>{t('establishments.columns.code')}</TableHead>
+                <TableHead>{t('establishments.columns.name')}</TableHead>
+                <TableHead>{t('establishments.columns.email')}</TableHead>
+                <TableHead>{t('establishments.columns.phone')}</TableHead>
+                <TableHead>{t('establishments.columns.status')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -110,17 +113,17 @@ export default function EstablishmentsListPage() {
                         <Building2 className="size-5" />
                       </div>
                       <p className="font-medium text-foreground">
-                        {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun établissement pour le moment.'}
+                        {debouncedSearch ? t('establishments.emptySearch') : t('establishments.empty')}
                       </p>
                       <p className="max-w-sm text-sm">
                         {debouncedSearch
-                          ? 'Essayez un autre nom ou code, ou videz le champ de recherche.'
-                          : 'Créez le premier établissement pour commencer à gérer crèches, garderies et écoles maternelles.'}
+                          ? t('establishments.emptySearchHint')
+                          : t('establishments.emptyHint')}
                       </p>
                       {!debouncedSearch && (
                         <Button render={<Link href="/dashboard/super/establishments/new" />} size="sm" className="mt-1">
                           <Plus className="mr-1.5 size-4" />
-                          Nouvel établissement
+                          {t('establishments.new')}
                         </Button>
                       )}
                     </div>
@@ -152,7 +155,7 @@ export default function EstablishmentsListPage() {
                     <TableCell className="p-0">
                       <Link href={`/dashboard/super/establishments/${e.id}`} className="block p-2">
                         <Badge variant={e.is_active ? 'default' : 'outline'}>
-                          {e.is_active ? 'Actif' : 'Inactif'}
+                          {e.is_active ? t('establishments.activeLabel') : t('establishments.inactiveLabel')}
                         </Badge>
                       </Link>
                     </TableCell>

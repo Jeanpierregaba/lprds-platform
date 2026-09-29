@@ -1,0 +1,67 @@
+{
+  "status": {
+    "connecting": "Connexion...",
+    "offline": "Hors ligne"
+  },
+  "tabs": {
+    "announcements": "Diffusions",
+    "conversations": "Conversations",
+    "conversation": "Conversation"
+  },
+  "announcements": {
+    "new": "Nouvelle diffusion",
+    "editTitle": "Modifier la diffusion",
+    "newTitle": "Nouvelle diffusion",
+    "includeInactive": "Inclure les diffusions désactivées",
+    "title": "Titre",
+    "content": "Contenu",
+    "recipients": "Destinataires",
+    "allParents": "Tous les parents de l’établissement",
+    "allParentsShort": "Tous les parents",
+    "noDepartment": "Aucun département dans l’établissement.",
+    "media": "Médias (facultatif, max {max})",
+    "save": "Enregistrer",
+    "publish": "Publier",
+    "needDepartment": "Cochez au moins un département, ou choisissez « Tous les parents ».",
+    "updated": "Diffusion mise à jour.",
+    "published": "Diffusion publiée.",
+    "mediaAdded": "{count} média(s) ajouté(s).",
+    "deactivated": "Diffusion désactivée.",
+    "reactivated": "Diffusion réactivée.",
+    "empty": "Aucune diffusion pour le moment.",
+    "inactive": "Inactive",
+    "department": "Département",
+    "edit": "Modifier",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "deactivateTitle": "Désactiver cette diffusion ?",
+    "reactivateTitle": "Réactiver cette diffusion ?",
+    "deactivateBody": "Elle sera masquée à tous les parents (réversible).",
+    "reactivateBody": "Elle redeviendra visible par les parents concernés.",
+    "confirm": "Confirmer",
+    "mediaLimit": "Limite de {max} médias atteinte",
+    "attachFiles": "Joindre des fichiers",
+    "addMediaTitle": "Ajouter des médias"
+  },
+  "conversations": {
+    "new": "Nouvelle",
+    "newTitle": "Nouvelle conversation",
+    "newHint": "Sélectionnez un parent pour démarrer une discussion privée.",
+    "firstMessage": "Premier message (facultatif)...",
+    "start": "Démarrer",
+    "cancel": "Annuler",
+    "retry": "Réessayer",
+    "back": "← Retour aux conversations",
+    "created": "Conversation créée.",
+    "empty": "Aucune conversation pour le moment.",
+    "noMessage": "Aucun message",
+    "selectOne": "Sélectionnez une conversation.",
+    "noMessageYet": "Aucun message pour l’instant.",
+    "replyPlaceholder": "Répondre au nom de l’administration...",
+    "attachAria": "Joindre des photos ou vidéos",
+    "attachTitle": "Joindre des photos ou vidéos (avec aperçu avant envoi)"
+  },
+  "parentConversation": {
+    "placeholder": "Écrire à l’établissement..."
+  }
+}

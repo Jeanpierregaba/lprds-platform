@@ -1,0 +1,67 @@
+{
+  "status": {
+    "connecting": "Connecting...",
+    "offline": "Offline"
+  },
+  "tabs": {
+    "announcements": "Announcements",
+    "conversations": "Conversations",
+    "conversation": "Conversation"
+  },
+  "announcements": {
+    "new": "New announcement",
+    "editTitle": "Edit the announcement",
+    "newTitle": "New announcement",
+    "includeInactive": "Include deactivated announcements",
+    "title": "Title",
+    "content": "Content",
+    "recipients": "Recipients",
+    "allParents": "All parents at the school",
+    "allParentsShort": "All parents",
+    "noDepartment": "No departments at this school.",
+    "media": "Media (optional, max {max})",
+    "save": "Save",
+    "publish": "Publish",
+    "needDepartment": "Tick at least one department, or choose “All parents”.",
+    "updated": "Announcement updated.",
+    "published": "Announcement published.",
+    "mediaAdded": "{count} media added.",
+    "deactivated": "Announcement deactivated.",
+    "reactivated": "Announcement reactivated.",
+    "empty": "No announcements yet.",
+    "inactive": "Inactive",
+    "department": "Department",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deactivateTitle": "Deactivate this announcement?",
+    "reactivateTitle": "Reactivate this announcement?",
+    "deactivateBody": "It will be hidden from all parents (reversible).",
+    "reactivateBody": "It will become visible again to the parents concerned.",
+    "confirm": "Confirm",
+    "mediaLimit": "Limit of {max} media reached",
+    "attachFiles": "Attach files",
+    "addMediaTitle": "Add media"
+  },
+  "conversations": {
+    "new": "New",
+    "newTitle": "New conversation",
+    "newHint": "Select a parent to start a private conversation.",
+    "firstMessage": "First message (optional)...",
+    "start": "Start",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "back": "← Back to conversations",
+    "created": "Conversation created.",
+    "empty": "No conversations yet.",
+    "noMessage": "No messages",
+    "selectOne": "Select a conversation.",
+    "noMessageYet": "No messages yet.",
+    "replyPlaceholder": "Reply on behalf of the school...",
+    "attachAria": "Attach photos or videos",
+    "attachTitle": "Attach photos or videos (with a preview before sending)"
+  },
+  "parentConversation": {
+    "placeholder": "Write to the school..."
+  }
+}

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -26,6 +28,7 @@ function formatDate(iso: string) {
 }
 
 export default function ParentLibraryPage() {
+  const t = useTranslations('admin')
   const lendingStatusLabel = useLabel('lendingStatus')
   const { data: books, isLoading: booksLoading } = useQuery({
     queryKey: ['library', 'mine', 'books'],
@@ -43,8 +46,8 @@ export default function ParentLibraryPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Bibliothèque"
-        description="Livres disponibles et emprunts de vos enfants."
+        title={t('portals.library')}
+        description={t('portals.parentLibraryHint')}
       />
 
       <Tabs defaultValue="catalogue">

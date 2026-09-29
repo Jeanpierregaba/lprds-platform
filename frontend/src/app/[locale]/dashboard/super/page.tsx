@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Building2, CheckCircle2, XCircle, Database, Server } from 'lucide-react'
@@ -12,8 +14,8 @@ import { checkReadiness } from '@/lib/api/health'
 import { StatCard } from '@/components/dashboard/stat-card'
 
 const CHECK_LABELS: Record<string, string> = {
-  database: 'Base de données',
-  redis: 'Redis',
+  database: 'database',
+  redis: 'redis',
 }
 
 const CHECK_ICONS: Record<string, React.ElementType> = {
@@ -22,6 +24,7 @@ const CHECK_ICONS: Record<string, React.ElementType> = {
 }
 
 function SystemHealthCard() {
+  const t = useTranslations('admin')
   const { data, isLoading } = useQuery({
     queryKey: ['health', 'ready'],
     queryFn: checkReadiness,
@@ -33,8 +36,8 @@ function SystemHealthCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">État du système</CardTitle>
-        <CardDescription>Disponibilité des dépendances critiques de l&apos;API.</CardDescription>
+        <CardTitle className="text-base">{t('super.health')}</CardTitle>
+        <CardDescription>{t('super.healthHint')}</CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -55,12 +58,12 @@ function SystemHealthCard() {
                   className="flex items-center gap-2 rounded-md border border-border px-3 py-2"
                 >
                   <Icon className="size-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{CHECK_LABELS[key] ?? key}</span>
+                  <span className="text-sm font-medium">{t(`super.${CHECK_LABELS[key] ?? key}`)}</span>
                   <Badge
                     variant={ok ? 'default' : 'outline'}
                     className={cn(!ok && 'border-destructive text-destructive')}
                   >
-                    {ok ? 'Opérationnel' : 'Indisponible'}
+                    {ok ? t('super.up') : t('super.down')}
                   </Badge>
                 </div>
               )
@@ -73,6 +76,7 @@ function SystemHealthCard() {
 }
 
 export default function SuperadminDashboardPage() {
+  const t = useTranslations('admin')
   const { data: active, isLoading: loadingActive } = useQuery({
     queryKey: ['establishments', 'stats', 'active'],
     queryFn: () => establishmentsApi.list({ include_inactive: false, limit: 1 }).then((r) => r.data.total),
@@ -98,9 +102,9 @@ export default function SuperadminDashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Établissements" value={total ?? 0} icon={Building2} loading={loadingTotal} />
-        <StatCard title="Actifs" value={active ?? 0} icon={CheckCircle2} loading={loadingActive} />
-        <StatCard title="Inactifs" value={inactive ?? 0} icon={XCircle} loading={loadingActive || loadingTotal} />
+        <StatCard title={t('super.establishments')} value={total ?? 0} icon={Building2} loading={loadingTotal} />
+        <StatCard title={t('super.active')} value={active ?? 0} icon={CheckCircle2} loading={loadingActive} />
+        <StatCard title={t('super.inactive')} value={inactive ?? 0} icon={XCircle} loading={loadingActive || loadingTotal} />
       </div>
 
       <SystemHealthCard />

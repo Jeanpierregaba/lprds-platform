@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { BookOpen, LibraryBig } from 'lucide-react'
 
@@ -9,6 +11,7 @@ import { libraryApi } from '@/lib/api/library.api'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 
 export default function StaffLibraryPage() {
+  const t = useTranslations('admin')
   const { data, isLoading } = useQuery({
     queryKey: ['library', 'educator', 'books'],
     queryFn: () => libraryApi.listEducatorBooks().then((r) => r.data),
@@ -19,8 +22,8 @@ export default function StaffLibraryPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Bibliothèque"
-        description="Livres disponibles dans votre section."
+        title={t('portals.library')}
+        description={t('portals.staffLibraryHint')}
       />
 
       {isLoading ? (

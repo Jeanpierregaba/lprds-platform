@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useQuery } from '@tanstack/react-query'
 import { Baby } from 'lucide-react'
 
@@ -25,6 +27,7 @@ function childAgeLabel(birthIso: string): string {
 }
 
 export default function StaffMyGroupPage() {
+  const t = useTranslations('admin')
   const { data, isLoading } = useQuery({
     queryKey: ['staff', 'children', 'my-group'],
     queryFn: () => childrenApi.listMyGroup().then((r) => r.data),
@@ -35,8 +38,8 @@ export default function StaffMyGroupPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Mon Groupe"
-        description="Enfants du/des groupe(s) dont vous êtes l\u2019éducatrice."
+        title={t('portals.myGroup')}
+        description={t('portals.myGroupHint')}
       />
 
       {isLoading ? (
@@ -45,7 +48,7 @@ export default function StaffMyGroupPage() {
         <CardsEmptyState
           icon={Baby}
           title="Aucun groupe ne vous est encore assigné."
-          description="Contactez l\u2019administration pour être désigné(e) éducatrice responsable d\u2019un groupe."
+          description={t('portals.myGroupHint')}
         />
       ) : (
         <CardsGrid>

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
@@ -20,6 +22,7 @@ const ALL = '__all__'
 const PAGE_SIZE = 30
 
 export default function ParentGalleryPage() {
+  const t = useTranslations('admin')
   const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
   const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
   const [source, setSource] = useState(ALL)
@@ -51,8 +54,8 @@ export default function ParentGalleryPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Galerie"
-        description="Photos et vidéos de votre/vos enfant(s)."
+        title={t('portals.gallery')}
+        description={t('portals.parentGalleryHint')}
       />
 
       <div className="flex flex-wrap items-center gap-3">

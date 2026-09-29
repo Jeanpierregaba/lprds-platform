@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -31,6 +33,7 @@ const conversationsKey = ['messaging', 'conversations'] as const
 const messagesKey = (conversationId: string) => ['messaging', 'conversation-messages', conversationId] as const
 
 export function ConversationsTab() {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [startDialogOpen, setStartDialogOpen] = useState(false)
@@ -66,7 +69,7 @@ export function ConversationsTab() {
       setStartDialogOpen(false)
       setSelectedParentId(null)
       setFirstBody('')
-      toast.success('Conversation créée.')
+      toast.success(t('conversations.created'))
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
@@ -100,7 +103,7 @@ export function ConversationsTab() {
           <p className="text-sm font-semibold text-primary">Conversations</p>
           <Button variant="outline" size="sm" onClick={() => setStartDialogOpen(true)}>
             <Plus className="mr-1.5 size-4" />
-            Nouvelle
+            {t('conversations.new')}
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -112,7 +115,7 @@ export function ConversationsTab() {
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm font-medium text-foreground">Impossible de charger les conversations.</p>
             <Button variant="outline" size="sm" onClick={() => refetchConversations()}>
-              Réessayer
+              {t('conversations.retry')}
             </Button>
           </div>
         ) : conversationItems.length === 0 ? (
@@ -120,7 +123,7 @@ export function ConversationsTab() {
             <div className="flex size-12 items-center justify-center rounded-full bg-muted">
               <MessagesSquare className="size-5" />
             </div>
-            <p className="text-sm">Aucune conversation pour le moment.</p>
+            <p className="text-sm">{t('conversations.empty')}</p>
           </div>
         ) : (
           <ul className="divide-y divide-border">
@@ -139,7 +142,7 @@ export function ConversationsTab() {
                       {conv.parent.nickname || `${conv.parent.first_name} ${conv.parent.last_name}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {conv.last_message_at ? formatDateTime(conv.last_message_at) : 'Aucun message'}
+                      {conv.last_message_at ? formatDateTime(conv.last_message_at) : t('conversations.noMessage')}
                     </p>
                   </div>
                   {conv.unread_count > 0 && (
@@ -160,7 +163,7 @@ export function ConversationsTab() {
       {!selectedId || !selectedConversation ? (
         <CardContent className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
           <MessagesSquare className="size-8" />
-          <p className="text-sm">Sélectionnez une conversation.</p>
+          <p className="text-sm">{t('conversations.selectOne')}</p>
         </CardContent>
       ) : (
         <ConversationThread
@@ -184,7 +187,7 @@ export function ConversationsTab() {
         {selectedId && selectedConversation ? (
           <div className="space-y-2">
             <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>
-              ← Retour aux conversations
+              {t('conversations.back')}
             </Button>
             <div className="h-[calc(100vh-16rem)]">{threadCard}</div>
           </div>
@@ -196,8 +199,8 @@ export function ConversationsTab() {
       <Dialog open={startDialogOpen} onOpenChange={setStartDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nouvelle conversation</DialogTitle>
-            <DialogDescription>Sélectionnez un parent pour démarrer une discussion privée.</DialogDescription>
+            <DialogTitle>{t('conversations.newTitle')}</DialogTitle>
+            <DialogDescription>{t('conversations.newHint')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
@@ -209,7 +212,7 @@ export function ConversationsTab() {
               <div className="flex flex-col items-center gap-2 py-4 text-center">
                 <p className="text-sm text-muted-foreground">Impossible de charger les parents.</p>
                 <Button variant="outline" size="sm" onClick={() => refetchParents()}>
-                  Réessayer
+                  {t('conversations.retry')}
                 </Button>
               </div>
             ) : (
@@ -242,7 +245,7 @@ export function ConversationsTab() {
 
             <div className="space-y-2">
               <Textarea
-                placeholder="Premier message (facultatif)..."
+                placeholder={t('conversations.firstMessage')}
                 rows={3}
                 value={firstBody}
                 onChange={(e) => setFirstBody(e.target.value)}
@@ -252,7 +255,7 @@ export function ConversationsTab() {
 
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="ghost" onClick={() => setStartDialogOpen(false)}>
-                Annuler
+                {t('conversations.cancel')}
               </Button>
               <Button
                 type="button"
@@ -261,7 +264,7 @@ export function ConversationsTab() {
               >
                 {startMutation.isPending
                   ? <><Loader2 className="mr-2 size-4 animate-spin" /> Création...</>
-                  : <><Send className="mr-1.5 size-4" /> Démarrer</>}
+                  : <><Send className="mr-1.5 size-4" /> {t('conversations.start')}</>}
               </Button>
             </div>
           </div>
@@ -279,6 +282,7 @@ function ConversationThread({
   markReadPending: boolean
   onMarkRead: (conversationId: string) => void
 }) {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   const thread = useConversationThread({
     messagesKey: messagesKey(conversation.id),
@@ -338,7 +342,7 @@ function ConversationThread({
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
               <p className="text-sm font-medium text-foreground">Impossible de charger les messages.</p>
               <Button variant="outline" size="sm" onClick={() => thread.refetchMessages()}>
-                Réessayer
+                {t('conversations.retry')}
               </Button>
             </div>
           ) : (
@@ -349,7 +353,7 @@ function ConversationThread({
                 </div>
               )}
               {thread.messages.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground">Aucun message pour l&apos;instant.</p>
+                <p className="text-center text-sm text-muted-foreground">{t('conversations.noMessageYet')}</p>
               ) : (
                 thread.messages.map((msg) => (
                   <MessageBubble
@@ -395,7 +399,7 @@ function ConversationThread({
       <div className="flex items-end gap-2 border-t border-border p-3">
         <div className="min-w-0 flex-1">
           <Textarea
-            placeholder="Répondre au nom de l'administration..."
+            placeholder={t('conversations.replyPlaceholder')}
             rows={2}
             value={thread.body}
             onChange={(e) => thread.setBody(e.target.value)}
@@ -414,8 +418,8 @@ function ConversationThread({
             variant={thread.pickerOpen ? 'secondary' : 'ghost'}
             size="icon"
             className="h-10 w-10"
-            aria-label="Joindre des photos ou vidéos"
-            title="Joindre des photos ou vidéos (avec aperçu avant envoi)"
+            aria-label={t('conversations.attachAria')}
+            title={t('conversations.attachTitle')}
             onClick={() => thread.setPickerOpen((v) => !v)}
             disabled={thread.busy}
           >

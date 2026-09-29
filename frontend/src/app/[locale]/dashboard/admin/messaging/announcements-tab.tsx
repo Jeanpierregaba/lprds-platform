@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -42,6 +44,7 @@ function formatDateTime(iso: string) {
 }
 
 export function AnnouncementsTab() {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -114,7 +117,7 @@ export function AnnouncementsTab() {
 
   const onSubmit = async (values: Form) => {
     if (!broadcast && selectedDeptIds.length === 0) {
-      toast.error('Cochez au moins un département, ou choisissez « Tous les parents ».')
+      toast.error(t('announcements.needDepartment'))
       return
     }
     const department_ids = broadcast ? [] : selectedDeptIds
@@ -123,15 +126,15 @@ export function AnnouncementsTab() {
       if (editing) {
         await messagingApi.updateAnnouncement(editing.id, { ...values, department_ids })
         announcement = editing
-        toast.success('Diffusion mise à jour.')
+        toast.success(t('announcements.updated'))
       } else {
         const created = await messagingApi.createAnnouncement({ ...values, department_ids })
         announcement = created.data
-        toast.success('Diffusion publiée.')
+        toast.success(t('announcements.published'))
       }
       if (attachFiles.length > 0) {
         const uploaded = await messagingApi.uploadAnnouncementAttachments(announcement.id, attachFiles)
-        if (!editing) toast.success(`${uploaded.data.length} média(s) ajouté(s).`)
+        if (!editing) toast.success(t('announcements.mediaAdded', { count: uploaded.data.length }))
       }
       setDialogOpen(false)
       invalidate()
@@ -143,7 +146,7 @@ export function AnnouncementsTab() {
   const toggleActiveMutation = useMutation({
     mutationFn: (a: Announcement) => messagingApi.updateAnnouncement(a.id, { is_active: !a.is_active }),
     onSuccess: (_, a) => {
-      toast.success(a.is_active ? 'Diffusion désactivée.' : 'Diffusion réactivée.')
+      toast.success(a.is_active ? t('announcements.deactivated') : t('announcements.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -158,35 +161,35 @@ export function AnnouncementsTab() {
           id="announcement-include-inactive"
           checked={includeInactive}
           onCheckedChange={setIncludeInactive}
-          label="Inclure les diffusions désactivées"
+          label={t('announcements.includeInactive')}
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button onClick={openCreate} />}>
             <Plus className="mr-1.5 size-4" />
-            Nouvelle diffusion
+            {t('announcements.new')}
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? 'Modifier la diffusion' : 'Nouvelle diffusion'}</DialogTitle>
+              <DialogTitle>{editing ? t('announcements.editTitle') : t('announcements.newTitle')}</DialogTitle>
               <DialogDescription>
                 Rédigez le message en entier, puis cochez les départements concernés avant l&apos;envoi.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="title">Titre</Label>
+                <Label htmlFor="title">{t('announcements.title')}</Label>
                 <Input id="title" {...register('title')} aria-invalid={!!errors.title} />
                 {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="body">Contenu</Label>
+                <Label htmlFor="body">{t('announcements.content')}</Label>
                 <Textarea id="body" rows={5} {...register('body')} aria-invalid={!!errors.body} />
                 {errors.body && <p className="text-sm text-destructive">{errors.body.message}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label>Destinataires</Label>
+                <Label>{t('announcements.recipients')}</Label>
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2">
                   <Checkbox
                     id="announcement-broadcast"
@@ -200,7 +203,7 @@ export function AnnouncementsTab() {
                     }}
                   />
                   <Label htmlFor="announcement-broadcast" className="text-sm font-normal">
-                    Tous les parents de l&apos;établissement
+                    {t('announcements.allParents')}
                   </Label>
                 </div>
                 {!broadcast && (
@@ -215,7 +218,7 @@ export function AnnouncementsTab() {
                         Impossible de charger les départements — réessayez en rouvrant ce dialogue.
                       </p>
                     ) : departments.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Aucun département dans l&apos;établissement.</p>
+                      <p className="text-sm text-muted-foreground">{t('announcements.noDepartment')}</p>
                     ) : (
                       departments.map((d) => (
                         <div key={d.id} className="flex items-center gap-2 py-1">
@@ -235,7 +238,7 @@ export function AnnouncementsTab() {
               </div>
 
               <div className="space-y-2">
-                <Label>Médias (facultatif, max {MAX_ANNOUNCEMENT_MEDIA})</Label>
+                <Label>{t('announcements.media', { max: MAX_ANNOUNCEMENT_MEDIA })}</Label>
                 <MediaPicker files={attachFiles} onChange={setAttachFiles} />
               </div>
 
@@ -243,7 +246,7 @@ export function AnnouncementsTab() {
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
                     ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                    : editing ? 'Enregistrer' : 'Publier'}
+                    : editing ? t('announcements.save') : t('announcements.publish')}
                 </Button>
               </DialogFooter>
             </form>
@@ -268,7 +271,7 @@ export function AnnouncementsTab() {
       ) : items.length === 0 ? (
         <CardsEmptyState
           icon={Megaphone}
-          title="Aucune diffusion pour le moment."
+          title={t('announcements.empty')}
           heightClass="h-48"
         />
       ) : (
@@ -298,6 +301,7 @@ function AnnouncementCard({
   onToggleActive: () => void
   togglePending: boolean
 }) {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   const scoped = announcement.department_ids ?? []
   const [attachOpen, setAttachOpen] = useState(false)
@@ -308,7 +312,7 @@ function AnnouncementCard({
   const batchMutation = useMutation({
     mutationFn: (files: File[]) => messagingApi.uploadAnnouncementAttachments(announcement.id, files),
     onSuccess: (res) => {
-      toast.success(`${res.data.length} média(s) ajouté(s).`)
+      toast.success(t('announcements.mediaAdded', { count: res.data.length }))
       setAttachFiles([])
       setAttachOpen(false)
       queryClient.invalidateQueries({ queryKey: ['messaging', 'announcements'] })
@@ -329,11 +333,11 @@ function AnnouncementCard({
             </CardDescription>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {!announcement.is_active && <Badge variant="outline">Inactive</Badge>}
+            {!announcement.is_active && <Badge variant="outline">{t('announcements.inactive')}</Badge>}
             <Badge variant="outline" className="break-words font-normal">
               {scoped.length === 0
-                ? 'Tous les parents'
-                : scoped.map((id) => deptNames.get(id) ?? 'Département').join(', ')}
+                ? t('announcements.allParentsShort')
+                : scoped.map((id) => deptNames.get(id) ?? t('announcements.department')).join(', ')}
             </Badge>
             {announcement.read_count != null && announcement.total_parents != null && (
               <Badge variant="outline" className="whitespace-nowrap font-normal">
@@ -349,7 +353,7 @@ function AnnouncementCard({
         <AnnouncementMediaGrid attachments={announcement.attachments} />
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={onEdit}>Modifier</Button>
+          <Button variant="outline" size="sm" onClick={onEdit}>{t('announcements.edit')}</Button>
           <Button
             variant="outline"
             size="sm"
@@ -359,18 +363,18 @@ function AnnouncementCard({
             {togglePending
               ? <Loader2 className="mr-1.5 size-4 animate-spin" />
               : null}
-            {announcement.is_active ? 'Désactiver' : 'Réactiver'}
+            {announcement.is_active ? t('announcements.deactivate') : t('announcements.reactivate')}
           </Button>
           <ConfirmDialog
             open={confirmToggle}
             onOpenChange={setConfirmToggle}
-            title={announcement.is_active ? 'Désactiver cette diffusion ?' : 'Réactiver cette diffusion ?'}
+            title={announcement.is_active ? t('announcements.deactivateTitle') : t('announcements.reactivateTitle')}
             description={
               announcement.is_active
-                ? 'Elle sera masquée à tous les parents (réversible).'
-                : 'Elle redeviendra visible par les parents concernés.'
+                ? t('announcements.deactivateBody')
+                : t('announcements.reactivateBody')
             }
-            confirmLabel="Confirmer"
+            confirmLabel={t('announcements.confirm')}
             onConfirm={() => {
               setConfirmToggle(false)
               onToggleActive()
@@ -385,7 +389,7 @@ function AnnouncementCard({
                 variant="ghost"
                 size="sm"
                 disabled={slotsLeft <= 0}
-                title={slotsLeft <= 0 ? `Limite de ${MAX_ANNOUNCEMENT_MEDIA} médias atteinte` : 'Joindre des fichiers'}
+                title={slotsLeft <= 0 ? t('announcements.mediaLimit', { max: MAX_ANNOUNCEMENT_MEDIA }) : t('announcements.attachFiles')}
               />
             }>
               <Paperclip className="mr-1.5 size-3.5" />
@@ -393,7 +397,7 @@ function AnnouncementCard({
             </DialogTrigger>
           <DialogContent className="max-h-[90dvh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Ajouter des médias</DialogTitle>
+                <DialogTitle>{t('announcements.addMediaTitle')}</DialogTitle>
                 <DialogDescription>
                   {slotsLeft <= 0
                     ? `Limite de ${MAX_ANNOUNCEMENT_MEDIA} médias atteinte pour cette diffusion.`

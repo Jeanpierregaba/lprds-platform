@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileVideo, Images } from 'lucide-react'
@@ -16,6 +18,7 @@ import { MediaLightbox } from '@/app/[locale]/dashboard/admin/gallery/media-ligh
 const PAGE_SIZE = 30
 
 export default function StaffGalleryPage() {
+  const t = useTranslations('admin')
   const [skip, setSkip] = useState(0)
   const [selected, setSelected] = useState<GalleryMediaItem | null>(null)
 
@@ -32,8 +35,8 @@ export default function StaffGalleryPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Galerie"
-        description="Photos et vidéos que vous avez envoyées via vos rapports."
+        title={t('portals.gallery')}
+        description={t('portals.staffGalleryHint')}
       />
 
       {isLoading ? (

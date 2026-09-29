@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Megaphone, MessagesSquare, Wifi, WifiOff } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
@@ -11,6 +13,7 @@ import { AnnouncementsTab } from './announcements-tab'
 import { ConversationTab } from './conversation-tab'
 
 function ConnectionBadge() {
+  const t = useTranslations('messaging')
   const status = useMessagingSocketStatus()
   if (status === 'open') {
     return (
@@ -23,12 +26,13 @@ function ConnectionBadge() {
   return (
     <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
       <WifiOff className="size-3" />
-      {status === 'connecting' ? 'Connexion...' : 'Hors ligne'}
+      {status === 'connecting' ? t('status.connecting') : t('status.offline')}
     </Badge>
   )
 }
 
 export default function ParentMessagingPage() {
+  const t = useTranslations('messaging')
   return (
     <PageMotion>
       <div className="flex items-start justify-between gap-4">
@@ -42,10 +46,10 @@ export default function ParentMessagingPage() {
       <Tabs defaultValue="announcements">
         <PillsTabsList>
           <PillsTrigger value="announcements" active="primary" icon={Megaphone}>
-            Diffusions
+            {t('tabs.announcements')}
           </PillsTrigger>
           <PillsTrigger value="conversation" active="teal" icon={MessagesSquare}>
-            Conversation
+            {t('tabs.conversation')}
           </PillsTrigger>
         </PillsTabsList>
 

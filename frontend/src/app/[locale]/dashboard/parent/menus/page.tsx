@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
@@ -24,6 +26,7 @@ function formatShortDate(iso: string) {
 }
 
 export default function ParentMenusPage() {
+  const t = useTranslations('admin')
   const currentMonday = toIsoDate(mondayOf(new Date()))
   const [weekStart, setWeekStart] = useState(currentMonday)
   const [deptId, setDeptId] = useState('')
@@ -77,8 +80,8 @@ export default function ParentMenusPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Menus"
-        description="Repas servis par l\u2019établissement."
+        title={t('portals.menus')}
+        description={t('portals.menusHint')}
       />
 
       {departments.length > 1 && (

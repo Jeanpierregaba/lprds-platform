@@ -6,6 +6,7 @@
  * manquante côté anglais devient une erreur TypeScript au lieu de se découvrir
  * en production sous la forme d'un libellé brut affiché à l'écran.
  */
+import admin from './admin.json'
 import attendance from './attendance.json'
 import auth from './auth.json'
 import blog from './blog.json'
@@ -17,6 +18,7 @@ import gallery from './gallery.json'
 import library from './library.json'
 import marketing from './marketing.json'
 import menus from './menus.json'
+import messaging from './messaging.json'
 import nav from './nav.json'
 import organization from './organization.json'
 import parents from './parents.json'
@@ -24,7 +26,7 @@ import rbac from './rbac.json'
 import reports from './reports.json'
 import staff from './staff.json'
 
-export const messages = { attendance, auth, blog, children, common, enums, errors, gallery, library, marketing, menus, nav, organization, parents, rbac, reports, staff } as const
+export const messages = { admin, attendance, auth, blog, children, common, enums, errors, gallery, library, marketing, menus, messaging, nav, organization, parents, rbac, reports, staff } as const
 
 export type Messages = typeof messages
 

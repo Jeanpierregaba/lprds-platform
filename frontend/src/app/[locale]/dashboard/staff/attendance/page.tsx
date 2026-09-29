@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
@@ -27,6 +29,7 @@ function formatTime(iso: string | null, timeZone?: string) {
 }
 
 export default function StaffAttendancePage() {
+  const t = useTranslations('admin')
   const [date, setDate] = useState(todayIso())
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -40,8 +43,8 @@ export default function StaffAttendancePage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Présence"
-        description="Statut du jour des enfants de votre groupe."
+        title={t('portals.staffAttendance')}
+        description={t('portals.staffAttendanceHint')}
       />
 
       <div className="w-fit space-y-1.5">

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
@@ -26,16 +28,19 @@ import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/component
 import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Section } from '@/types/organization'
 
-const schema = z.object({
-  department_id: z.string().min(1, 'Département requis'),
-  name: z.string().min(1, 'Nom requis').max(100),
+type T = (key: string) => string
+
+const makeSchema = (t: T) => z.object({
+  department_id: z.string().min(1, t('sections.departmentRequired')),
+  name: z.string().min(1, t('common.nameRequired')).max(100),
   description: z.string().max(300).optional().or(z.literal('')),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 const ALL = '__all__'
 
 export function SectionsTab() {
+  const t = useTranslations('organization')
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -64,7 +69,7 @@ export function SectionsTab() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['sections'] })
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(t)),
     defaultValues: { department_id: '', name: '', description: '' },
   })
 
@@ -87,14 +92,14 @@ export function SectionsTab() {
           name: values.name,
           description: values.description || undefined,
         })
-        toast.success('Section mise à jour.')
+        toast.success(t('sections.updated'))
       } else {
         await organizationApi.createSection({
           department_id: values.department_id,
           name: values.name,
           description: values.description || undefined,
         })
-        toast.success('Section créée.')
+        toast.success(t('sections.created'))
       }
       setDialogOpen(false)
       invalidate()
@@ -107,7 +112,7 @@ export function SectionsTab() {
     mutationFn: (section: Section) =>
       organizationApi.updateSection(section.id, { is_active: !section.is_active }),
     onSuccess: (_, section) => {
-      toast.success(section.is_active ? 'Section désactivée.' : 'Section réactivée.')
+      toast.success(section.is_active ? t('sections.deactivated') : t('sections.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -122,15 +127,15 @@ export function SectionsTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
           <Select
-            items={{ [ALL]: 'Tous les départements', ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
+            items={{ [ALL]: t('sections.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
             value={filterDepartmentId}
             onValueChange={(v) => setFilterDepartmentId(v ?? ALL)}
           >
             <SelectTrigger className="w-full sm:w-56">
-              <SelectValue placeholder="Tous les départements" />
+              <SelectValue placeholder={t('sections.allDepartments')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tous les départements</SelectItem>
+              <SelectItem value={ALL}>{t('sections.allDepartments')}</SelectItem>
               {departments?.map((d) => (
                 <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
               ))}
@@ -140,7 +145,7 @@ export function SectionsTab() {
             id="sec-include-inactive"
             checked={includeInactive}
             onCheckedChange={setIncludeInactive}
-            label="Inclure les sections inactives"
+            label={t('sections.includeInactive')}
           />
         </div>
 
@@ -148,17 +153,17 @@ export function SectionsTab() {
           {canWrite && (
           <DialogTrigger render={<Button onClick={openCreate} disabled={!hasDepartments} />}>
             <Plus className="mr-1.5 size-4" />
-            Nouvelle section
+            {t('sections.new')}
           </DialogTrigger>
           )}
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? 'Modifier la section' : 'Nouvelle section'}</DialogTitle>
-              <DialogDescription>Une section appartient à un seul département.</DialogDescription>
+              <DialogTitle>{editing ? t('sections.editTitle') : t('sections.newTitle')}</DialogTitle>
+              <DialogDescription>{t('sections.hint')}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="s_department">Département</Label>
+                <Label htmlFor="s_department">{t('sections.department')}</Label>
                 <Controller
                   control={control}
                   name="department_id"
@@ -170,7 +175,7 @@ export function SectionsTab() {
                       disabled={!!editing}
                     >
                       <SelectTrigger id="s_department" className="w-full" aria-invalid={!!errors.department_id}>
-                        <SelectValue placeholder="Choisir un département" />
+                        <SelectValue placeholder={t('sections.chooseDepartment')} />
                       </SelectTrigger>
                       <SelectContent>
                         {departments?.map((d) => (
@@ -183,19 +188,19 @@ export function SectionsTab() {
                 {errors.department_id && <p className="text-sm text-destructive">{errors.department_id.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="s_name">Nom</Label>
+                <Label htmlFor="s_name">{t('common.name')}</Label>
                 <Input id="s_name" {...register('name')} aria-invalid={!!errors.name} />
                 {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="s_description">Description (optionnelle)</Label>
+                <Label htmlFor="s_description">{t('common.descriptionOptional')}</Label>
                 <Textarea id="s_description" rows={3} {...register('description')} />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
                     ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                    : editing ? 'Enregistrer' : 'Créer'}
+                    : editing ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
             </form>
@@ -205,10 +210,10 @@ export function SectionsTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th>Nom</Th>
-          <Th>Département</Th>
-          <Th>Description</Th>
-          <Th>Statut</Th>
+          <Th>{t('common.name')}</Th>
+          <Th>{t('sections.department')}</Th>
+          <Th>{t('common.description')}</Th>
+          <Th>{t('common.status')}</Th>
           <Th className="w-10" />
         </DataTableHead>
         <TableBody>
@@ -225,7 +230,7 @@ export function SectionsTab() {
                     <LayoutGrid className="size-5" />
                   </div>
                   <p className="font-medium text-foreground">
-                    {hasDepartments ? 'Aucune section pour le moment.' : 'Créez d\'abord un département.'}
+                    {hasDepartments ? t('sections.empty') : t('sections.needDepartment')}
                   </p>
                 </div>
               </Td>
@@ -242,11 +247,11 @@ export function SectionsTab() {
                 <Td>
                   {canWrite && (
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(section)} aria-label={`Modifier ${section.name}`}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(section)} aria-label={t('common.edit', { name: section.name })}>
                       <Pencil className="size-4" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(section)}>
-                      {section.is_active ? 'Désactiver' : 'Réactiver'}
+                      {section.is_active ? t('common.deactivate') : t('common.reactivate')}
                     </Button>
                   </div>
                   )}

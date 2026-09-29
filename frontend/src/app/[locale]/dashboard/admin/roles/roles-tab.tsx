@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
@@ -25,14 +27,17 @@ import { StatusPill } from '@/components/dashboard/shared/cards'
 import { PERMISSION_GROUPS } from '@/types/rbac'
 import type { Role } from '@/types/rbac'
 
-const schema = z.object({
-  name: z.string().min(1, 'Nom requis').max(100),
+type T = (key: string) => string
+
+const makeSchema = (t: T) => z.object({
+  name: z.string().min(1, t('roles.nameRequired')).max(100),
   description: z.string().max(300).optional().or(z.literal('')),
   permissions: z.array(z.string()),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export function RolesTab() {
+  const t = useTranslations('rbac')
   const queryClient = useQueryClient()
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -51,7 +56,7 @@ export function RolesTab() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['roles'] })
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(t)),
     defaultValues: { permissions: [] },
   })
 
@@ -80,10 +85,10 @@ export function RolesTab() {
       }
       if (editing) {
         await rbacApi.updateRole(editing.id, payload)
-        toast.success('Rôle mis à jour.')
+        toast.success(t('roles.updated'))
       } else {
         await rbacApi.createRole(payload)
-        toast.success('Rôle créé.')
+        toast.success(t('roles.created'))
       }
       setDialogOpen(false)
       invalidate()
@@ -101,7 +106,7 @@ export function RolesTab() {
       }
     },
     onSuccess: (_, role) => {
-      toast.success(role.is_active ? 'Rôle désactivé.' : 'Rôle réactivé.')
+      toast.success(role.is_active ? t('roles.deactivated') : t('roles.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -116,17 +121,17 @@ export function RolesTab() {
           id="role-include-inactive"
           checked={includeInactive}
           onCheckedChange={setIncludeInactive}
-          label="Inclure les rôles inactifs"
+          label={t('roles.includeInactive')}
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button onClick={openCreate} />}>
             <Plus className="mr-1.5 size-4" />
-            Nouveau rôle
+            {t('roles.new')}
           </DialogTrigger>
           <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editing ? 'Modifier le rôle' : 'Nouveau rôle'}</DialogTitle>
+              <DialogTitle>{editing ? t('roles.editTitle') : t('roles.newTitle')}</DialogTitle>
               <DialogDescription>
                 Ex. Directrice, Assistant de direction... Les droits attribués s&apos;appliquent
                 à tout membre du personnel qui portera ce rôle.
@@ -134,16 +139,16 @@ export function RolesTab() {
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="r_name">Nom</Label>
+                <Label htmlFor="r_name">{t('roles.name')}</Label>
                 <Input id="r_name" {...register('name')} aria-invalid={!!errors.name} />
                 {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="r_description">Description (optionnelle)</Label>
+                <Label htmlFor="r_description">{t('roles.descriptionOptional')}</Label>
                 <Textarea id="r_description" rows={2} {...register('description')} />
               </div>
               <div className="space-y-2">
-                <Label>Permissions</Label>
+                <Label>{t('roles.permissions')}</Label>
                 <Controller
                   control={control}
                   name="permissions"
@@ -208,7 +213,7 @@ export function RolesTab() {
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
                     ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                    : editing ? 'Enregistrer' : 'Créer'}
+                    : editing ? t('roles.save') : t('roles.create')}
                 </Button>
               </DialogFooter>
             </form>
@@ -218,9 +223,9 @@ export function RolesTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th>Nom</Th>
-          <Th>Permissions</Th>
-          <Th>Statut</Th>
+          <Th>{t('roles.name')}</Th>
+          <Th>{t('roles.permissions')}</Th>
+          <Th>{t('roles.status')}</Th>
           <Th className="w-10" />
         </DataTableHead>
         <TableBody>
@@ -236,7 +241,7 @@ export function RolesTab() {
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <ShieldCheck className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucun rôle pour le moment.</p>
+                  <p className="font-medium text-foreground">{t('roles.empty')}</p>
                   <p className="max-w-sm text-sm">
                     Créez des rôles pour donner des droits fins à votre personnel (ex. Directrice, Secrétaire).
                   </p>
@@ -273,11 +278,11 @@ export function RolesTab() {
                 </Td>
                 <Td>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(role)} aria-label={`Modifier ${role.name}`}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(role)} aria-label={t('roles.edit', { name: role.name })}>
                       <Pencil className="size-4" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(role)}>
-                      {role.is_active ? 'Désactiver' : 'Réactiver'}
+                      {role.is_active ? t('roles.deactivate') : t('roles.reactivate')}
                     </Button>
                   </div>
                 </Td>

@@ -1,0 +1,44 @@
+{
+  "page": {
+    "title": "Roles & permissions",
+    "description": "Define your school's roles and assign them to your staff."
+  },
+  "tabs": {
+    "roles": "Roles",
+    "assignment": "Assignment"
+  },
+  "roles": {
+    "new": "New role",
+    "editTitle": "Edit role",
+    "newTitle": "New role",
+    "includeInactive": "Include inactive roles",
+    "name": "Name",
+    "nameRequired": "Name required",
+    "descriptionOptional": "Description (optional)",
+    "permissions": "Permissions",
+    "status": "Status",
+    "save": "Save",
+    "create": "Create",
+    "saving": "Saving...",
+    "edit": "Edit {name}",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "empty": "No roles yet.",
+    "created": "Role created.",
+    "updated": "Role updated.",
+    "deactivated": "Role deactivated.",
+    "reactivated": "Role reactivated."
+  },
+  "assignment": {
+    "searchTitle": "Search for a staff member",
+    "searchHint": "By surname, nickname, email or ID.",
+    "searchPlaceholder": "Search...",
+    "noResult": "No results.",
+    "assignedTitle": "Assigned roles",
+    "selectStaff": "Select a staff member.",
+    "none": "No roles assigned.",
+    "revoke": "Revoke {name}",
+    "assigned": "Role assigned.",
+    "revoked": "Role revoked."
+  }
+}

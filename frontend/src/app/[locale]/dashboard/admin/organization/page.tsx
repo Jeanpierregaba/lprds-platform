@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Building, LayoutGrid, Users } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
@@ -10,23 +12,24 @@ import { SectionsTab } from './sections-tab'
 import { GroupsTab } from './groups-tab'
 
 export default function OrganizationPage() {
+  const t = useTranslations('organization')
   return (
     <PageMotion>
       <PageHeader
-        title="Organisation"
-        description="Départements, sections et groupes de votre établissement."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       <Tabs defaultValue="departments">
         <PillsTabsList>
           <PillsTrigger value="departments" active="primary" icon={Building}>
-            Départements
+            {t('tabs.departments')}
           </PillsTrigger>
           <PillsTrigger value="sections" active="teal" icon={LayoutGrid}>
-            Sections
+            {t('tabs.sections')}
           </PillsTrigger>
           <PillsTrigger value="groups" active="sky" icon={Users}>
-            Groupes
+            {t('tabs.groups')}
           </PillsTrigger>
         </PillsTabsList>
 

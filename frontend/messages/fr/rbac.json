@@ -1,0 +1,44 @@
+{
+  "page": {
+    "title": "Rôles & permissions",
+    "description": "Définir les rôles de votre établissement et les attribuer à votre personnel."
+  },
+  "tabs": {
+    "roles": "Rôles",
+    "assignment": "Attribution"
+  },
+  "roles": {
+    "new": "Nouveau rôle",
+    "editTitle": "Modifier le rôle",
+    "newTitle": "Nouveau rôle",
+    "includeInactive": "Inclure les rôles inactifs",
+    "name": "Nom",
+    "nameRequired": "Nom requis",
+    "descriptionOptional": "Description (optionnelle)",
+    "permissions": "Permissions",
+    "status": "Statut",
+    "save": "Enregistrer",
+    "create": "Créer",
+    "saving": "Enregistrement...",
+    "edit": "Modifier {name}",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "empty": "Aucun rôle pour le moment.",
+    "created": "Rôle créé.",
+    "updated": "Rôle mis à jour.",
+    "deactivated": "Rôle désactivé.",
+    "reactivated": "Rôle réactivé."
+  },
+  "assignment": {
+    "searchTitle": "Rechercher un membre du personnel",
+    "searchHint": "Par nom, surnom, email ou matricule.",
+    "searchPlaceholder": "Rechercher...",
+    "noResult": "Aucun résultat.",
+    "assignedTitle": "Rôles attribués",
+    "selectStaff": "Sélectionnez un membre du personnel.",
+    "none": "Aucun rôle attribué.",
+    "revoke": "Révoquer {name}",
+    "assigned": "Rôle attribué.",
+    "revoked": "Rôle révoqué."
+  }
+}

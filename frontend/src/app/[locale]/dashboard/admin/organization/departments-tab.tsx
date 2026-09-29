@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -25,13 +27,16 @@ import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/component
 import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Department } from '@/types/organization'
 
-const schema = z.object({
-  name: z.string().min(1, 'Nom requis').max(100),
+type T = (key: string) => string
+
+const makeSchema = (t: T) => z.object({
+  name: z.string().min(1, t('common.nameRequired')).max(100),
   description: z.string().max(300).optional().or(z.literal('')),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export function DepartmentsTab() {
+  const t = useTranslations('organization')
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -48,7 +53,7 @@ export function DepartmentsTab() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['departments'] })
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(t)),
   })
 
   const openCreate = () => {
@@ -68,10 +73,10 @@ export function DepartmentsTab() {
       const payload = { name: values.name, description: values.description || undefined }
       if (editing) {
         await organizationApi.updateDepartment(editing.id, payload)
-        toast.success('Département mis à jour.')
+        toast.success(t('departments.updated'))
       } else {
         await organizationApi.createDepartment(payload)
-        toast.success('Département créé.')
+        toast.success(t('departments.created'))
       }
       setDialogOpen(false)
       invalidate()
@@ -84,7 +89,7 @@ export function DepartmentsTab() {
     mutationFn: (dept: Department) =>
       organizationApi.updateDepartment(dept.id, { is_active: !dept.is_active }),
     onSuccess: (_, dept) => {
-      toast.success(dept.is_active ? 'Département désactivé.' : 'Département réactivé.')
+      toast.success(dept.is_active ? t('departments.deactivated') : t('departments.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -99,38 +104,38 @@ export function DepartmentsTab() {
           id="dept-include-inactive"
           checked={includeInactive}
           onCheckedChange={setIncludeInactive}
-          label="Inclure les départements inactifs"
+          label={t('departments.includeInactive')}
         />
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           {canWrite && (
           <DialogTrigger render={<Button onClick={openCreate} />}>
             <Plus className="mr-1.5 size-4" />
-            Nouveau département
+            {t('departments.new')}
           </DialogTrigger>
           )}
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? 'Modifier le département' : 'Nouveau département'}</DialogTitle>
+              <DialogTitle>{editing ? t('departments.editTitle') : t('departments.newTitle')}</DialogTitle>
               <DialogDescription>
                 Premier niveau de la hiérarchie (Département → Section → Groupe).
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="d_name">Nom</Label>
+                <Label htmlFor="d_name">{t('common.name')}</Label>
                 <Input id="d_name" {...register('name')} aria-invalid={!!errors.name} />
                 {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="d_description">Description (optionnelle)</Label>
+                <Label htmlFor="d_description">{t('common.descriptionOptional')}</Label>
                 <Textarea id="d_description" rows={3} {...register('description')} />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
                     ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                    : editing ? 'Enregistrer' : 'Créer'}
+                    : editing ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
             </form>
@@ -140,9 +145,9 @@ export function DepartmentsTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th>Nom</Th>
-          <Th>Description</Th>
-          <Th>Statut</Th>
+          <Th>{t('common.name')}</Th>
+          <Th>{t('common.description')}</Th>
+          <Th>{t('common.status')}</Th>
           <Th className="w-10" />
         </DataTableHead>
         <TableBody>
@@ -158,7 +163,7 @@ export function DepartmentsTab() {
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <Building className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucun département pour le moment.</p>
+                  <p className="font-medium text-foreground">{t('departments.empty')}</p>
                   <p className="max-w-sm text-sm">
                     Créez le premier département pour commencer à structurer votre établissement.
                   </p>
@@ -176,7 +181,7 @@ export function DepartmentsTab() {
                 <Td>
                   {canWrite && (
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(dept)} aria-label={`Modifier ${dept.name}`}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(dept)} aria-label={t('common.edit', { name: dept.name })}>
                       <Pencil className="size-4" />
                     </Button>
                     <Button
@@ -184,7 +189,7 @@ export function DepartmentsTab() {
                       size="sm"
                       onClick={() => toggleActiveMutation.mutate(dept)}
                     >
-                      {dept.is_active ? 'Désactiver' : 'Réactiver'}
+                      {dept.is_active ? t('common.deactivate') : t('common.reactivate')}
                     </Button>
                   </div>
                   )}

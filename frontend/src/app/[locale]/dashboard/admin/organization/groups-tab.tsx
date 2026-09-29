@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
@@ -28,16 +30,19 @@ import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/component
 import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Group } from '@/types/organization'
 
-const schema = z.object({
-  section_id: z.string().min(1, 'Section requise'),
-  educatrice_id: z.string().min(1, 'Éducatrice requise'),
+type T = (key: string) => string
+
+const makeSchema = (t: T) => z.object({
+  section_id: z.string().min(1, t('groups.sectionRequired')),
+  educatrice_id: z.string().min(1, t('groups.educatriceRequired')),
   name: z.string().max(100).optional().or(z.literal('')),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 const ALL = '__all__'
 
 export function GroupsTab() {
+  const t = useTranslations('organization')
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -78,7 +83,7 @@ export function GroupsTab() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['groups'] })
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(t)),
     defaultValues: { section_id: '', educatrice_id: '', name: '' },
   })
 
@@ -108,14 +113,14 @@ export function GroupsTab() {
           name: values.name || undefined,
           educatrice_id: values.educatrice_id,
         })
-        toast.success('Groupe mis à jour.')
+        toast.success(t('groups.updated'))
       } else {
         await organizationApi.createGroup({
           section_id: values.section_id,
           educatrice_id: values.educatrice_id,
           name: values.name || undefined,
         })
-        toast.success('Groupe créé.')
+        toast.success(t('groups.created'))
       }
       setDialogOpen(false)
       invalidate()
@@ -127,7 +132,7 @@ export function GroupsTab() {
   const toggleActiveMutation = useMutation({
     mutationFn: (group: Group) => organizationApi.updateGroup(group.id, { is_active: !group.is_active }),
     onSuccess: (_, group) => {
-      toast.success(group.is_active ? 'Groupe désactivé.' : 'Groupe réactivé.')
+      toast.success(group.is_active ? t('groups.deactivated') : t('groups.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -175,15 +180,15 @@ export function GroupsTab() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
           <Select
-            items={{ [ALL]: 'Toutes les sections', ...Object.fromEntries((sections ?? []).map((s) => [s.id, sectionLabel(s.id)])) }}
+            items={{ [ALL]: t('groups.allSections'), ...Object.fromEntries((sections ?? []).map((s) => [s.id, sectionLabel(s.id)])) }}
             value={filterSectionId}
             onValueChange={(v) => setFilterSectionId(v ?? ALL)}
           >
             <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder="Toutes les sections" />
+              <SelectValue placeholder={t('groups.allSections')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Toutes les sections</SelectItem>
+              <SelectItem value={ALL}>{t('groups.allSections')}</SelectItem>
               {sections?.map((s) => (
                 <SelectItem key={s.id} value={s.id}>{sectionLabel(s.id)}</SelectItem>
               ))}
@@ -193,7 +198,7 @@ export function GroupsTab() {
             id="grp-include-inactive"
             checked={includeInactive}
             onCheckedChange={setIncludeInactive}
-            label="Inclure les groupes inactifs"
+            label={t('groups.includeInactive')}
           />
         </div>
 
@@ -201,20 +206,19 @@ export function GroupsTab() {
           {canWrite && (
           <DialogTrigger render={<Button onClick={openCreate} disabled={!hasSections || !hasEducatrices} />}>
             <Plus className="mr-1.5 size-4" />
-            Nouveau groupe
+            {t('groups.new')}
           </DialogTrigger>
           )}
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editing ? 'Modifier le groupe' : 'Nouveau groupe'}</DialogTitle>
+              <DialogTitle>{editing ? t('groups.editTitle') : t('groups.newTitle')}</DialogTitle>
               <DialogDescription>
-                Une éducatrice ne peut mener qu&apos;un seul groupe actif par section.
-                L&apos;assignation des enfants se fait depuis le compteur &laquo;&nbsp;Enfants&nbsp;&raquo; de la liste des groupes.
+                {t('groups.hint')}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
-                <Label htmlFor="g_section">Section</Label>
+                <Label htmlFor="g_section">{t('groups.section')}</Label>
                 <Controller
                   control={control}
                   name="section_id"
@@ -226,7 +230,7 @@ export function GroupsTab() {
                       disabled={!!editing}
                     >
                       <SelectTrigger id="g_section" className="w-full" aria-invalid={!!errors.section_id}>
-                        <SelectValue placeholder="Choisir une section" />
+                        <SelectValue placeholder={t('groups.chooseSection')} />
                       </SelectTrigger>
                       <SelectContent>
                         {sections?.map((s) => (
@@ -239,7 +243,7 @@ export function GroupsTab() {
                 {errors.section_id && <p className="text-sm text-destructive">{errors.section_id.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="g_educatrice">Éducatrice</Label>
+                <Label htmlFor="g_educatrice">{t('groups.educatrice')}</Label>
                 <Controller
                   control={control}
                   name="educatrice_id"
@@ -252,7 +256,7 @@ export function GroupsTab() {
                       onValueChange={field.onChange}
                     >
                       <SelectTrigger id="g_educatrice" className="w-full" aria-invalid={!!errors.educatrice_id}>
-                        <SelectValue placeholder="Choisir une éducatrice" />
+                        <SelectValue placeholder={t('groups.chooseEducatrice')} />
                       </SelectTrigger>
                       <SelectContent>
                         {educatrices?.items.map((e) => (
@@ -267,14 +271,14 @@ export function GroupsTab() {
                 {errors.educatrice_id && <p className="text-sm text-destructive">{errors.educatrice_id.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="g_name">Nom (optionnel)</Label>
-                <Input id="g_name" placeholder="Par défaut : surnom de l'éducatrice" {...register('name')} />
+                <Label htmlFor="g_name">{t('groups.nameOptional')}</Label>
+                <Input id="g_name" placeholder={t('groups.namePlaceholder')} {...register('name')} />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
                     ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                    : editing ? 'Enregistrer' : 'Créer'}
+                    : editing ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>
             </form>
@@ -284,11 +288,11 @@ export function GroupsTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th>Nom</Th>
-          <Th>Section</Th>
-          <Th>Éducatrice</Th>
-          <Th>Enfants</Th>
-          <Th>Statut</Th>
+          <Th>{t('common.name')}</Th>
+          <Th>{t('groups.section')}</Th>
+          <Th>{t('groups.educatrice')}</Th>
+          <Th>{t('groups.children')}</Th>
+          <Th>{t('common.status')}</Th>
           <Th className="w-10" />
         </DataTableHead>
         <TableBody>
@@ -306,10 +310,10 @@ export function GroupsTab() {
                   </div>
                   <p className="font-medium text-foreground">
                     {!hasSections
-                      ? 'Créez d\'abord une section.'
+                      ? t('groups.needSection')
                       : !hasEducatrices
-                        ? 'Aucune éducatrice active disponible pour l\'instant.'
-                        : 'Aucun groupe pour le moment.'}
+                        ? t('groups.noEducatrice')
+                        : t('groups.empty')}
                   </p>
                 </div>
               </Td>
@@ -336,11 +340,11 @@ export function GroupsTab() {
                 <Td>
                   {canWrite && (
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(group)} aria-label={`Modifier ${group.name}`}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(group)} aria-label={t('common.edit', { name: group.name })}>
                       <Pencil className="size-4" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => toggleActiveMutation.mutate(group)}>
-                      {group.is_active ? 'Désactiver' : 'Réactiver'}
+                      {group.is_active ? t('common.deactivate') : t('common.reactivate')}
                     </Button>
                   </div>
                   )}
@@ -354,10 +358,9 @@ export function GroupsTab() {
       <Dialog open={!!manageGroupId} onOpenChange={(open) => !open && setManageGroupId(null)}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Enfants du groupe {manageGroup?.name}</DialogTitle>
+            <DialogTitle>{t('groups.manageTitle', { name: manageGroup?.name ?? '' })}</DialogTitle>
             <DialogDescription>
-              Un enfant ne peut appartenir qu&apos;à un seul groupe à la fois — retirez-le d&apos;abord
-              de son groupe actuel pour pouvoir l&apos;affecter ici.
+              {t('groups.manageHint')}
             </DialogDescription>
           </DialogHeader>
 
@@ -365,11 +368,11 @@ export function GroupsTab() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">
-                  Membres actuels ({manageGroup.children.length})
+                  {t('groups.currentMembers', { count: manageGroup.children.length })}
                 </Label>
                 <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border">
                   {manageGroup.children.length === 0 ? (
-                    <p className="p-3 text-sm text-muted-foreground">Aucun enfant dans ce groupe.</p>
+                    <p className="p-3 text-sm text-muted-foreground">{t('groups.noChildInGroup')}</p>
                   ) : (
                     manageGroup.children.map((child) => (
                       <div key={child.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
@@ -378,7 +381,7 @@ export function GroupsTab() {
                           variant="ghost"
                           size="icon-sm"
                           className="h-10 w-10 shrink-0"
-                          aria-label={`Retirer ${child.first_names} ${child.last_name}`}
+                          aria-label={t('groups.removeChild', { name: `${child.first_names} ${child.last_name}` })}
                           disabled={removeChildMutation.isPending}
                           onClick={() => removeChildMutation.mutate(child.id)}
                         >
@@ -391,12 +394,12 @@ export function GroupsTab() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Ajouter un enfant (sans groupe, même section)</Label>
+                <Label className="text-xs text-muted-foreground">{t('groups.addChild')}</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="pl-8"
-                    placeholder="Rechercher un enfant..."
+                    placeholder={t('groups.searchChild')}
                     value={childSearch}
                     onChange={(e) => setChildSearch(e.target.value)}
                   />
@@ -409,7 +412,7 @@ export function GroupsTab() {
                     </div>
                   ) : (availableChildren?.items.length ?? 0) === 0 ? (
                     <p className="p-3 text-sm text-muted-foreground">
-                      Aucun enfant disponible dans cette section.
+                      {t('groups.noChildAvailable')}
                     </p>
                   ) : (
                     availableChildren!.items.map((child) => (
@@ -419,7 +422,7 @@ export function GroupsTab() {
                           variant="ghost"
                           size="icon-sm"
                           className="h-10 w-10 shrink-0"
-                          aria-label={`Ajouter ${child.first_names} ${child.last_name}`}
+                          aria-label={t('groups.addChildAria', { name: `${child.first_names} ${child.last_name}` })}
                           disabled={assignMutation.isPending}
                           onClick={() => assignMutation.mutate(child.id)}
                         >
@@ -434,7 +437,7 @@ export function GroupsTab() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setManageGroupId(null)}>Fermer</Button>
+            <Button variant="outline" onClick={() => setManageGroupId(null)}>{t('groups.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

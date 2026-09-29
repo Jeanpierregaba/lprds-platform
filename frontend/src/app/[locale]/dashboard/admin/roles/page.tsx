@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { ShieldCheck, UserCog } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
@@ -9,20 +11,21 @@ import { RolesTab } from './roles-tab'
 import { AssignmentTab } from './assignment-tab'
 
 export default function RolesPage() {
+  const t = useTranslations('rbac')
   return (
     <PageMotion>
       <PageHeader
-        title="Rôles & permissions"
-        description="Définir les rôles de votre établissement et les attribuer à votre personnel."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       <Tabs defaultValue="roles">
         <PillsTabsList>
           <PillsTrigger value="roles" active="primary" icon={ShieldCheck}>
-            Rôles
+            {t('tabs.roles')}
           </PillsTrigger>
           <PillsTrigger value="assignment" active="teal" icon={UserCog}>
-            Attribution
+            {t('tabs.assignment')}
           </PillsTrigger>
         </PillsTabsList>
 

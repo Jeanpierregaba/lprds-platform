@@ -15,11 +15,14 @@ import common from './common.json'
 import enums from './enums.json'
 import errors from './errors.json'
 import marketing from './marketing.json'
+import menus from './menus.json'
 import nav from './nav.json'
+import organization from './organization.json'
 import parents from './parents.json'
+import rbac from './rbac.json'
 import reports from './reports.json'
 import staff from './staff.json'
 
-export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, parents, reports, staff } satisfies Messages
+export const messages = { attendance, auth, children, common, enums, errors, marketing, menus, nav, organization, parents, rbac, reports, staff } satisfies Messages
 
 export default messages

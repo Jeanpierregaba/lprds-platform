@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { CalendarDays, History } from 'lucide-react'
 
@@ -11,6 +13,7 @@ import { HistoryTab } from './history-tab'
 import { mondayOf, toIsoDate } from '@/lib/utils/dates'
 
 export default function MenusPage() {
+  const t = useTranslations('menus')
   const [weekStart, setWeekStart] = useState(() => toIsoDate(mondayOf(new Date())))
   const [departmentId, setDepartmentId] = useState('')
   const [tab, setTab] = useState('week')
@@ -18,17 +21,17 @@ export default function MenusPage() {
   return (
     <PageMotion>
       <PageHeader
-        title="Menus"
-        description="Menu hebdomadaire — collation, déjeuner, dessert, goûter."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
         <PillsTabsList>
           <PillsTrigger value="week" active="primary" icon={CalendarDays}>
-            Semaine
+            {t('tabs.week')}
           </PillsTrigger>
           <PillsTrigger value="history" active="teal" icon={History}>
-            Historique
+            {t('tabs.history')}
           </PillsTrigger>
         </PillsTabsList>
 

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -52,6 +54,7 @@ export function WeekTab({
   departmentId: string
   onDepartmentChange: (departmentId: string) => void
 }) {
+  const t = useTranslations('menus')
   const mealSlotsLabel = useLabel('mealSlots')
   const weekdaysLabel = useLabel('weekdays')
   const queryClient = useQueryClient()
@@ -122,19 +125,19 @@ export function WeekTab({
 
   const createMutation = useMutation({
     mutationFn: () => menusApi.create({ week_start: weekStart, department_id: departmentId, ...normalizeContent(content) }),
-    onSuccess: () => { toast.success('Menu créé.'); invalidate() },
+    onSuccess: () => { toast.success(t('week.created')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const updateMutation = useMutation({
     mutationFn: () => menusApi.update(weekStart, departmentId, normalizeContent(content)),
-    onSuccess: () => { toast.success('Menu enregistré.'); invalidate() },
+    onSuccess: () => { toast.success(t('week.saved')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => menusApi.remove(weekStart, departmentId),
-    onSuccess: () => { toast.success('Menu supprimé.'); invalidate() },
+    onSuccess: () => { toast.success(t('week.deleted')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -153,14 +156,14 @@ export function WeekTab({
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="menu-department" className="text-white font-semibold">Département</Label>
+          <Label htmlFor="menu-department" className="text-white font-semibold">{t('week.department')}</Label>
           <Select
             items={Object.fromEntries(departments.map((d) => [d.id, d.name]))}
             value={departmentId}
             onValueChange={(v) => v && onDepartmentChange(v)}
           >
             <SelectTrigger id="menu-department" className="h-9 w-full sm:w-52">
-              <SelectValue placeholder="Choisir un département" />
+              <SelectValue placeholder={t('week.chooseDepartment')} />
             </SelectTrigger>
             <SelectContent>
               {departments.map((d) => (
@@ -183,13 +186,13 @@ export function WeekTab({
       </div>
 
       <div>
-        <h2 className="text-xl font-bold text-white">Semaine du {formatDate(weekStart)} <br />Au {formatDate(weekEnd)}</h2>
+        <h2 className="text-xl font-bold text-white">{t('week.weekRange', { from: formatDate(weekStart) })} <br />{t('week.weekTo', { to: formatDate(weekEnd) })}</h2>
       </div>
 
       {departments.length === 0 && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Aucun département dans l&apos;établissement — créez-en un d&apos;abord pour saisir un menu.
+            {t('week.noDepartment')}
           </CardContent>
         </Card>
       )}
@@ -202,7 +205,7 @@ export function WeekTab({
               {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
             </div>
           ) : showEmptyPastState ? (
-            <p className="p-6 text-center text-sm text-muted-foreground">Aucun menu enregistré pour cette semaine.</p>
+            <p className="p-6 text-center text-sm text-muted-foreground">{t('week.noMenu')}</p>
           ) : (
             <>
               <div className="hidden lg:block">
@@ -259,7 +262,7 @@ export function WeekTab({
                       <div className="mb-2 flex items-center gap-2">
                         <h3 className="font-medium">{weekdaysLabel(day)}</h3>
                         <span className="text-sm text-muted-foreground">{formatShortDate(dayDates[day])}</span>
-                        {isToday && <Badge variant="default">Aujourd&apos;hui</Badge>}
+                        {isToday && <Badge variant="default">{t('week.today')}</Badge>}
                       </div>
                       <div className="space-y-2">
                         {MEAL_SLOTS.map((slot) => {
@@ -297,7 +300,7 @@ export function WeekTab({
             disabled={isSaving || isFetching}
           >
             {isSaving ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-            {menu ? 'Enregistrer' : 'Créer cette semaine'}
+            {menu ? t('week.save') : t('week.createWeek')}
           </Button>
           {menu && (
             <AlertDialog>
@@ -306,12 +309,12 @@ export function WeekTab({
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Supprimer ce menu ?</AlertDialogTitle>
-                  <AlertDialogDescription>Cette action est définitive.</AlertDialogDescription>
+                  <AlertDialogTitle>{t('week.deleteTitle')}</AlertDialogTitle>
+                  <AlertDialogDescription>{t('week.deleteBody')}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Annuler</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteMutation.mutate()}>Supprimer</AlertDialogAction>
+                  <AlertDialogCancel>{t('week.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteMutation.mutate()}>{t('week.delete')}</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useQuery } from '@tanstack/react-query'
@@ -25,6 +27,7 @@ function formatDateTime(iso: string) {
 }
 
 export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string, departmentId: string) => void }) {
+  const t = useTranslations('menus')
   const ALL = '__all__'
   const [skip, setSkip] = useState(0)
   const [departmentId, setDepartmentId] = useState<string>(ALL)
@@ -50,17 +53,17 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
   return (
     <div className="space-y-4 pt-2">
       <div className="flex w-full flex-col gap-1.5 sm:w-52">
-        <Label htmlFor="history-department">Département</Label>
+        <Label htmlFor="history-department">{t('history.department')}</Label>
         <Select
-          items={{ [ALL]: 'Tous les départements', ...Object.fromEntries(departments.map((d) => [d.id, d.name])) }}
+          items={{ [ALL]: t('history.allDepartments'), ...Object.fromEntries(departments.map((d) => [d.id, d.name])) }}
           value={departmentId}
           onValueChange={(v) => v && setDepartmentId(v)}
         >
           <SelectTrigger id="history-department" className="h-9 w-full">
-            <SelectValue placeholder="Tous les départements" />
+            <SelectValue placeholder={t('history.allDepartments')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tous les départements</SelectItem>
+            <SelectItem value={ALL}>{t('history.allDepartments')}</SelectItem>
             {departments.map((d) => (
               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
             ))}
@@ -70,9 +73,9 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
 
       <DataTable>
         <DataTableHead>
-          <Th>Semaine</Th>
-          <Th>Département</Th>
-          <Th>Dernière modification</Th>
+          <Th>{t('history.week')}</Th>
+          <Th>{t('history.department')}</Th>
+          <Th>{t('history.lastModified')}</Th>
           <Th className="w-10" />
         </DataTableHead>
         <TableBody>
@@ -87,7 +90,7 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <History className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucun menu enregistré pour le moment.</p>
+                  <p className="font-medium text-foreground">{t('history.empty')}</p>
                 </div>
               </Td>
             </TableRow>
@@ -97,7 +100,7 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
                 key={menu.id}
                 className="cursor-pointer"
                 onClick={() => onSelectMenu(menu.week_start, menu.department_id)}
-                title="Voir ce menu"
+                title={t('history.viewTitle')}
               >
                 <Td className="font-medium">
                   {formatDate(menu.week_start)} — {formatDate(menu.week_end)}
@@ -108,7 +111,7 @@ export function HistoryTab({ onSelectMenu }: { onSelectMenu: (weekStart: string,
                 <Td className="text-muted-foreground">{formatDateTime(menu.updated_at)}</Td>
                 <Td>
                   <Button variant="ghost" size="sm" onClick={() => onSelectMenu(menu.week_start, menu.department_id)}>
-                    Voir
+                    {t('history.view')}
                   </Button>
                 </Td>
               </TableRow>

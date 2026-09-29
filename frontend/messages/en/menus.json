@@ -1,0 +1,40 @@
+{
+  "page": {
+    "title": "Menus",
+    "description": "Weekly menu — morning snack, lunch, dessert, afternoon snack."
+  },
+  "tabs": {
+    "week": "Week",
+    "history": "History"
+  },
+  "week": {
+    "department": "Department",
+    "chooseDepartment": "Choose a department",
+    "weekRange": "Week of {from}",
+    "weekTo": "To {to}",
+    "prevWeek": "Previous week",
+    "nextWeek": "Next week",
+    "today": "Today",
+    "emptyCell": "—",
+    "noDepartment": "No departments at this school — create one first to enter a menu.",
+    "noMenu": "No menu saved for this week.",
+    "save": "Save",
+    "createWeek": "Create this week",
+    "deleteTitle": "Delete this menu?",
+    "deleteBody": "This cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "created": "Menu created.",
+    "saved": "Menu saved.",
+    "deleted": "Menu deleted."
+  },
+  "history": {
+    "department": "Department",
+    "allDepartments": "All departments",
+    "week": "Week",
+    "lastModified": "Last modified",
+    "view": "View",
+    "viewTitle": "View this menu",
+    "empty": "No menus saved yet."
+  }
+}

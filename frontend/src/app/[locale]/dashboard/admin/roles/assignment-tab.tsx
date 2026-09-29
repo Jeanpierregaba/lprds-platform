@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useLabel } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,6 +17,7 @@ import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 
 export function AssignmentTab() {
+  const t = useTranslations('rbac')
   const staffTypesLabel = useLabel('staffTypes')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -49,7 +52,7 @@ export function AssignmentTab() {
   const assignMutation = useMutation({
     mutationFn: (roleId: string) => rbacApi.assignRole(selectedStaffId!, roleId),
     onSuccess: () => {
-      toast.success('Rôle attribué.')
+      toast.success(t('assignment.assigned'))
       invalidateUserRoles()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -58,7 +61,7 @@ export function AssignmentTab() {
   const revokeMutation = useMutation({
     mutationFn: (roleId: string) => rbacApi.revokeRole(selectedStaffId!, roleId),
     onSuccess: () => {
-      toast.success('Rôle révoqué.')
+      toast.success(t('assignment.revoked'))
       invalidateUserRoles()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -72,14 +75,14 @@ export function AssignmentTab() {
     <div className="grid gap-4 pt-2 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Rechercher un membre du personnel</CardTitle>
-          <CardDescription>Par nom, surnom, email ou matricule.</CardDescription>
+          <CardTitle className="text-base">{t('assignment.searchTitle')}</CardTitle>
+          <CardDescription>{t('assignment.searchHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher..."
+              placeholder={t('assignment.searchPlaceholder')}
               className="pl-8"
               value={search}
               onChange={(e) => {
@@ -97,7 +100,7 @@ export function AssignmentTab() {
                   <Skeleton className="h-4 w-2/3" />
                 </div>
               ) : staffResults?.items.length === 0 ? (
-                <p className="p-3 text-sm text-muted-foreground">Aucun résultat.</p>
+                <p className="p-3 text-sm text-muted-foreground">{t('assignment.noResult')}</p>
               ) : (
                 staffResults?.items.map((staff) => (
                   <button
@@ -127,11 +130,11 @@ export function AssignmentTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Rôles attribués</CardTitle>
+          <CardTitle className="text-base">{t('assignment.assignedTitle')}</CardTitle>
           <CardDescription>
             {selectedStaff
               ? `${selectedStaff.first_name} ${selectedStaff.last_name}`
-              : 'Sélectionnez un membre du personnel.'}
+              : t('assignment.selectStaff')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -149,7 +152,7 @@ export function AssignmentTab() {
             <>
               <div className="space-y-2">
                 {userRoles?.roles.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Aucun rôle attribué.</p>
+                  <p className="text-sm text-muted-foreground">{t('assignment.none')}</p>
                 ) : (
                   userRoles?.roles.map((role) => (
                     <div key={role.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
@@ -157,7 +160,7 @@ export function AssignmentTab() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Révoquer ${role.name}`}
+                        aria-label={t('assignment.revoke', { name: role.name })}
                         onClick={() => revokeMutation.mutate(role.id)}
                         disabled={revokeMutation.isPending}
                       >

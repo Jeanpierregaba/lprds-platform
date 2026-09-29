@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useLabelMap } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
@@ -30,25 +32,28 @@ import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { STAFF_TYPES, type StaffType } from '@/types/staff'
 
-const infoSchema = z.object({
-  first_name: z.string().min(1, 'Prénom requis').max(100),
-  last_name:  z.string().min(1, 'Nom requis').max(100),
-  nickname:   z.string().min(1, 'Surnom requis').max(100),
-  phone:      z.string().min(1, 'Téléphone requis').max(20),
-  email:      z.string().email('Email invalide'),
-  staff_type: z.string().min(1, 'Type requis'),
-})
-type InfoForm = z.infer<typeof infoSchema>
+type T = (key: string) => string
 
-const resetSchema = z.object({
+const makeInfoSchema = (t: T) => z.object({
+  first_name: z.string().min(1, t('validation.firstName')).max(100),
+  last_name:  z.string().min(1, t('validation.lastName')).max(100),
+  nickname:   z.string().min(1, t('validation.nickname')).max(100),
+  phone:      z.string().min(1, t('validation.phone')).max(20),
+  email:      z.string().email(t('validation.email')),
+  staff_type: z.string().min(1, t('validation.staffType')),
+})
+type InfoForm = z.infer<ReturnType<typeof makeInfoSchema>>
+
+const makeResetSchema = (t: T) => z.object({
   new_password: z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('validation.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
 })
-type ResetForm = z.infer<typeof resetSchema>
+type ResetForm = z.infer<ReturnType<typeof makeResetSchema>>
 
 export default function StaffDetailPage() {
+  const t = useTranslations('staff')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
@@ -72,7 +77,7 @@ export default function StaffDetailPage() {
     formState: { errors: infoErrors, isSubmitting: isSavingInfo },
     reset: resetInfoForm,
   } = useForm<InfoForm>({
-    resolver: zodResolver(infoSchema),
+    resolver: zodResolver(makeInfoSchema(t)),
     defaultValues: { first_name: '', last_name: '', nickname: '', phone: '', email: '', staff_type: '' },
     values: staff
       ? {
@@ -85,7 +90,7 @@ export default function StaffDetailPage() {
   const onSaveInfo = async (values: InfoForm) => {
     try {
       await staffApi.update(id, { ...values, staff_type: values.staff_type as StaffType })
-      toast.success('Membre du personnel mis à jour.')
+      toast.success(t('form.updated'))
       invalidate()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -95,7 +100,7 @@ export default function StaffDetailPage() {
   const toggleActiveMutation = useMutation({
     mutationFn: () => staffApi.setStatus(id, !staff?.is_active),
     onSuccess: () => {
-      toast.success(staff?.is_active ? 'Compte désactivé.' : 'Compte réactivé.')
+      toast.success(staff?.is_active ? t('status.deactivated') : t('status.reactivated'))
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -106,12 +111,12 @@ export default function StaffDetailPage() {
     handleSubmit: handleResetSubmit,
     formState: { errors: resetErrors, isSubmitting: isResetting },
     reset: resetResetForm,
-  } = useForm<ResetForm>({ resolver: zodResolver(resetSchema) })
+  } = useForm<ResetForm>({ resolver: zodResolver(makeResetSchema(t)) })
 
   const onResetPassword = async (values: ResetForm) => {
     try {
       await staffApi.resetPassword(id, values.new_password)
-      toast.success('Mot de passe réinitialisé et envoyé par email.')
+      toast.success(t('form.resetDone'))
       resetResetForm()
       setResetOpen(false)
     } catch (err) {
@@ -129,7 +134,7 @@ export default function StaffDetailPage() {
 
   return (
     <PageMotion className="max-w-3xl space-y-4">
-      <BackLink href="/dashboard/admin/staff" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/staff" label={t('form.back')} />
 
       <div className="flex items-center justify-between">
         <div>
@@ -145,24 +150,24 @@ export default function StaffDetailPage() {
           <Dialog open={resetOpen} onOpenChange={setResetOpen}>
             <DialogTrigger render={<Button variant="outline" />}>
               <KeyRound className="mr-1.5 size-4" />
-              Réinitialiser le mot de passe
+              {t('form.resetPassword')}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
+                <DialogTitle>{t('form.resetPassword')}</DialogTitle>
                 <DialogDescription>
                   Le nouveau mot de passe est envoyé par email au personnel — il n&apos;a pas à le redéfinir.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleResetSubmit(onResetPassword)} className="space-y-4" noValidate>
                 <div className="space-y-2">
-                  <Label htmlFor="new_password">Nouveau mot de passe</Label>
+                  <Label htmlFor="new_password">{t('fields.newPassword')}</Label>
                   <Input id="new_password" type="password" {...registerReset('new_password')} aria-invalid={!!resetErrors.new_password} />
                   {resetErrors.new_password && <p className="text-sm text-destructive">{resetErrors.new_password.message}</p>}
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={isResetting}>
-                    {isResetting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Envoi...</> : 'Réinitialiser'}
+                    {isResetting ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('form.sending')}</> : t('form.reset')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -170,18 +175,18 @@ export default function StaffDetailPage() {
           </Dialog>
 
           <Button variant={staff.is_active ? 'destructive' : 'outline'} onClick={() => setConfirmArchive(true)}>
-            {staff.is_active ? 'Désactiver' : 'Réactiver'}
+            {staff.is_active ? t('status.deactivate') : t('status.reactivate')}
           </Button>
           <ConfirmDialog
             open={confirmArchive}
             onOpenChange={setConfirmArchive}
-            title={staff.is_active ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?'}
+            title={staff.is_active ? t('status.confirmTitle') : t('status.reactivateTitle')}
             description={
               staff.is_active
-                ? 'Le compte sera désactivé (réversible). La personne ne pourra plus se connecter.'
-                : 'Le compte redeviendra accessible.'
+                ? t('status.deactivateBody')
+                : t('status.reactivateBody')
             }
-            confirmLabel="Confirmer"
+            confirmLabel={t('status.confirm')}
             onConfirm={() => {
               setConfirmArchive(false)
               toggleActiveMutation.mutate()
@@ -193,9 +198,9 @@ export default function StaffDetailPage() {
 
       <Tabs defaultValue="infos">
         <TabsList>
-          <TabsTrigger value="infos">Infos</TabsTrigger>
+          <TabsTrigger value="infos">{t('tabs.infos')}</TabsTrigger>
           {user?.role === 'admin' && (
-          <TabsTrigger value="roles">Rôles RBAC</TabsTrigger>
+          <TabsTrigger value="roles">{t('tabs.roles')}</TabsTrigger>
           )}
         </TabsList>
 
@@ -205,42 +210,42 @@ export default function StaffDetailPage() {
               <form onSubmit={handleInfoSubmit(onSaveInfo)} className="space-y-4" noValidate>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="first_name">Prénom</Label>
+                    <Label htmlFor="first_name">{t('fields.firstName')}</Label>
                     <Input id="first_name" {...registerInfo('first_name')} aria-invalid={!!infoErrors.first_name} />
                     {infoErrors.first_name && <p className="text-sm text-destructive">{infoErrors.first_name.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="last_name">Nom</Label>
+                    <Label htmlFor="last_name">{t('fields.lastName')}</Label>
                     <Input id="last_name" {...registerInfo('last_name')} aria-invalid={!!infoErrors.last_name} />
                     {infoErrors.last_name && <p className="text-sm text-destructive">{infoErrors.last_name.message}</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nickname">Surnom</Label>
+                  <Label htmlFor="nickname">{t('fields.nickname')}</Label>
                   <Input id="nickname" {...registerInfo('nickname')} aria-invalid={!!infoErrors.nickname} />
                   {infoErrors.nickname && <p className="text-sm text-destructive">{infoErrors.nickname.message}</p>}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('fields.email')}</Label>
                     <Input id="email" type="email" {...registerInfo('email')} aria-invalid={!!infoErrors.email} />
                     {infoErrors.email && <p className="text-sm text-destructive">{infoErrors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Téléphone</Label>
+                    <Label htmlFor="phone">{t('fields.phone')}</Label>
                     <Input id="phone" {...registerInfo('phone')} aria-invalid={!!infoErrors.phone} />
                     {infoErrors.phone && <p className="text-sm text-destructive">{infoErrors.phone.message}</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="staff_type">Type de poste</Label>
+                  <Label htmlFor="staff_type">{t('fields.staffType')}</Label>
                   <Controller
                     control={control}
                     name="staff_type"
                     render={({ field }) => (
                       <Select items={staffTypesLabels} value={field.value} onValueChange={field.onChange}>
                         <SelectTrigger id="staff_type" className="w-full" aria-invalid={!!infoErrors.staff_type}>
-                          <SelectValue placeholder="Choisir un type" />
+                          <SelectValue placeholder={t('fields.chooseType')} />
                         </SelectTrigger>
                         <SelectContent>
                           {Object.entries(staffTypesLabels).map(([value, label]) => (
@@ -278,6 +283,7 @@ export default function StaffDetailPage() {
 }
 
 function StaffRolesCard({ staffId }: { staffId: string }) {
+  const t = useTranslations('staff')
   const queryClient = useQueryClient()
 
   const { data: roles } = useQuery({
@@ -295,7 +301,7 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
   const assignMutation = useMutation({
     mutationFn: (roleId: string) => rbacApi.assignRole(staffId, roleId),
     onSuccess: () => {
-      toast.success('Rôle attribué.')
+      toast.success(t('roles.assigned'))
       invalidateUserRoles()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -304,7 +310,7 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
   const revokeMutation = useMutation({
     mutationFn: (roleId: string) => rbacApi.revokeRole(staffId, roleId),
     onSuccess: () => {
-      toast.success('Rôle révoqué.')
+      toast.success(t('roles.revoked'))
       invalidateUserRoles()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -316,8 +322,8 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Rôles attribués</CardTitle>
-        <CardDescription>Les droits effectifs de ce membre du personnel.</CardDescription>
+        <CardTitle className="text-base">{t('roles.title')}</CardTitle>
+        <CardDescription>{t('roles.hint')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
@@ -329,7 +335,7 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
           <>
             <div className="space-y-2">
               {userRoles?.roles.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun rôle attribué.</p>
+                <p className="text-sm text-muted-foreground">{t('roles.none')}</p>
               ) : (
                 userRoles?.roles.map((role) => (
                   <div key={role.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
@@ -337,7 +343,7 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Révoquer ${role.name}`}
+                      aria-label={t('roles.revoke', { name: role.name })}
                       onClick={() => revokeMutation.mutate(role.id)}
                       disabled={revokeMutation.isPending}
                     >
@@ -350,7 +356,7 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
 
             {availableRoles.length > 0 ? (
               <div className="space-y-2 border-t border-border pt-3">
-                <p className="text-xs font-medium text-muted-foreground">Attribuer un rôle</p>
+                <p className="text-xs font-medium text-muted-foreground">{t('roles.assign')}</p>
                 <div className="flex flex-wrap gap-2">
                   {availableRoles.map((role) => (
                     <Button

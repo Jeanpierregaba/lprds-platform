@@ -16,8 +16,9 @@ import marketing from './marketing.json'
 import nav from './nav.json'
 import parents from './parents.json'
 import reports from './reports.json'
+import staff from './staff.json'
 
-export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, parents, reports } as const
+export const messages = { attendance, auth, children, common, enums, errors, marketing, nav, parents, reports, staff } as const
 
 export type Messages = typeof messages
 

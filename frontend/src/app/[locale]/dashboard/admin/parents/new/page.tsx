@@ -31,7 +31,7 @@ const makeSchema = (t: T) => z.object({
   phone:      z.string().min(1, t('validation.phone')).max(20),
   email:      z.string().email(t('validation.email')),
   password:   z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('validation.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
 })

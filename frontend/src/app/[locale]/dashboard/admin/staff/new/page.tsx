@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useLabelMap } from '@/lib/i18n/labels'
 import { useForm, Controller } from 'react-hook-form'
@@ -21,21 +23,24 @@ import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared
 import { STAFF_TYPES, type StaffType } from '@/types/staff'
 import { useRouter } from '@/i18n/navigation'
 
-const schema = z.object({
-  first_name: z.string().min(1, 'Prénom requis').max(100),
-  last_name:  z.string().min(1, 'Nom requis').max(100),
-  nickname:   z.string().min(1, 'Surnom requis').max(100),
-  phone:      z.string().min(1, 'Téléphone requis').max(20),
-  email:      z.string().email('Email invalide'),
-  staff_type: z.string().min(1, 'Type requis'),
+type T = (key: string) => string
+
+const makeSchema = (t: T) => z.object({
+  first_name: z.string().min(1, t('validation.firstName')).max(100),
+  last_name:  z.string().min(1, t('validation.lastName')).max(100),
+  nickname:   z.string().min(1, t('validation.nickname')).max(100),
+  phone:      z.string().min(1, t('validation.phone')).max(20),
+  email:      z.string().email(t('validation.email')),
+  staff_type: z.string().min(1, t('validation.staffType')),
   password:   z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('validation.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export default function NewStaffPage() {
+  const t = useTranslations('staff')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -44,7 +49,7 @@ export default function NewStaffPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(schema), defaultValues: { staff_type: '' } })
+    useForm<Form>({ resolver: zodResolver(makeSchema(t)), defaultValues: { staff_type: '' } })
 
   const onSubmit = async (values: Form) => {
     try {
@@ -57,7 +62,7 @@ export default function NewStaffPage() {
         password:   values.password,
         staff_type: values.staff_type as StaffType,
       })
-      toast.success('Membre du personnel créé.')
+      toast.success(t('form.created'))
       router.push(`/dashboard/admin/staff/${data.id}`)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -67,7 +72,7 @@ export default function NewStaffPage() {
   if (!canWrite) {
     return (
       <RightsGuard
-        message="Droits insuffisants — vous n'avez pas la permission de créer un compte du personnel."
+        message={t('form.noRights')}
         backHref="/dashboard/admin/staff"
       />
     )
@@ -75,58 +80,58 @@ export default function NewStaffPage() {
 
   return (
     <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/staff" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/staff" label={t('form.back')} />
 
       <Card>
         <CardHeader>
-          <CardTitle>Nouveau membre du personnel</CardTitle>
+          <CardTitle>{t('form.newTitle')}</CardTitle>
           <CardDescription>
-            Un matricule est généré automatiquement. Les identifiants sont envoyés par email.
+            {t('form.newHint')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="first_name">Prénom</Label>
+                <Label htmlFor="first_name">{t('fields.firstName')}</Label>
                 <Input id="first_name" {...register('first_name')} aria-invalid={!!errors.first_name} />
                 {errors.first_name && <p className="text-sm text-destructive">{errors.first_name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="last_name">Nom</Label>
+                <Label htmlFor="last_name">{t('fields.lastName')}</Label>
                 <Input id="last_name" {...register('last_name')} aria-invalid={!!errors.last_name} />
                 {errors.last_name && <p className="text-sm text-destructive">{errors.last_name.message}</p>}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="nickname">Surnom</Label>
-              <Input id="nickname" placeholder="Ex. Tata Victoire" {...register('nickname')} aria-invalid={!!errors.nickname} />
+              <Label htmlFor="nickname">{t('fields.nickname')}</Label>
+              <Input id="nickname" placeholder={t('fields.nicknamePlaceholder')} {...register('nickname')} aria-invalid={!!errors.nickname} />
               {errors.nickname && <p className="text-sm text-destructive">{errors.nickname.message}</p>}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('fields.email')}</Label>
                 <Input id="email" type="email" {...register('email')} aria-invalid={!!errors.email} />
                 {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Téléphone</Label>
+                <Label htmlFor="phone">{t('fields.phone')}</Label>
                 <Input id="phone" {...register('phone')} aria-invalid={!!errors.phone} />
                 {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staff_type">Type de poste</Label>
+              <Label htmlFor="staff_type">{t('fields.staffType')}</Label>
               <Controller
                 control={control}
                 name="staff_type"
                 render={({ field }) => (
                   <Select items={staffTypesLabels} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger id="staff_type" className="w-full" aria-invalid={!!errors.staff_type}>
-                      <SelectValue placeholder="Choisir un type" />
+                      <SelectValue placeholder={t('fields.chooseType')} />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(staffTypesLabels).map(([value, label]) => (
@@ -144,7 +149,7 @@ export default function NewStaffPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe temporaire</Label>
+              <Label htmlFor="password">{t('fields.tempPassword')}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -158,7 +163,7 @@ export default function NewStaffPage() {
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-label={showPassword ? t('fields.hidePassword') : t('fields.showPassword')}
                   className="absolute right-1 top-1/2 -translate-y-1/2"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -166,14 +171,14 @@ export default function NewStaffPage() {
               </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
               <p className="text-xs text-muted-foreground">
-                8 caractères minimum · 1 majuscule · 1 chiffre — envoyé par email avec le matricule.
+                {t('form.passwordHint')}
               </p>
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting
-                ? <><Loader2 className="mr-2 size-4 animate-spin" /> Création...</>
-                : 'Créer le compte'}
+                ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('form.submitting')}</>
+                : t('form.submit')}
             </Button>
           </form>
         </CardContent>

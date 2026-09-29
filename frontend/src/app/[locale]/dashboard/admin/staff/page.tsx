@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -29,6 +31,7 @@ const PAGE_SIZE = 20
 const ALL = '__all__'
 
 export default function StaffListPage() {
+  const t = useTranslations('staff')
   const staffTypesLabel = useLabel('staffTypes')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const user = useUser()
@@ -68,13 +71,13 @@ export default function StaffListPage() {
   return (
     <PageMotion className="space-y-6">
       <PageHeader
-        title="Personnel"
-        description="Gérer les comptes de votre personnel."
+        title={t('list.title')}
+        description={t('list.description')}
         actions={
           canWrite ? (
           <Button render={<Link href="/dashboard/admin/staff/new" />}>
             <Plus className="mr-1.5 size-4" />
-            Nouveau membre
+            {t('list.new')}
           </Button>
           ) : undefined
         }
@@ -82,20 +85,20 @@ export default function StaffListPage() {
 
       <div className="flex flex-wrap items-center gap-4">
         <SearchInput
-          placeholder="Rechercher par nom, surnom, email ou matricule..."
+          placeholder={t('list.search')}
           value={search}
           onChange={setSearch}
         />
         <Select
-          items={{ [ALL]: 'Tous les types', ...staffTypesLabels }}
+          items={{ [ALL]: t('list.allTypes'), ...staffTypesLabels }}
           value={staffType}
           onValueChange={(v) => setStaffType(v ?? ALL)}
         >
           <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Tous les types" />
+            <SelectValue placeholder={t('list.allTypes')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Tous les types</SelectItem>
+            <SelectItem value={ALL}>{t('list.allTypes')}</SelectItem>
             {Object.entries(staffTypesLabels).map(([value, label]) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
@@ -105,7 +108,7 @@ export default function StaffListPage() {
           id="include-inactive"
           checked={includeInactive}
           onCheckedChange={setIncludeInactive}
-          label="Inclure les comptes inactifs"
+          label={t('list.includeInactive')}
         />
 
         <ViewToggle view={view} onChange={setView} />
@@ -120,11 +123,11 @@ export default function StaffListPage() {
       ) : (
       <DataTable>
         <DataTableHead>
-          <Th>Matricule</Th>
-          <Th>Nom</Th>
-          <Th>Type</Th>
-          <Th>Email</Th>
-          <Th>Statut</Th>
+          <Th>{t('list.columns.matricule')}</Th>
+          <Th>{t('list.columns.name')}</Th>
+          <Th>{t('list.columns.type')}</Th>
+          <Th>{t('list.columns.email')}</Th>
+          <Th>{t('list.columns.status')}</Th>
         </DataTableHead>
         <TableBody>
           {isLoading ? (
@@ -139,17 +142,17 @@ export default function StaffListPage() {
                     <UserRound className="size-5" />
                   </div>
                   <p className="font-medium text-foreground">
-                    {debouncedSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun membre du personnel pour le moment.'}
+                    {debouncedSearch ? t('list.emptySearch') : t('list.empty')}
                   </p>
                   <p className="max-w-sm text-sm">
                     {debouncedSearch
-                      ? 'Essayez un autre nom, surnom, email ou matricule.'
-                      : 'Créez le premier compte pour commencer à gérer votre personnel.'}
+                      ? t('list.emptySearchHint')
+                      : t('list.emptyHint')}
                   </p>
                   {!debouncedSearch && canWrite && (
                     <Button render={<Link href="/dashboard/admin/staff/new" />} size="sm" className="mt-1">
                       <Plus className="mr-1.5 size-4" />
-                      Nouveau membre
+                      {t('list.new')}
                     </Button>
                   )}
                 </div>
@@ -204,6 +207,7 @@ export default function StaffListPage() {
 function StaffCardGrid({
   items, isLoading, hasSearch,
 }: { items: StaffListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  const t = useTranslations('staff')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
@@ -217,7 +221,7 @@ function StaffCardGrid({
     return (
       <CardsEmptyState
         icon={UserRound}
-        title={hasSearch ? 'Aucun résultat pour cette recherche.' : 'Aucun membre du personnel pour le moment.'}
+        title={hasSearch ? t('list.emptySearch') : t('list.empty')}
       />
     )
   }
@@ -240,6 +244,7 @@ function StaffCard({
   canWrite: boolean
   canQr: boolean
 }) {
+  const t = useTranslations('staff')
   const staffTypesLabel = useLabel('staffTypes')
   const queryClient = useQueryClient()
   const detailHref = `/dashboard/admin/staff/${member.id}`
@@ -249,7 +254,7 @@ function StaffCard({
   const toggleMutation = useMutation({
     mutationFn: () => staffApi.setStatus(member.id, !member.is_active),
     onSuccess: () => {
-      toast.success(member.is_active ? 'Compte désactivé.' : 'Compte réactivé.')
+      toast.success(member.is_active ? t('status.deactivated') : t('status.reactivated'))
       queryClient.invalidateQueries({ queryKey: ['staff'] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -276,22 +281,22 @@ function StaffCard({
           <StatusPill active={member.is_active} shrink />
         </div>
         <p className="text-sm text-muted-foreground">
-          Code: <span className="font-mono">{member.matricule ?? '—'}</span>
+          {t('list.codeLabel')} <span className="font-mono">{member.matricule ?? '—'}</span>
         </p>
         <p className="text-sm">
-          <span className="font-medium">Poste:</span> {member.staff_type ? staffTypesLabel(member.staff_type) : '—'}
+          <span className="font-medium">{t('list.roleLabel')}</span> {member.staff_type ? staffTypesLabel(member.staff_type) : '—'}
         </p>
         <p className="truncate text-sm text-muted-foreground" title={member.email}>{member.email}</p>
 
         <div className="flex flex-wrap gap-2 pt-3">
           <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/staff/${member.id}`} />}>
             <Eye className="mr-1.5 size-4" />
-            Voir
+            {t('list.view')}
           </Button>
           {canQr && (
             <Button variant="outline" size="sm" className="rounded-xl bg-accent" onClick={(e) => { e.stopPropagation(); setQrOpen(true) }}>
               <QrCode className="mr-1.5 size-4" />
-              QR Code
+              {t('list.qrCode')}
             </Button>
           )}
           {canWrite && (
@@ -302,14 +307,14 @@ function StaffCard({
                 onClick={(e) => { e.stopPropagation(); setConfirmToggle(true) }}
               >
                 <UserX className="mr-1.5 size-4" />
-                Désactiver
+                {t('status.deactivate')}
               </Button>
             ) : (
               <Button variant="outline" size="sm" className="rounded-xl" onClick={(e) => { e.stopPropagation(); toggleMutation.mutate() }} disabled={toggleMutation.isPending}>
                 {toggleMutation.isPending
                   ? <Loader2 className="mr-1.5 size-4 animate-spin" />
                   : <UserCheck className="mr-1.5 size-4" />}
-                Réactiver
+                {t('status.reactivate')}
               </Button>
             )
           )}
@@ -320,7 +325,7 @@ function StaffCard({
       <QrBadgeDialog
         open={qrOpen}
         onOpenChange={setQrOpen}
-        title={`Badge de ${member.nickname ?? member.first_name}`}
+        title={t('list.badge', { name: member.nickname ?? member.first_name })}
         subtitle={member.matricule ?? member.email}
         qrImage={qr?.qr_image}
         loading={loadingQr}
@@ -329,9 +334,9 @@ function StaffCard({
       <ConfirmDialog
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
-        title="Désactiver ce compte ?"
+        title={t('status.confirmTitle')}
         description={`${member.nickname ?? `${member.first_name} ${member.last_name}`} ne pourra plus se connecter (réversible depuis sa fiche).`}
-        confirmLabel="Désactiver"
+        confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)
           toggleMutation.mutate()

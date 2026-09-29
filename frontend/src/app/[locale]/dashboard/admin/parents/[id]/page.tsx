@@ -40,13 +40,13 @@ const makeInfoSchema = (t: T) => z.object({
 })
 type InfoForm = z.infer<ReturnType<typeof makeInfoSchema>>
 
-const resetSchema = z.object({
+const makeResetSchema = (t: T) => z.object({
   new_password: z.string()
-    .min(8, '8 caractères minimum')
+    .min(8, t('validation.passwordMin'))
     .regex(/[A-Z]/, 'Une majuscule requise')
     .regex(/[0-9]/, 'Un chiffre requis'),
 })
-type ResetForm = z.infer<typeof resetSchema>
+type ResetForm = z.infer<ReturnType<typeof makeResetSchema>>
 
 function formatDateTime(iso: string | null) {
   return iso ? new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }) : '—'
@@ -119,7 +119,7 @@ export default function ParentDetailPage() {
     handleSubmit: handleResetSubmit,
     formState: { errors: resetErrors, isSubmitting: isResetting },
     reset: resetResetForm,
-  } = useForm<ResetForm>({ resolver: zodResolver(resetSchema) })
+  } = useForm<ResetForm>({ resolver: zodResolver(makeResetSchema(t)) })
 
   const onResetPassword = async (values: ResetForm) => {
     try {

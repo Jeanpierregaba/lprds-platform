@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { useLabel } from '@/lib/i18n/labels'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,38 +65,39 @@ function Section({
 export function ContentView({
   reportType, content, vocabulary,
 }: { reportType: ReportType; content: Record<string, unknown>; vocabulary: ReportVocabulary }) {
+  const t = useTranslations('reports')
   const reportDomainsLabel = useLabel('reportDomains')
   if (reportType === 'quotidien') {
     const c = content as unknown as DailyReportContent
     const activities = normalizeActivities(c.activities)
     return (
       <div className="space-y-3">
-        <Section title="Horaires" contentClassName="grid gap-4 sm:grid-cols-2">
-          <Field label="Heure d'arrivée" value={c.arrival_time} />
-          <Field label="Heure de départ" value={c.departure_time} />
+        <Section title={t('content.schedule')} contentClassName="grid gap-4 sm:grid-cols-2">
+          <Field label={t('content.arrivalTime')} value={c.arrival_time} />
+          <Field label={t('content.departureTime')} value={c.departure_time} />
         </Section>
-        <Section title="Santé" contentClassName="space-y-4">
+        <Section title={t('content.health')} contentClassName="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="État de santé" value={vocabulary.health_status[c.health_status]} />
-            <Field label="Température arrivée" value={c.temperature_arrival != null ? `${c.temperature_arrival}°C` : undefined} />
-            <Field label="Température départ" value={c.temperature_departure != null ? `${c.temperature_departure}°C` : undefined} />
+            <Field label={t('content.healthStatus')} value={vocabulary.health_status[c.health_status]} />
+            <Field label={t('content.tempArrival')} value={c.temperature_arrival != null ? `${c.temperature_arrival}°C` : undefined} />
+            <Field label={t('content.tempDeparture')} value={c.temperature_departure != null ? `${c.temperature_departure}°C` : undefined} />
           </div>
-          {c.health_notes && <Field label="Notes de santé" value={c.health_notes} />}
+          {c.health_notes && <Field label={t('content.healthNotes')} value={c.health_notes} />}
         </Section>
-        <Section title="Repas" contentClassName="grid gap-4 sm:grid-cols-3">
-          <Field label="Petit-déjeuner" value={vocabulary.meal_amount[c.breakfast]} />
-          <Field label="Déjeuner" value={vocabulary.meal_amount[c.lunch]} />
-          <Field label="Goûter" value={vocabulary.meal_amount[c.snack]} />
+        <Section title={t('content.meals')} contentClassName="grid gap-4 sm:grid-cols-3">
+          <Field label={t('content.breakfast')} value={vocabulary.meal_amount[c.breakfast]} />
+          <Field label={t('content.lunch')} value={vocabulary.meal_amount[c.lunch]} />
+          <Field label={t('content.snack')} value={vocabulary.meal_amount[c.snack]} />
         </Section>
-        <Section title="Sieste & Hygiène" contentClassName="grid gap-4 sm:grid-cols-3">
-          <Field label="Sieste" value={c.nap ? `Oui (${c.nap_duration_minutes ?? '?'} min)` : 'Non'} />
-          <Field label="Bain" value={c.bath ? 'Oui' : 'Non'} />
-          <Field label="Selles" value={c.poop ? 'Oui' : 'Non'} />
+        <Section title={t('content.napHygiene')} contentClassName="grid gap-4 sm:grid-cols-3">
+          <Field label={t('content.nap')} value={c.nap ? t('content.napYes', { minutes: c.nap_duration_minutes ?? '?' }) : t('content.no')} />
+          <Field label={t('content.bath')} value={c.bath ? t('content.yes') : t('content.no')} />
+          <Field label={t('content.poop')} value={c.poop ? t('content.yes') : t('content.no')} />
         </Section>
-        <Section title="Humeurs">
+        <Section title={t('content.moods')}>
           <Tags codes={c.moods} vocabulary={vocabulary.mood} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
         </Section>
-        <Section title="Activités">
+        <Section title={t('content.activities')}>
           {activities.length === 0 ? (
             <p className="text-sm text-muted-foreground">—</p>
           ) : (
@@ -112,11 +114,11 @@ export function ContentView({
             </div>
           )}
         </Section>
-        <Section title="Comportements">
+        <Section title={t('content.behaviors')}>
           <Tags codes={c.behaviors} vocabulary={vocabulary.behavior_tag} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
         </Section>
         {c.highlight && (
-          <Section title="Fait marquant">
+          <Section title={t('content.highlight')}>
             <p className="text-sm">{c.highlight}</p>
           </Section>
         )}
@@ -143,7 +145,7 @@ export function ContentView({
           <p className="text-xs font-medium text-muted-foreground">Gestion des émotions</p>
           <Tags codes={c.emotion_management} vocabulary={vocabulary.emotion_management} />
         </div>
-        <Field label="Observations de l'enseignante" value={c.teacher_observations} />
+        <Field label={t('content.teacherObservations')} value={c.teacher_observations} />
       </div>
     )
   }

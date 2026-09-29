@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -46,6 +48,7 @@ function formatDateTime(iso: string) {
 }
 
 export default function ReportDetailPage() {
+  const t = useTranslations('reports')
   const reportStatusLabel = useLabel('reportStatus')
   const reportTypesLabel = useLabel('reportTypes')
   const { id } = useParams<{ id: string }>()
@@ -100,7 +103,7 @@ export default function ReportDetailPage() {
   const saveMutation = useMutation({
     mutationFn: (content: Record<string, unknown>) =>
       reportsApi.update(id, { content }),
-    onSuccess: () => { toast.success('Rapport enregistré.'); invalidate(); router.push('/dashboard/admin/reports') },
+    onSuccess: () => { toast.success(t('detail.saved')); invalidate(); router.push('/dashboard/admin/reports') },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -119,7 +122,7 @@ export default function ReportDetailPage() {
       await reportsApi.update(id, { content })
       return reportsApi.submit(id)
     },
-    onSuccess: () => { toast.success('Rapport soumis.'); invalidate() },
+    onSuccess: () => { toast.success(t('detail.submitted')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -135,7 +138,7 @@ export default function ReportDetailPage() {
 
   const validateMutation = useMutation({
     mutationFn: () => reportsApi.validate(id),
-    onSuccess: () => { toast.success('Rapport validé et publié au parent.'); invalidate(); router.push('/dashboard/admin/reports') },
+    onSuccess: () => { toast.success(t('detail.validated')); invalidate(); router.push('/dashboard/admin/reports') },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -145,7 +148,7 @@ export default function ReportDetailPage() {
   const rejectMutation = useMutation({
     mutationFn: (reason: string) => reportsApi.reject(id, reason),
     onSuccess: () => {
-      toast.success('Rapport rejeté.')
+      toast.success(t('detail.rejected'))
       setRejectOpen(false)
       resetReject()
       invalidate()
@@ -156,7 +159,7 @@ export default function ReportDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => reportsApi.remove(id),
     onSuccess: () => {
-      toast.success('Rapport supprimé.')
+      toast.success(t('detail.deleted'))
       router.push('/dashboard/admin/reports')
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -164,14 +167,14 @@ export default function ReportDetailPage() {
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => reportsApi.uploadAttachment(id, file),
-    onSuccess: () => { toast.success('Pièce jointe ajoutée.'); invalidate() },
+    onSuccess: () => { toast.success(t('detail.attachmentAdded')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteAttachmentMutation = useMutation({
     mutationFn: (attachmentId: string) => reportsApi.deleteAttachment(id, attachmentId),
     onSuccess: (_data, attachmentId) => {
-      toast.success('Pièce jointe retirée.')
+      toast.success(t('detail.attachmentRemoved'))
       setSelectedAttachment((prev) => (prev?.id === attachmentId ? null : prev))
       invalidate()
     },
@@ -199,7 +202,7 @@ export default function ReportDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/reports" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/reports" label={t('form.back')} />
 
       <Card>
         <CardHeader>
@@ -240,7 +243,7 @@ export default function ReportDetailPage() {
               <div className="flex flex-wrap gap-2 border-t border-border pt-4">
                 <Button type="button" variant="outline" onClick={onSave} disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                  {isSubmittable ? 'Enregistrer le brouillon' : 'Enregistrer les modifications'}
+                  {isSubmittable ? t('detail.saveDraft') : t('detail.saveChanges')}
                 </Button>
                 {isSubmittable && (
                   <Button type="button" onClick={onSubmitReport} disabled={submitMutation.isPending}>
@@ -256,9 +259,9 @@ export default function ReportDetailPage() {
                     <ConfirmDialog
                       open={confirmDelete}
                       onOpenChange={setConfirmDelete}
-                      title="Supprimer ce brouillon ?"
-                      description="Cette action est définitive."
-                      confirmLabel="Supprimer"
+                      title={t('detail.deleteTitle')}
+                      description={t('detail.deleteBody')}
+                      confirmLabel={t('detail.delete')}
                       destructive
                       onConfirm={() => {
                         setConfirmDelete(false)
@@ -293,15 +296,15 @@ export default function ReportDetailPage() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Rejeter ce rapport</DialogTitle>
-                  <DialogDescription>Le rapport retourne à son auteur avec le motif indiqué.</DialogDescription>
+                  <DialogTitle>{t('detail.rejectTitle')}</DialogTitle>
+                  <DialogDescription>{t('detail.rejectHint')}</DialogDescription>
                 </DialogHeader>
                 <form
                   onSubmit={handleRejectSubmit((values) => rejectMutation.mutate(values.reason))}
                   className="space-y-4" noValidate
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="reason">Motif</Label>
+                    <Label htmlFor="reason">{t('detail.reason')}</Label>
                     <Textarea id="reason" rows={3} {...registerReject('reason')} aria-invalid={!!rejectErrors.reason} />
                     {rejectErrors.reason && <p className="text-sm text-destructive">{rejectErrors.reason.message}</p>}
                   </div>
@@ -321,7 +324,7 @@ export default function ReportDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Pièces jointes</CardTitle>
-          <CardDescription>Photos et vidéos associées à ce rapport.</CardDescription>
+          <CardDescription>{t('detail.mediaHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {report.attachments.length === 0 ? (
@@ -337,7 +340,7 @@ export default function ReportDetailPage() {
                     type="button"
                     onClick={() => setSelectedAttachment(att)}
                     className="size-full"
-                    aria-label={`Voir ${att.filename}`}
+                    aria-label={t('detail.view', { name: att.filename })}
                   >
                     <AuthMedia
                       queryKey={['reports', 'attachment-thumb', att.id]}
@@ -355,7 +358,7 @@ export default function ReportDetailPage() {
                     variant="destructive"
                     size="icon-sm"
                     className="absolute left-2 top-2 h-10 w-10 opacity-80 shadow transition hover:opacity-100"
-                    aria-label={`Retirer ${att.filename}`}
+                    aria-label={t('detail.remove', { name: att.filename })}
                     onClick={() => setAttachmentToRemove(att)}
                   >
                     <Trash2 className="size-4" />
@@ -385,7 +388,7 @@ export default function ReportDetailPage() {
                 const isMedia = (file.type.startsWith('image/') || file.type.startsWith('video/'))
                   && file.type !== 'image/svg+xml'
                 if (!isMedia) {
-                  toast.error('Type de fichier non autorisé : seules les images et vidéos sont acceptées.')
+                  toast.error(t('detail.badFileType'))
                 } else {
                   uploadMutation.mutate(file)
                 }
@@ -409,9 +412,9 @@ export default function ReportDetailPage() {
       <ConfirmDialog
         open={!!attachmentToRemove}
         onOpenChange={(open) => !open && setAttachmentToRemove(null)}
-        title="Retirer cette pièce jointe ?"
+        title={t('detail.removeAttachmentTitle')}
         description={`${attachmentToRemove?.filename ?? ''} sera définitivement retirée de ce rapport.`}
-        confirmLabel="Retirer"
+        confirmLabel={t('detail.removeLabel')}
         onConfirm={() => {
           if (attachmentToRemove) deleteAttachmentMutation.mutate(attachmentToRemove.id)
           setAttachmentToRemove(null)

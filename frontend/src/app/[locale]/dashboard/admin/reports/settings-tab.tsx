@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLabel } from '@/lib/i18n/labels'
 import { toast } from 'sonner'
@@ -14,6 +16,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { REPORT_TYPES, type ReportType } from '@/types/reports'
 
 export function SettingsTab() {
+  const t = useTranslations('reports')
   const reportTypesLabel = useLabel('reportTypes')
   const queryClient = useQueryClient()
 
@@ -41,7 +44,7 @@ export function SettingsTab() {
         ? reportsApi.assignDepartmentReportType(departmentId, reportType)
         : reportsApi.unassignDepartmentReportType(departmentId, reportType),
     onSuccess: (_, { departmentId }) => {
-      toast.success('Paramètres mis à jour.')
+      toast.success(t('settings.updated'))
       queryClient.invalidateQueries({ queryKey: ['reports', 'department-types', departmentId] })
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -58,7 +61,7 @@ export function SettingsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Département</TableHead>
+                <TableHead>{t('settings.department')}</TableHead>
                 {REPORT_TYPES.map((rt) => (
                   <TableHead key={rt} className="text-center">{reportTypesLabel(rt)}</TableHead>
                 ))}

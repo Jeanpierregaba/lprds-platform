@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Controller, type UseFormReturn } from 'react-hook-form'
 import { DOMAIN_KEYS } from '@/types/reports'
 import { useLabel } from '@/lib/i18n/labels'
@@ -14,6 +16,7 @@ import type { ReportVocabulary } from '@/types/reports'
 export function AnnualFields({
   form, vocabulary,
 }: { form: UseFormReturn<AnnualContentForm>; vocabulary: ReportVocabulary }) {
+  const t = useTranslations('reports')
   const reportDomainsLabel = useLabel('reportDomains')
   const { register, control, formState: { errors } } = form
 
@@ -26,14 +29,14 @@ export function AnnualFields({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor={`${key}.rating`}>Notation</Label>
+              <Label htmlFor={`${key}.rating`}>{t('fields.rating')}</Label>
               <Controller
                 control={control}
                 name={`${key}.rating`}
                 render={({ field }) => (
                   <Select items={vocabulary.acquisition_level} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger id={`${key}.rating`} className="w-full" aria-invalid={!!errors[key]?.rating}>
-                      <SelectValue placeholder="Choisir..." />
+                      <SelectValue placeholder={t('fields.choose')} />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(vocabulary.acquisition_level).map(([value, label]) => (
@@ -46,7 +49,7 @@ export function AnnualFields({
               {errors[key]?.rating && <p className="text-sm text-destructive">{errors[key]?.rating?.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`${key}.observation`}>Observation</Label>
+              <Label htmlFor={`${key}.observation`}>{t('fields.observation')}</Label>
               <Textarea id={`${key}.observation`} rows={2} {...register(`${key}.observation`)} aria-invalid={!!errors[key]?.observation} />
               {errors[key]?.observation && <p className="text-sm text-destructive">{errors[key]?.observation?.message}</p>}
             </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { Controller, type UseFormReturn } from 'react-hook-form'
 import { Plus, X } from 'lucide-react'
@@ -18,6 +20,7 @@ import type { ReportVocabulary } from '@/types/reports'
 
 /** Saisie des activités une par une : texte + validation + bouton « + ». */
 function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const t = useTranslations('reports')
   const [draft, setDraft] = useState('')
 
   const add = () => {
@@ -39,8 +42,8 @@ function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: 
               add()
             }
           }}
-          placeholder="Ex. Arrosage, Collage…"
-          aria-label="Nouvelle activité"
+          placeholder={t('fields.activityPlaceholder')}
+          aria-label={t('fields.newActivity')}
         />
         <Button
           type="button"
@@ -48,7 +51,7 @@ function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: 
           size="icon"
           onClick={add}
           disabled={!draft.trim()}
-          aria-label="Ajouter l'activité"
+          aria-label={t('fields.addActivity')}
         >
           <Plus className="size-4" />
         </Button>
@@ -61,7 +64,7 @@ function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: 
               <button
                 type="button"
                 onClick={() => onChange(value.filter((_, j) => j !== i))}
-                aria-label={`Retirer ${activity}`}
+                aria-label={t('fields.removeActivity', { name: activity })}
                 className="shrink-0 rounded-full p-2 transition hover:bg-destructive/20"
               >
                 <X className="size-3" />
@@ -77,6 +80,7 @@ function ActivitiesEditor({ value, onChange }: { value: string[]; onChange: (v: 
 export function DailyFields({
   form, vocabulary,
 }: { form: UseFormReturn<DailyContentForm>; vocabulary: ReportVocabulary }) {
+  const t = useTranslations('reports')
   const { register, control, watch, formState: { errors } } = form
   const nap = watch('nap')
 
@@ -84,12 +88,12 @@ export function DailyFields({
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="arrival_time">Heure d&apos;arrivée</Label>
+          <Label htmlFor="arrival_time">{t('fields.arrivalTime')}</Label>
           <Input id="arrival_time" type="time" {...register('arrival_time')} />
           <p className="text-xs text-muted-foreground">Pré-remplie depuis les présences si laissée vide.</p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="departure_time">Heure de départ</Label>
+          <Label htmlFor="departure_time">{t('fields.departureTime')}</Label>
           <Input id="departure_time" type="time" {...register('departure_time')} />
         </div>
       </div>
@@ -97,14 +101,14 @@ export function DailyFields({
       <Separator />
 
       <div className="space-y-2">
-        <Label htmlFor="health_status">État de santé</Label>
+        <Label htmlFor="health_status">{t('fields.healthStatus')}</Label>
         <Controller
           control={control}
           name="health_status"
           render={({ field }) => (
             <Select items={vocabulary.health_status} value={field.value} onValueChange={field.onChange}>
               <SelectTrigger id="health_status" className="w-full" aria-invalid={!!errors.health_status}>
-                <SelectValue placeholder="Choisir..." />
+                <SelectValue placeholder={t('fields.choose')} />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(vocabulary.health_status).map(([value, label]) => (
@@ -119,19 +123,19 @@ export function DailyFields({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="temperature_arrival">Température à l&apos;arrivée (°C, optionnel)</Label>
+          <Label htmlFor="temperature_arrival">{t('fields.tempArrival')}</Label>
           <Input id="temperature_arrival" type="number" step="0.1" {...register('temperature_arrival')} aria-invalid={!!errors.temperature_arrival} />
           {errors.temperature_arrival && <p className="text-sm text-destructive">{errors.temperature_arrival.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="temperature_departure">Température au départ (°C, optionnel)</Label>
+          <Label htmlFor="temperature_departure">{t('fields.tempDeparture')}</Label>
           <Input id="temperature_departure" type="number" step="0.1" {...register('temperature_departure')} aria-invalid={!!errors.temperature_departure} />
           {errors.temperature_departure && <p className="text-sm text-destructive">{errors.temperature_departure.message}</p>}
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="health_notes">Notes de santé (optionnel)</Label>
+        <Label htmlFor="health_notes">{t('fields.healthNotes')}</Label>
         <Textarea id="health_notes" rows={2} {...register('health_notes')} />
       </div>
 
@@ -141,7 +145,7 @@ export function DailyFields({
         {(['breakfast', 'lunch', 'snack'] as const).map((meal) => (
           <div key={meal} className="space-y-2">
             <Label htmlFor={meal}>
-              {meal === 'breakfast' ? 'Petit-déjeuner' : meal === 'lunch' ? 'Déjeuner' : 'Goûter'}
+              {meal === 'breakfast' ? t('fields.breakfast') : meal === 'lunch' ? t('fields.lunch') : t('fields.snack')}
             </Label>
             <Controller
               control={control}
@@ -149,7 +153,7 @@ export function DailyFields({
               render={({ field }) => (
                 <Select items={vocabulary.meal_amount} value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id={meal} className="w-full" aria-invalid={!!errors[meal]}>
-                    <SelectValue placeholder="Choisir..." />
+                    <SelectValue placeholder={t('fields.choose')} />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(vocabulary.meal_amount).map(([value, label]) => (
@@ -171,25 +175,25 @@ export function DailyFields({
           <Controller control={control} name="nap" render={({ field }) => (
             <Switch checked={field.value} onCheckedChange={field.onChange} id="nap" />
           )} />
-          <Label htmlFor="nap">Sieste</Label>
+          <Label htmlFor="nap">{t('fields.nap')}</Label>
         </div>
         <div className="flex items-center gap-2">
           <Controller control={control} name="bath" render={({ field }) => (
             <Switch checked={field.value} onCheckedChange={field.onChange} id="bath" />
           )} />
-          <Label htmlFor="bath">Bain</Label>
+          <Label htmlFor="bath">{t('fields.bath')}</Label>
         </div>
         <div className="flex items-center gap-2">
           <Controller control={control} name="poop" render={({ field }) => (
             <Switch checked={field.value} onCheckedChange={field.onChange} id="poop" />
           )} />
-          <Label htmlFor="poop">Selles</Label>
+          <Label htmlFor="poop">{t('fields.poop')}</Label>
         </div>
       </div>
 
       {nap && (
         <div className="max-w-xs space-y-2">
-          <Label htmlFor="nap_duration_minutes">Durée de la sieste (minutes)</Label>
+          <Label htmlFor="nap_duration_minutes">{t('fields.napDuration')}</Label>
           <Input id="nap_duration_minutes" type="number" {...register('nap_duration_minutes')} aria-invalid={!!errors.nap_duration_minutes} />
           {errors.nap_duration_minutes && <p className="text-sm text-destructive">{errors.nap_duration_minutes.message}</p>}
         </div>
@@ -198,7 +202,7 @@ export function DailyFields({
       <Separator />
 
       <div className="space-y-2">
-        <Label>Humeurs (au moins une)</Label>
+        <Label>{t('fields.moods')}</Label>
         <Controller
           control={control}
           name="moods"
@@ -210,7 +214,7 @@ export function DailyFields({
       </div>
 
       <div className="space-y-2">
-        <Label>Activités du jour (au moins une)</Label>
+        <Label>{t('fields.dayActivities')}</Label>
         <Controller
           control={control}
           name="activities"
@@ -222,7 +226,7 @@ export function DailyFields({
       </div>
 
       <div className="space-y-2">
-        <Label>Comportements (au moins un)</Label>
+        <Label>{t('fields.behaviors')}</Label>
         <Controller
           control={control}
           name="behaviors"
@@ -234,7 +238,7 @@ export function DailyFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="highlight">Fait marquant (optionnel)</Label>
+        <Label htmlFor="highlight">{t('fields.highlight')}</Label>
         <Textarea id="highlight" rows={2} {...register('highlight')} />
       </div>
     </div>

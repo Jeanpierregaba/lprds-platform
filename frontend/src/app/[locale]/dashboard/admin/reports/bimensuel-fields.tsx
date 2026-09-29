@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Controller, type UseFormReturn } from 'react-hook-form'
 import { DOMAIN_KEYS } from '@/types/reports'
 import { useLabel } from '@/lib/i18n/labels'
@@ -14,6 +16,7 @@ import type { ReportVocabulary } from '@/types/reports'
 export function BiMensuelFields({
   form, vocabulary,
 }: { form: UseFormReturn<BiMensuelContentForm>; vocabulary: ReportVocabulary }) {
+  const t = useTranslations('reports')
   const reportDomainsLabel = useLabel('reportDomains')
   const { register, control, formState: { errors } } = form
 
@@ -31,7 +34,7 @@ export function BiMensuelFields({
       <Separator />
 
       <div className="space-y-2">
-        <Label>Comportement &amp; attitude en classe (au moins un)</Label>
+        <Label>{t('fields.classBehaviors')}</Label>
         <Controller
           control={control}
           name="class_behaviors"
@@ -43,7 +46,7 @@ export function BiMensuelFields({
       </div>
 
       <div className="space-y-2">
-        <Label>Relation avec les autres (au moins une)</Label>
+        <Label>{t('fields.peerRelations')}</Label>
         <Controller
           control={control}
           name="peer_relations"
@@ -55,7 +58,7 @@ export function BiMensuelFields({
       </div>
 
       <div className="space-y-2">
-        <Label>Gestion des émotions (au moins une)</Label>
+        <Label>{t('fields.emotions')}</Label>
         <Controller
           control={control}
           name="emotion_management"
@@ -69,7 +72,7 @@ export function BiMensuelFields({
       <Separator />
 
       <div className="space-y-2">
-        <Label htmlFor="teacher_observations">Observations de l&apos;enseignante</Label>
+        <Label htmlFor="teacher_observations">{t('fields.teacherObservations')}</Label>
         <Textarea id="teacher_observations" rows={4} {...register('teacher_observations')} aria-invalid={!!errors.teacher_observations} />
         {errors.teacher_observations && <p className="text-sm text-destructive">{errors.teacher_observations.message}</p>}
       </div>

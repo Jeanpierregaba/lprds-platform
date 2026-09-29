@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { CheckCheck, FileSearch, FileWarning, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -34,6 +36,7 @@ export function MissingList({
   data: MissingReportResponse | undefined
   isLoading: boolean
 }) {
+  const t = useTranslations('reports')
   const today = new Date().toISOString().slice(0, 10)
   const [view, setView] = useState<ViewMode>('cards')
   const user = useUser()
@@ -52,7 +55,7 @@ export function MissingList({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
           <SearchInput
-            placeholder="Rechercher par nom, prénoms ou matricule..."
+            placeholder={t('missing.search')}
             value={search}
             onChange={onSearchChange}
             inputClassName="h-9"
@@ -100,7 +103,7 @@ export function MissingList({
         <CardsEmptyState
           icon={q ? FileSearch : CheckCheck}
           iconClassName={q ? undefined : 'bg-pale-green/15 text-pale-green'}
-          title={q ? 'Aucun résultat pour cette recherche.' : 'Tout est soumis pour cette période.'}
+          title={q ? t('missing.emptySearch') : t('missing.allSubmitted')}
         />
       ) : view === 'cards' ? (
         <CardsGrid>
@@ -120,7 +123,7 @@ export function MissingList({
                           : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {item.has_draft ? 'Brouillon en cours' : 'Rien soumis'}
+                      {item.has_draft ? t('missing.hasDraft') : t('missing.nothing')}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -157,7 +160,7 @@ export function MissingList({
                     )}
                   >
                     {!item.has_draft && <FileWarning className="size-3.5" />}
-                    {item.has_draft ? 'Brouillon en cours' : 'Rien soumis'}
+                    {item.has_draft ? t('missing.hasDraft') : t('missing.nothing')}
                   </span>
                 </li>
               ))}

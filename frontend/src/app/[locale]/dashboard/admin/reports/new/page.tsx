@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { useLabelMap } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
@@ -43,6 +45,7 @@ const isAllowedMediaType = (type: string): boolean =>
   (type.startsWith('image/') || type.startsWith('video/')) && type !== 'image/svg+xml'
 
 export default function NewReportPage() {
+  const t = useTranslations('reports')
   const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
   const router = useRouter()
   const user = useUser()
@@ -155,9 +158,9 @@ export default function NewReportPage() {
       if (action === 'submit' && uploadFailures.length === 0) {
         try {
           await reportsApi.submit(data.id)
-          toast.success('Rapport créé et soumis.')
+          toast.success(t('form.createdSubmitted'))
         } catch (err) {
-          toast.error(`Rapport créé en brouillon, mais la soumission a échoué : ${getApiErrorMessage(err)}`)
+          toast.error(t('form.submitFailed', { error: getApiErrorMessage(err) }))
         }
       } else if (uploadFailures.length > 0) {
         toast.error(
@@ -165,7 +168,7 @@ export default function NewReportPage() {
             `${uploadFailures.join(', ')}. Ré-ajoutez-les, puis soumettez depuis la page du rapport.`
         )
       } else {
-        toast.success('Rapport créé (brouillon).')
+        toast.success(t('form.createdDraft'))
       }
       router.push(`/dashboard/admin/reports/${data.id}`)
     } catch (err) {
@@ -193,7 +196,7 @@ export default function NewReportPage() {
       }
     }
     if (rejected.length > 0) {
-      toast.error(`Fichier(s) ignoré(s) : ${rejected.join(', ')}`)
+      toast.error(t('form.filesIgnored', { names: rejected.join(', ') }))
     }
     if (valid.length > 0) {
       setStagedFiles((prev) => [...prev, ...valid])
@@ -217,22 +220,22 @@ export default function NewReportPage() {
 
   return (
     <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/reports" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/reports" label={t('form.back')} />
 
       <Card>
         <CardHeader>
-          <CardTitle>Nouveau rapport</CardTitle>
-          <CardDescription>Enregistrez comme brouillon pour continuer plus tard, ou soumettez directement.</CardDescription>
+          <CardTitle>{t('form.newTitle')}</CardTitle>
+          <CardDescription>{t('form.newHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {!selectedChild ? (
             <div className="space-y-2">
-              <Label htmlFor="child_search">Enfant</Label>
+              <Label htmlFor="child_search">{t('form.child')}</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="child_search"
-                  placeholder="Rechercher par nom, prénoms ou matricule..."
+                  placeholder={t('form.searchChild')}
                   className="pl-8"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -248,10 +251,10 @@ export default function NewReportPage() {
                   ) : childResults?.items.length === 0 ? (
                     <p className="p-3 text-sm text-muted-foreground">
                       {debouncedSearch
-                        ? 'Aucun résultat.'
+                        ? t('form.noResult')
                         : hasChildrenRead
-                          ? 'Aucun enfant dans l\'établissement.'
-                          : 'Vous ne menez encore aucun groupe.'}
+                          ? t('form.noChild')
+                          : t('form.noGroup')}
                     </p>
                   ) : (
                     childResults?.items.map((c) => (
@@ -274,7 +277,7 @@ export default function NewReportPage() {
               <div>
                 <p className="font-medium">{selectedChild.first_names} {selectedChild.last_name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedChild.matricule} · {selectedChild.department?.name ?? 'Aucun département'}
+                  {selectedChild.matricule} · {selectedChild.department?.name ?? t('form.noDepartment')}
                 </p>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedChild(null); setReportType('') }}>
@@ -301,14 +304,14 @@ export default function NewReportPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="report_type">Type de rapport</Label>
+                    <Label htmlFor="report_type">{t('form.reportType')}</Label>
                     <Select
                       items={reportTypesLabels}
                       value={reportType}
                       onValueChange={(v) => setReportType((v as ReportType) ?? '')}
                     >
                       <SelectTrigger id="report_type" className="w-full">
-                        <SelectValue placeholder="Choisir un type" />
+                        <SelectValue placeholder={t('form.chooseType')} />
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(reportTypesLabels)
@@ -320,7 +323,7 @@ export default function NewReportPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reference_date">Date de référence</Label>
+                    <Label htmlFor="reference_date">{t('form.referenceDate')}</Label>
                     <Input
                       id="reference_date" type="date" max={todayIso()}
                       value={referenceDate} onChange={(e) => setReferenceDate(e.target.value)}
@@ -341,7 +344,7 @@ export default function NewReportPage() {
                 {reportType === 'annuel' && <AnnualFields form={annualForm} vocabulary={vocabulary} />}
 
                 <div className="space-y-2">
-                  <Label htmlFor="attachments">Photos et vidéos</Label>
+                  <Label htmlFor="attachments">{t('form.attachments')}</Label>
                   <div className="rounded-md border border-dashed border-border p-6 text-center ">
                     <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
                     <Label htmlFor="attachments" className="cursor-pointer text-sm font-medium text-primary">
@@ -368,7 +371,7 @@ export default function NewReportPage() {
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={`Retirer ${file.name}`}
+                            aria-label={t('form.removeFile', { name: file.name })}
                             onClick={() => setStagedFiles((prev) => prev.filter((_, i) => i !== index))}
                           >
                             <X className="size-4" />
@@ -389,7 +392,7 @@ export default function NewReportPage() {
                   >
                     {isSubmitting && pendingAction === 'draft'
                       ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                      : 'Enregistrer comme brouillon'}
+                      : t('form.saveDraft')}
                   </Button>
                   <Button
                     type="button"
@@ -399,7 +402,7 @@ export default function NewReportPage() {
                   >
                     {isSubmitting && pendingAction === 'submit'
                       ? <><Loader2 className="mr-2 size-4 animate-spin" /> Soumission...</>
-                      : 'Soumettre'}
+                      : t('form.submit')}
                   </Button>
                 </div>
               </form>

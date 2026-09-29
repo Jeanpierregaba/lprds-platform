@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -34,6 +36,7 @@ function formatDate(iso: string) {
 
 /** Liste paginée pour UN type et UN statut fixés (l'onglet parent porte les pills). */
 export function StatusList({ reportType, status }: { reportType: ReportType; status: ReportStatus }) {
+  const t = useTranslations('reports')
   const reportStatusLabel = useLabel('reportStatus')
   const reportTypesLabel = useLabel('reportTypes')
   const user = useUser()
@@ -74,7 +77,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SearchInput
-          placeholder="Rechercher par nom, prénoms ou matricule..."
+          placeholder={t('list.search')}
           value={search}
           onChange={setSearch}
           inputClassName="h-9"
@@ -96,12 +99,12 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
       ) : (
         <DataTable>
           <DataTableHead>
-            <Th>Enfant</Th>
-            <Th>Type</Th>
-            <Th>Période</Th>
-            <Th>Statut</Th>
-            <Th>Auteur</Th>
-            <Th>Mis à jour</Th>
+            <Th>{t('list.columns.child')}</Th>
+            <Th>{t('list.columns.type')}</Th>
+            <Th>{t('list.columns.period')}</Th>
+            <Th>{t('list.columns.status')}</Th>
+            <Th>{t('list.columns.author')}</Th>
+            <Th>{t('list.columns.updated')}</Th>
           </DataTableHead>
           <TableBody>
             {isLoading ? (
@@ -177,6 +180,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
 function ReportsCardGrid({
   items, isLoading,
 }: { items: ReportListItem[]; isLoading: boolean }) {
+  const t = useTranslations('reports')
   const reportStatusLabel = useLabel('reportStatus')
   const reportTypesLabel = useLabel('reportTypes')
 
@@ -186,7 +190,7 @@ function ReportsCardGrid({
 
   if (items.length === 0) {
     return (
-      <CardsEmptyState icon={FileText} title="Aucun rapport pour ce statut." />
+      <CardsEmptyState icon={FileText} title={t('list.empty')} />
     )
   }
 

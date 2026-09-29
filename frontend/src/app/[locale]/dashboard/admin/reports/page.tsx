@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Tabs } from '@/components/ui/tabs'
 import { useLabel } from '@/lib/i18n/labels'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
@@ -7,12 +9,13 @@ import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/sh
 import { TYPE_TAB_META, TypeTab } from './type-tab'
 
 export default function ReportsPage() {
+  const t = useTranslations('reports')
   const reportTypesLabel = useLabel('reportTypes')
   return (
     <PageMotion>
       <PageHeader
-        title="Rapports"
-        description="Rapports de vie des enfants quotidien, bi-mensuel, annuel."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       <Tabs defaultValue="quotidien">

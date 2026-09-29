@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { FileUp, Loader2, Search, X } from 'lucide-react'
@@ -26,6 +25,7 @@ import type { ChildListItem } from '@/types/children'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
+import { useRouter } from '@/i18n/navigation'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)

@@ -1,11 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import { Newspaper, Search } from 'lucide-react'
 import { Reveal } from './reveal'
 import type { PublicBlogPostPreview, PublicBlogTag } from '@/types/public-blog'
+import { Link } from '@/i18n/navigation'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 

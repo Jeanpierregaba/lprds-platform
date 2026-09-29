@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Newspaper, Plus } from 'lucide-react'
 
@@ -15,6 +13,7 @@ import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { AuthMedia } from './auth-media'
 import { ARTICLE_STATUS_LABELS, type ArticleStatus } from '@/types/blog'
+import { Link, useRouter } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'

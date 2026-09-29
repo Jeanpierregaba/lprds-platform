@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -19,6 +18,7 @@ import { reportsApi } from '@/lib/api/reports.api'
 import { cn } from '@/lib/utils/cn'
 import { WEEKDAY_LABELS, type Weekday } from '@/types/menus'
 import { REPORT_TYPE_LABELS } from '@/types/reports'
+import { Link } from '@/i18n/navigation'
 
 function formatLongDate() {
   return new Date().toLocaleDateString('fr-FR', {

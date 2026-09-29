@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -14,6 +14,7 @@ import { Label }  from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { authApi } from '@/lib/api/auth.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { useRouter } from '@/i18n/navigation'
 
 const pwdSchema = z.object({
     new_password: z.string()

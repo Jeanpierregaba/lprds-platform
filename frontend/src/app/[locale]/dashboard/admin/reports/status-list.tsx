@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Eye, FileText, Plus } from 'lucide-react'
 
@@ -17,6 +16,7 @@ import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/component
 import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem } from '@/components/dashboard/shared/cards'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { REPORT_STATUS_BADGE_CLASS, REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportListItem, type ReportStatus, type ReportType } from '@/types/reports'
+import { Link } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
 

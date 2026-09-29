@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 import uuid
 from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator
 from app.modules.auth.models import UserRole
@@ -68,8 +68,20 @@ class UserResponse(BaseModel):
     establishment_id: uuid.UUID | None
     is_active:        bool
     must_change_pwd:  bool
+    locale:           str
     created_at:       datetime
     last_login_at:    datetime | None
+
+
+# ── Langue d'interface ─────────────────────────────────────────
+class LocaleUpdateRequest(BaseModel):
+    """Changement de langue, déclenché par le sélecteur FR/EN de l'en-tête.
+
+    `Literal` plutôt qu'une simple str : une valeur inconnue est rejetée en 422
+    par Pydantic, avant d'atteindre le service — la colonne ne peut donc jamais
+    contenir autre chose que les deux langues réellement traduites.
+    """
+    locale: Literal["fr", "en"]
 
 # ── Reset de mot de passe ──────────────────────────────────────
 class PasswordResetRequest(BaseModel):

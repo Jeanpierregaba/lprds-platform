@@ -6,12 +6,30 @@ export const apiClient = axios.create({
   timeout: 10_000,
 })
 
-// Injecte le token JWT à chaque requête
+// Injecte le token JWT et la langue courante à chaque requête.
+//
+// `Accept-Language` sert aux réponses immédiates (messages d'erreur, documents
+// générés à la demande). Pour tout ce qui part hors navigateur — emails,
+// notifications push — c'est `users.locale` qui fait foi côté backend :
+// l'en-tête n'existe pas au moment d'un envoi différé.
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
   if (token) config.headers.Authorization = `Bearer ${token}`
+
+  const locale = readLocaleCookie()
+  if (locale) config.headers['Accept-Language'] = locale
+
   return config
 })
+
+/** Lit le cookie de langue posé par next-intl. Côté serveur (rendu, tests
+ *  unitaires), `document` n'existe pas : on n'envoie alors aucun en-tête et le
+ *  backend applique sa propre résolution. */
+function readLocaleCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(/(?:^|;\s*)NEXT_LOCALE=([^;]+)/)
+  return match?.[1] ?? null
+}
 
 // Refresh automatique sur 401
 let isRefreshing = false

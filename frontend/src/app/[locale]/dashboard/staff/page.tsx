@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -15,6 +14,7 @@ import { useUser } from '@/lib/stores/auth.store'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { STAFF_BASELINE_ITEMS, STAFF_MODULE_ITEMS } from '@/components/dashboard/nav-items'
 import { cn } from '@/lib/utils/cn'
+import { Link } from '@/i18n/navigation'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)

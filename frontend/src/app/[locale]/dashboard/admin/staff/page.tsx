@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Eye, Loader2, Plus, QrCode, UserCheck, UserRound, UserX } from 'lucide-react'
@@ -23,6 +22,7 @@ import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem, 
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
 import { STAFF_TYPE_LABELS, type StaffListItem, type StaffType } from '@/types/staff'
+import { Link } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'

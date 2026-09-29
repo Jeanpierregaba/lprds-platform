@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
 import { Menu, X, MessageCircle, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BRAND } from '@/lib/marketing/data'
+import { LocaleSwitcher } from '@/components/locale-switcher'
+import { Link, usePathname } from '@/i18n/navigation'
 
 const NAV_ITEMS = [
   { name: 'Accueil', href: '/' },
@@ -63,6 +63,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <LocaleSwitcher />
           <a
             href={BRAND.whatsapp}
             target="_blank"

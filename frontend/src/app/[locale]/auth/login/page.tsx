@@ -1,14 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import Link from 'next/link'
 import Image from 'next/image'
 
 import heroImg from '@/assets/hero-img.png'
@@ -21,6 +19,7 @@ import { authApi } from '@/lib/api/auth.api'
 import { useAuthStore } from '@/lib/stores/auth.store'
 import { ROLE_HOME } from '@/types/auth'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { Link, useRouter } from '@/i18n/navigation'
 
 const loginSchema = z.object({
     email:    z.string().email('Email invalide'),

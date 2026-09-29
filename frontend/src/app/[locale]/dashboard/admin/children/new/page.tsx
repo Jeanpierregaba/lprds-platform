@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +23,7 @@ import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
+import { useRouter } from '@/i18n/navigation'
 
 const guardianSchema = z.object({
   last_name: z.string().min(1, 'Nom requis').max(100),

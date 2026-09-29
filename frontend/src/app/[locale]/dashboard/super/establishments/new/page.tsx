@@ -1,13 +1,11 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { establishmentsApi } from '@/lib/api/establishments.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { Link, useRouter } from '@/i18n/navigation'
 
 const schema = z.object({
   code:    z.string().min(2, '2 caractères minimum').max(10, '10 caractères maximum')

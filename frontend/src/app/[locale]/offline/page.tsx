@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { CloudOff } from 'lucide-react'
 import Image from 'next/image'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 
 export const metadata: Metadata = {
   title: 'Hors ligne',

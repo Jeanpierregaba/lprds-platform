@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { LogOut, Menu } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
@@ -12,6 +11,7 @@ import { authApi } from '@/lib/api/auth.api'
 import { useMessagingUnread } from '@/lib/messaging/use-messaging-unread'
 import { NavList } from './nav-list'
 import { useNavItems } from './use-nav-items'
+import { useRouter } from '@/i18n/navigation'
 
 export function MobileNav() {
   const user = useUser()

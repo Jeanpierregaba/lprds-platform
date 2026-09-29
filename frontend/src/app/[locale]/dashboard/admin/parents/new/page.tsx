@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,6 +18,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
+import { useRouter } from '@/i18n/navigation'
 
 const schema = z.object({
   first_name: z.string().min(1, 'Prénom requis').max(100),

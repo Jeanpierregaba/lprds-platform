@@ -78,6 +78,15 @@ class User(Base):
         index=True,
     )
 
+    # Langue d'interface choisie par l'utilisateur ("fr" | "en").
+    # C'est la SEULE source de vérité pour tout ce qui part hors navigateur —
+    # emails, PDF, notifications push : le cookie du frontend n'y a pas accès,
+    # et ces envois ont lieu alors que l'utilisateur n'est pas devant l'écran.
+    # Défaut "fr" : langue de toutes les données antérieures à cette colonne.
+    locale: Mapped[str] = mapped_column(
+        String(2), default="fr", server_default="fr", nullable=False
+    )
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_pwd: Mapped[bool] = mapped_column(Boolean, default=True)
 

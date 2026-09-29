@@ -1,11 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils/cn'
+import { Link } from '@/i18n/navigation'
 
 /** Wrapper d'animation standard des pages (M1). */
 export function PageMotion({ children, className = 'space-y-4' }: { children: ReactNode; className?: string }) {

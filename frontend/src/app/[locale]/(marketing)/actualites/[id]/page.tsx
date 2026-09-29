@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Newspaper } from 'lucide-react'
@@ -8,6 +7,7 @@ import { Reveal } from '@/components/marketing/reveal'
 import { BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPost, fetchPublicBlogPosts } from '@/lib/api/public-blog.api'
 import type { PublicBlogPostPreview } from '@/types/public-blog'
+import { Link } from '@/i18n/navigation'
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 

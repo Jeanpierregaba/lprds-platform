@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ArrowRight, Award, CalendarRange, FileText, Sun } from 'lucide-react'
@@ -17,6 +16,7 @@ import { PageMotion } from '@/components/dashboard/shared/page'
 import { CardsEmptyState } from '@/components/dashboard/shared/cards'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { useMyChildren } from '../use-my-children'
+import { Link } from '@/i18n/navigation'
 
 const ALL = '__all__'
 const PAGE_SIZE = 21

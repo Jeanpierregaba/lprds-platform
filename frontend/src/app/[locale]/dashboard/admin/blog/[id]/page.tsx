@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ImagePlus, Loader2, Send, Trash2, Upload } from 'lucide-react'
@@ -21,6 +21,7 @@ import { BackLink } from '@/components/dashboard/shared/page'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { ARTICLE_STATUS_LABELS } from '@/types/blog'
 import { AuthMedia } from '../auth-media'
+import { useRouter } from '@/i18n/navigation'
 
 const NO_TAG = '__no_tag__'
 

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Baby, Download, Eye, FileSpreadsheet, FileUp, Loader2, Plus, QrCode, UserCheck, UserX } from 'lucide-react'
@@ -28,6 +27,7 @@ import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem, 
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
 import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
+import { Link } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
@@ -15,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { blogApi } from '@/lib/api/blog.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { useRouter } from '@/i18n/navigation'
 
 const NO_TAG = '__no_tag__'
 

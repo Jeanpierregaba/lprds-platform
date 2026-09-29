@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import Link from 'next/link'
 import { ArrowRight, Newspaper, Baby, Cloud, Sun } from 'lucide-react'
 import { DifferenceTimeline } from '@/components/marketing/difference-timeline'
 import { Doodle } from '@/components/marketing/doodle'
@@ -13,6 +12,7 @@ import { CtaBand } from '@/components/marketing/cta-band'
 import { STATS, SECTIONS, BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, sortByPublished, fetchPublicGallery } from '@/lib/api/public-blog.api'
 import heroImg from '../../../../public/images/marketing/hero-img.png'
+import { Link } from '@/i18n/navigation'
 
 // Icône Lucide par section (aperçu accueil : 3 sections crèche) — voir aussi
 // sectionPinIcon() pour la page Nos Sections (les 7 sections).

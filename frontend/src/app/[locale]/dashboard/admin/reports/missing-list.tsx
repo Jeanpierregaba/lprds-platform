@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { CheckCheck, FileSearch, FileWarning, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -15,6 +14,7 @@ import { SearchInput, ViewToggle, type ViewMode } from '@/components/dashboard/s
 import { CardsEmptyState, CardsGrid, StaggerItem } from '@/components/dashboard/shared/cards'
 import type { MissingReportResponse } from '@/types/reports'
 import { useState } from 'react'
+import { Link } from '@/i18n/navigation'
 
 function normalize(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')

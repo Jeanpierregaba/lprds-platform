@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Plus, Search, Building2 } from 'lucide-react'
@@ -16,6 +15,7 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { establishmentsApi } from '@/lib/api/establishments.api'
+import { Link } from '@/i18n/navigation'
 
 const PAGE_SIZE = 20
 

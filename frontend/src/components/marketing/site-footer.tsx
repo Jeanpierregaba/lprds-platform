@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import { BRAND } from '@/lib/marketing/data'
 import { FacebookIcon, InstagramIcon, LinkedinIcon, TiktokIcon } from './brand-icons'
+import { Link } from '@/i18n/navigation'
 
 const SOCIALS = [
   { href: BRAND.social.facebook, label: 'Facebook', Icon: FacebookIcon },

@@ -11,6 +11,9 @@ export interface User {
   establishment_id: string | null
   is_active:        boolean
   must_change_pwd:  boolean
+  /** Langue d'interface du compte ("fr" | "en") — pilote aussi les emails,
+   *  PDF et notifications push envoyés hors session. */
+  locale:           string
   created_at:       string
   last_login_at:    string | null
 }

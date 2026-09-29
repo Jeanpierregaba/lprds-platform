@@ -1,11 +1,11 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { useUser } from '@/lib/stores/auth.store'
+import { usePathname } from '@/i18n/navigation'
 
 /**
  * Notification à la réception d'un message privé (temps réel applicatif —

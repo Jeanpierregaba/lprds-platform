@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,6 +18,7 @@ import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { STAFF_TYPE_LABELS, type StaffType } from '@/types/staff'
+import { useRouter } from '@/i18n/navigation'
 
 const schema = z.object({
   first_name: z.string().min(1, 'Prénom requis').max(100),

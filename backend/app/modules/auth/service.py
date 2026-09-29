@@ -272,6 +272,19 @@ async def change_password(
     await db.flush()
 
 
+async def set_user_locale(db: AsyncSession, user: User, locale: str) -> User:
+    """Enregistre la langue d'interface du compte.
+
+    La valeur est déjà contrainte à "fr"/"en" par le schéma Pydantic — aucune
+    validation à refaire ici. Pas de `db.refresh()` : l'appelant ne lit aucune
+    relation chargée par une FK, seulement des colonnes scalaires déjà en
+    mémoire (cf. claude.md § Performance).
+    """
+    user.locale = locale
+    await db.flush()
+    return user
+
+
 # ── Helpers privés ───────────────────────────────────────────────
 async def _get_user_by_email(email: str, db: AsyncSession) -> User | None:
     result = await db.execute(select(User).where(User.email == email))

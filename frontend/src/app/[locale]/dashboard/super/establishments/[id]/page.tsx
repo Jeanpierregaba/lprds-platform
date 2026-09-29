@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -29,6 +28,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { establishmentsApi } from '@/lib/api/establishments.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { Link } from '@/i18n/navigation'
 
 const MAX_ADMINS = 3
 

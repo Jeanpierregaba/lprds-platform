@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -8,6 +7,7 @@ import type { ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils/cn'
+import { useRouter } from '@/i18n/navigation'
 
 /** Pastille Actif/Inactif (M8). */
 export function StatusPill({

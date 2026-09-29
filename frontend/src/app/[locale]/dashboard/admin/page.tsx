@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -22,6 +21,7 @@ import { staffApi } from '@/lib/api/staff.api'
 import { cn } from '@/lib/utils/cn'
 import { WEEKDAYS, WEEKDAY_LABELS, type Weekday } from '@/types/menus'
 import type { DailyStatus } from '@/types/attendance'
+import { Link } from '@/i18n/navigation'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)

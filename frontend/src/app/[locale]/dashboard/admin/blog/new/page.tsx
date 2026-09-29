@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,6 +21,7 @@ import { useRouter } from '@/i18n/navigation'
 const NO_TAG = '__no_tag__'
 
 export default function NewArticlePage() {
+  const t = useTranslations('blog')
   const router = useRouter()
 
   const [title, setTitle] = useState('')
@@ -31,7 +34,7 @@ export default function NewArticlePage() {
     queryFn: () => blogApi.listTags().then((r) => r.data.items),
   })
 
-  const tagItems = { [NO_TAG]: 'Aucune étiquette', ...Object.fromEntries((tags ?? []).map((t) => [t.id, t.name])) }
+  const tagItems = { [NO_TAG]: t('form.noTag'), ...Object.fromEntries((tags ?? []).map((t) => [t.id, t.name])) }
 
   const canSubmit = title.trim().length > 0 && content.trim().length > 0
 
@@ -43,7 +46,7 @@ export default function NewArticlePage() {
         content: content.trim(),
         tag_id: tagId === NO_TAG ? null : tagId,
       })
-      toast.success('Article créé en brouillon.')
+      toast.success(t('form.created'))
       router.push(`/dashboard/admin/blog/${res.data.id}`)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -54,26 +57,26 @@ export default function NewArticlePage() {
 
   return (
     <PageMotion className="mx-auto max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/blog" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/blog" label={t('form.back')} />
 
       <Card>
         <CardHeader>
-          <CardTitle>Nouvel article</CardTitle>
+          <CardTitle>{t('form.newTitle')}</CardTitle>
           <CardDescription>
-            L&apos;article est créé en brouillon. Ajoutez une image à la une et une étiquette avant de le publier.
+            {t('form.newHint')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="title">Titre</Label>
-            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre de l'actualité" />
+            <Label htmlFor="title">{t('form.title')}</Label>
+            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('form.titlePlaceholder')} />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="tag">Étiquette</Label>
+            <Label htmlFor="tag">{t('form.tag')}</Label>
             <Select items={tagItems} value={tagId} onValueChange={(v) => setTagId(v ?? NO_TAG)}>
               <SelectTrigger id="tag" className="w-full">
-                <SelectValue placeholder="Aucune étiquette" />
+                <SelectValue placeholder={t('form.noTag')} />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(tagItems).map(([value, label]) => (
@@ -84,14 +87,14 @@ export default function NewArticlePage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="content">Contenu</Label>
-            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} rows={10} placeholder="Rédigez le contenu de l'actualité..." />
+            <Label htmlFor="content">{t('form.content')}</Label>
+            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} rows={10} placeholder={t('form.contentPlaceholder')} />
           </div>
 
           <div className="flex justify-end">
             <Button type="button" onClick={onCreate} disabled={!canSubmit || isSubmitting}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-              Créer le brouillon
+              {t('form.createDraft')}
             </Button>
           </div>
         </CardContent>

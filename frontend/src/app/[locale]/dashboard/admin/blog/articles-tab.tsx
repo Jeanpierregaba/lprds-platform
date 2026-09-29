@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
@@ -30,6 +32,7 @@ function formatDate(iso: string | null) {
 }
 
 export function ArticlesTab() {
+  const t = useTranslations('blog')
   const articleStatusLabel = useLabel('articleStatus')
   const articleStatusLabels = useLabelMap('articleStatus', ARTICLE_STATUSES)
   const router = useRouter()
@@ -64,22 +67,22 @@ export function ArticlesTab() {
   const hasNext = skip + PAGE_SIZE < total
   const hasPrev = skip > 0
 
-  const tagItems = { [ALL]: 'Toutes les étiquettes', ...Object.fromEntries((tags ?? []).map((t) => [t.id, t.name])) }
+  const tagItems = { [ALL]: t('articles.allTags'), ...Object.fromEntries((tags ?? []).map((t) => [t.id, t.name])) }
 
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
           <Select
-            items={{ [ALL]: 'Tous les statuts', ...articleStatusLabels }}
+            items={{ [ALL]: t('articles.allStatuses'), ...articleStatusLabels }}
             value={status}
             onValueChange={(v) => setStatus(v ?? ALL)}
           >
             <SelectTrigger className="h-9 w-full sm:w-44">
-              <SelectValue placeholder="Tous les statuts" />
+              <SelectValue placeholder={t('articles.allStatuses')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tous les statuts</SelectItem>
+              <SelectItem value={ALL}>{t('articles.allStatuses')}</SelectItem>
               {Object.entries(articleStatusLabels).map(([value, label]) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
@@ -88,7 +91,7 @@ export function ArticlesTab() {
 
           <Select items={tagItems} value={tagId} onValueChange={(v) => setTagId(v ?? ALL)}>
             <SelectTrigger className="h-9 w-full sm:w-44">
-              <SelectValue placeholder="Toutes les étiquettes" />
+              <SelectValue placeholder={t('articles.allTags')} />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(tagItems).map(([value, label]) => (
@@ -101,23 +104,23 @@ export function ArticlesTab() {
             id="include-inactive"
             checked={includeInactive}
             onCheckedChange={setIncludeInactive}
-            label="Inclure les supprimés"
+            label={t('articles.includeDeleted')}
           />
         </div>
 
         <Button render={<Link href="/dashboard/admin/blog/new" />}>
           <Plus className="mr-1.5 size-4" />
-          Nouvel article
+          {t('articles.new')}
         </Button>
       </div>
 
       <DataTable>
         <DataTableHead>
           <Th className="w-16">Image</Th>
-          <Th>Titre</Th>
-          <Th>Étiquette</Th>
-          <Th>Statut</Th>
-          <Th>Publié le</Th>
+          <Th>{t('articles.columns.title')}</Th>
+          <Th>{t('articles.columns.tag')}</Th>
+          <Th>{t('articles.columns.status')}</Th>
+          <Th>{t('articles.columns.publishedAt')}</Th>
           <Th />
         </DataTableHead>
         <TableBody>
@@ -132,7 +135,7 @@ export function ArticlesTab() {
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <Newspaper className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucun article pour le moment.</p>
+                  <p className="font-medium text-foreground">{t('articles.empty')}</p>
                 </div>
               </Td>
             </TableRow>
@@ -142,7 +145,7 @@ export function ArticlesTab() {
                 key={article.id}
                 className={!article.is_active ? 'cursor-pointer opacity-50' : 'cursor-pointer'}
                 onClick={() => router.push(`/dashboard/admin/blog/${article.id}`)}
-                title="Ouvrir cet article"
+                title={t('articles.open')}
               >
                 <Td>
                   {article.cover_url ? (
@@ -178,7 +181,7 @@ export function ArticlesTab() {
                 <Td className="text-muted-foreground">{formatDate(article.published_at)}</Td>
                 <Td>
                   <Button variant="ghost" size="sm" render={<Link href={`/dashboard/admin/blog/${article.id}`} />}>
-                    Voir
+                    {t('articles.view')}
                   </Button>
                 </Td>
               </TableRow>

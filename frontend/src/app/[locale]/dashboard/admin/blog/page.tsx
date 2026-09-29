@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Images, Newspaper, Tags } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
@@ -10,23 +12,24 @@ import { TagsTab } from './tags-tab'
 import { GalleryTab } from './gallery-tab'
 
 export default function BlogPage() {
+  const t = useTranslations('blog')
   return (
     <PageMotion>
       <PageHeader
-        title="Blog"
-        description="Actualités du site vitrine — événements, projets pédagogiques."
+        title={t('page.title')}
+        description={t('page.description')}
       />
 
       <Tabs defaultValue="articles">
         <PillsTabsList>
           <PillsTrigger value="articles" active="primary" icon={Newspaper}>
-            Articles
+            {t('tabs.articles')}
           </PillsTrigger>
           <PillsTrigger value="tags" active="teal" icon={Tags}>
-            Étiquettes
+            {t('tabs.tags')}
           </PillsTrigger>
           <PillsTrigger value="gallery" active="sky" icon={Images}>
-            Galerie
+            {t('tabs.gallery')}
           </PillsTrigger>
         </PillsTabsList>
 

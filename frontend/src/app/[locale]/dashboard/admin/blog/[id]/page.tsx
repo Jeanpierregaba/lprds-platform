@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -31,6 +33,7 @@ function formatDateTime(iso: string) {
 }
 
 export default function ArticleDetailPage() {
+  const t = useTranslations('blog')
   const articleStatusLabel = useLabel('articleStatus')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -73,20 +76,20 @@ export default function ArticleDetailPage() {
       content: content.trim(),
       tag_id: tagId === NO_TAG ? null : tagId,
     }),
-    onSuccess: () => { toast.success('Article enregistré.'); invalidate() },
+    onSuccess: () => { toast.success(t('form.saved')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const publishMutation = useMutation({
     mutationFn: () => blogApi.publish(id),
-    onSuccess: () => { toast.success('Article publié.'); invalidate() },
+    onSuccess: () => { toast.success(t('form.published')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => blogApi.remove(id),
     onSuccess: () => {
-      toast.success('Article supprimé.')
+      toast.success(t('form.deleted'))
       router.push('/dashboard/admin/blog')
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -94,19 +97,19 @@ export default function ArticleDetailPage() {
 
   const coverMutation = useMutation({
     mutationFn: (file: File) => blogApi.setCover(id, file),
-    onSuccess: () => { toast.success('Image à la une mise à jour.'); invalidate() },
+    onSuccess: () => { toast.success(t('form.coverUpdated')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const uploadMediaMutation = useMutation({
     mutationFn: (file: File) => blogApi.uploadAttachment(id, file),
-    onSuccess: () => { toast.success('Média ajouté.'); invalidate() },
+    onSuccess: () => { toast.success(t('form.mediaAdded')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteMediaMutation = useMutation({
     mutationFn: (attachmentId: string) => blogApi.deleteAttachment(id, attachmentId),
-    onSuccess: () => { toast.success('Média supprimé.'); invalidate() },
+    onSuccess: () => { toast.success(t('form.mediaDeleted')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -125,11 +128,11 @@ export default function ArticleDetailPage() {
 
   const isEditable = article.is_active
   const canPublish = article.status === 'draft' && !!article.cover_url && !!article.tag
-  const tagItems = { [NO_TAG]: 'Aucune étiquette', ...Object.fromEntries((tags ?? []).map((t) => [t.id, t.name])) }
+  const tagItems = { [NO_TAG]: t('form.noTag'), ...Object.fromEntries((tags ?? []).map((t) => [t.id, t.name])) }
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/blog" label="Retour à la liste" />
+      <BackLink href="/dashboard/admin/blog" label={t('form.back')} />
 
       <Card>
         <CardHeader>
@@ -154,8 +157,8 @@ export default function ArticleDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Image à la une</CardTitle>
-          <CardDescription>Requise avant publication — doit être une image.</CardDescription>
+          <CardTitle className="text-base">{t('form.coverTitle')}</CardTitle>
+          <CardDescription>{t('form.coverHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {article.cover_url ? (
@@ -181,7 +184,7 @@ export default function ArticleDetailPage() {
                 disabled={coverMutation.isPending}
               >
                 {coverMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <ImagePlus className="mr-1.5 size-4" />}
-                {article.cover_url ? 'Remplacer' : 'Ajouter une image'}
+                {article.cover_url ? t('form.replace') : t('form.addImage')}
               </Button>
               <input
                 ref={coverInputRef}
@@ -201,19 +204,19 @@ export default function ArticleDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Contenu</CardTitle>
+          <CardTitle className="text-base">{t('form.content')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="title">Titre</Label>
+            <Label htmlFor="title">{t('form.title')}</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={!isEditable} />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="tag">Étiquette</Label>
+            <Label htmlFor="tag">{t('form.tag')}</Label>
             <Select items={tagItems} value={tagId} onValueChange={(v) => setTagId(v ?? NO_TAG)} disabled={!isEditable}>
               <SelectTrigger id="tag" className="w-full">
-                <SelectValue placeholder="Aucune étiquette" />
+                <SelectValue placeholder={t('form.noTag')} />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(tagItems).map(([value, label]) => (
@@ -224,7 +227,7 @@ export default function ArticleDetailPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="content">Contenu</Label>
+            <Label htmlFor="content">{t('form.content')}</Label>
             <Textarea id="content" rows={10} value={content} onChange={(e) => setContent(e.target.value)} disabled={!isEditable} />
           </div>
 
@@ -237,7 +240,7 @@ export default function ArticleDetailPage() {
                 disabled={saveMutation.isPending || !title.trim() || !content.trim()}
               >
                 {saveMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                Enregistrer
+                {t('form.save')}
               </Button>
 
               {article.status === 'draft' && (
@@ -245,22 +248,22 @@ export default function ArticleDetailPage() {
                   type="button"
                   onClick={() => publishMutation.mutate()}
                   disabled={!canPublish || publishMutation.isPending}
-                  title={!canPublish ? 'Image à la une et étiquette requises' : undefined}
+                  title={!canPublish ? t('form.cannotPublish') : undefined}
                 >
                   {publishMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Send className="mr-1.5 size-4" />}
-                  Publier
+                  {t('form.publish')}
                 </Button>
               )}
 
               <Button type="button" variant="destructive" className="ml-auto" onClick={() => setConfirmDelete(true)}>
-                Supprimer
+                {t('form.delete')}
               </Button>
               <ConfirmDialog
                 open={confirmDelete}
                 onOpenChange={setConfirmDelete}
-                title="Supprimer cet article ?"
-                description="L'article disparaîtra du site public et ne sera plus modifiable."
-                confirmLabel="Supprimer"
+                title={t('form.deleteTitle')}
+                description={t('form.deleteBody')}
+                confirmLabel={t('form.delete')}
                 onConfirm={() => {
                   setConfirmDelete(false)
                   deleteMutation.mutate()
@@ -273,8 +276,8 @@ export default function ArticleDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Médias</CardTitle>
-          <CardDescription>Galerie de photos/vidéos de l&apos;article (distincte de l&apos;image à la une).</CardDescription>
+          <CardTitle className="text-base">{t('form.mediaTitle')}</CardTitle>
+          <CardDescription>{t('form.mediaHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {article.attachments.length === 0 ? (
@@ -309,7 +312,7 @@ export default function ArticleDetailPage() {
                       onClick={() => deleteMediaMutation.mutate(att.id)}
                       disabled={deleteMediaMutation.isPending}
                       className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
-                      aria-label="Supprimer ce média"
+                      aria-label={t('form.deleteMedia')}
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -329,7 +332,7 @@ export default function ArticleDetailPage() {
                 disabled={uploadMediaMutation.isPending}
               >
                 {uploadMediaMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Upload className="mr-1.5 size-4" />}
-                Ajouter un média
+                {t('form.addMedia')}
               </Button>
               <input
                 ref={mediaInputRef}

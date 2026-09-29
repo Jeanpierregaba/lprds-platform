@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -24,6 +26,7 @@ function formatDate(iso: string) {
 }
 
 export function TagsTab() {
+  const t = useTranslations('blog')
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -40,19 +43,19 @@ export function TagsTab() {
 
   const createMutation = useMutation({
     mutationFn: (name: string) => blogApi.createTag(name),
-    onSuccess: () => { toast.success('Étiquette créée.'); setCreateOpen(false); setNewName(''); invalidate() },
+    onSuccess: () => { toast.success(t('tags.created')); setCreateOpen(false); setNewName(''); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => blogApi.updateTag(id, name),
-    onSuccess: () => { toast.success('Étiquette renommée.'); setEditing(null); invalidate() },
+    onSuccess: () => { toast.success(t('tags.renamed')); setEditing(null); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => blogApi.deleteTag(id),
-    onSuccess: () => { toast.success('Étiquette supprimée.'); invalidate() },
+    onSuccess: () => { toast.success(t('tags.deleted')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -62,19 +65,19 @@ export function TagsTab() {
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger render={<Button type="button" />}>
             <Plus className="mr-1.5 size-4" />
-            Nouvelle étiquette
+            {t('tags.new')}
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nouvelle étiquette</DialogTitle>
-              <DialogDescription>Nom unique par établissement.</DialogDescription>
+              <DialogTitle>{t('tags.newTitle')}</DialogTitle>
+              <DialogDescription>{t('tags.hint')}</DialogDescription>
             </DialogHeader>
             <form
               onSubmit={(e) => { e.preventDefault(); if (newName.trim()) createMutation.mutate(newName.trim()) }}
               className="space-y-4"
             >
               <div className="space-y-1.5">
-                <Label htmlFor="new-tag-name">Nom</Label>
+                <Label htmlFor="new-tag-name">{t('tags.name')}</Label>
                 <Input id="new-tag-name" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
               </div>
               <DialogFooter>
@@ -90,8 +93,8 @@ export function TagsTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th>Nom</Th>
-          <Th>Créée le</Th>
+          <Th>{t('tags.name')}</Th>
+          <Th>{t('tags.createdAt')}</Th>
           <Th className="w-24" />
         </DataTableHead>
         <TableBody>
@@ -107,7 +110,7 @@ export function TagsTab() {
                   <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                     <Tags className="size-5" />
                   </div>
-                  <p className="font-medium text-foreground">Aucune étiquette.</p>
+                  <p className="font-medium text-foreground">{t('tags.empty')}</p>
                 </div>
               </Td>
             </TableRow>
@@ -126,14 +129,14 @@ export function TagsTab() {
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => { setEditing(tag); setEditName(tag.name) }}
-                      aria-label="Renommer"
+                      aria-label={t('tags.rename')}
                     >
                       <Pencil className="size-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Supprimer"
+                      aria-label={t('tags.delete')}
                       onClick={() => setTagToDelete(tag)}
                     >
                       <Trash2 className="size-4" />
@@ -150,8 +153,8 @@ export function TagsTab() {
         open={!!tagToDelete}
         onOpenChange={(open) => !open && setTagToDelete(null)}
         title={`Supprimer l\u2019étiquette « ${tagToDelete?.name ?? ''} » ?`}
-        description="Suppression définitive. Les articles qui la portaient passeront sans étiquette."
-        confirmLabel="Supprimer"
+        description={t('tags.deleteBody')}
+        confirmLabel={t('tags.delete')}
         onConfirm={() => {
           if (tagToDelete) deleteMutation.mutate(tagToDelete.id)
           setTagToDelete(null)
@@ -161,7 +164,7 @@ export function TagsTab() {
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Renommer l&apos;étiquette</DialogTitle>
+            <DialogTitle>{t('tags.renameTitle')}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -171,13 +174,13 @@ export function TagsTab() {
             className="space-y-4"
           >
             <div className="space-y-1.5">
-              <Label htmlFor="edit-tag-name">Nom</Label>
+              <Label htmlFor="edit-tag-name">{t('tags.name')}</Label>
               <Input id="edit-tag-name" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
             </div>
             <DialogFooter>
               <Button type="submit" disabled={!editName.trim() || updateMutation.isPending}>
                 {updateMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-                Enregistrer
+                {t('tags.save')}
               </Button>
             </DialogFooter>
           </form>

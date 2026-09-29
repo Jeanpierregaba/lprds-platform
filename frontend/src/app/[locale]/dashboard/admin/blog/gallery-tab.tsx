@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -36,6 +38,7 @@ function useGalleryCategories() {
 }
 
 export function GalleryTab() {
+  const t = useTranslations('blog')
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [categoryId, setCategoryId] = useState<string>(ALL)
@@ -63,7 +66,7 @@ export function GalleryTab() {
     mutationFn: ({ categoryId: cid, file: f }: { categoryId: string; file: File }) =>
       blogApi.uploadGallery(cid, f),
     onSuccess: () => {
-      toast.success('Photo publiée dans la galerie du site vitrine.')
+      toast.success(t('gallery.published'))
       setUploadOpen(false)
       setFile(null)
       setUploadCategoryId('')
@@ -75,7 +78,7 @@ export function GalleryTab() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => blogApi.deleteGallery(id),
-    onSuccess: () => { toast.success('Photo supprimée.'); invalidate() },
+    onSuccess: () => { toast.success(t('gallery.photoDeleted')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -90,13 +93,13 @@ export function GalleryTab() {
           {total} photo{total > 1 ? 's' : ''} publiée{total > 1 ? 's' : ''} — visibles sur le site vitrine.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Select items={{ [ALL]: 'Toutes les catégories', ...categoryItems }}
+          <Select items={{ [ALL]: t('gallery.allCategories'), ...categoryItems }}
             value={categoryId} onValueChange={(v) => setCategoryId(v ?? ALL)}>
             <SelectTrigger className="h-9 w-full sm:w-52">
-              <SelectValue placeholder="Toutes les catégories" />
+              <SelectValue placeholder={t('gallery.allCategories')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Toutes les catégories</SelectItem>
+              <SelectItem value={ALL}>{t('gallery.allCategories')}</SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
@@ -105,7 +108,7 @@ export function GalleryTab() {
 
           <Button variant="outline" onClick={() => setManageOpen(true)}>
             <Pencil className="mr-1.5 size-4" />
-            Catégories
+            {t('gallery.categories')}
           </Button>
 
           <Dialog open={uploadOpen} onOpenChange={(open) => {
@@ -114,11 +117,11 @@ export function GalleryTab() {
           }}>
             <DialogTrigger render={<Button type="button" />}>
               <Upload className="mr-1.5 size-4" />
-              Ajouter une photo
+              {t('gallery.addPhoto')}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Publier une photo</DialogTitle>
+                <DialogTitle>{t('gallery.publishTitle')}</DialogTitle>
                 <DialogDescription>
                   La photo apparaît immédiatement dans la galerie du site vitrine.
                 </DialogDescription>
@@ -131,11 +134,11 @@ export function GalleryTab() {
                 className="space-y-4"
               >
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="gallery-category">Catégorie</Label>
+                  <Label htmlFor="gallery-category">{t('gallery.category')}</Label>
                   <Select items={categoryItems} value={uploadCategoryId}
                     onValueChange={(v) => setUploadCategoryId(v ?? '')}>
                     <SelectTrigger id="gallery-category" className="h-9 w-full">
-                      <SelectValue placeholder="Choisir une catégorie" />
+                      <SelectValue placeholder={t('gallery.chooseCategory')} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => (
@@ -145,12 +148,12 @@ export function GalleryTab() {
                   </Select>
                   {categories.length === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Créez d&apos;abord une catégorie via « Catégories ».
+                      {t('gallery.needCategory')}
                     </p>
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="gallery-file">Photo</Label>
+                  <Label htmlFor="gallery-file">{t('gallery.photo')}</Label>
                   <Input
                     id="gallery-file"
                     type="file"
@@ -165,7 +168,7 @@ export function GalleryTab() {
                 <DialogFooter>
                   <Button type="submit" disabled={!file || !uploadCategoryId || uploadMutation.isPending}>
                     {uploadMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-                    Publier
+                    {t('gallery.publish')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -187,7 +190,7 @@ export function GalleryTab() {
               <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                 <Images className="size-5" />
               </div>
-              <p className="font-medium text-foreground">Aucune photo pour le moment.</p>
+              <p className="font-medium text-foreground">{t('gallery.empty')}</p>
               <p className="text-sm">Publiez une photo pour l&apos;afficher sur le site vitrine.</p>
             </div>
           ) : (
@@ -204,7 +207,7 @@ export function GalleryTab() {
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
                     <p className="truncate text-xs font-medium text-white">{photo.filename}</p>
                     <p className="truncate text-xs text-white/75">
-                      {photo.category?.name ?? 'Sans catégorie'} · {formatSize(photo.size_bytes)}
+                      {photo.category?.name ?? t('gallery.noCategory')} · {formatSize(photo.size_bytes)}
                     </p>
                   </div>
                   <Button
@@ -212,7 +215,7 @@ export function GalleryTab() {
                     variant="secondary"
                     size="icon-sm"
                     className="absolute right-2 top-2 h-10 w-10 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100"
-                    aria-label="Supprimer la photo"
+                    aria-label={t('gallery.deletePhoto')}
                     onClick={() => setPhotoToDelete({ id: photo.id })}
                   >
                     <Trash2 className="size-4" />
@@ -229,8 +232,8 @@ export function GalleryTab() {
       <ConfirmDialog
         open={!!photoToDelete}
         onOpenChange={(open) => !open && setPhotoToDelete(null)}
-        title="Supprimer cette photo ?"
-        description="Elle disparaîtra immédiatement de la galerie du site vitrine. Action irréversible."
+        title={t('gallery.deletePhotoTitle')}
+        description={t('gallery.deletePhotoBody')}
         confirmLabel="Supprimer"
         onConfirm={() => {
           if (photoToDelete) deleteMutation.mutate(photoToDelete.id)
@@ -242,6 +245,7 @@ export function GalleryTab() {
 }
 
 function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const t = useTranslations('blog')
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<GalleryPhotoCategory | null>(null)
@@ -256,19 +260,19 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
 
   const createMutation = useMutation({
     mutationFn: (name: string) => blogApi.createGalleryCategory(name),
-    onSuccess: () => { toast.success('Catégorie créée.'); setNewName(''); invalidate() },
+    onSuccess: () => { toast.success(t('gallery.categoryCreated')); setNewName(''); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => blogApi.updateGalleryCategory(id, name),
-    onSuccess: () => { toast.success('Catégorie renommée.'); setEditing(null); invalidate() },
+    onSuccess: () => { toast.success(t('gallery.categoryRenamed')); setEditing(null); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => blogApi.deleteGalleryCategory(id),
-    onSuccess: () => { toast.success('Catégorie supprimée — ses photos restent publiées, sans catégorie.'); setDeleting(null); invalidate() },
+    onSuccess: () => { toast.success(t('gallery.categoryDeleted')); setDeleting(null); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -277,7 +281,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Catégories de la galerie</DialogTitle>
+            <DialogTitle>{t('gallery.categoriesTitle')}</DialogTitle>
             <DialogDescription>
               Nom libre, unique par établissement — comme les étiquettes des articles.
             </DialogDescription>
@@ -289,8 +293,8 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nouvelle catégorie…"
-              aria-label="Nom de la nouvelle catégorie"
+              placeholder={t('gallery.newCategoryPlaceholder')}
+              aria-label={t('gallery.newCategoryAria')}
             />
             <Button type="submit" disabled={!newName.trim() || createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
@@ -316,7 +320,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
                         if (editName.trim()) updateMutation.mutate({ id: c.id, name: editName.trim() })
                       }}
                     >
-                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus aria-label="Nouveau nom" />
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus aria-label={t('gallery.newNameAria')} />
                       <Button type="submit" size="sm" disabled={!editName.trim() || updateMutation.isPending}>
                         OK
                       </Button>
@@ -326,13 +330,13 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
                       <span className="text-sm font-medium">{c.name}</span>
                       <span className="flex gap-1">
                         <Button
-                          variant="ghost" size="icon-sm" aria-label={`Renommer ${c.name}`}
+                          variant="ghost" size="icon-sm" aria-label={t('gallery.renameCategory', { name: c.name })}
                           onClick={() => { setEditing(c); setEditName(c.name) }}
                         >
                           <Pencil className="size-4" />
                         </Button>
                         <Button
-                          variant="ghost" size="icon-sm" aria-label={`Supprimer ${c.name}`}
+                          variant="ghost" size="icon-sm" aria-label={t('gallery.deleteCategory', { name: c.name })}
                           onClick={() => setDeleting(c)}
                         >
                           <Trash2 className="size-4" />
@@ -351,7 +355,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
         title={`Supprimer la catégorie « ${deleting?.name ?? ''} » ?`}
-        description="Suppression définitive. Les photos qu'elle contient resteront publiées, sans catégorie."
+        description={t('gallery.deleteCategoryBody')}
         confirmLabel="Supprimer"
         confirmDisabled={deleteMutation.isPending}
         onConfirm={() => {

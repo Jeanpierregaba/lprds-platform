@@ -2016,9 +2016,21 @@ GET    /api/v1/menus/{week_start}?department_id=  # 403 hors périmètre, 403 hi
 dans `__all__` mais l'import avait été oublié) : l'app tournait quand même
 (import en cascade via le router), mais **l'autogenerate Alembic ne voyait
 jamais la table** et proposait de la SUPPRIMER à chaque revision (fantôme
-`weekly_menus` croisé deux fois avant diagnostic). Règle durcie : après ajout
-au registre, relancer un `alembic revision --autogenerate` à vide pour vérifier
-qu'il ne détecte rien d'inattendu.
+`weekly_menus` croisé deux fois avant diagnostic).
+
+Même classe de problème, deuxième occurrence : `blog_gallery_categories.created_at`
+créée sans `nullable=False` alors que le modèle la déclare NOT NULL
+(`b71c4e02a9f3`). L'autogenerate proposait la correction à chaque revision ;
+deux migrations successives ont dû l'écarter à la main pour ne pas l'embarquer
+par mégarde, avant qu'elle soit enfin traitée dans sa propre révision
+(`064cd5ec1350`).
+
+**Ce contrôle n'est plus à la charge d'un humain** :
+`tests/e2e/test_schema_drift.py` compare les métadonnées SQLAlchemy au schéma
+réellement migré et échoue en nommant la table et la colonne fautives. Il
+attrape les deux cas ci-dessus — modèle absent du registre comme migration
+divergente. Un échec veut dire : modèle changé sans migration, migration
+écrite de travers, ou module manquant au registre.
 
 ### Isolation
 Toutes les requêtes sont bornées à `establishment_id` — même principe que le
@@ -2331,12 +2343,33 @@ pnpm dev
 
 # Vérifications avant commit
 pnpm type-check
-pnpm lint
+pnpm lint      # eslint + check-messages + check-hardcoded-text --strict
 pnpm build
 
 # Ajouter un composant shadcn
 pnpm dlx shadcn@latest add <composant>
 ```
+
+#### Les deux gardes i18n de `pnpm lint`
+
+Aucun des deux ne suffit seul : ils vérifient des sens opposés, et une chaîne
+non traduite ne casse jamais rien à l'exécution.
+
+| Script | Vérifie | Sans lui |
+|---|---|---|
+| `scripts/check-messages.mjs` | Toute clé `t('…')` appelée existe au catalogue français | `next-intl` affiche le chemin de la clé tel quel à l'écran |
+| `scripts/check-hardcoded-text.mjs --strict` | Aucun texte français n'est écrit en dur dans le JSX | La chaîne s'affiche en français au milieu de l'interface anglaise |
+
+Le second repère le texte d'élément et les attributs visibles (`placeholder`,
+`title`, `alt`, `aria-label`) contenant des accents ou des mots-outils
+français. Un nom propre signalé à tort s'ajoute à l'`ALLOWLIST` en tête du
+script — il ne se traduit pas. Lancé sans `--strict`, il liste les occurrences
+sans échouer.
+
+La parité fr/en, elle, est tenue par le type : `messages/en/index.ts` porte un
+`satisfies Messages` dérivé du français, donc une clé ajoutée d'un seul côté
+casse `pnpm type-check`. Ajouter une clé = la poser dans **les deux**
+catalogues.
 
 ---
 
@@ -2420,7 +2453,8 @@ tests/
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
     │                                 #   retrait PJ, pagination curseur before_id
-    └── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
+    ├── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
+    └── test_schema_drift.py             # modèles ↔ schéma migré (cf. « Registre central »)
 ```
 
 `test_core_modules_smoke.py` couvre le **golden path** des modules construits

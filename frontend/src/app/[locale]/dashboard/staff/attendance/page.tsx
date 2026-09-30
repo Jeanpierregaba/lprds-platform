@@ -30,6 +30,8 @@ function formatTime(iso: string | null, timeZone?: string) {
 
 export default function StaffAttendancePage() {
   const t = useTranslations('admin')
+  const ta = useTranslations('attendance')
+  const tc = useTranslations('common')
   const [date, setDate] = useState(todayIso())
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -48,7 +50,7 @@ export default function StaffAttendancePage() {
       />
 
       <div className="w-fit space-y-1.5">
-        <Label htmlFor="staff-attendance-date" className="text-white font-semibold text-sm">Date</Label>
+        <Label htmlFor="staff-attendance-date" className="text-white font-semibold text-sm">{tc('fields.date')}</Label>
         <Input id="staff-attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
       </div>
 
@@ -57,11 +59,11 @@ export default function StaffAttendancePage() {
           <div className="hidden sm:block">
             <Table className="border-collapse">
               <DataTableHead>
-                <Th>Enfant</Th>
-                <Th>Statut</Th>
-                <Th>Arrivée</Th>
-                <Th>Départ</Th>
-                <Th>Retard</Th>
+                <Th>{ta('dashboard.child')}</Th>
+                <Th>{ta('dashboard.status')}</Th>
+                <Th>{ta('dashboard.arrival')}</Th>
+                <Th>{ta('dashboard.departure')}</Th>
+                <Th>{ta('dashboard.late')}</Th>
               </DataTableHead>
               <TableBody>
                 {isLoading ? (
@@ -72,9 +74,9 @@ export default function StaffAttendancePage() {
                 ) : isError ? (
                   <TableRow className="hover:bg-transparent">
                     <Td colSpan={5} className="h-56 text-center">
-                      <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                      <p className="font-medium text-foreground">{ta('dashboard.loadError')}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
-                        Réessayer
+                        {tc('actions.retry')}
                       </Button>
                     </Td>
                   </TableRow>
@@ -113,9 +115,9 @@ export default function StaffAttendancePage() {
               ))
             ) : isError ? (
               <div className="flex h-56 flex-col items-center justify-center gap-3 px-4 text-center">
-                <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                <p className="font-medium text-foreground">{ta('dashboard.loadError')}</p>
                 <Button variant="outline" size="sm" onClick={() => refetch()}>
-                  Réessayer
+                  {tc('actions.retry')}
                 </Button>
               </div>
             ) : items.length === 0 ? (
@@ -131,15 +133,15 @@ export default function StaffAttendancePage() {
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
-                      <p className="text-xs text-muted-foreground">Arrivée</p>
+                      <p className="text-xs text-muted-foreground">{ta('dashboard.arrival')}</p>
                       <p>{formatTime(item.arrival_time, data?.timezone)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Départ</p>
+                      <p className="text-xs text-muted-foreground">{ta('dashboard.departure')}</p>
                       <p>{formatTime(item.departure_time, data?.timezone)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Retard</p>
+                      <p className="text-xs text-muted-foreground">{ta('dashboard.late')}</p>
                       <p>{item.late_minutes != null ? `${item.late_minutes} min` : '—'}</p>
                     </div>
                   </div>
@@ -154,15 +156,14 @@ export default function StaffAttendancePage() {
 }
 
 function EmptyState() {
+  const ta = useTranslations('attendance')
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
       <div className="flex size-12 items-center justify-center rounded-full bg-muted">
         <ClipboardCheck className="size-5" />
       </div>
-      <p className="font-medium text-foreground">Aucune donnée pour cette date.</p>
-      <p className="max-w-sm text-sm text-center">
-        Aucun enfant n&apos;est rattaché à votre groupe, ou aucun événement de présence n&apos;a été enregistré.
-      </p>
+      <p className="font-medium text-foreground">{ta('dashboard.noData')}</p>
+      <p className="max-w-sm text-sm text-center">{ta('dashboard.noDataHint')}</p>
     </div>
   )
 }

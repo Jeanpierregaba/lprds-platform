@@ -19,6 +19,7 @@ const PAGE_SIZE = 30
 
 export default function StaffGalleryPage() {
   const t = useTranslations('admin')
+  const tg = useTranslations('gallery')
   const [skip, setSkip] = useState(0)
   const [selected, setSelected] = useState<GalleryMediaItem | null>(null)
 
@@ -48,8 +49,8 @@ export default function StaffGalleryPage() {
           <div className="flex size-12 items-center justify-center rounded-full bg-muted">
             <Images className="size-5" />
           </div>
-          <p className="font-medium text-white">Aucun média envoyé pour le moment.</p>
-          <p className="text-sm text-white">Les photos/vidéos jointes à vos rapports apparaîtront ici.</p>
+          <p className="font-medium text-white">{tg('empty.staff')}</p>
+          <p className="text-sm text-white">{tg('empty.staffHint')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">

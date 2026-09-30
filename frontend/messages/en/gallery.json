@@ -16,6 +16,8 @@
     "dateTo": "To"
   },
   "empty": {
-    "parent": "No media yet."
+    "parent": "No media yet.",
+    "staff": "No media sent yet.",
+    "staffHint": "Photos and videos attached to your reports will appear here."
   }
 }

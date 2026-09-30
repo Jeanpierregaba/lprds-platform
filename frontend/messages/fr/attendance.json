@@ -240,6 +240,8 @@
     "opMeal": "cantine",
     "correctFailed": "Échec de la correction ({fields}) — les autres heures sont enregistrées.",
     "modalChildren": "{title} — enfants",
-    "modalStaff": "{title} — personnel"
+    "modalStaff": "{title} — personnel",
+    "loadError": "Impossible de charger les présences.",
+    "noDataHint": "Aucun enfant n’est rattaché à votre groupe, ou aucun événement de présence n’a été enregistré."
   }
 }

@@ -16,6 +16,8 @@
     "dateTo": "Date de fin"
   },
   "empty": {
-    "parent": "Aucun média pour le moment."
+    "parent": "Aucun média pour le moment.",
+    "staff": "Aucun média envoyé pour le moment.",
+    "staffHint": "Les photos/vidéos jointes à vos rapports apparaîtront ici."
   }
 }

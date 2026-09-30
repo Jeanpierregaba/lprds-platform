@@ -180,10 +180,10 @@ export default function StaffDashboardPage() {
             <div className="flex items-center justify-between">
               <CardDescription>{t('home.groupCheckin')}</CardDescription>
               <Link href="/dashboard/staff/attendance" className="inline-flex items-center gap-1 text-xs font-medium text-sky hover:underline">
-                Pointer <ArrowRight className="size-3.5" />
+                {t('home.check')} <ArrowRight className="size-3.5" />
               </Link>
             </div>
-            <CardTitle className="font-display text-2xl">Les enfants sont-ils là ?</CardTitle>
+            <CardTitle className="font-display text-2xl">{t('home.childrenHere')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-end gap-2">
@@ -195,7 +195,7 @@ export default function StaffDashboardPage() {
               >
                 {loadingDaily ? '…' : `${rate}%`}
               </motion.span>
-              <span className="pb-1.5 text-sm text-muted-foreground">de présence</span>
+              <span className="pb-1.5 text-sm text-muted-foreground">{t('home.attendanceRate')}</span>
             </div>
             <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
               <div className="bg-pale-green transition-all" style={{ width: `${total > 0 ? Math.round(((present - late) / total) * 100) : 0}%` }} />
@@ -203,9 +203,9 @@ export default function StaffDashboardPage() {
               <div className="bg-pink transition-all" style={{ width: `${total > 0 ? Math.round((absent / total) * 100) : 0}%` }} />
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              <span><strong className="font-semibold">{present - late}</strong> <span className="text-muted-foreground">présents</span></span>
-              <span><strong className="font-semibold">{late}</strong> <span className="text-muted-foreground">en retard</span></span>
-              <span><strong className="font-semibold">{absent}</strong> <span className="text-muted-foreground">absents</span></span>
+              <span><strong className="font-semibold">{present - late}</strong> <span className="text-muted-foreground">{t('home.counts.present', { count: present - late })}</span></span>
+              <span><strong className="font-semibold">{late}</strong> <span className="text-muted-foreground">{t('home.counts.late')}</span></span>
+              <span><strong className="font-semibold">{absent}</strong> <span className="text-muted-foreground">{t('home.counts.absent', { count: absent })}</span></span>
             </div>
           </CardContent>
         </Card>

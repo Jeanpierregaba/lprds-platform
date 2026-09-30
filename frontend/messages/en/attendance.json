@@ -240,6 +240,8 @@
     "opMeal": "canteen",
     "correctFailed": "Correction failed ({fields}) — the other times were saved.",
     "modalChildren": "{title} — children",
-    "modalStaff": "{title} — staff"
+    "modalStaff": "{title} — staff",
+    "loadError": "Could not load attendance.",
+    "noDataHint": "No child is attached to your group, or no attendance event has been recorded."
   }
 }

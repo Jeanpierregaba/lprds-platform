@@ -155,7 +155,14 @@
     "check": "Pointer",
     "detail": "Détail",
     "myModules": "Mes modules",
-    "parentGalleryHint": "Les photos de vos enfants"
+    "parentGalleryHint": "Les photos de vos enfants",
+    "attendanceRate": "de présence",
+    "counts": {
+      "present": "{count, plural, one {présent} other {présents}}",
+      "late": "en retard",
+      "lateShort": "{count, plural, one {retard} other {retards}}",
+      "absent": "{count, plural, one {absent} other {absents}}"
+    }
   },
   "settings": {
     "title": "Paramètres",

@@ -77,7 +77,14 @@ app/
 │   ├── redis.py                   # Client Redis async partagé
 │   ├── storage.py                 # Stockage fichiers (backend local uniquement)
 │   ├── rate_limit.py              # Anti brute-force générique (INCR+EXPIRE Redis)
+│   ├── i18n.py                    # Locale, t(), ContextVar de requête, format_long_date()
+│   ├── translation.py             # Traduction auto du contenu saisi (SDK Anthropic)
+│   ├── translation_models.py      # TranslationMemory — séparé pour que le registre
+│   │                              #   n'ait pas à importer le SDK
 │   └── seed.py                    # Script seed superadmin (idempotent)
+├── locales/
+│   ├── fr.py / en.py              # Catalogues plats (334 clés/langue)
+│   └── __init__.py                # CATALOGS
 ├── modules/
 │   ├── auth/
 │   │   ├── models.py              # User, UserRole (StrEnum)
@@ -87,7 +94,7 @@ app/
 │   │   ├── service.py             # Logique métier auth
 │   │   ├── router.py              # Endpoints HTTP /auth/*
 │   │   ├── dependencies.py        # get_current_user, get_active_user, require_roles()
-│   │   └── templates/             # HTML emails (welcome_*, reset_password)
+│   │   └── templates/{fr,en}/     # HTML emails (welcome_*, reset_password) — un dossier par langue
 │   ├── establishments/
 │   │   ├── models.py              # Establishment, MAX_ADMINS_PER_ESTABLISHMENT
 │   │   ├── schemas.py             # Pydantic v2 I/O schemas
@@ -200,23 +207,34 @@ modèles doit s'ajouter à ce registre, sinon les relations casseront au runtime
 ### Frontend — `lprds-frontend/`
 
 ```
+messages/                          # Catalogues de traduction — ~1830 clés par langue
+├── fr/ · en/                      # 19 domaines JSON (admin, auth, blog, errors, enums…)
+└── {fr,en}/index.ts               # ⚠️ Tout nouveau domaine DOIT y être enregistré
+
+scripts/
+├── check-messages.mjs             # Clé appelée absente du catalogue
+├── check-hardcoded-text.mjs       # Français en dur dans le JSX
+├── check-zod-messages.mjs         # Messages de validation Zod en français
+└── stamp-version.mjs              # public/version.json au build (PWA auto-update)
+
 src/
+├── i18n/
+│   ├── routing.ts                 # LOCALES, localePrefix 'as-needed', asAppLocale()
+│   ├── detect.ts                  # Règle de détection (FR seulement si préféré)
+│   ├── navigation.ts              # ⚠️ SEULE source de Link/useRouter/usePathname
+│   ├── request.ts                 # Chargement des catalogues
+│   └── metadata.ts                # localePath() / localeAlternates() (hreflang)
 ├── app/
 │   ├── layout.tsx                 # Root layout (Providers + Toaster) + métadonnées PWA
 │   ├── globals.css                # Tailwind v4 + variables CSS shadcn
 │   ├── providers.tsx              # QueryClientProvider React Query
 │   ├── manifest.ts                # Manifest Web App (PWA) — /manifest.webmanifest
-│   ├── offline/page.tsx           # Page hors-ligne (fallback du service worker)
-│   ├── (marketing)/               # Site vitrine public (a-propos, galerie, actualités…)
-│   ├── auth/
-│   │   ├── login/page.tsx         # Page connexion (email + password)
-│   │   ├── reset-password/page.tsx # Demande reset mdp
-│   │   └── new-password/page.tsx  # Nouveau mdp (1er login + reset)
-│   └── dashboard/
-│       ├── super/page.tsx         # Dashboard superadmin (temporaire)
-│       ├── admin/page.tsx         # Dashboard admin (temporaire)
-│       ├── staff/page.tsx         # Dashboard staff (temporaire)
-│       └── parent/page.tsx        # Dashboard parent (temporaire)
+│   ├── sitemap.ts                 # Les deux langues
+│   └── [locale]/                  # ⚠️ TOUTES les routes vivent sous ce segment
+│       ├── offline/page.tsx       # Page hors-ligne (fallback du service worker)
+│       ├── (marketing)/           # Site vitrine public (a-propos, galerie, actualités…)
+│       ├── auth/                  # login, reset-password, new-password
+│       └── dashboard/             # super, admin, staff, parent
 ├── components/
 │   ├── pwa/pwa-provider.tsx       # Enregistrement SW + prompt d'installation + voile hors-ligne
 │   └── ui/                        # Composants shadcn (button, input, card, form, sonner...)
@@ -224,15 +242,19 @@ src/
 │   ├── api/
 │   │   ├── client.ts              # Axios + intercepteurs JWT + refresh auto
 │   │   └── auth.api.ts            # Appels API auth
+│   ├── i18n/labels.ts             # useLabel() / useLabelMap() — libellés d'énumération
+│   ├── hooks/
+│   │   └── use-report-vocabulary.ts  # Vocabulaire rapports, locale dans la clé de cache
 │   ├── stores/
 │   │   └── auth.store.ts          # Store Zustand (session + tokens)
 │   └── utils/
-│       ├── api-error.ts           # getApiErrorMessage()
+│       ├── api-error.ts           # getApiErrorMessage() — lit le cookie de langue
+│       ├── locale-format.ts       # intlLocale() (fr→fr-FR, en→en-GB), intlLocaleFor()
 │       └── cn.ts                  # Utilitaire Tailwind merge
 ├── types/
 │   ├── auth.ts                    # UserRole, User, TokenResponse, ROLE_HOME...
 │   └── api.ts                     # ApiResponse<T>, PaginatedResponse<T>
-└── middleware.ts                   # Protection routes Next.js (Edge Runtime)
+└── middleware.ts                   # Langue + garde auth/rôle (cf. § Internationalisation)
 
 public/
 ├── sw.js                          # Service worker PWA (app shell + vitrine)
@@ -594,7 +616,9 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 | `library:write` | Créer, modifier et désactiver les livres |
 | `library:lend` | Enregistrer prêts, retours et rappels |
 
-> **Ajouter une permission** = 1) l'ajouter à `PermissionCode` + `PERMISSION_LABELS`,
+> **Ajouter une permission** = 1) l'ajouter à `PermissionCode` (+ `PERMISSION_LABELS`,
+> qui ne sert plus qu'au seed — l'API ne renvoie que le code, le libellé vit
+> dans `messages/{locale}/rbac.json` et dans `PERMISSION_CODES` côté frontend),
 > 2) écrire une migration qui l'insère dans `permissions`. Sans l'étape 2, toute
 > tentative de l'attribuer renvoie une 500 explicite (garde-fou dans le service).
 
@@ -1214,8 +1238,9 @@ mécanisme de repli pour les jours sans horaire personnalisé.
 
 Téléchargement d'un état des présences sur une période (`attendance:read`) —
 une ligne **par personne et par jour**, statut calculé à la volée avec les
-mêmes règles que les dashboards journaliers (labels FR : Présent / Retard /
-Absent / Non attendu / Exempté) :
+mêmes règles que les dashboards journaliers. Les lignes portent des **codes**
+(`present`, `late`, `child`…), le rendu pose les libellés dans la langue du
+document — cf. § « Internationalisation » :
 
 - Query params : `format` (`pdf`|`excel` — la valeur enum est `excel`, pas
   `xlsx`), `person_type` (`children`|`staff`|`both`), `date_from`/`date_to`
@@ -1799,7 +1824,8 @@ Un rapport soumis par un **staff** suit le circuit complet normal.
 ```
 GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}]  # GET : lecture ouverte (reports:read OU reports:write — le formulaire de création en a besoin) ; POST/DELETE : ADMIN uniquement (non délégable — une éducatrice porte reports:write mais ne configure pas les types actifs)
 
-GET    /api/v1/reports/vocabulary         # reports:read — labels FR (mood, behavior_tag, ...)
+GET    /api/v1/reports/vocabulary         # reports:read — libellés (mood, behavior_tag, ...) DANS LA LANGUE DE L'APPELANT
+                                          #   ⚠️ la locale doit faire partie de la clé de cache côté frontend
 POST   /api/v1/reports                    # reports:write (+ règle de groupe pour le staff)
 GET    /api/v1/reports                    # garde OU (read/write/validate) — scope auto par groupe si staff, + soumis/validé partout si reports:validate ; ?search= (nom/prénoms/matricule)
 GET    /api/v1/reports/missing            # reports:read — NON SOUMIS pour la période contenant la date (?report_type=, défaut quotidien ; date défaut aujourd'hui, jamais future) : seuls les enfants ACTIFS dont le DÉPARTEMENT a ce type activé comptent (cohérent avec la création) ; l'admin voit d'un coup d'œil qui n'a rien soumis sans croiser les absences ; staff = ses groupes uniquement. has_draft = brouillon/rejeté en cours. Côté UI : 5e pill « Non soumis » sous chaque onglet de type (avec sélecteur de date)
@@ -2239,6 +2265,263 @@ GET    /api/v1/library/educator/books                   # staff — livres de sa
 
 ---
 
+## Internationalisation (FR / EN)
+
+Les établissements sont bilingues, donc les parents aussi : **toute** la
+plateforme suit la langue de l'utilisateur — interface, messages d'erreur,
+emails, notifications push, documents générés, et jusqu'au contenu rédigé par
+l'établissement (blog, menus). Un parent qui choisit l'anglais ne doit jamais
+recevoir un email, un bulletin ni un message d'erreur en français.
+
+### Règle de détection — l'inverse d'un repli classique
+
+**Le français n'est servi QUE s'il est explicitement préféré.** Toute autre
+langue — anglais, espagnol, wolof — donne de l'anglais. Un navigateur
+anglophone qui accepte le français en second (`en, fr;q=0.5`) reste en anglais.
+
+C'est volontairement l'inverse du défaut de `next-intl` (qui retombe sur la
+locale par défaut pour toute langue non reconnue), et la même règle est
+implémentée **deux fois, à l'identique** : `src/i18n/detect.ts` côté frontend,
+`resolve_accept_language()` (`app/core/i18n.py`) côté backend. Les deux ne
+regardent que la préférence la MIEUX notée, jamais la liste entière.
+
+### Deux sources de langue, une seule règle de priorité
+
+| Contexte | Source | Pourquoi |
+|---|---|---|
+| Visiteur anonyme | Cookie `NEXT_LOCALE`, à défaut `Accept-Language` | Pas de compte à interroger |
+| Utilisateur connecté | **`users.locale`** (colonne, `PATCH /auth/me/locale`) | Son choix explicite prime |
+| Email, PDF, push | **`users.locale` du DESTINATAIRE**, passé en paramètre | Sort du cycle requête/réponse : le destinataire n'est pas l'appelant |
+
+⚠️ **`users.locale` prime sur `Accept-Language` dès qu'on est authentifié** —
+c'est vérifié par test en envoyant délibérément l'en-tête contraire
+(`test_i18n.py::test_account_locale_wins_over_accept_language`). Un compte
+basculé en anglais reçoit de l'anglais même avec `Accept-Language: fr`.
+
+`PATCH /auth/me/locale` est sous `get_current_user` et **non** `get_active_user` :
+l'écran de changement de mot de passe imposé au premier login doit lui aussi
+pouvoir basculer en anglais.
+
+### Frontend — `next-intl`, préfixe EN seulement
+
+```
+src/i18n/
+├── routing.ts      # LOCALES, DEFAULT_LOCALE, localePrefix 'as-needed', isAppLocale/asAppLocale
+├── detect.ts       # prefersFrench() / resolveLocale() — la règle ci-dessus
+├── navigation.ts   # ⚠️ SEULE source autorisée de Link/useRouter/usePathname/redirect
+├── request.ts      # chargement des catalogues
+└── metadata.ts     # localePath() / localeAlternates() (hreflang)
+
+messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
+```
+
+- **`localePrefix: 'as-needed'`** : le français garde les URL actuelles
+  (`/a-propos`, `/dashboard/admin`), l'anglais prend `/en/*`. Aucun lien,
+  favori ni référencement existant ne casse.
+- **⚠️ `next/link` et `next/navigation` sont INTERDITS** dans les pages :
+  importer depuis `@/i18n/navigation`, sinon les liens perdent le préfixe
+  `/en` **silencieusement** (pas d'erreur, juste un visiteur anglophone
+  ramené en français). Une règle ESLint l'interdit.
+- **`middleware.ts`** cumule trois responsabilités dans un ordre imposé :
+  résolution de langue → redirection de détection → garde auth/rôle **sur le
+  chemin débarrassé de son préfixe**. Sans ce débarras, `/en/dashboard/admin`
+  ne correspondrait à aucune règle et serait accessible sans session.
+- **Slugs non traduits** : `/en/a-propos`, pas `/en/about` — les `pathnames`
+  de next-intl ne sont pas câblés (décision en suspens, pas un oubli).
+
+### Backend — catalogues plats + ContextVar
+
+```
+app/core/i18n.py    # Locale, t(), current_locale(), coerce_locale(), format_long_date()
+app/locales/{fr,en}.py   # 334 clés par langue : errors, emails, push, reports,
+                         # date, validation, conversations, import, attendance, children
+```
+
+**Pourquoi une ContextVar plutôt qu'un paramètre `locale` partout** : les
+`HTTPException` sont levées au fond des services, loin du routeur qui connaît
+la requête. Propager la locale dans chaque signature aurait touché presque
+toutes les fonctions du backend pour un seul paramètre. Une `ContextVar` est
+isolée par tâche asyncio (deux requêtes concurrentes ne se marchent pas
+dessus) et traverse les `await`.
+
+Elle est posée **deux fois par requête** : d'abord depuis `Accept-Language`
+(middleware HTTP), puis affinée par `users.locale` dès l'authentification.
+
+```python
+t("errors.children.not_found")                     # langue de la requête
+t("emails.welcome.subject", user.locale, name=...)  # langue imposée
+```
+
+**Passer la locale explicitement pour tout ce qui sort du cycle
+requête/réponse** — un email part vers UN destinataire, dans SA langue, qui
+n'est pas celle de l'admin qui a déclenché l'envoi.
+
+Repli : clé absente → tentative en français → à défaut la clé elle-même, avec
+un avertissement journalisé. Une chaîne manquante dégrade l'affichage, elle ne
+casse jamais une réponse HTTP.
+
+### Emails — un environnement Jinja2 par langue
+
+`app/modules/{auth,attendance,library,reports}/templates/{fr,en}/` — les 8
+templates sont dédoublés, choisis d'après `users.locale` du destinataire. Les
+environnements Jinja2 sont construits au chargement du module (un par langue) :
+le rendu ne fait plus qu'indexer.
+
+### Notifications push — rendues PAR destinataire
+
+Un même événement (diffusion, rapport validé) touche des parents de langues
+différentes : la locale **ne peut pas** être résolue en amont. Les services
+passent des **clés** (`title_key`, `body_key`, `body_params`) et
+`notifications/service.py` rend `t(key, locale)` **à l'intérieur** de la boucle
+d'envoi.
+
+### Documents générés — locale en paramètre EXPLICITE
+
+| Document | Fichier | Langue |
+|---|---|---|
+| Bulletin annuel (PDF) | `reports/pdf.py` | `users.locale` du parent |
+| Export présences (PDF + Excel) | `attendance/export.py` | Compte de l'appelant |
+| Modèle / export enfants (XLSX, CSV) | `children/export.py` | Langue de la requête |
+
+Jamais `current_locale()` ici : le rendu part dans un thread
+(`asyncio.to_thread`), hors du contexte de la requête, et s'adresse souvent à
+quelqu'un d'autre que l'appelant.
+
+⚠️ **Les EN-TÊTES de colonnes de l'import/export enfants ne sont PAS
+traduits** — ce sont les identifiants du format d'échange (`IMPORT_COLUMNS`),
+reconnus tels quels à la relecture. Un export anglais à en-têtes anglais ne
+serait pas réimportable, alors que le round-trip export → import est la raison
+d'être du format. Seuls l'aide, les titres de feuille et le nom du fichier
+suivent la langue.
+
+### Codes stables : l'API ne parle aucune langue (deux exceptions)
+
+Principe déjà posé ailleurs dans ce fichier (« la base ne dépend jamais du
+texte affiché »), étendu à l'API :
+
+- `GET /rbac/permissions` renvoie **le code seul**, plus de `label`. Ces
+  libellés n'alimentent aucun document : ils vivent dans
+  `messages/{locale}/rbac.json`.
+- Le champ `statut` du rapport d'import enfants renvoie `created` / `updated` /
+  `rejected`, plus « créé » / « mis à jour » / « rejeté » que le frontend
+  comparait littéralement.
+- Les lignes de l'export présences portent des codes (`present`, `child`…) ;
+  le rendu pose les libellés.
+
+**Exception assumée — `GET /reports/vocabulary`** renvoie des libellés
+**traduits dans la langue de l'appelant**, parce que le PDF du bulletin annuel
+lit exactement les mêmes 44 chaînes : une seconde copie côté frontend finirait
+par diverger. ⚠️ **La locale doit donc faire partie de la clé de cache React
+Query** — sans elle, un changement de langue continue de servir la réponse
+précédente. Le hook `useReportVocabulary()` s'en charge.
+
+**Exception assumée — `reports.period_label`** : la colonne conserve le
+libellé français posé à la création, mais **ce n'est plus ce qui s'affiche**.
+L'API et les documents le recalculent à la lecture depuis
+`period_start`/`period_end` via `reports/service.py::period_label()`. Un
+libellé figé en base ne peut pas suivre la langue du lecteur — or le même
+rapport est lu par une éducatrice francophone et un parent anglophone.
+
+### Contenu rédigé par l'établissement — traduction automatique
+
+Blog et menus sont écrits **une seule fois, en français** ; la version anglaise
+est générée puis **stockée** (`app/core/translation.py`, Claude Haiku 4.5 par
+défaut). Jamais calculée à la lecture : le site vitrine doit rester instantané,
+indexable, et debout quand l'API de traduction tombe.
+
+**Trois invariants, chacun sous test (`tests/e2e/test_translation.py`) :**
+
+1. **L'humain a le dernier mot.** `articles.translation_status` :
+   `pending` → `auto` → `manual` / `failed`. Tant qu'il vaut `auto`, modifier
+   le texte français relance la traduction. Dès qu'un rédacteur a corrigé
+   l'anglais (`manual`), la machine n'y touche plus, même après dix
+   modifications du français. Seul `POST /articles/{id}/retranslate` — un geste
+   explicite — reprend la main.
+2. **Best-effort strict.** Un échec ne bloque jamais une publication ni un
+   enregistrement de menu : statut `failed`, repli français à la lecture,
+   bouton « Retraduire ». Même politique que la messagerie, à l'opposé du mot
+   de passe temporaire (qui bloque parce qu'il EST le seul canal de
+   délivrance).
+3. **Mémoire de traduction** (`translation_memory`, clé
+   `(source_hash, source_locale, target_locale)`) : les menus répètent les
+   mêmes plats chaque semaine, une entrée déjà vue ne repart jamais au modèle.
+   Au-delà du coût, c'est ce qui garantit qu'un plat est traduit **pareil**
+   d'une semaine à l'autre. Table **globale**, pas scopée par établissement :
+   « riz au gras » se traduit pareil partout, et c'est un cache linguistique
+   sans donnée personnelle.
+   ⚠️ N'ayant aucune FK vers `establishments`, elle échappe au
+   `TRUNCATE ... CASCADE` de `conftest.py` — vidée explicitement, sinon une
+   entrée posée par un test fait sauter l'appel du suivant.
+
+**Menus** : le JSONB `content` est un arbre `{langue: {jour: {créneau: plat}}}`
+(migration `5e16d04b9050`, l'existant remonté sous `fr`). `_localized()` sait
+encore lire l'ancienne forme à plat — une donnée JSONB n'a pas de schéma imposé
+par la base. Le repli est **par créneau**, pas par semaine : un plat ajouté
+pendant une panne s'affiche en français sans faire basculer toute la semaine.
+En cas d'échec sur une modification, les traductions dont le texte français
+n'a pas bougé sont **conservées** ; celles dont le français a changé sont
+écartées (afficher la traduction d'un plat remplacé serait pire qu'un repli).
+
+**Blog public** : `GET /public/blog/{code}/articles?locale=en`. Le `?locale=`
+fait foi — une réponse publique indexable doit dépendre de l'URL seule — avec
+repli sur `Accept-Language` pour un lien nu, et sur le français pour une valeur
+inconnue (une page vitrine ne renvoie pas 422 à un visiteur). La réponse porte
+`locale`, la langue **réellement servie** : quand la traduction manque, le site
+affiche le français **avec une mention explicite** plutôt que de laisser le
+visiteur croire à un bug.
+
+⚠️ `TRANSLATION_ENABLED=false` par défaut, **y compris en test** : personne ne
+doit appeler une API payante pour avoir cloné le repo. La suite substitue un
+faux traducteur déterministe — aucun appel réseau.
+
+### Trois gardes de lint — aucune ne suffit seule
+
+`pnpm lint` enchaîne les trois. Chacune couvre un angle mort des deux autres,
+et **toutes trois portent sur des défauts silencieux** : rien ne casse, le
+type-check passe, la page s'affiche — en français au milieu d'une interface
+anglaise.
+
+| Garde | Ce qu'elle attrape | Angle mort des autres |
+|---|---|---|
+| `check-messages.mjs` | Clé appelée absente du catalogue ; valeur d'énumération sans libellé | Une chaîne en dur n'appelle aucune clé |
+| `check-hardcoded-text.mjs` | Français en dur dans le JSX (texte d'élément, `placeholder`/`title`/`alt`/`aria-label`) | Un message Zod vit dans un argument de fonction, pas dans le JSX |
+| `check-zod-messages.mjs` | Messages de validation Zod écrits en français | Invisible pour les deux autres, mais s'affiche sous le champ fautif |
+
+Les noms propres (« Les Petits Rayons de Soleil », « LPRDS ») sont en
+ALLOWLIST : ajouter tout nouveau nom propre plutôt que le traduire.
+
+Côté backend, `tests/e2e/test_i18n.py` impose la parité : mêmes clés dans les
+deux catalogues, **mêmes paramètres d'interpolation** (un `{seconds}` oublié en
+anglais n'échoue pas, il affiche la chaîne non interpolée), aucune chaîne vide,
+et chaque valeur du vocabulaire des rapports traduite des deux côtés.
+
+### Ajouter une chaîne — la marche à suivre
+
+**Frontend** : ajouter la clé dans `messages/fr/<domaine>.json` **et**
+`messages/en/<domaine>.json` (le garde `satisfies Messages` impose la parité),
+puis `t('...')`. Un nouveau domaine doit être **enregistré dans
+`messages/{fr,en}/index.ts`** — un domaine absent des deux langues ne peut pas
+être détecté par le `satisfies`, et la page affiche les clés brutes (piège
+vécu).
+
+**Backend** : ajouter la clé dans `app/locales/fr.py` **et** `en.py`, puis
+`t("clé")`. Pour une énumération exposée par l'API, ajouter aussi son libellé
+frontend sous le groupe correspondant, et le déclarer dans `ENUM_GROUPS` de
+`check-messages.mjs`.
+
+**Pluriels et accords** : pluriels ICU côté frontend
+(`{count, plural, one {# enfant} other {# enfants}}`), deux clés distinctes
+côté backend (cf. `conversations.library_reminder.overdue_one|many`). La règle
+de pluriel appartient à la langue, jamais à l'appelant — pas de `+ "s"` en
+Python ni en TypeScript.
+
+**Dates** : `format_long_date()` côté backend (l'ORDRE des segments vient du
+catalogue via `date.long`, pas du code) ; `useFormatter` / `intlLocale()` côté
+frontend. Jamais de `strftime("%A %d %B %Y")` — il dépend de la locale
+*système* du conteneur, souvent `C`, donc anglais quoi qu'on demande.
+
+---
+
 ## Variables d'environnement
 
 ### Backend — `lprds-backend/.env`
@@ -2294,6 +2577,17 @@ BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp
 VAPID_PRIVATE_KEY=<vapid privée>
 VAPID_PUBLIC_KEY=<vapid publique>
 VAPID_SUBJECT=mailto:no-reply@lespetitsrayonsdesoleil.fr
+# Traduction automatique du contenu saisi (blog, menus) — cf. section
+# « Internationalisation ». Best-effort strict : un échec ne bloque jamais une
+# publication, le site vitrine retombe sur le français.
+# ⚠️ Laisser à false en dev ET en test — sinon chaque publication d'article et
+# chaque enregistrement de menu appelle une API payante.
+TRANSLATION_ENABLED=false
+ANTHROPIC_API_KEY=
+TRANSLATION_MODEL=claude-haiku-4-5
+# Au-delà, la requête n'attend plus : statut `pending`, l'utilisateur relance
+# depuis l'interface (« Retraduire »).
+TRANSLATION_TIMEOUT_SECONDS=20
 ```
 
 ### Frontend — `lprds-frontend/.env`
@@ -2303,6 +2597,10 @@ NEXT_PUBLIC_APP_NAME=LPRDS - Gestion Crèche
 # Code court unique de l'établissement (préfixe de matricule, ex. LPRDS) —
 # sert de scope aux endpoints PUBLICS du site vitrine (/api/v1/public/blog/{code}/…)
 NEXT_PUBLIC_ESTABLISHMENT_CODE=LPRDS
+# Version du bundle, lue AU BUILD (pas au runtime) — sert au sondage
+# /version.json qui déclenche le rechargement automatique après déploiement.
+# ⚠️ En prod Docker, la fixer (ex. hash git) AVANT `docker compose up --build`.
+NEXT_PUBLIC_APP_VERSION=
 ```
 
 ---
@@ -2422,6 +2720,13 @@ jamais dans `public`. Mécanisme :
   CASCADE` puis réinsère le superadmin — même discipline de reset que les
   scripts manuels utilisés pendant le développement.
 
+⚠️ **`translation_memory` n'a aucune FK vers `establishments`** (cache
+linguistique global, pas une donnée métier) : le `CASCADE` ci-dessus ne
+l'atteint pas, elle est donc vidée explicitement. Sans ça, une entrée posée par
+un test fait sauter l'appel de traduction du suivant — au point de masquer un
+échec attendu (piège vécu). Toute future table hors graphe d'`establishments`
+devra être ajoutée là.
+
 **Isolation Redis** : même principe, mais par **index de base** plutôt que
 par schéma (Redis n'a pas l'équivalent) — `tests/conftest.py` force
 `REDIS_URL` sur l'index **15** (jamais le 0 du dev) avant le premier import
@@ -2462,6 +2767,10 @@ tests/
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
+    ├── test_i18n.py                     # catalogues symétriques, précédence users.locale,
+    │                                    #   vocabulaire traduit, libellé de période, exports bilingues
+    ├── test_translation.py              # blog/menus traduits, correction `manual` jamais écrasée,
+    │                                    #   repli sur échec, mémoire de traduction (faux traducteur)
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
@@ -2538,6 +2847,11 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 - **Toujours async** : toutes les fonctions de service et router sont `async def`
 - **`await db.flush()`** après les `db.add()` pour générer l'ID sans commit (le commit se fait dans `get_db`)
 - **Messages d'erreur génériques** sur login (pas d'énumération d'emails)
+- **🌍 Jamais de texte destiné à l'utilisateur écrit en dur** — `HTTPException.detail`,
+  `ValueError` de validateur Pydantic, corps d'email, libellé de document :
+  tout passe par `t()` et les catalogues `app/locales/` (cf. §
+  Internationalisation). Locale **explicite** dès que la sortie quitte le
+  cycle requête/réponse (email, PDF, push)
 - **UUIDs** pour toutes les clés primaires
 - **Timestamps** `created_at` / `updated_at` sur tous les modèles
 - **Politique de mot de passe centralisée** : utiliser le type `StrongPassword`
@@ -2561,8 +2875,19 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 - **Toujours `cn()`** pour les classes Tailwind conditionnelles
 - **Gestion d'erreur via `getApiErrorMessage()`** — jamais de `error.message` brut
 - **Animations Framer Motion** : `initial={{ opacity: 0, y: 24 }}` + `animate={{ opacity: 1, y: 0 }}` pour les pages
-- **Validation Zod** sur tous les formulaires via `zodResolver`
+- **Validation Zod** sur tous les formulaires via `zodResolver` — les messages
+  d'erreur passent par une **fabrique de schéma** prenant le traducteur
+  (`makeXSchema = (t) => z.object({...})`), jamais de message écrit en dur
 - **Imports** : toujours via alias `@/` (ex: `@/components/ui/button`)
+- **🌍 Jamais de texte visible écrit en dur** — ni dans le JSX, ni dans un
+  message Zod, ni dans un `placeholder`/`title`/`alt`/`aria-label`. Toute
+  chaîne passe par les catalogues (cf. § Internationalisation). Trois gardes
+  de lint le vérifient ; aucune ne suffit seule, et **le défaut est
+  silencieux** : rien ne casse, la page s'affiche, simplement en français au
+  milieu d'une interface anglaise
+- **🌍 `next/link` et `next/navigation` sont interdits** — importer
+  `Link`/`useRouter`/`usePathname`/`redirect` depuis `@/i18n/navigation`,
+  sinon les liens perdent le préfixe `/en` sans la moindre erreur
 
 ### Nommage
 ```
@@ -2584,8 +2909,9 @@ Types    : PascalCase interfaces, SCREAMING_SNAKE pour les constantes
 - **Révocation de tokens** active (blacklist `jti` dans Redis, fail-closed en 503)
 - **Jamais de mot de passe en clair dans un email** — c'est pourquoi la création
   d'admin via établissement n'envoie pas d'email
-- **Rate limiting** encore absent sur `/auth/login` et `/auth/password-reset` —
-  à implémenter (Redis est déjà branché)
+- **Rate limiting** actif sur `/auth/login` (compteur Redis par (IP, email) —
+  cf. § « Anti brute-force »). Toujours absent sur `/auth/password-reset` et sur
+  l'envoi de messages/fichiers : à implémenter, Redis est déjà branché
 
 ### Performance
 - Utiliser `select` SQLAlchemy pour les requêtes (pas `session.query()`)

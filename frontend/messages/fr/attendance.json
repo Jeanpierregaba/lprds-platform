@@ -249,5 +249,11 @@
     "noStaffInCategory": "Aucune personne dans cette catégorie.",
     "childCount": "{count, plural, one {# enfant} other {# enfants}}",
     "staffCount": "{count, plural, one {# personne} other {# personnes}}"
+  },
+  "validation": {
+    "timezoneRequired": "Fuseau horaire requis",
+    "timeRequired": "Heure requise",
+    "graceMin": "0 minimum",
+    "graceMax": "120 maximum"
   }
 }

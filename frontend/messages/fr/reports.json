@@ -156,7 +156,9 @@
     "oneRelation": "Au moins une relation requise",
     "oneObservation": "Au moins une observation requise",
     "ratingRequired": "Notation requise",
-    "observationRequired": "Observation requise"
+    "observationRequired": "Observation requise",
+    "numberBetween": "Doit être entre {min} et {max}",
+    "reasonRequired": "Motif requis"
   },
   "parent": {
     "title": "Rapports",

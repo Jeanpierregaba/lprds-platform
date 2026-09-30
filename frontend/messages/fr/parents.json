@@ -37,7 +37,9 @@
     "nickname": "Surnom requis",
     "phone": "Téléphone requis",
     "email": "Email invalide",
-    "passwordMin": "8 caractères minimum"
+    "passwordMin": "8 caractères minimum",
+    "passwordUpper": "Une majuscule requise",
+    "passwordDigit": "Un chiffre requis"
   },
   "fields": {
     "firstName": "Prénom",

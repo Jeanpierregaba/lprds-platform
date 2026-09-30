@@ -249,5 +249,11 @@
     "noStaffInCategory": "Nobody in this category.",
     "childCount": "{count, plural, one {# child} other {# children}}",
     "staffCount": "{count, plural, one {# person} other {# people}}"
+  },
+  "validation": {
+    "timezoneRequired": "Time zone required",
+    "timeRequired": "Time required",
+    "graceMin": "0 minimum",
+    "graceMax": "120 maximum"
   }
 }

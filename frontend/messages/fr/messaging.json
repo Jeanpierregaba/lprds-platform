@@ -110,5 +110,9 @@
   "adminPage": {
     "title": "Messagerie",
     "description": "Diffusions vers les parents et conversations privées."
+  },
+  "validation": {
+    "titleRequired": "Titre requis",
+    "bodyRequired": "Contenu requis"
   }
 }

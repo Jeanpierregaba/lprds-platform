@@ -1,27 +1,27 @@
 import { z } from 'zod'
 
-/** Signature minimale d'un traducteur next-intl. */
-type T = (key: string) => string
+/** Signature minimale d'un traducteur next-intl (valeurs ICU comprises). */
+type T = (key: string, values?: Record<string, string | number>) => string
 import type { AnnualReportContent, BiMensuelReportContent, DailyReportContent } from '@/types/reports'
 
-const numericStringInRange = (min: number, max: number) =>
+const numericStringInRange = (t: T, min: number, max: number) =>
   z.string().optional().or(z.literal('')).refine(
     (v) => !v || (!Number.isNaN(Number(v)) && Number(v) >= min && Number(v) <= max),
-    { message: `Doit être entre ${min} et ${max}` }
+    { message: t('validation.numberBetween', { min, max }) }
   )
 
 export const makeDailyContentSchema = (t: T) => z.object({
   arrival_time: z.string().optional().or(z.literal('')),
   departure_time: z.string().optional().or(z.literal('')),
   health_status: z.string().min(1, t('validation.healthStatus')),
-  temperature_arrival: numericStringInRange(30, 43),
-  temperature_departure: numericStringInRange(30, 43),
+  temperature_arrival: numericStringInRange(t, 30, 43),
+  temperature_departure: numericStringInRange(t, 30, 43),
   health_notes: z.string().optional().or(z.literal('')),
   breakfast: z.string().min(1, t('validation.required')),
   lunch: z.string().min(1, t('validation.required')),
   snack: z.string().min(1, t('validation.required')),
   nap: z.boolean(),
-  nap_duration_minutes: numericStringInRange(0, 600),
+  nap_duration_minutes: numericStringInRange(t, 0, 600),
   bath: z.boolean(),
   poop: z.boolean(),
   moods: z.array(z.string()).min(1, t('validation.oneMood')),

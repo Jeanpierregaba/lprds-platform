@@ -32,8 +32,8 @@ const makeSchema = (t: T) => z.object({
   email:      z.string().email(t('validation.email')),
   password:   z.string()
     .min(8, t('validation.passwordMin'))
-    .regex(/[A-Z]/, 'Une majuscule requise')
-    .regex(/[0-9]/, 'Un chiffre requis'),
+    .regex(/[A-Z]/, t('validation.passwordUpper'))
+    .regex(/[0-9]/, t('validation.passwordDigit')),
 })
 type Form = z.infer<ReturnType<typeof makeSchema>>
 

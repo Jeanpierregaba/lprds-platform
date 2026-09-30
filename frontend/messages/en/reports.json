@@ -156,7 +156,9 @@
     "oneRelation": "At least one relationship required",
     "oneObservation": "At least one observation required",
     "ratingRequired": "Rating required",
-    "observationRequired": "Observation required"
+    "observationRequired": "Observation required",
+    "numberBetween": "Must be between {min} and {max}",
+    "reasonRequired": "Reason required"
   },
   "parent": {
     "title": "Reports",

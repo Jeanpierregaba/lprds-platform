@@ -43,8 +43,8 @@ type InfoForm = z.infer<ReturnType<typeof makeInfoSchema>>
 const makeResetSchema = (t: T) => z.object({
   new_password: z.string()
     .min(8, t('validation.passwordMin'))
-    .regex(/[A-Z]/, 'Une majuscule requise')
-    .regex(/[0-9]/, 'Un chiffre requis'),
+    .regex(/[A-Z]/, t('validation.passwordUpper'))
+    .regex(/[0-9]/, t('validation.passwordDigit')),
 })
 type ResetForm = z.infer<ReturnType<typeof makeResetSchema>>
 

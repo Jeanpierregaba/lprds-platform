@@ -110,5 +110,9 @@
   "adminPage": {
     "title": "Messages",
     "description": "Announcements to parents and private conversations."
+  },
+  "validation": {
+    "titleRequired": "Title required",
+    "bodyRequired": "Content required"
   }
 }

@@ -22,11 +22,11 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 type T = (key: string) => string
 
 const makeschema = (t: T) => z.object({
-  current_password: z.string().min(1, 'Mot de passe actuel requis'),
+  current_password: z.string().min(1, t('settings.currentPasswordRequired')),
   new_password: z.string()
     .min(8, t('settings.passwordMin'))
-    .regex(/[A-Z]/, 'Une majuscule requise')
-    .regex(/[0-9]/, 'Un chiffre requis'),
+    .regex(/[A-Z]/, t('settings.passwordUpper'))
+    .regex(/[0-9]/, t('settings.passwordDigit')),
   confirm: z.string(),
 }).refine((d) => d.new_password === d.confirm, {
   message: t('settings.mismatch'),

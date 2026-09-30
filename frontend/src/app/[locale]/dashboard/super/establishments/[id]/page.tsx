@@ -52,8 +52,8 @@ const makeadminSchema = (t: T) => z.object({
   phone:      z.string().max(20).optional().or(z.literal('')),
   password:   z.string()
     .min(8, t('establishments.validation.passwordMin'))
-    .regex(/[A-Z]/, 'Une majuscule requise')
-    .regex(/[0-9]/, 'Un chiffre requis'),
+    .regex(/[A-Z]/, t('establishments.validation.passwordUpper'))
+    .regex(/[0-9]/, t('establishments.validation.passwordDigit')),
 })
 type AdminForm = z.infer<ReturnType<typeof makeadminSchema>>
 

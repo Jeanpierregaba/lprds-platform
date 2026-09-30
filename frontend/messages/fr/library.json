@@ -45,7 +45,9 @@
     },
     "empty": "Aucun prêt enregistré.",
     "bookRequired": "Sélectionnez un livre",
-    "childRequired": "Sélectionnez un enfant"
+    "childRequired": "Sélectionnez un enfant",
+    "borrowedOn": "Emprunté le {date}",
+    "dueOn": "Retour prévu le {date}"
   },
   "book": {
     "editTitle": "Modifier le livre",
@@ -86,5 +88,12 @@
     "nothingToRemind": "Aucun prêt à rappeler pour le moment.",
     "reminded": "{parents} parent(s) relancé(s) pour {lendings} prêt(s).",
     "number": "Saisissez un nombre"
+  },
+  "mine": {
+    "title": "Bibliothèque",
+    "borrowedBooks": "Livres empruntés",
+    "noneBorrowed": "Aucun livre emprunté en ce moment.",
+    "returnOn": "retour le {date}",
+    "overdue": "En retard"
   }
 }

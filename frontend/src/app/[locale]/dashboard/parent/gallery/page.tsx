@@ -23,6 +23,7 @@ const PAGE_SIZE = 30
 
 export default function ParentGalleryPage() {
   const t = useTranslations('admin')
+  const tg = useTranslations('gallery')
   const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
   const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
   const [source, setSource] = useState(ALL)
@@ -49,7 +50,7 @@ export default function ParentGalleryPage() {
   const total = data?.total ?? 0
   const items = data?.items ?? []
 
-  const childItems = { [ALL]: 'Tous les enfants', ...Object.fromEntries(children.map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
+  const childItems = { [ALL]: tg('filters.allChildren'), ...Object.fromEntries(children.map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
 
   return (
     <PageMotion>
@@ -59,17 +60,17 @@ export default function ParentGalleryPage() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <Select items={{ [ALL]: 'Toutes les sources', ...gallerySourcesLabels }} value={source} onValueChange={(v) => setSource(v ?? ALL)}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
+        <Select items={{ [ALL]: tg('filters.allSources'), ...gallerySourcesLabels }} value={source} onValueChange={(v) => setSource(v ?? ALL)}>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder={tg('filters.allSources')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Toutes les sources</SelectItem>
+            <SelectItem value={ALL}>{tg('filters.allSources')}</SelectItem>
             {Object.entries(gallerySourcesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
 
         {children.length > 1 && (
           <Select items={childItems} value={childId} onValueChange={(v) => setChildId(v ?? ALL)}>
-            <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder={tg('filters.allChildren')} /></SelectTrigger>
             <SelectContent>
               {Object.entries(childItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
             </SelectContent>
@@ -86,7 +87,7 @@ export default function ParentGalleryPage() {
           <div className="flex size-12 items-center justify-center rounded-full bg-muted">
             <Images className="size-5" />
           </div>
-          <p className="font-medium text-white">Aucun média pour le moment.</p>
+          <p className="font-medium text-white">{tg('empty.parent')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">

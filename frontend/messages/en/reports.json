@@ -72,7 +72,9 @@
     "remove": "Remove {name}",
     "badFileType": "File type not allowed — only images and videos are accepted.",
     "removeAttachmentTitle": "Remove this attachment?",
-    "removeLabel": "Remove"
+    "removeLabel": "Remove",
+    "summary": "Summary",
+    "media": "Photos and videos"
   },
   "content": {
     "schedule": "Times",
@@ -148,5 +150,10 @@
     "oneObservation": "At least one observation required",
     "ratingRequired": "Rating required",
     "observationRequired": "Observation required"
+  },
+  "parent": {
+    "title": "Reports",
+    "description": "Validated daily-life reports for your child or children.",
+    "allChildren": "All children"
   }
 }

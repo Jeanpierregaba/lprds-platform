@@ -37,8 +37,8 @@ export default function ParentMessagingPage() {
     <PageMotion>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold">Messagerie</h1>
-          <p className="text-muted-foreground">Diffusions de l&apos;établissement et conversation privée.</p>
+          <h1 className="text-2xl font-bold">{t('parentPage.title')}</h1>
+          <p className="text-muted-foreground">{t('parentPage.description')}</p>
         </div>
         <ConnectionBadge />
       </div>

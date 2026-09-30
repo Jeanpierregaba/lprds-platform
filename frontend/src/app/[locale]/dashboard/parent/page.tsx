@@ -84,6 +84,7 @@ const CHILD_TINTS = ['bg-sky', 'bg-teal', 'bg-pink', 'bg-orange', 'bg-navy']
 
 export default function ParentDashboardPage() {
   const t = useTranslations('admin')
+  const tl = useTranslations('library')
   const reportTypesLabel = useLabel('reportTypes')
   const weekdaysLabel = useLabel('weekdays')
   const user = useUser()
@@ -319,10 +320,10 @@ export default function ParentDashboardPage() {
               <div className="flex items-center justify-between">
                 <CardDescription>{t('home.library')}</CardDescription>
                 <Link href="/dashboard/parent/library" className="inline-flex items-center gap-1 py-1 text-xs font-medium text-sky hover:underline">
-                  Détail <ArrowRight className="size-3.5" />
+                  {t('home.detail')} <ArrowRight className="size-3.5" />
                 </Link>
               </div>
-              <CardTitle className="font-display text-lg">Livres empruntés</CardTitle>
+              <CardTitle className="font-display text-lg">{tl('mine.borrowedBooks')}</CardTitle>
             </CardHeader>
             <CardContent>
               {loadingLendings ? (
@@ -330,16 +331,16 @@ export default function ParentDashboardPage() {
                   <div className="h-10 w-full animate-pulse rounded-xl bg-muted" />
                 </div>
               ) : activeLendings.length === 0 ? (
-                <p className="py-2 text-sm text-muted-foreground">Aucun livre emprunté en ce moment.</p>
+                <p className="py-2 text-sm text-muted-foreground">{tl('mine.noneBorrowed')}</p>
               ) : (
                 <ul className="space-y-2.5">
                   {activeLendings.slice(0, 4).map((l) => (
                     <li key={l.id} className="text-sm">
                       <span className="block truncate font-medium">{l.book_title}</span>
                       <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <span className="min-w-0 truncate">{l.child_name} · retour le {new Date(l.due_date + 'T00:00:00').toLocaleDateString(intlLocale())}</span>
+                        <span className="min-w-0 truncate">{l.child_name} · {tl('mine.returnOn', { date: new Date(l.due_date + 'T00:00:00').toLocaleDateString(intlLocale()) })}</span>
                         {l.status === 'overdue' || l.overdue_days != null ? (
-                          <span className="shrink-0 rounded-full bg-destructive px-2.5 py-0.5 font-semibold text-white">En retard</span>
+                          <span className="shrink-0 rounded-full bg-destructive px-2.5 py-0.5 font-semibold text-white">{tl('mine.overdue')}</span>
                         ) : null}
                       </span>
                     </li>
@@ -356,8 +357,8 @@ export default function ParentDashboardPage() {
                   <Images className="size-6" />
                 </span>
                 <span>
-                  <span className="block font-display text-xl font-semibold leading-tight">Galerie photos</span>
-                  <span className="text-sm text-muted-foreground">Les photos de vos enfants</span>
+                  <span className="block font-display text-xl font-semibold leading-tight">{t('home.galleryPhotos')}</span>
+                  <span className="text-sm text-muted-foreground">{t('home.parentGalleryHint')}</span>
                 </span>
                 <ArrowRight className="ml-auto size-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </CardContent>

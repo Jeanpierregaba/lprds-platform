@@ -72,7 +72,9 @@
     "remove": "Retirer {name}",
     "badFileType": "Type de fichier non autorisé : seules les images et vidéos sont acceptées.",
     "removeAttachmentTitle": "Retirer cette pièce jointe ?",
-    "removeLabel": "Retirer"
+    "removeLabel": "Retirer",
+    "summary": "Résumé",
+    "media": "Photos et vidéos"
   },
   "content": {
     "schedule": "Horaires",
@@ -148,5 +150,10 @@
     "oneObservation": "Au moins une observation requise",
     "ratingRequired": "Notation requise",
     "observationRequired": "Observation requise"
+  },
+  "parent": {
+    "title": "Rapports",
+    "description": "Rapports de vie validés de votre/vos enfant(s).",
+    "allChildren": "Tous les enfants"
   }
 }

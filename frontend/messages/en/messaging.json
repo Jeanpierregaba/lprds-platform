@@ -41,7 +41,8 @@
     "confirm": "Confirm",
     "mediaLimit": "Limit of {max} media reached",
     "attachFiles": "Attach files",
-    "addMediaTitle": "Add media"
+    "addMediaTitle": "Add media",
+    "loadError": "Could not load announcements."
   },
   "conversations": {
     "new": "New",
@@ -59,7 +60,8 @@
     "noMessageYet": "No messages yet.",
     "replyPlaceholder": "Reply on behalf of the school...",
     "attachAria": "Attach photos or videos",
-    "attachTitle": "Attach photos or videos (with a preview before sending)"
+    "attachTitle": "Attach photos or videos (with a preview before sending)",
+    "loadMessagesError": "Could not load messages."
   },
   "parentConversation": {
     "placeholder": "Write to the school..."
@@ -94,5 +96,9 @@
   "thread": {
     "mediaFailed": "Message sent, but the media failed — add them again with the paperclip on the message.",
     "editWindowOver": "The editing window has passed — reload the thread."
+  },
+  "parentPage": {
+    "title": "Messages",
+    "description": "School announcements and your private conversation."
   }
 }

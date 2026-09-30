@@ -29,6 +29,7 @@ function formatDate(iso: string) {
 
 export default function ParentLibraryPage() {
   const t = useTranslations('admin')
+  const tl = useTranslations('library')
   const lendingStatusLabel = useLabel('lendingStatus')
   const { data: books, isLoading: booksLoading } = useQuery({
     queryKey: ['library', 'mine', 'books'],
@@ -133,11 +134,11 @@ export default function ParentLibraryPage() {
                     <Table className="min-w-[640px]">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Livre</TableHead>
-                          <TableHead>Enfant</TableHead>
-                          <TableHead>Emprunté le</TableHead>
-                          <TableHead>Retour prévu</TableHead>
-                          <TableHead>Statut</TableHead>
+                          <TableHead>{tl('lendings.columns.book')}</TableHead>
+                          <TableHead>{tl('lendings.columns.child')}</TableHead>
+                          <TableHead>{tl('lendings.columns.borrowedAt')}</TableHead>
+                          <TableHead>{tl('lendings.columns.dueDate')}</TableHead>
+                          <TableHead>{tl('lendings.columns.status')}</TableHead>
                         </TableRow>
                       </TableHeader>
                   <TableBody>
@@ -185,9 +186,9 @@ export default function ParentLibraryPage() {
                   )}
                   <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span className="min-w-0 truncate">{lending.child_name}</span>
-                    <span className="shrink-0">Emprunté le {formatDate(lending.borrowed_at)}</span>
+                    <span className="shrink-0">{tl('lendings.borrowedOn', { date: formatDate(lending.borrowed_at) })}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Retour prévu le {formatDate(lending.due_date)}</p>
+                  <p className="text-xs text-muted-foreground">{tl('lendings.dueOn', { date: formatDate(lending.due_date) })}</p>
                 </CardContent>
               </Card>
             ))}

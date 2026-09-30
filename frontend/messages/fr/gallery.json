@@ -14,5 +14,8 @@
     "allGroupsPlaceholder": "Tous les groupes",
     "dateFrom": "Date de début",
     "dateTo": "Date de fin"
+  },
+  "empty": {
+    "parent": "Aucun média pour le moment."
   }
 }

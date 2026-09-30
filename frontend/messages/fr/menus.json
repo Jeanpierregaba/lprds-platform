@@ -37,5 +37,8 @@
     "viewTitle": "Voir ce menu",
     "empty": "Aucun menu enregistré pour le moment.",
     "count": "{count, plural, one {# semaine enregistrée} other {# semaines enregistrées}}"
+  },
+  "parent": {
+    "empty": "Aucun menu publié pour cette semaine."
   }
 }

@@ -37,5 +37,8 @@
     "viewTitle": "View this menu",
     "empty": "No menus saved yet.",
     "count": "{count, plural, one {# week saved} other {# weeks saved}}"
+  },
+  "parent": {
+    "empty": "No menu published for this week."
   }
 }

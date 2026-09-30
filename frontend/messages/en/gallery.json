@@ -14,5 +14,8 @@
     "allGroupsPlaceholder": "All classes",
     "dateFrom": "From",
     "dateTo": "To"
+  },
+  "empty": {
+    "parent": "No media yet."
   }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useRef } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -21,6 +22,7 @@ function formatDateTime(iso: string) {
 }
 
 export function AnnouncementsTab() {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   // Garde anti-double : un POST /read par diffusion (le cache peut être
   // stale entre le clic et l'invalidate).
@@ -67,9 +69,9 @@ export function AnnouncementsTab() {
       ) : isError ? (
         <Card>
           <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center">
-            <p className="font-medium text-foreground">Impossible de charger les diffusions.</p>
+            <p className="font-medium text-foreground">{t('announcements.loadError')}</p>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Réessayer
+              {t('conversations.retry')}
             </Button>
           </CardContent>
         </Card>
@@ -79,7 +81,7 @@ export function AnnouncementsTab() {
             <div className="flex size-12 items-center justify-center rounded-full bg-muted">
               <Megaphone className="size-5" />
             </div>
-            <p className="font-medium text-foreground">Aucune diffusion pour le moment.</p>
+            <p className="font-medium text-foreground">{t('announcements.empty')}</p>
           </CardContent>
         </Card>
       ) : (

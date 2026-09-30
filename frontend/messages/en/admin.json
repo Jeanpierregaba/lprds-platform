@@ -154,7 +154,8 @@
     "groupCheckin": "Today's check-in — your class",
     "check": "Record",
     "detail": "Details",
-    "myModules": "My modules"
+    "myModules": "My modules",
+    "parentGalleryHint": "Photos of your children"
   },
   "settings": {
     "title": "Settings",

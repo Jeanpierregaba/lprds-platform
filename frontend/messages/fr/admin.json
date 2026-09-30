@@ -154,7 +154,8 @@
     "groupCheckin": "Pointage du jour — votre groupe",
     "check": "Pointer",
     "detail": "Détail",
-    "myModules": "Mes modules"
+    "myModules": "Mes modules",
+    "parentGalleryHint": "Les photos de vos enfants"
   },
   "settings": {
     "title": "Paramètres",

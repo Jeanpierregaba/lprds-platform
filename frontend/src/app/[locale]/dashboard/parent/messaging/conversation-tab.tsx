@@ -85,9 +85,9 @@ export function ConversationTab() {
               </div>
             ) : thread.isError ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-                <p className="text-sm font-medium text-foreground">Impossible de charger les messages.</p>
+                <p className="text-sm font-medium text-foreground">{t('conversations.loadMessagesError')}</p>
                 <Button variant="outline" size="sm" onClick={() => thread.refetchMessages()}>
-                  Réessayer
+                  {t('conversations.retry')}
                 </Button>
               </div>
             ) : (

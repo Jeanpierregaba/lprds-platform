@@ -101,7 +101,7 @@ export default function ParentReportDetailPage() {
       {report.summary && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Résumé</CardTitle>
+            <CardTitle className="text-base">{t('detail.summary')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="whitespace-pre-wrap text-sm">{report.summary}</p>
@@ -125,7 +125,7 @@ export default function ParentReportDetailPage() {
       {report.attachments.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Photos et vidéos</CardTitle>
+            <CardTitle className="text-base">{t('detail.media')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

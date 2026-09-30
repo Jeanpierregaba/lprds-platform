@@ -45,7 +45,9 @@
     },
     "empty": "No loans recorded.",
     "bookRequired": "Select a book",
-    "childRequired": "Select a child"
+    "childRequired": "Select a child",
+    "borrowedOn": "Borrowed on {date}",
+    "dueOn": "Due back on {date}"
   },
   "book": {
     "editTitle": "Edit the book",
@@ -86,5 +88,12 @@
     "nothingToRemind": "No loans to remind about at the moment.",
     "reminded": "{parents} parent(s) contacted about {lendings} loan(s).",
     "number": "Enter a number"
+  },
+  "mine": {
+    "title": "Library",
+    "borrowedBooks": "Borrowed books",
+    "noneBorrowed": "No book is currently borrowed.",
+    "returnOn": "due {date}",
+    "overdue": "Overdue"
   }
 }

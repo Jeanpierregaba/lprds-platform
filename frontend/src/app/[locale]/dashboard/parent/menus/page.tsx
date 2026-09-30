@@ -138,7 +138,7 @@ export default function ParentMenusPage() {
               <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                 <UtensilsCrossed className="size-5" />
               </div>
-              <p className="font-medium text-foreground">Aucun menu publié pour cette semaine.</p>
+              <p className="font-medium text-foreground">{tMenus('parent.empty')}</p>
             </div>
           ) : (
             <MenuWeekTable menu={menu} dayDates={dayDates} today={today} formatShortDate={formatShortDate} />

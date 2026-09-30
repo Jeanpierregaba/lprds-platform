@@ -60,19 +60,19 @@ export default function ParentReportsPage() {
   const total = data?.total ?? 0
   const items = data?.items ?? []
 
-  const childItems = { [ALL]: 'Tous les enfants', ...Object.fromEntries(children.map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
+  const childItems = { [ALL]: t('parent.allChildren'), ...Object.fromEntries(children.map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
 
   return (
     <PageMotion>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Rapports</h1>
-          <p className="text-muted-foreground">Rapports de vie validés de votre/vos enfant(s).</p>
+          <h1 className="text-2xl font-bold">{t('parent.title')}</h1>
+          <p className="text-muted-foreground">{t('parent.description')}</p>
         </div>
         {children.length > 1 && (
           <Select items={childItems} value={childId} onValueChange={(v) => setChildId(v ?? ALL)}>
             <SelectTrigger className="w-full sm:w-56">
-              <SelectValue placeholder="Tous les enfants" />
+              <SelectValue placeholder={t('parent.allChildren')} />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(childItems).map(([value, label]) => (

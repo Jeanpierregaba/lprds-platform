@@ -41,7 +41,8 @@
     "confirm": "Confirmer",
     "mediaLimit": "Limite de {max} médias atteinte",
     "attachFiles": "Joindre des fichiers",
-    "addMediaTitle": "Ajouter des médias"
+    "addMediaTitle": "Ajouter des médias",
+    "loadError": "Impossible de charger les diffusions."
   },
   "conversations": {
     "new": "Nouvelle",
@@ -59,7 +60,8 @@
     "noMessageYet": "Aucun message pour l’instant.",
     "replyPlaceholder": "Répondre au nom de l’administration...",
     "attachAria": "Joindre des photos ou vidéos",
-    "attachTitle": "Joindre des photos ou vidéos (avec aperçu avant envoi)"
+    "attachTitle": "Joindre des photos ou vidéos (avec aperçu avant envoi)",
+    "loadMessagesError": "Impossible de charger les messages."
   },
   "parentConversation": {
     "placeholder": "Écrire à l’établissement..."
@@ -94,5 +96,9 @@
   "thread": {
     "mediaFailed": "Message envoyé, mais les médias ont échoué — ajoutez-les via le trombone du message.",
     "editWindowOver": "Délai d’édition dépassé — rechargez le fil."
+  },
+  "parentPage": {
+    "title": "Messagerie",
+    "description": "Diffusions de l’établissement et conversation privée."
   }
 }

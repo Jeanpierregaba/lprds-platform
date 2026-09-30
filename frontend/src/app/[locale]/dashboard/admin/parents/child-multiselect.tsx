@@ -79,7 +79,7 @@ export function ChildMultiSelect({
               <Skeleton className="h-4 w-2/3" />
             </div>
           ) : results.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">Aucun résultat.</p>
+            <p className="p-3 text-sm text-muted-foreground">{t('form.noResult')}</p>
           ) : (
             results.map((c) => (
               <button

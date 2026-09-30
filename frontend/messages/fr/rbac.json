@@ -27,7 +27,8 @@
     "created": "Rôle créé.",
     "updated": "Rôle mis à jour.",
     "deactivated": "Rôle désactivé.",
-    "reactivated": "Rôle réactivé."
+    "reactivated": "Rôle réactivé.",
+    "noPermission": "Aucune"
   },
   "assignment": {
     "searchTitle": "Rechercher un membre du personnel",
@@ -39,7 +40,8 @@
     "none": "Aucun rôle attribué.",
     "revoke": "Révoquer {name}",
     "assigned": "Rôle attribué.",
-    "revoked": "Rôle révoqué."
+    "revoked": "Rôle révoqué.",
+    "assignRole": "Attribuer un rôle"
   },
   "permissions": {
     "children:read": "Consulter les fiches enfants",

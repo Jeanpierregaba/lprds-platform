@@ -191,7 +191,7 @@ export function GalleryTab() {
                 <Images className="size-5" />
               </div>
               <p className="font-medium text-foreground">{t('gallery.empty')}</p>
-              <p className="text-sm">Publiez une photo pour l&apos;afficher sur le site vitrine.</p>
+              <p className="text-sm">{t('gallery.emptyHint')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -298,7 +298,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
             />
             <Button type="submit" disabled={!newName.trim() || createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              <span className="sr-only">Créer</span>
+              <span className="sr-only">{t('gallery.createCategory')}</span>
             </Button>
           </form>
           <div className="max-h-64 space-y-1 overflow-y-auto">
@@ -308,7 +308,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
                 <Skeleton className="h-9 w-full" />
               </div>
             ) : categories.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">Aucune catégorie — créez la première ci-dessus.</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">{t('gallery.noCategory2')}</p>
             ) : (
               categories.map((c) => (
                 <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">

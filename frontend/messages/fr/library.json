@@ -19,7 +19,9 @@
     "deactivated": "Livre désactivé du catalogue.",
     "empty": "Aucun livre dans le catalogue.",
     "activeLabel": "Actif",
-    "inactiveLabel": "Désactivé"
+    "inactiveLabel": "Désactivé",
+    "byAuthor": "par {author}",
+    "noSection": "Aucune section"
   },
   "lendings": {
     "new": "Nouveau prêt",

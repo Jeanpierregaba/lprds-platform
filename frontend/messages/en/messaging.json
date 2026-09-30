@@ -42,7 +42,8 @@
     "mediaLimit": "Limit of {max} media reached",
     "attachFiles": "Attach files",
     "addMediaTitle": "Add media",
-    "loadError": "Could not load announcements."
+    "loadError": "Could not load announcements.",
+    "loadErrorHint": "Check your connection, then try again."
   },
   "conversations": {
     "new": "New",
@@ -61,7 +62,12 @@
     "replyPlaceholder": "Reply on behalf of the school...",
     "attachAria": "Attach photos or videos",
     "attachTitle": "Attach photos or videos (with a preview before sending)",
-    "loadMessagesError": "Could not load messages."
+    "loadMessagesError": "Could not load messages.",
+    "loadError": "Could not load conversations.",
+    "loadParentsError": "Could not load parents.",
+    "noActiveParent": "No active parent.",
+    "creating": "Creating…",
+    "childCount": "{count, plural, one {# child} other {# children}}"
   },
   "parentConversation": {
     "placeholder": "Write to the school..."
@@ -100,5 +106,9 @@
   "parentPage": {
     "title": "Messages",
     "description": "School announcements and your private conversation."
+  },
+  "adminPage": {
+    "title": "Messages",
+    "description": "Announcements to parents and private conversations."
   }
 }

@@ -42,7 +42,8 @@
     "mediaLimit": "Limite de {max} médias atteinte",
     "attachFiles": "Joindre des fichiers",
     "addMediaTitle": "Ajouter des médias",
-    "loadError": "Impossible de charger les diffusions."
+    "loadError": "Impossible de charger les diffusions.",
+    "loadErrorHint": "Vérifiez votre connexion puis réessayez."
   },
   "conversations": {
     "new": "Nouvelle",
@@ -61,7 +62,12 @@
     "replyPlaceholder": "Répondre au nom de l’administration...",
     "attachAria": "Joindre des photos ou vidéos",
     "attachTitle": "Joindre des photos ou vidéos (avec aperçu avant envoi)",
-    "loadMessagesError": "Impossible de charger les messages."
+    "loadMessagesError": "Impossible de charger les messages.",
+    "loadError": "Impossible de charger les conversations.",
+    "loadParentsError": "Impossible de charger les parents.",
+    "noActiveParent": "Aucun parent actif.",
+    "creating": "Création...",
+    "childCount": "{count, plural, one {# enfant} other {# enfants}}"
   },
   "parentConversation": {
     "placeholder": "Écrire à l’établissement..."
@@ -100,5 +106,9 @@
   "parentPage": {
     "title": "Messagerie",
     "description": "Diffusions de l’établissement et conversation privée."
+  },
+  "adminPage": {
+    "title": "Messagerie",
+    "description": "Diffusions vers les parents et conversations privées."
   }
 }

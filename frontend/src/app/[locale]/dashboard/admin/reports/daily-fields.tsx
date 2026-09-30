@@ -90,7 +90,7 @@ export function DailyFields({
         <div className="space-y-2">
           <Label htmlFor="arrival_time">{t('fields.arrivalTime')}</Label>
           <Input id="arrival_time" type="time" {...register('arrival_time')} />
-          <p className="text-xs text-muted-foreground">Pré-remplie depuis les présences si laissée vide.</p>
+          <p className="text-xs text-muted-foreground">{t('fields.arrivalPrefillHint')}</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="departure_time">{t('fields.departureTime')}</Label>

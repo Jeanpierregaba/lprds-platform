@@ -18,6 +18,8 @@
   "empty": {
     "parent": "No media yet.",
     "staff": "No media sent yet.",
-    "staffHint": "Photos and videos attached to your reports will appear here."
+    "staffHint": "Photos and videos attached to your reports will appear here.",
+    "admin": "No media found.",
+    "adminHint": "Try widening your filters."
   }
 }

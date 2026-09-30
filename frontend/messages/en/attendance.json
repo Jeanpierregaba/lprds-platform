@@ -31,7 +31,8 @@
     "badRange": "The end date must be on or after the start date.",
     "empty": "No events match these filters.",
     "count": "{count, plural, one {# event} other {# events}}",
-    "refreshing": "· refreshing..."
+    "refreshing": "· refreshing...",
+    "loadError": "Could not load the log."
   },
   "qr": {
     "search": "Search",
@@ -242,6 +243,11 @@
     "modalChildren": "{title} — children",
     "modalStaff": "{title} — staff",
     "loadError": "Could not load attendance.",
-    "noDataHint": "No child is attached to your group, or no attendance event has been recorded."
+    "noDataHint": "No child is attached to your group, or no attendance event has been recorded.",
+    "noScanWillCreate": "No scan yet — one will be created.",
+    "noChildInCategory": "No child in this category.",
+    "noStaffInCategory": "Nobody in this category.",
+    "childCount": "{count, plural, one {# child} other {# children}}",
+    "staffCount": "{count, plural, one {# person} other {# people}}"
   }
 }

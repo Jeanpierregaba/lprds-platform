@@ -261,10 +261,10 @@ export function AnnouncementsTab() {
       ) : isError ? (
         <Card>
           <CardContent className="flex h-48 flex-col items-center justify-center gap-3 text-center">
-            <p className="font-medium text-foreground">Impossible de charger les diffusions.</p>
-            <p className="max-w-sm text-sm text-muted-foreground">Vérifiez votre connexion puis réessayez.</p>
+            <p className="font-medium text-foreground">{t('announcements.loadError')}</p>
+            <p className="max-w-sm text-sm text-muted-foreground">{t('announcements.loadErrorHint')}</p>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Réessayer
+              {t('conversations.retry')}
             </Button>
           </CardContent>
         </Card>

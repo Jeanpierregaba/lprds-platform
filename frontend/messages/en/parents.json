@@ -70,7 +70,8 @@
     "reset": "Reset",
     "sending": "Sending...",
     "resetDone": "Password reset and emailed.",
-    "childRequired": "At least one child must be assigned."
+    "childRequired": "At least one child must be assigned.",
+    "noResult": "No results."
   },
   "multiselect": {
     "remove": "Remove {name}",

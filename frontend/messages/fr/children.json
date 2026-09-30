@@ -75,7 +75,9 @@
     "doctorName": "Médecin traitant",
     "doctorPhone": "Téléphone du médecin",
     "phone": "Téléphone",
-    "email": "Email (optionnel)"
+    "email": "Email (optionnel)",
+    "noneMale": "Aucun",
+    "noneFemale": "Aucune"
   },
   "validation": {
     "lastName": "Nom requis",

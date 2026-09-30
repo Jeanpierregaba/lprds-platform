@@ -134,15 +134,15 @@ export function ContentView({
           <Field key={key} label={reportDomainsLabel(key)} value={c[key]} />
         ))}
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Comportement &amp; attitude en classe</p>
+          <p className="text-xs font-medium text-muted-foreground">{t('content.classBehaviors')}</p>
           <Tags codes={c.class_behaviors} vocabulary={vocabulary.class_behavior} />
         </div>
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Relation avec les autres</p>
+          <p className="text-xs font-medium text-muted-foreground">{t('content.peerRelations')}</p>
           <Tags codes={c.peer_relations} vocabulary={vocabulary.peer_relation} />
         </div>
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Gestion des émotions</p>
+          <p className="text-xs font-medium text-muted-foreground">{t('content.emotionManagement')}</p>
           <Tags codes={c.emotion_management} vocabulary={vocabulary.emotion_management} />
         </div>
         <Field label={t('content.teacherObservations')} value={c.teacher_observations} />

@@ -21,7 +21,8 @@
     },
     "open": "Ouvrir cet article",
     "view": "Voir",
-    "empty": "Aucun article pour le moment."
+    "empty": "Aucun article pour le moment.",
+    "deletedSuffix": "(supprimé)"
   },
   "tags": {
     "new": "Nouvelle étiquette",
@@ -67,7 +68,10 @@
     "categoryCreated": "Catégorie créée.",
     "categoryRenamed": "Catégorie renommée.",
     "categoryDeleted": "Catégorie supprimée — ses photos restent publiées, sans catégorie.",
-    "count": "{count, plural, one {# photo publiée} other {# photos publiées}} — visibles sur le site vitrine."
+    "count": "{count, plural, one {# photo publiée} other {# photos publiées}} — visibles sur le site vitrine.",
+    "emptyHint": "Publiez une photo pour l’afficher sur le site vitrine.",
+    "createCategory": "Créer",
+    "noCategory2": "Aucune catégorie — créez la première ci-dessus."
   },
   "form": {
     "back": "Retour à la liste",
@@ -100,7 +104,8 @@
     "deleted": "Article supprimé.",
     "coverUpdated": "Image à la une mise à jour.",
     "mediaAdded": "Média ajouté.",
-    "mediaDeleted": "Média supprimé."
+    "mediaDeleted": "Média supprimé.",
+    "noMedia": "Aucun média."
   },
   "translation": {
     "title": "Version anglaise",

@@ -321,12 +321,12 @@ export default function ReportDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Pièces jointes</CardTitle>
+          <CardTitle className="text-base">{t('detail.attachments')}</CardTitle>
           <CardDescription>{t('detail.mediaHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {report.attachments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune pièce jointe.</p>
+            <p className="text-sm text-muted-foreground">{t('detail.noAttachment')}</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {report.attachments.map((att) => (

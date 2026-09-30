@@ -276,7 +276,7 @@ function CorrectionDialog({
                 onChange={(e) => setArrival(e.target.value)}
               />
               {!arrivalEvent && !isLoading && (
-                <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
+                <p className="text-xs text-muted-foreground">{t('dashboard.noScanWillCreate')}</p>
               )}
             </div>
             <div className="space-y-1.5">
@@ -288,7 +288,7 @@ function CorrectionDialog({
                 onChange={(e) => setDeparture(e.target.value)}
               />
               {!departureEvent && !isLoading && (
-                <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
+                <p className="text-xs text-muted-foreground">{t('dashboard.noScanWillCreate')}</p>
               )}
             </div>
             {target.personType === 'staff' && (
@@ -301,7 +301,7 @@ function CorrectionDialog({
                   onChange={(e) => setMeal(e.target.value)}
                 />
                 {!mealEvent && !isLoading && (
-                  <p className="text-xs text-muted-foreground">Aucun scan — sera créé.</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.noScanWillCreate')}</p>
                 )}
               </div>
             )}
@@ -411,11 +411,12 @@ function PaginationControls({
   onChange: (page: number) => void
 }) {
   const t = useTranslations('attendance')
+  const tc = useTranslations('common')
   if (pageCount <= 1) return null
   return (
     <div className="flex items-center justify-end gap-2 px-2 py-3">
       <span className="text-sm text-muted-foreground">
-        Page {page} sur {pageCount}
+        {tc('pagination.pageOf', { page, total: pageCount })}
       </span>
       <Button
         type="button" variant="outline" size="icon" className="h-10 w-10"
@@ -450,6 +451,7 @@ function ModalPersonRow({ name, status, arrival, departure, timeZone }: { name: 
 
 function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
   const t = useTranslations('attendance')
+  const tc = useTranslations('common')
   const queryClient = useQueryClient()
   const [departmentId, setDepartmentId] = useState<string>(ALL)
   const [sectionId, setSectionId] = useState<string>(ALL)
@@ -651,9 +653,9 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
           ) : isError ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-40 text-center">
-                <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                <p className="font-medium text-foreground">{t('dashboard.loadError')}</p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
-                  Réessayer
+                  {tc('actions.retry')}
                 </Button>
               </Td>
             </TableRow>
@@ -731,10 +733,10 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
         open={modal !== null}
         onClose={() => setModal(null)}
         title={modal ? t('dashboard.modalChildren', { title: t(`dashboard.modalTitles.${modal}`) }) : ''}
-        subtitle={modal ? `${modalItems.length} enfant${modalItems.length > 1 ? 's' : ''}` : ''}
+        subtitle={modal ? t('dashboard.childCount', { count: modalItems.length }) : ''}
       >
         {modalItems.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Aucun enfant dans cette catégorie.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t('dashboard.noChildInCategory')}</p>
         ) : (
           <>
             {modalPageItems.map((item) => (
@@ -761,6 +763,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
 
 function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean }) {
   const t = useTranslations('attendance')
+  const tc = useTranslations('common')
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'daily', 'staff', { date }],
     queryFn: () => attendanceApi.getStaffDaily({ date }).then((r) => r.data),
@@ -845,9 +848,9 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
           ) : isError ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-40 text-center">
-                <p className="font-medium text-foreground">Impossible de charger les présences.</p>
+                <p className="font-medium text-foreground">{t('dashboard.loadError')}</p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
-                  Réessayer
+                  {tc('actions.retry')}
                 </Button>
               </Td>
             </TableRow>
@@ -896,10 +899,10 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
         open={modal !== null}
         onClose={() => setModal(null)}
         title={modal ? t('dashboard.modalStaff', { title: t(`dashboard.modalTitles.${modal}`) }) : ''}
-        subtitle={modal ? `${modalItems.length} personne${modalItems.length > 1 ? 's' : ''}` : ''}
+        subtitle={modal ? t('dashboard.staffCount', { count: modalItems.length }) : ''}
       >
         {modalItems.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Aucune personne dans cette catégorie.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t('dashboard.noStaffInCategory')}</p>
         ) : (
           <>
             {modalPageItems.map((item) => (

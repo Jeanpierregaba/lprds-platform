@@ -91,6 +91,7 @@ function AttendanceCard({
   loading: boolean
   accent: 'teal' | 'navy'
 }) {
+  const t = useTranslations('admin')
   const present = statuses?.filter((s) => s.status === 'present').length ?? 0
   const late = statuses?.filter((s) => s.status === 'late').length ?? 0
   const absent = statuses?.filter((s) => s.status === 'absent').length ?? 0
@@ -150,15 +151,15 @@ function AttendanceCard({
         <div className="flex gap-4 text-sm">
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-pale-green" />
-            <strong>{present}</strong> <span className="text-muted-foreground">présents</span>
+            <strong>{present}</strong> <span className="text-muted-foreground">{t('home.counts.present', { count: present })}</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-warning" />
-            <strong>{late}</strong> <span className="text-muted-foreground">retards</span>
+            <strong>{late}</strong> <span className="text-muted-foreground">{t('home.counts.lateShort', { count: late })}</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-destructive/80" />
-            <strong>{absent}</strong> <span className="text-muted-foreground">absents</span>
+            <strong>{absent}</strong> <span className="text-muted-foreground">{t('home.counts.absent', { count: absent })}</span>
           </span>
         </div>
       </CardContent>
@@ -518,7 +519,7 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
               ) : waiting.length === 0 ? (
-                <p className="py-2 text-center text-sm text-muted-foreground">Aucun message en attente. 🎉</p>
+                <p className="py-2 text-center text-sm text-muted-foreground">{t('home.noPendingMessage')}</p>
               ) : (
                 <ul className="space-y-1">
                   {waiting.map((c) => (

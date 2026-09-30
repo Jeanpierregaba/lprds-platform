@@ -74,7 +74,9 @@
     "removeAttachmentTitle": "Retirer cette pièce jointe ?",
     "removeLabel": "Retirer",
     "summary": "Résumé",
-    "media": "Photos et vidéos"
+    "media": "Photos et vidéos",
+    "attachments": "Pièces jointes",
+    "noAttachment": "Aucune pièce jointe."
   },
   "content": {
     "schedule": "Horaires",
@@ -100,7 +102,11 @@
     "activities": "Activités",
     "behaviors": "Comportements",
     "highlight": "Fait marquant",
-    "teacherObservations": "Observations de l’enseignante"
+    "teacherObservations": "Observations de l’enseignante",
+    "classBehaviors": "Comportement & attitude en classe",
+    "peerRelations": "Relation avec les autres",
+    "emotionManagement": "Gestion des émotions",
+    "learningActivities": "Activités & apprentissages"
   },
   "fields": {
     "newActivity": "Nouvelle activité",
@@ -130,7 +136,8 @@
     "emotions": "Gestion des émotions (au moins une)",
     "teacherObservations": "Observations de l’enseignante",
     "rating": "Notation",
-    "observation": "Observation"
+    "observation": "Observation",
+    "arrivalPrefillHint": "Pré-remplie depuis les présences si laissée vide."
   },
   "portal": {
     "empty": "Aucun rapport disponible pour le moment.",

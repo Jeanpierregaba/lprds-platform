@@ -192,10 +192,10 @@ function BooksCardGrid({
                 <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">{book.title}</p>
                 <StatusPill active={book.is_active} activeLabel={t('catalogue.activeLabel')} inactiveLabel={t('catalogue.inactiveLabel')} shrink />
               </div>
-              <p className="text-sm text-muted-foreground">par {book.author}</p>
+              <p className="text-sm text-muted-foreground">{t('catalogue.byAuthor', { author: book.author })}</p>
               <div className="flex flex-wrap gap-1">
                 {book.sections.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">Aucune section</span>
+                  <span className="text-sm text-muted-foreground">{t('catalogue.noSection')}</span>
                 ) : (
                   book.sections.map((s) => (
                     <span key={s.id} className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">

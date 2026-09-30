@@ -141,7 +141,7 @@ export function AssignmentTab() {
           {!selectedStaffId ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
               <UserCog className="size-8" />
-              <p className="text-sm">Aucun membre sélectionné.</p>
+              <p className="text-sm">{t('assignment.selectStaff')}</p>
             </div>
           ) : isLoadingUserRoles ? (
             <div className="space-y-2">
@@ -173,7 +173,7 @@ export function AssignmentTab() {
 
               {availableRoles.length > 0 && (
                 <div className="space-y-2 border-t border-border pt-3">
-                  <p className="text-xs font-medium text-muted-foreground">Attribuer un rôle</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t('assignment.assignRole')}</p>
                   <div className="flex flex-wrap gap-2">
                     {availableRoles.map((role) => (
                       <Button

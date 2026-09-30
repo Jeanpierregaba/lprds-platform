@@ -94,7 +94,7 @@ export function GalleryFilters({
     <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
       {!hideSource && (
       <Select items={{ [ALL]: t('filters.allSources'), ...gallerySourcesLabels }} value={filters.source} onValueChange={(v) => set('source', v ?? ALL)}>
-        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Toutes les sources" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder={t('filters.allSources')} /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{t('filters.allSources')}</SelectItem>
           {Object.entries(gallerySourcesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -103,7 +103,7 @@ export function GalleryFilters({
       )}
 
       <Select items={childItems} value={filters.childId} onValueChange={(v) => set('childId', v ?? ALL)}>
-        <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tous les enfants" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder={t('filters.allChildren')} /></SelectTrigger>
         <SelectContent>
           {Object.entries(childItems).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
         </SelectContent>
@@ -131,7 +131,7 @@ export function GalleryFilters({
       </Select>
 
       <Select items={{ [ALL]: t('filters.allTypes'), ...reportTypesLabels }} value={filters.reportType} onValueChange={(v) => set('reportType', v ?? ALL)}>
-        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Tous les types" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder={t('filters.allTypes')} /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{t('filters.allTypes')}</SelectItem>
           {Object.entries(reportTypesLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}

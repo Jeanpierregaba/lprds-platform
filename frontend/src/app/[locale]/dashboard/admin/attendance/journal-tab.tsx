@@ -47,6 +47,7 @@ function formatDateTime(iso: string, timeZone?: string) {
 
 export function JournalTab() {
   const t = useTranslations('attendance')
+  const tc = useTranslations('common')
   const eventLabel = (v: string) => t.has(`eventTypes.${v}`) ? t(`eventTypes.${v}`) : v
   const personTypeLabel = (v: string) => v === 'child' ? t('journal.children') : t('journal.staff')
   const [personType, setPersonType] = useState<string>(ALL)
@@ -134,9 +135,9 @@ export function JournalTab() {
           ) : isError ? (
             <TableRow className="hover:bg-transparent">
               <Td colSpan={6} className="h-48 text-center">
-                <p className="font-medium text-foreground">Impossible de charger le journal.</p>
+                <p className="font-medium text-foreground">{t('journal.loadError')}</p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
-                  Réessayer
+                  {tc('actions.retry')}
                 </Button>
               </Td>
             </TableRow>

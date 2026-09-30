@@ -21,7 +21,8 @@
     },
     "open": "Open this article",
     "view": "View",
-    "empty": "No articles yet."
+    "empty": "No articles yet.",
+    "deletedSuffix": "(deleted)"
   },
   "tags": {
     "new": "New tag",
@@ -67,7 +68,10 @@
     "categoryCreated": "Category created.",
     "categoryRenamed": "Category renamed.",
     "categoryDeleted": "Category deleted — its photos stay published, without a category.",
-    "count": "{count, plural, one {# photo published} other {# photos published}} — visible on the public site."
+    "count": "{count, plural, one {# photo published} other {# photos published}} — visible on the public site.",
+    "emptyHint": "Publish a photo to show it on the public site.",
+    "createCategory": "Create",
+    "noCategory2": "No category yet — create the first one above."
   },
   "form": {
     "back": "Back to the list",
@@ -100,7 +104,8 @@
     "deleted": "Article deleted.",
     "coverUpdated": "Cover image updated.",
     "mediaAdded": "Media added.",
-    "mediaDeleted": "Media deleted."
+    "mediaDeleted": "Media deleted.",
+    "noMedia": "No media."
   },
   "translation": {
     "title": "English version",

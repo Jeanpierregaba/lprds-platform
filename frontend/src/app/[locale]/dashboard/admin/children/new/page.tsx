@@ -325,7 +325,7 @@ export default function NewChildPage() {
                               onValueChange={field.onChange}
                             >
                               <SelectTrigger id="department_id" className="w-full">
-                                <SelectValue placeholder="Aucun" />
+                                <SelectValue placeholder={t('fields.noneMale')} />
                               </SelectTrigger>
                               <SelectContent>
                                 {departments?.map((d) => (
@@ -348,7 +348,7 @@ export default function NewChildPage() {
                               onValueChange={field.onChange}
                             >
                               <SelectTrigger id="section_id" className="w-full">
-                                <SelectValue placeholder="Aucune" />
+                                <SelectValue placeholder={t('fields.noneFemale')} />
                               </SelectTrigger>
                               <SelectContent>
                                 {sections?.map((s) => (

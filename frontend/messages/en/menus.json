@@ -26,7 +26,8 @@
     "delete": "Delete",
     "created": "Menu created.",
     "saved": "Menu saved.",
-    "deleted": "Menu deleted."
+    "deleted": "Menu deleted.",
+    "pastReadOnly": "Past week — read only."
   },
   "history": {
     "department": "Department",

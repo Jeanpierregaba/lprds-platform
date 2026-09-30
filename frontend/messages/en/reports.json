@@ -74,7 +74,9 @@
     "removeAttachmentTitle": "Remove this attachment?",
     "removeLabel": "Remove",
     "summary": "Summary",
-    "media": "Photos and videos"
+    "media": "Photos and videos",
+    "attachments": "Attachments",
+    "noAttachment": "No attachment."
   },
   "content": {
     "schedule": "Times",
@@ -100,7 +102,11 @@
     "activities": "Activities",
     "behaviors": "Behaviour",
     "highlight": "Highlight of the day",
-    "teacherObservations": "Teacher's observations"
+    "teacherObservations": "Teacher's observations",
+    "classBehaviors": "Behaviour and attitude in class",
+    "peerRelations": "Relationships with others",
+    "emotionManagement": "Managing emotions",
+    "learningActivities": "Activities and learning"
   },
   "fields": {
     "newActivity": "New activity",
@@ -130,7 +136,8 @@
     "emotions": "Managing emotions (at least one)",
     "teacherObservations": "Teacher's observations",
     "rating": "Rating",
-    "observation": "Observation"
+    "observation": "Observation",
+    "arrivalPrefillHint": "Prefilled from attendance if left blank."
   },
   "portal": {
     "empty": "No reports available yet.",

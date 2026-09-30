@@ -37,8 +37,8 @@ export default function MessagingPage() {
     <PageMotion>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Messagerie</h1>
-          <p className="text-muted-foreground">Diffusions vers les parents et conversations privées.</p>
+          <h1 className="text-2xl font-bold">{t('adminPage.title')}</h1>
+          <p className="text-muted-foreground">{t('adminPage.description')}</p>
         </div>
         <ConnectionBadge />
       </div>

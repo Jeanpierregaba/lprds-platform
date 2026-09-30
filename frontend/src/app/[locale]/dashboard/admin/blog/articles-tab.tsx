@@ -164,7 +164,7 @@ export function ArticlesTab() {
                 </Td>
                 <Td className="font-medium">
                   {article.title}
-                  {!article.is_active && <span className="ml-2 text-xs font-normal text-muted-foreground">(supprimé)</span>}
+                  {!article.is_active && <span className="ml-2 text-xs font-normal text-muted-foreground">{t('articles.deletedSuffix')}</span>}
                 </Td>
                 <Td>
                   {article.tag ? (

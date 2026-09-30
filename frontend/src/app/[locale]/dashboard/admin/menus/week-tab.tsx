@@ -323,7 +323,7 @@ export function WeekTab({
       )}
 
       {isPast && !showEmptyPastState && (
-        <p className="text-sm text-muted-foreground">Semaine passée — lecture seule.</p>
+        <p className="text-sm text-muted-foreground">{t('week.pastReadOnly')}</p>
       )}
       </>
       )}

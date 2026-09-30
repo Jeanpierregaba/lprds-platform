@@ -27,7 +27,8 @@
     "created": "Role created.",
     "updated": "Role updated.",
     "deactivated": "Role deactivated.",
-    "reactivated": "Role reactivated."
+    "reactivated": "Role reactivated.",
+    "noPermission": "None"
   },
   "assignment": {
     "searchTitle": "Search for a staff member",
@@ -39,7 +40,8 @@
     "none": "No roles assigned.",
     "revoke": "Revoke {name}",
     "assigned": "Role assigned.",
-    "revoked": "Role revoked."
+    "revoked": "Role revoked.",
+    "assignRole": "Assign a role"
   },
   "permissions": {
     "children:read": "View children's records",

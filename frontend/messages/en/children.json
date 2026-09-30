@@ -75,7 +75,9 @@
     "doctorName": "Family doctor",
     "doctorPhone": "Doctor's phone",
     "phone": "Phone",
-    "email": "Email (optional)"
+    "email": "Email (optional)",
+    "noneMale": "None",
+    "noneFemale": "None"
   },
   "validation": {
     "lastName": "Surname required",

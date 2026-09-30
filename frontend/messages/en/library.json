@@ -19,7 +19,9 @@
     "deactivated": "Book removed from the catalogue.",
     "empty": "No books in the catalogue.",
     "activeLabel": "Active",
-    "inactiveLabel": "Deactivated"
+    "inactiveLabel": "Deactivated",
+    "byAuthor": "by {author}",
+    "noSection": "No section"
   },
   "lendings": {
     "new": "New loan",

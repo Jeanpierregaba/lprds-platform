@@ -168,7 +168,8 @@
       "late": "en retard",
       "lateShort": "{count, plural, one {retard} other {retards}}",
       "absent": "{count, plural, one {absent} other {absents}}"
-    }
+    },
+    "noPendingMessage": "Aucun message en attente. 🎉"
   },
   "settings": {
     "title": "Paramètres",

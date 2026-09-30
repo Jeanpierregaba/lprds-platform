@@ -168,7 +168,8 @@
       "late": "late",
       "lateShort": "{count, plural, one {late} other {late}}",
       "absent": "{count, plural, one {absent} other {absent}}"
-    }
+    },
+    "noPendingMessage": "No message waiting. 🎉"
   },
   "settings": {
     "title": "Settings",

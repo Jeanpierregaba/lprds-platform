@@ -113,7 +113,7 @@ export function ConversationsTab() {
           </div>
         ) : isConversationsError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-            <p className="text-sm font-medium text-foreground">Impossible de charger les conversations.</p>
+            <p className="text-sm font-medium text-foreground">{t('conversations.loadError')}</p>
             <Button variant="outline" size="sm" onClick={() => refetchConversations()}>
               {t('conversations.retry')}
             </Button>
@@ -210,7 +210,7 @@ export function ConversationsTab() {
               </div>
             ) : isParentsError ? (
               <div className="flex flex-col items-center gap-2 py-4 text-center">
-                <p className="text-sm text-muted-foreground">Impossible de charger les parents.</p>
+                <p className="text-sm text-muted-foreground">{t('conversations.loadParentsError')}</p>
                 <Button variant="outline" size="sm" onClick={() => refetchParents()}>
                   {t('conversations.retry')}
                 </Button>
@@ -233,12 +233,12 @@ export function ConversationsTab() {
                       {parent.nickname || `${parent.first_name} ${parent.last_name}`}
                     </span>
                     <Badge variant="outline" className="shrink-0 font-normal">
-                      {parent.children_count} enfant{parent.children_count === 1 ? '' : 's'}
+                      {t('conversations.childCount', { count: parent.children_count })}
                     </Badge>
                   </button>
                 ))}
                 {(parentsData?.items ?? []).length === 0 && (
-                  <p className="text-sm text-muted-foreground">Aucun parent actif.</p>
+                  <p className="text-sm text-muted-foreground">{t('conversations.noActiveParent')}</p>
                 )}
               </div>
             )}
@@ -263,7 +263,7 @@ export function ConversationsTab() {
                 disabled={!selectedParentId || startMutation.isPending}
               >
                 {startMutation.isPending
-                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> Création...</>
+                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('conversations.creating')}</>
                   : <><Send className="mr-1.5 size-4" /> {t('conversations.start')}</>}
               </Button>
             </div>
@@ -340,7 +340,7 @@ function ConversationThread({
             </div>
           ) : thread.isError ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <p className="text-sm font-medium text-foreground">Impossible de charger les messages.</p>
+              <p className="text-sm font-medium text-foreground">{t('conversations.loadMessagesError')}</p>
               <Button variant="outline" size="sm" onClick={() => thread.refetchMessages()}>
                 {t('conversations.retry')}
               </Button>

@@ -22,7 +22,7 @@ export function BiMensuelFields({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">Activités &amp; apprentissages</h3>
+      <h3 className="text-sm font-semibold">{t('content.learningActivities')}</h3>
       {DOMAIN_KEYS.map((key) => (
         <div key={key} className="space-y-2">
           <Label htmlFor={key}>{reportDomainsLabel(key)}</Label>

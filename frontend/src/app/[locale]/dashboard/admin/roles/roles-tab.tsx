@@ -261,7 +261,7 @@ export function RolesTab() {
                 <Td>
                   <div className="flex flex-wrap gap-1">
                     {role.permissions.length === 0 ? (
-                      <span className="text-muted-foreground">Aucune</span>
+                      <span className="text-muted-foreground">{t('roles.noPermission')}</span>
                     ) : (
                       role.permissions.slice(0, 4).map((p) => (
                         <span key={p.id} className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{p.code}</span>

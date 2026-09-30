@@ -56,7 +56,8 @@
   "pagination": {
     "showing": "{from}–{to} of {total}",
     "perPage": "Per page",
-    "page": "Page {page}"
+    "page": "Page {page}",
+    "pageOf": "Page {page} of {total}"
   },
   "locale": {
     "label": "Language",

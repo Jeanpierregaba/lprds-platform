@@ -337,7 +337,7 @@ export function ExportTab() {
                       <SelectValue placeholder={departmentId ? t('export.allSections') : t('export.pickDepartmentFirst')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Toutes les sections</SelectItem>
+                      <SelectItem value="">{t('export.allSections')}</SelectItem>
                       {(sections ?? []).map((s) => (
                         <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                       ))}

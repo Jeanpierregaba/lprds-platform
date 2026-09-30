@@ -404,7 +404,7 @@ export default function ArticleDetailPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {article.attachments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun média.</p>
+            <p className="text-sm text-muted-foreground">{t('form.noMedia')}</p>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
               {article.attachments.map((att) => (

@@ -16,7 +16,7 @@ import logging
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
-from app.core.database import AsyncSessionLocal
+from app.core.database import task_sessions
 from app.modules.establishments.models import Establishment
 from app.modules.library import service as library_service
 
@@ -29,20 +29,21 @@ def send_due_reminders_all() -> dict:
     session async, via asyncio.run — Celery n'exécute pas de code async."""
 
     async def _run() -> dict:
-        async with AsyncSessionLocal() as db:
-            establishment_ids = (
-                await db.execute(
-                    select(Establishment.id).where(Establishment.is_active.is_(True))
-                )
-            ).scalars().all()
-        total_parents = 0
-        total_lendings = 0
-        for establishment_id in establishment_ids:
-            async with AsyncSessionLocal() as db:
-                result = await library_service.send_due_reminders(establishment_id, db)
-            total_parents += result.reminded_parents
-            total_lendings += result.reminded_lendings
-        return {"reminded_parents": total_parents, "reminded_lendings": total_lendings}
+        async with task_sessions() as Session:
+            async with Session() as db:
+                establishment_ids = (
+                    await db.execute(
+                        select(Establishment.id).where(Establishment.is_active.is_(True))
+                    )
+                ).scalars().all()
+            total_parents = 0
+            total_lendings = 0
+            for establishment_id in establishment_ids:
+                async with Session() as db:
+                    result = await library_service.send_due_reminders(establishment_id, db)
+                total_parents += result.reminded_parents
+                total_lendings += result.reminded_lendings
+            return {"reminded_parents": total_parents, "reminded_lendings": total_lendings}
 
     try:
         return asyncio.run(_run())

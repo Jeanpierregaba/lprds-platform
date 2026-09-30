@@ -488,3 +488,109 @@ def test_menu_correction_allowed_on_a_past_week(client, fake_translator):
     ck("pas de garde « semaine passée » sur cette route",
        c.patch(f"/menus/{_monday(-1)}/translation{week}",
                json={"monday": {"dejeuner": "x"}}, headers=adm).status_code, 404)
+# ── Reprise planifiée des traductions ───────────────────────────
+def test_retry_task_recovers_a_failed_article(client, fake_translator):
+    """Le trou que cette tâche comble : après une panne passagère, plus
+    personne ne reprenait l'article. Le bouton « Retraduire » suppose que
+    quelqu'un revienne le voir."""
+    from app.modules.blog import tasks as blog_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    article_id = _setup_blog(c, adm)
+
+    fake_translator.fail = True
+    c.post(f"/blog/articles/{article_id}/publish", headers=adm)
+    ck("article publié mais non traduit",
+       c.get(f"/blog/articles/{article_id}", headers=adm).json()["translation_status"],
+       "failed")
+
+    fake_translator.fail = False
+    result = blog_tasks.retry_missing_translations()
+    ck("un article repris", result["translated"], 1)
+
+    fixed = c.get(f"/blog/articles/{article_id}", headers=adm).json()
+    ck("traduction rattrapée sans geste humain", fixed["translation_status"], "auto")
+    ck("titre anglais rétabli", fixed["title_en"], "[EN] La kermesse de printemps")
+
+    # Idempotence : un second passage ne retrouve plus rien à faire.
+    ck("rien à reprendre au passage suivant",
+       blog_tasks.retry_missing_translations()["translated"], 0)
+
+
+def test_retry_task_ignores_drafts(client, fake_translator):
+    """Un brouillon n'est visible de personne hors de l'établissement, et
+    beaucoup ne seront jamais publiés — les traduire serait payer pour du
+    texte que le site ne montrera jamais."""
+    from app.modules.blog import tasks as blog_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    article_id = _setup_blog(c, adm)
+
+    ck("brouillon en attente",
+       c.get(f"/blog/articles/{article_id}", headers=adm).json()["translation_status"],
+       "pending")
+    ck("tâche sans effet sur un brouillon",
+       blog_tasks.retry_missing_translations()["translated"], 0)
+    ck("aucun appel au modèle", fake_translator.translated_count, 0)
+
+
+def test_retry_task_fills_menu_gaps_without_touching_corrections(client, fake_translator):
+    from app.modules.menus import tasks as menu_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    dept = c.post("/departments", json={"name": "Crèche"}, headers=adm).json()
+    week = f"?department_id={dept['id']}"
+
+    c.post("/menus", json={
+        "week_start": _monday(), "department_id": dept["id"],
+        "monday": {"dejeuner": "Riz au gras"},
+    }, headers=adm)
+    c.patch(f"/menus/{_monday()}/translation{week}",
+            json={"monday": {"dejeuner": "Jollof-style rice"}}, headers=adm)
+
+    # Panne pendant l'ajout d'un plat : le nouveau créneau reste sans anglais.
+    fake_translator.fail = True
+    c.patch(f"/menus/{_monday()}{week}", json={
+        "monday": {"dejeuner": "Riz au gras", "dessert": "Mangue"},
+    }, headers=adm)
+    gap = c.get(f"/menus/{_monday()}/translation{week}", headers=adm).json()
+    ck("trou bien présent", gap["english"]["monday"]["dessert"], None)
+
+    fake_translator.fail = False
+    ck("un menu repris", menu_tasks.retry_missing_translations()["translated"], 1)
+
+    healed = c.get(f"/menus/{_monday()}/translation{week}", headers=adm).json()
+    ck("trou comblé", healed["english"]["monday"]["dessert"], "[EN] Mangue")
+    ck("correction humaine intacte",
+       healed["english"]["monday"]["dejeuner"], "Jollof-style rice")
+    ck("toujours marquée corrigée", healed["manual_slots"], ["monday.dejeuner"])
+    ck("rien à reprendre ensuite",
+       menu_tasks.retry_missing_translations()["translated"], 0)
+
+
+def test_retry_tasks_do_nothing_when_translation_is_disabled(client):
+    """Sans `fake_translator` : mode par défaut du projet.
+
+    Le garde compte double — il évite l'appel payant, mais surtout il évite de
+    poser `failed` sur des articles parfaitement sains dans une installation
+    qui n'a jamais activé la traduction.
+    """
+    from app.modules.blog import tasks as blog_tasks
+    from app.modules.menus import tasks as menu_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    article_id = _setup_blog(c, adm)
+    c.post(f"/blog/articles/{article_id}/publish", headers=adm)
+
+    ck("blog : tâche neutralisée",
+       blog_tasks.retry_missing_translations(), {"skipped": "translation_disabled"})
+    ck("menus : tâche neutralisée",
+       menu_tasks.retry_missing_translations(), {"skipped": "translation_disabled"})

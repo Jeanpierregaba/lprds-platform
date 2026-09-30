@@ -57,8 +57,12 @@ _GALLERY_SUBFOLDER = "blog/gallery"
 
 
 # ── Traduction automatique de l'article ──────────────────────────
-async def _translate_article(article: Article, db: AsyncSession) -> None:
+async def translate_article(article: Article, db: AsyncSession) -> None:
     """Remplit la version anglaise — best-effort, jamais bloquant.
+
+    Publique (et non préfixée d'un souligné) parce qu'elle a un second
+    appelant : la tâche de reprise `blog/tasks.py`, qui rattrape les articles
+    laissés en `failed` par un incident passager.
 
     N'agit que si le statut le permet : une traduction `manual` (corrigée par
     un humain) n'est jamais réécrite, c'est la règle centrale du module.
@@ -90,7 +94,7 @@ async def retranslate_article(
     machine, jamais une conséquence d'un simple PATCH."""
     article = await _get_article_or_404(article_id, establishment_id, db)
     article.translation_status = str(TranslationStatus.PENDING)
-    await _translate_article(article, db)
+    await translate_article(article, db)
     article.updated_by_id = editor.id
     await db.flush()
     await db.refresh(article)
@@ -227,10 +231,10 @@ async def update_article(
     article.updated_by_id = editor.id
     # Retraduction seulement si le texte français a réellement changé ET que
     # l'article est déjà public : retoucher l'étiquette d'un brouillon ne
-    # déclenche pas d'appel. `_translate_article` refuse de lui-même de
+    # déclenche pas d'appel. `translate_article` refuse de lui-même de
     # toucher une traduction `manual`.
     if text_changed and article.status == str(ArticleStatus.PUBLISHED):
-        await _translate_article(article, db)
+        await translate_article(article, db)
     await db.flush()
     await db.refresh(article)
     return await _to_response(article, db)
@@ -264,7 +268,7 @@ async def publish_article(
     article.updated_by_id = editor.id
     # Traduit à la publication, pas à la création : un brouillon est encore
     # en train de bouger, le traduire à chaque frappe serait du gaspillage.
-    await _translate_article(article, db)
+    await translate_article(article, db)
     await db.flush()
     await db.refresh(article)
     return await _to_response(article, db)

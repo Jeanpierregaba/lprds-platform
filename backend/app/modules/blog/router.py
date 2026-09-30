@@ -10,6 +10,7 @@ from app.modules.blog import service
 from app.modules.blog.models import ArticleStatus
 from app.modules.blog.schemas import (
     ArticleCreateRequest,
+    ArticleTranslationRequest,
     ArticleListResponse,
     ArticleResponse,
     ArticleUpdateRequest,
@@ -135,8 +136,41 @@ async def publish_article(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
 ) -> ArticleResponse:
-    """Nécessite une image à la une et une étiquette (422 sinon)."""
+    """Nécessite une image à la une et une étiquette (422 sinon).
+
+    Déclenche aussi la traduction anglaise, en best-effort : un échec pose
+    `translation_status=failed` mais n'empêche jamais la publication.
+    """
     return await service.publish_article(article_id, user.establishment_id, user, db)
+
+
+# ── Version anglaise ──────────────────────────────────────────────
+@router.post("/articles/{article_id}/retranslate", response_model=ArticleResponse)
+async def retranslate_article(
+    article_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> ArticleResponse:
+    """Relance la traduction automatique.
+
+    Seul chemin qui écrase une traduction corrigée à la main : c'est un geste
+    explicite du rédacteur, jamais un effet de bord d'une modification.
+    """
+    return await service.retranslate_article(article_id, user.establishment_id, user, db)
+
+
+@router.patch("/articles/{article_id}/translation", response_model=ArticleResponse)
+async def set_article_translation(
+    article_id: uuid.UUID,
+    payload: ArticleTranslationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> ArticleResponse:
+    """Corrige la version anglaise — bascule le statut en `manual`, après quoi
+    la machine ne la réécrit plus."""
+    return await service.set_article_translation(
+        article_id, payload, user.establishment_id, user, db
+    )
 
 
 # ── Image à la une ────────────────────────────────────────────────

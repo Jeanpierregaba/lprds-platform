@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.i18n import Locale, coerce_locale, current_locale
 from app.modules.blog import service
 from app.modules.blog.schemas import (
     GalleryCategoryListResponse,
@@ -28,16 +29,31 @@ from app.modules.blog.schemas import (
 router = APIRouter(prefix="/public/blog", tags=["blog-public"])
 
 
+def _requested_locale(locale: str | None) -> Locale:
+    """Langue de lecture du site vitrine.
+
+    `?locale=` explicite d'abord — le site sert `/en/actualites` depuis une
+    URL distincte, et une réponse publique doit dépendre de l'URL seule pour
+    rester indexable et cacheable. À défaut, la langue déduite de
+    `Accept-Language` par le middleware, pour un visiteur qui arrive sur un
+    lien nu. Une valeur inconnue retombe sur le français sans erreur : une
+    page vitrine ne doit jamais renvoyer 422 à un visiteur.
+    """
+    return coerce_locale(locale) if locale else current_locale()
+
+
 @router.get("/{establishment_code}/articles", response_model=PublicArticleListResponse)
 async def list_public_articles(
     establishment_code: str,
     db: AsyncSession = Depends(get_db),
     tag_id: uuid.UUID | None = Query(default=None),
+    locale: str | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> PublicArticleListResponse:
     return await service.list_public_articles(
-        establishment_code, db, tag_id=tag_id, skip=skip, limit=limit
+        establishment_code, db, tag_id=tag_id,
+        locale=_requested_locale(locale), skip=skip, limit=limit,
     )
 
 
@@ -53,8 +69,11 @@ async def get_public_article(
     establishment_code: str,
     article_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    locale: str | None = Query(default=None),
 ) -> PublicArticleDetail:
-    return await service.get_public_article(establishment_code, article_id, db)
+    return await service.get_public_article(
+        establishment_code, article_id, db, locale=_requested_locale(locale)
+    )
 
 
 @router.get("/{establishment_code}/articles/{article_id}/cover")

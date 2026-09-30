@@ -63,6 +63,17 @@ class ArticleUpdateRequest(BaseModel):
     tag_id:  uuid.UUID | None = None
 
 
+class ArticleTranslationRequest(BaseModel):
+    """Correction manuelle de la version anglaise.
+
+    Écrire ici bascule `translation_status` en `manual` : à partir de là, la
+    machine ne réécrit plus rien, même si le texte français change ensuite.
+    """
+
+    title_en:   str = Field(min_length=1, max_length=200)
+    content_en: str = Field(min_length=1)
+
+
 class ArticleListItem(BaseModel):
     id:            uuid.UUID
     title:         str
@@ -87,14 +98,32 @@ class ArticleResponse(ArticleListItem):
     updated_by:        UserBrief | None
     attachments:        list[AttachmentResponse] = []
 
+    # Vue de GESTION : les deux langues côte à côte, plus l'état de la
+    # traduction — c'est l'écran où un rédacteur relit et corrige l'anglais.
+    # La vue publique, elle, ne sert qu'UNE langue (cf. PublicArticleDetail).
+    title_en:            str | None = None
+    content_en:          str | None = None
+    source_locale:       str = "fr"
+    translation_status:  str
+
 
 # ── Consultation publique (site vitrine, sans authentification) ──
 class PublicArticleListItem(BaseModel):
+    """Vue publique — `title` est déjà dans la langue demandée.
+
+    Le site vitrine ne reçoit jamais les deux versions : il afficherait
+    forcément l'une des deux, et envoyer l'autre doublerait la charge utile
+    d'une page indexée par les moteurs de recherche.
+    """
+
     id:           uuid.UUID
     title:        str
     tag:          TagBrief | None
     cover_url:    str | None
     published_at: datetime | None
+    # Langue réellement servie — peut différer de celle demandée quand la
+    # traduction manque (repli FR), ce que le frontend signale au visiteur.
+    locale:       str = "fr"
 
 
 class PublicArticleListResponse(BaseModel):
@@ -110,6 +139,7 @@ class PublicArticleDetail(BaseModel):
     cover_url:     str | None
     published_at:  datetime | None
     attachments:   list[AttachmentResponse] = []
+    locale:        str = "fr"
 
 
 # ── Galerie du site vitrine ──────────────────────────────────────

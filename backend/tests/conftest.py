@@ -116,6 +116,14 @@ async def _reset_data() -> None:
     try:
         async with engine.connect() as conn:
             await conn.execute(text(f'TRUNCATE TABLE "{TEST_SCHEMA}".establishments CASCADE'))
+            # `translation_memory` n'a AUCUNE FK vers establishments (c'est un
+            # cache linguistique global, pas une donnée métier) : le CASCADE
+            # ci-dessus ne l'atteint donc pas, et une entrée posée par un test
+            # ferait sauter l'appel de traduction du suivant — au point de
+            # masquer un échec attendu. Vidée explicitement.
+            await conn.execute(
+                text(f'TRUNCATE TABLE "{TEST_SCHEMA}".translation_memory')
+            )
             await conn.execute(
                 text(
                     f'INSERT INTO "{TEST_SCHEMA}".users '

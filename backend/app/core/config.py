@@ -181,6 +181,27 @@ class Settings(BaseSettings):
             if t.strip()
         }
 
+    # ── Traduction automatique du contenu saisi (blog, menus) ────
+    # Désactivée par défaut, comme MAIL_SUPPRESS_SEND côté email : un dev qui
+    # clone le repo ne doit pas appeler une API payante sans l'avoir décidé,
+    # et la suite de tests ne doit dépendre ni du réseau ni d'une clé.
+    translation_enabled: bool = False
+    anthropic_api_key: str = ""
+    translation_model: str = "claude-haiku-4-5"
+    # Plafond au-delà duquel on n'attend plus la traduction dans la requête
+    # HTTP : le statut reste `pending` et l'utilisateur relance depuis l'UI.
+    translation_timeout_seconds: float = 20.0
+
+    @property
+    def translation_active(self) -> bool:
+        """Traduction réellement appelable — le drapeau ET la clé.
+
+        Sans ce couple, un `TRANSLATION_ENABLED=true` laissé dans un .env sans
+        clé ferait échouer chaque publication d'article en `failed` au lieu de
+        se comporter comme « traduction non configurée ».
+        """
+        return self.translation_enabled and bool(self.anthropic_api_key)
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

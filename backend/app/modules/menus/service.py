@@ -1,6 +1,9 @@
+import logging
 import uuid
-from app.core.i18n import t
 from datetime import date, timedelta
+
+from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
+from app.core.translation import TranslationUnavailable, translate_texts
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -26,7 +29,94 @@ from app.modules.parents.models import parent_children
 from app.modules.rbac.dependencies import user_permission_codes
 from app.modules.rbac.models import PermissionCode
 
+logger = logging.getLogger(__name__)
+
 _DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+_SLOTS = ["collation", "dejeuner", "dessert", "gouter"]
+
+
+# ── Contenu bilingue ─────────────────────────────────────────────
+# `content` est désormais un arbre {langue: {jour: {créneau: plat}}}. Les
+# lignes écrites avant cette évolution portent l'ancienne forme à plat
+# ({jour: {créneau: plat}}) : la migration les a remontées sous "fr", mais
+# `_localized` sait lire les deux — une donnée JSONB n'a pas de schéma imposé
+# par la base, donc on ne peut pas se reposer sur la seule migration.
+def _localized(content: dict, locale: Locale) -> dict:
+    """Les 5 jours dans la langue demandée, repli FR créneau par créneau.
+
+    Le repli est volontairement par CRÉNEAU et non par semaine : un menu
+    partiellement traduit (plat ajouté après la traduction) doit afficher ce
+    qui existe en anglais et le reste en français, plutôt que de basculer
+    toute la semaine en français pour un seul plat manquant.
+    """
+    base = content.get(str(DEFAULT_LOCALE)) if str(DEFAULT_LOCALE) in content else content
+    base = base or {}
+    if locale is DEFAULT_LOCALE:
+        return base
+    translated = content.get(str(locale)) or {}
+    merged: dict = {}
+    for day in _DAYS:
+        fr_day = base.get(day) or {}
+        en_day = translated.get(day) or {}
+        merged[day] = {
+            slot: en_day.get(slot) or fr_day.get(slot) for slot in _SLOTS
+        }
+    return merged
+
+
+async def _translate_week(
+    content: dict, db: AsyncSession, previous: dict | None = None
+) -> dict:
+    """Ajoute/rafraîchit la branche anglaise — best-effort, jamais bloquant.
+
+    Tous les plats de la semaine partent en UN appel (20 créneaux au plus),
+    pas un appel par plat : c'est aussi ce qui permet à la mémoire de
+    traduction de ne renvoyer au modèle que les plats réellement inédits.
+
+    `previous` est l'ancien contenu complet, sur une modification. En cas
+    d'échec, on n'abandonne pas toute la branche anglaise : on garde les
+    créneaux dont le texte FRANÇAIS n'a pas changé — leur traduction reste
+    exacte. Les créneaux dont le français a bougé sont en revanche écartés,
+    sinon un plat remplacé afficherait la traduction de l'ancien, ce qui est
+    pire qu'un repli en français.
+    """
+    source = content.get(str(DEFAULT_LOCALE), {})
+    keys = [(day, slot) for day in _DAYS for slot in _SLOTS]
+    values = [(source.get(day) or {}).get(slot) or "" for day, slot in keys]
+    if not any(v.strip() for v in values):
+        return content  # semaine encore vide : rien à traduire
+
+    try:
+        translated = await translate_texts(values, db)
+    except TranslationUnavailable as exc:
+        # Best-effort comme le blog : la lecture retombera créneau par créneau
+        # sur le français, et le prochain enregistrement retentera.
+        logger.info("Traduction du menu non aboutie : %s", exc)
+        return {**content, str(Locale.EN): _salvage_english(content, previous)}
+
+    out: dict = {day: {} for day in _DAYS}
+    for (day, slot), value in zip(keys, translated):
+        if value and value.strip():
+            out[day][slot] = value
+    return {**content, str(Locale.EN): out}
+
+
+def _salvage_english(content: dict, previous: dict | None) -> dict:
+    """Traductions encore valables après un échec : celles dont le français
+    est inchangé. Sans `previous` (création), il n'y a rien à récupérer."""
+    if not previous:
+        return {}
+    old_fr = previous.get(str(DEFAULT_LOCALE)) or {}
+    old_en = previous.get(str(Locale.EN)) or {}
+    new_fr = content.get(str(DEFAULT_LOCALE)) or {}
+    kept: dict = {}
+    for day in _DAYS:
+        for slot in _SLOTS:
+            unchanged = (old_fr.get(day) or {}).get(slot) == (new_fr.get(day) or {}).get(slot)
+            previous_translation = (old_en.get(day) or {}).get(slot)
+            if unchanged and previous_translation:
+                kept.setdefault(day, {})[slot] = previous_translation
+    return kept
 
 
 def _current_monday() -> date:
@@ -160,7 +250,12 @@ async def create_menu(
             detail=t("errors.menus.already_exists"),
         )
 
-    content = payload.model_dump(mode="json", exclude={"week_start", "department_id"})
+    content = await _translate_week(
+        {str(DEFAULT_LOCALE): payload.model_dump(
+            mode="json", exclude={"week_start", "department_id"}
+        )},
+        db,
+    )
     menu = WeeklyMenu(
         establishment_id=establishment_id,
         department_id=payload.department_id,
@@ -185,7 +280,10 @@ async def update_menu(
     _ensure_not_past(week_start)
     menu = await _get_menu_or_404(week_start, department_id, establishment_id, db)
 
-    menu.content = payload.model_dump(mode="json")
+    menu.content = await _translate_week(
+        {str(DEFAULT_LOCALE): payload.model_dump(mode="json")}, db,
+        previous=menu.content,
+    )
     menu.updated_by_id = editor.id
     await db.flush()
     await db.refresh(menu)
@@ -362,7 +460,8 @@ def _user_brief(user: User) -> UserBrief:
 
 
 def _to_response(menu: WeeklyMenu, *, department_name: str | None = None) -> MenuResponse:
-    days = {day: DayMenu(**menu.content.get(day, {})) for day in _DAYS}
+    localized = _localized(menu.content, current_locale())
+    days = {day: DayMenu(**(localized.get(day) or {})) for day in _DAYS}
     return MenuResponse(
         id=menu.id,
         establishment_id=menu.establishment_id,

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,18 +9,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
-from app.core.i18n import t
+from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, t
+from app.core.translation import TranslationUnavailable, translate_texts
 from app.modules.auth.models import User
 from app.modules.blog.models import (
     Article,
     ArticleAttachment,
     ArticleStatus,
+    TranslationStatus,
     BlogGalleryCategory,
     BlogGalleryPhoto,
     BlogTag,
 )
 from app.modules.blog.schemas import (
     ArticleCreateRequest,
+    ArticleTranslationRequest,
     ArticleListItem,
     ArticleListResponse,
     ArticleResponse,
@@ -45,9 +49,75 @@ from app.modules.blog.schemas import (
 )
 from app.modules.establishments.models import Establishment
 
+logger = logging.getLogger(__name__)
+
 _COVER_SUBFOLDER = "blog/covers"
 _MEDIA_SUBFOLDER = "blog/media"
 _GALLERY_SUBFOLDER = "blog/gallery"
+
+
+# ── Traduction automatique de l'article ──────────────────────────
+async def _translate_article(article: Article, db: AsyncSession) -> None:
+    """Remplit la version anglaise — best-effort, jamais bloquant.
+
+    N'agit que si le statut le permet : une traduction `manual` (corrigée par
+    un humain) n'est jamais réécrite, c'est la règle centrale du module.
+    Un échec pose `failed` et s'arrête là ; l'article reste publiable et
+    consultable en français, et l'UI propose « Retraduire ».
+    """
+    if article.translation_status == str(TranslationStatus.MANUAL):
+        return
+    try:
+        title_en, content_en = await translate_texts(
+            [article.title, article.content], db
+        )
+    except TranslationUnavailable as exc:
+        # `info` et non `exception` : « traduction désactivée » est le cas
+        # nominal en dev et en test, pas un incident à remonter en pile.
+        logger.info("Traduction de l'article %s non aboutie : %s", article.id, exc)
+        article.translation_status = str(TranslationStatus.FAILED)
+        return
+    article.title_en = title_en
+    article.content_en = content_en
+    article.translation_status = str(TranslationStatus.AUTO)
+
+
+async def retranslate_article(
+    article_id: uuid.UUID, establishment_id: uuid.UUID, editor: User, db: AsyncSession
+) -> ArticleResponse:
+    """Relance explicite depuis l'UI — la seule façon de repasser sur une
+    traduction `manual` : c'est un geste humain qui redonne la main à la
+    machine, jamais une conséquence d'un simple PATCH."""
+    article = await _get_article_or_404(article_id, establishment_id, db)
+    article.translation_status = str(TranslationStatus.PENDING)
+    await _translate_article(article, db)
+    article.updated_by_id = editor.id
+    await db.flush()
+    await db.refresh(article)
+    return await _to_response(article, db)
+
+
+async def set_article_translation(
+    article_id: uuid.UUID,
+    payload: ArticleTranslationRequest,
+    establishment_id: uuid.UUID,
+    editor: User,
+    db: AsyncSession,
+) -> ArticleResponse:
+    """Correction manuelle — verrouille la version anglaise en `manual`."""
+    article = await _get_article_or_404(article_id, establishment_id, db)
+    if not article.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=t("errors.blog.article_deleted"),
+        )
+    article.title_en = payload.title_en
+    article.content_en = payload.content_en
+    article.translation_status = str(TranslationStatus.MANUAL)
+    article.updated_by_id = editor.id
+    await db.flush()
+    await db.refresh(article)
+    return await _to_response(article, db)
 
 
 # ── Étiquettes (créées librement par l'admin/rédacteur) ───────────
@@ -148,9 +218,19 @@ async def update_article(
     changes = payload.model_dump(exclude_unset=True)
     if "tag_id" in changes and changes["tag_id"]:
         await _get_tag_or_404(changes["tag_id"], establishment_id, db)
+    text_changed = any(
+        field in changes and changes[field] != getattr(article, field)
+        for field in ("title", "content")
+    )
     for field, value in changes.items():
         setattr(article, field, value)
     article.updated_by_id = editor.id
+    # Retraduction seulement si le texte français a réellement changé ET que
+    # l'article est déjà public : retoucher l'étiquette d'un brouillon ne
+    # déclenche pas d'appel. `_translate_article` refuse de lui-même de
+    # toucher une traduction `manual`.
+    if text_changed and article.status == str(ArticleStatus.PUBLISHED):
+        await _translate_article(article, db)
     await db.flush()
     await db.refresh(article)
     return await _to_response(article, db)
@@ -182,6 +262,9 @@ async def publish_article(
     article.status = str(ArticleStatus.PUBLISHED)
     article.published_at = datetime.now(timezone.utc)
     article.updated_by_id = editor.id
+    # Traduit à la publication, pas à la création : un brouillon est encore
+    # en train de bouger, le traduire à chaque frappe serait du gaspillage.
+    await _translate_article(article, db)
     await db.flush()
     await db.refresh(article)
     return await _to_response(article, db)
@@ -581,6 +664,7 @@ async def list_public_articles(
     db: AsyncSession,
     *,
     tag_id: uuid.UUID | None = None,
+    locale: Locale = DEFAULT_LOCALE,
     skip: int = 0,
     limit: int = 50,
 ) -> PublicArticleListResponse:
@@ -601,20 +685,25 @@ async def list_public_articles(
         .offset(skip)
         .limit(limit)
     )
-    items = [
-        PublicArticleListItem(
-            id=a.id, title=a.title,
+    items = []
+    for a in result.scalars().all():
+        title, _content, served = _public_text(a, locale)
+        items.append(PublicArticleListItem(
+            id=a.id, title=title,
             tag=TagBrief(id=a.tag.id, name=a.tag.name) if a.tag else None,
             cover_url=_public_cover_url(establishment_code, a),
             published_at=a.published_at,
-        )
-        for a in result.scalars().all()
-    ]
+            locale=served,
+        ))
     return PublicArticleListResponse(total=total or 0, items=items)
 
 
 async def get_public_article(
-    establishment_code: str, article_id: uuid.UUID, db: AsyncSession
+    establishment_code: str,
+    article_id: uuid.UUID,
+    db: AsyncSession,
+    *,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> PublicArticleDetail:
     establishment = await get_public_establishment_or_404(establishment_code, db)
     article = await db.scalar(
@@ -628,8 +717,9 @@ async def get_public_article(
     if not article:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.blog.article_not_found"))
     attachments = await _attachments_for_article(article.id, db)
+    title, content, served = _public_text(article, locale)
     return PublicArticleDetail(
-        id=article.id, title=article.title, content=article.content,
+        id=article.id, title=title, content=content, locale=served,
         tag=TagBrief(id=article.tag.id, name=article.tag.name) if article.tag else None,
         cover_url=_public_cover_url(establishment_code, article),
         published_at=article.published_at,
@@ -860,4 +950,21 @@ async def _to_response(article: Article, db: AsyncSession) -> ArticleResponse:
         created_by=_user_brief(article.created_by),
         updated_by=_user_brief(article.updated_by) if article.updated_by else None,
         attachments=[_attachment_response(a, public=False) for a in attachments],
+        title_en=article.title_en,
+        content_en=article.content_en,
+        source_locale=article.source_locale,
+        translation_status=article.translation_status,
     )
+
+
+def _public_text(article: Article, locale: Locale) -> tuple[str, str, str]:
+    """(titre, contenu, langue réellement servie) pour le site vitrine.
+
+    Repli FR explicite quand la version anglaise manque (jamais traduite,
+    traduction en échec, ou article publié avant l'arrivée de la
+    fonctionnalité) : mieux vaut du français lisible qu'une page vide, et le
+    `locale` renvoyé permet au frontend de le signaler honnêtement.
+    """
+    if locale is Locale.EN and article.title_en and article.content_en:
+        return article.title_en, article.content_en, str(Locale.EN)
+    return article.title, article.content, str(DEFAULT_LOCALE)

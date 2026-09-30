@@ -43,6 +43,22 @@ class ArticleStatus(StrEnum):
     PUBLISHED = "published"
 
 
+class TranslationStatus(StrEnum):
+    """État de la version anglaise d'un article.
+
+    `AUTO` et `MANUAL` portent la règle centrale du module : une traduction
+    corrigée à la main n'est JAMAIS réécrite par la machine. Tant que le
+    statut vaut `auto`, chaque modification du contenu français relance la
+    traduction ; dès qu'un humain l'a corrigée (`manual`), le contenu anglais
+    n'appartient plus qu'à lui.
+    """
+
+    PENDING = "pending"  # à traduire (délai dépassé, ou pas encore tenté)
+    AUTO    = "auto"     # traduit par la machine, réécrasable
+    MANUAL  = "manual"   # corrigé à la main — jamais réécrasé
+    FAILED  = "failed"   # tentative en échec — repli FR à la lecture
+
+
 class BlogGalleryCategory(Base):
     """Catégorie de photo de la galerie — liste libre gérée par
     l'admin/rédacteur (créée à la volée), comme BlogTag pour les articles.
@@ -117,6 +133,22 @@ class Article(Base):
 
     title:   Mapped[str] = mapped_column(String(200), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # ── Version anglaise ────────────────────────────────────────
+    # Colonnes dédiées plutôt qu'une table `article_translations` : il n'y a
+    # que deux langues, décidées produit, et une table de traduction
+    # généraliserait un besoin qui n'existe pas (pas de troisième langue
+    # prévue). Nullables : un brouillon n'est pas encore traduit, et un
+    # échec laisse simplement la version anglaise absente (repli FR).
+    title_en:   Mapped[str | None] = mapped_column(String(200), nullable=True)
+    content_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Langue de rédaction. Toujours "fr" aujourd'hui, mais la colonne évite
+    # d'avoir à deviner le sens de la traduction le jour où un rédacteur
+    # écrira directement en anglais.
+    source_locale: Mapped[str] = mapped_column(String(2), nullable=False, default="fr")
+    translation_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=str(TranslationStatus.PENDING)
+    )
 
     # Image à la une — une seule, colonnes directes (pas de table à part,
     # contrairement aux médias ci-dessous qui sont une vraie liste). Absente

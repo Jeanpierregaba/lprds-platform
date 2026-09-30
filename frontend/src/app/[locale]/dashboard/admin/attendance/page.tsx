@@ -58,7 +58,7 @@ export default function AttendancePage() {
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-teal data-active:text-white data-active:shadow-md"
             >
               <LayoutDashboard className="mr-1.5 size-4" />
-              Tableau de bord
+              {t('tabs.dashboard')}
             </TabsTrigger>
           )}
           {showRead && (
@@ -67,7 +67,7 @@ export default function AttendancePage() {
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-sky data-active:text-white data-active:shadow-md"
             >
               <ScrollText className="mr-1.5 size-4" />
-              Journal
+              {t('tabs.journal')}
             </TabsTrigger>
           )}
           {showWrite && (
@@ -76,7 +76,7 @@ export default function AttendancePage() {
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-orange data-active:text-navy data-active:shadow-md"
             >
               <QrCode className="mr-1.5 size-4" />
-              QR codes
+              {t('tabs.qrcodes')}
             </TabsTrigger>
           )}
           {showScan && (
@@ -85,7 +85,7 @@ export default function AttendancePage() {
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-primary data-active:text-white data-active:shadow-md"
             >
               <ScanLine className="mr-1.5 size-4" />
-              Scanner
+              {t('tabs.scan')}
             </TabsTrigger>
           )}
           {showRead && (
@@ -94,7 +94,7 @@ export default function AttendancePage() {
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-navy data-active:text-white data-active:shadow-md"
             >
               <FileDown className="mr-1.5 size-4" />
-              Export
+              {t('tabs.export')}
             </TabsTrigger>
           )}
           {showWrite && (

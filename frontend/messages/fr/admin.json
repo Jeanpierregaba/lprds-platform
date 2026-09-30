@@ -8,7 +8,10 @@
     "down": "Indisponible",
     "establishments": "Établissements",
     "active": "Actifs",
-    "inactive": "Inactifs"
+    "inactive": "Inactifs",
+    "apiUnreachable": "Impossible de joindre l’API.",
+    "dashboardTitle": "Tableau de bord",
+    "dashboardSubtitle": "Vue d’ensemble de la plateforme LPRDS."
   },
   "establishments": {
     "new": "Nouvel établissement",
@@ -84,7 +87,10 @@
     "includeInactive": "Inclure les établissements inactifs",
     "notFound": "Établissement introuvable.",
     "sectionSchool": "Établissement",
-    "sectionFirstAdmin": "Premier administrateur"
+    "sectionFirstAdmin": "Premier administrateur",
+    "count": "{count, plural, one {# établissement} other {# établissements}}",
+    "adminsTab": "Administrateurs ({count})",
+    "maxAdminsReached": "Maximum {max} administrateurs atteint."
   },
   "portals": {
     "settings": "Paramètres",
@@ -105,7 +111,7 @@
   },
   "home": {
     "greeting": "Bonjour, belle journée ensoleillée ☀️",
-    "adminIntro": "Voici la vie de votre établissement aujourd’hui.",
+    "adminIntro": "Voici la vie de votre établissement aujourd’hui : présences, messages, validations et anniversaires du mois.",
     "staffIntro": "Votre groupe, vos présences et vos rapports du jour.",
     "scan": "Pointer les présences",
     "myGroup": "Mon groupe",
@@ -171,7 +177,23 @@
       "lateShort": "{count, plural, one {retard} other {retards}}",
       "absent": "{count, plural, one {absent} other {absents}}"
     },
-    "noPendingMessage": "Aucun message en attente. 🎉"
+    "noPendingMessage": "Aucun message en attente. 🎉",
+    "blogDrafts": "{count, plural, one {<strong>#</strong> article en brouillon sur le site vitrine.} other {<strong>#</strong> articles en brouillon sur le site vitrine.}}",
+    "attendanceShare": "de présence · {present}/{total}",
+    "seeMessagingCount": "Messagerie{suffix}",
+    "validateReports": "Valider les rapports{suffix}",
+    "birthdayToday": "Aujourd’hui · {age} ans 🎉",
+    "birthdayOn": "{day} - {age} ans",
+    "readRate": "Taux de lecture",
+    "parentGreeting": "Bonjour {name} ☀️",
+    "parentIntro": "Voici les nouveautés concernant {who} : rapports, messages et repas du jour.",
+    "parentIntroOneChild": "votre enfant",
+    "parentIntroManyChildren": "vos enfants",
+    "seeReportsCount": "Rapports{suffix}",
+    "readBadge": "Lu",
+    "staffGreeting": "Bonjour {name} ☀️",
+    "myDrafts": "Mes brouillons ({count})",
+    "reportsToValidateLink": "Rapports à valider ({count})"
   },
   "settings": {
     "title": "Paramètres",

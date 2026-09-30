@@ -39,6 +39,7 @@ type Form = z.infer<ReturnType<typeof makeSchema>>
 export function RolesTab() {
   const tNav = useTranslations('nav')
   const t = useTranslations('rbac')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -210,7 +211,7 @@ export function RolesTab() {
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
-                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</>
                     : editing ? t('roles.save') : t('roles.create')}
                 </Button>
               </DialogFooter>

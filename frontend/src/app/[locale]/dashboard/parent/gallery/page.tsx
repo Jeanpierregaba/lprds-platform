@@ -120,7 +120,7 @@ export default function ParentGalleryPage() {
 
       {!isLoading && total > 0 && (
         <ListPagination
-          label={<>{total} média{total > 1 ? 's' : ''}</>}
+          label={tg('page.count', { count: total })}
           skip={skip}
           pageSize={PAGE_SIZE}
           total={total}

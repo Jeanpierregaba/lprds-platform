@@ -146,7 +146,7 @@ function MediaPreview({
       {!visible || isLoading ? (
         <span className="flex h-16 items-center text-xs opacity-70">
           {isLoading && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-          Chargement de l&apos;aperçu…
+          {t('media.loadingPreview')}
         </span>
       ) : isError || !url ? (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

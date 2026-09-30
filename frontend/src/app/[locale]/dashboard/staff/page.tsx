@@ -130,7 +130,7 @@ export default function StaffDashboardPage() {
           {formatLongDate()}
         </p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
-          Bonjour {user?.first_name} ☀️
+          {t('home.staffGreeting', { name: user?.first_name ?? '' })}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-white/80">
           {t('home.staffIntro')}
@@ -249,7 +249,7 @@ export default function StaffDashboardPage() {
               className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium transition hover:bg-accent/70"
             >
               <FileText className="size-4" />
-              Mes brouillons ({drafts ?? 0})
+              {t('home.myDrafts', { count: drafts ?? 0 })}
             </Link>
           )}
           {canValidateReports && (
@@ -258,7 +258,7 @@ export default function StaffDashboardPage() {
               className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium transition hover:bg-accent/70"
             >
               <ClipboardCheck className="size-4" />
-              Rapports à valider ({toValidate ?? 0})
+              {t('home.reportsToValidateLink', { count: toValidate ?? 0 })}
             </Link>
           )}
           <Link

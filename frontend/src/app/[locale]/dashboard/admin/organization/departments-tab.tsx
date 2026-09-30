@@ -37,6 +37,7 @@ type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export function DepartmentsTab() {
   const t = useTranslations('organization')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -132,7 +133,7 @@ export function DepartmentsTab() {
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
-                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</>
                     : editing ? t('common.save') : t('common.create')}
                 </Button>
               </DialogFooter>

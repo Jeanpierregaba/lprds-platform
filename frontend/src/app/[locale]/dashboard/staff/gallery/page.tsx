@@ -72,7 +72,7 @@ export default function StaffGalleryPage() {
                 <FileVideo className="absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:opacity-100">
-                <Badge variant="secondary" className="text-xs">Rapport</Badge>
+                <Badge variant="secondary" className="text-xs">{tg('badges.report')}</Badge>
               </div>
             </button>
           ))}
@@ -81,7 +81,7 @@ export default function StaffGalleryPage() {
 
       {!isLoading && total > 0 && (
         <ListPagination
-          label={<>{total} média{total > 1 ? 's' : ''}</>}
+          label={tg('page.count', { count: total })}
           skip={skip}
           pageSize={PAGE_SIZE}
           total={total}

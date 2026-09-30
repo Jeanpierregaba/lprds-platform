@@ -47,6 +47,7 @@ const isAllowedMediaType = (type: string): boolean =>
 
 export default function NewReportPage() {
   const t = useTranslations('reports')
+  const tCommon = useTranslations('common')
   const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
   const router = useRouter()
   const user = useUser()
@@ -279,7 +280,7 @@ export default function NewReportPage() {
                 </p>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedChild(null); setReportType('') }}>
-                Changer
+                {t('form.changeChild')}
               </Button>
             </div>
           )}
@@ -294,8 +295,7 @@ export default function NewReportPage() {
                 <Skeleton className="h-9 w-full" />
               ) : allowedTypeValues.size === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Aucun type de rapport activé pour le département « {selectedChild.department.name} ».
-                  Configurez-le depuis l&apos;onglet Paramètres.
+                  {t('form.noTypeForDepartment', { department: selectedChild.department.name })}
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -383,7 +383,7 @@ export default function NewReportPage() {
                     onClick={() => runSubmit('draft')}
                   >
                     {isSubmitting && pendingAction === 'draft'
-                      ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                      ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</>
                       : t('form.saveDraft')}
                   </Button>
                   <Button
@@ -393,7 +393,7 @@ export default function NewReportPage() {
                     onClick={() => runSubmit('submit')}
                   >
                     {isSubmitting && pendingAction === 'submit'
-                      ? <><Loader2 className="mr-2 size-4 animate-spin" /> Soumission...</>
+                      ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.submitting')}</>
                       : t('form.submit')}
                   </Button>
                 </div>

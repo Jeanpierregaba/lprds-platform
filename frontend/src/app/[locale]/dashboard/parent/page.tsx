@@ -85,6 +85,7 @@ const CHILD_TINTS = ['bg-sky', 'bg-teal', 'bg-pink', 'bg-orange', 'bg-navy']
 export default function ParentDashboardPage() {
   const t = useTranslations('admin')
   const tl = useTranslations('library')
+  const tCommon = useTranslations('common')
   const reportTypesLabel = useLabel('reportTypes')
   const weekdaysLabel = useLabel('weekdays')
   const user = useUser()
@@ -149,24 +150,23 @@ export default function ParentDashboardPage() {
           {formatLongDate()}
         </p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
-          Bonjour {user?.first_name} ☀️
+          {t('home.parentGreeting', { name: user?.first_name ?? '' })}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-white/80">
-          Voici les nouveautés concernant {children.length > 1 ? 'vos enfants' : 'votre enfant'} : rapports,
-          messages et repas du jour.
+          {t('home.parentIntro', { who: children.length > 1 ? t('home.parentIntroManyChildren') : t('home.parentIntroOneChild') })}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href="/dashboard/parent/messaging"
             className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
-            Messagerie{unreadMessages + unreadAnnouncements > 0 ? ` (${unreadMessages + unreadAnnouncements})` : ''}
+            {t('home.seeMessagingCount', { suffix: unreadMessages + unreadAnnouncements > 0 ? ` (${unreadMessages + unreadAnnouncements})` : '' })}
           </Link>
           <Link
             href="/dashboard/parent/reports"
             className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
-            Rapports{unreadReports.length > 0 ? ` (${unreadReports.length})` : ''}
+            {t('home.seeReportsCount', { suffix: unreadReports.length > 0 ? ` (${unreadReports.length})` : '' })}
           </Link>
           <Link
             href="/dashboard/parent/gallery"
@@ -241,7 +241,7 @@ export default function ParentDashboardPage() {
             <div className="flex items-center justify-between">
               <CardDescription>{t('home.priorityRead')}</CardDescription>
               <Link href="/dashboard/parent/reports" className="inline-flex items-center gap-1 py-1 text-xs font-medium text-sky hover:underline">
-                Tout voir <ArrowRight className="size-3.5" />
+                {tCommon('actions.seeAll')} <ArrowRight className="size-3.5" />
               </Link>
             </div>
             <CardTitle className="font-display text-2xl">{t('home.latestReports')}</CardTitle>
@@ -279,7 +279,7 @@ export default function ParentDashboardPage() {
                         </span>
                       ) : (
                         <span className="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                          Lu
+                          {t('home.readBadge')}
                         </span>
                       )}
                     </Link>

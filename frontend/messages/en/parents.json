@@ -18,7 +18,8 @@
     "emptyHint": "Create the first account to give a parent access.",
     "phoneLabel": "Phone:",
     "childrenLabel": "Children:",
-    "view": "View"
+    "view": "View",
+    "count": "{count, plural, one {# parent} other {# parents}}"
   },
   "status": {
     "deactivate": "Deactivate",
@@ -79,5 +80,8 @@
     "remove": "Remove {name}",
     "search": "Search for a child by surname, first names or ID..."
   },
-  "resetHintParent": "The new password is emailed to the parent — they do not have to set it again."
+  "resetHintParent": "The new password is emailed to the parent — they do not have to set it again.",
+  "detail": {
+    "lastLogin": "Last sign-in: {at}"
+  }
 }

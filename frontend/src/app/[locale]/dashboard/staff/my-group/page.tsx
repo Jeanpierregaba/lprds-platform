@@ -11,23 +11,33 @@ import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { CardsEmptyState, CardsGrid, CardsSkeleton, StaggerItem, StatusPill } from '@/components/dashboard/shared/cards'
 import type { ChildListItem } from '@/types/children'
 
-function childAgeLabel(birthIso: string): string {
+/**
+ * L'âge en toutes lettres.
+ *
+ * Le traducteur est passé en PARAMÈTRE : la fonction vit au niveau du module,
+ * où aucun hook ne peut être appelé. Et les pluriels viennent du catalogue
+ * (ICU), jamais d'un `+ "s"` — la règle de pluriel appartient à la langue.
+ */
+function childAgeLabel(birthIso: string, tc: ReturnType<typeof useTranslations>): string {
   const birth = new Date(birthIso)
   const now = new Date()
   let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
   if (now.getDate() < birth.getDate()) months -= 1
   if (months < 1) {
     const days = Math.max(0, Math.floor((now.getTime() - birth.getTime()) / 86400000))
-    return `${days} jour${days > 1 ? 's' : ''}`
+    return tc('age.days', { count: days })
   }
   const years = Math.floor(months / 12)
   const rest = months % 12
-  if (years === 0) return `${months} mois`
-  return rest === 0 ? `${years} an${years > 1 ? 's' : ''}` : `${years} an${years > 1 ? 's' : ''} ${rest} mois`
+  if (years === 0) return tc('age.months', { count: months })
+  return rest === 0
+    ? tc('age.years', { count: years })
+    : tc('age.yearsMonths', { years, months: rest })
 }
 
 export default function StaffMyGroupPage() {
   const t = useTranslations('admin')
+  const tChildren = useTranslations('children')
   const { data, isLoading } = useQuery({
     queryKey: ['staff', 'children', 'my-group'],
     queryFn: () => childrenApi.listMyGroup().then((r) => r.data),
@@ -63,13 +73,13 @@ export default function StaffMyGroupPage() {
                     <StatusPill active={child.is_active} shrink />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Code: <span className="font-mono">{child.matricule}</span>
+                    {tChildren('detail.codeLabel')} <span className="font-mono">{child.matricule}</span>
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Âge:</span> {childAgeLabel(child.birth_date)}
+                    <span className="font-medium">{tChildren('detail.ageLabel')}</span> {childAgeLabel(child.birth_date, tChildren)}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Section:</span>{' '}
+                    <span className="font-medium">{tChildren('detail.sectionLabel')}</span>{' '}
                     {child.section?.name ?? child.department?.name ?? '—'}
                   </p>
                 </CardContent>

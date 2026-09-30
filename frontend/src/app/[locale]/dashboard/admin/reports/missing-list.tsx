@@ -37,6 +37,7 @@ export function MissingList({
   isLoading: boolean
 }) {
   const t = useTranslations('reports')
+  const tCommon = useTranslations('common')
   const today = new Date().toISOString().slice(0, 10)
   const [view, setView] = useState<ViewMode>('cards')
   const user = useUser()
@@ -61,7 +62,7 @@ export function MissingList({
             inputClassName="h-9"
           />
           <div className="flex items-center gap-2">
-            <Label htmlFor="missing-date" className="text-sm text-white font-semibold">Date</Label>
+            <Label htmlFor="missing-date" className="text-sm text-white font-semibold">{tCommon('fields.date')}</Label>
             <Input
               id="missing-date"
               type="date"
@@ -78,7 +79,7 @@ export function MissingList({
           {canWrite && (
             <Button render={<Link href="/dashboard/admin/reports/new" />}>
               <Plus className="mr-1.5 size-4" />
-              Nouveau rapport
+              {t('list.newReport')}
             </Button>
           )}
         </div>
@@ -86,7 +87,7 @@ export function MissingList({
 
       {!isLoading && data && (
         <p className="text-sm text-white font-medium">{t('periodLabel')}<span className="font-medium text-white font-semibold">{data.period_label}</span>
-          {' · '}{data.total} enfant{data.total > 1 ? 's' : ''} sans rapport soumis
+          {' · '}{t('missing.count', { count: data.total })}
         </p>
       )}
 
@@ -126,10 +127,10 @@ export function MissingList({
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Code: <span className="font-mono">{item.child.matricule}</span>
+                    {t.rich('missing.childCode', { code: () => <span className="font-mono">{item.child.matricule}</span> })}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Section:</span> {item.section_name ?? '—'}
+                    <span className="font-medium">{t('missing.sectionLabel')}</span> {item.section_name ?? '—'}
                   </p>
                 </CardContent>
               </Card>

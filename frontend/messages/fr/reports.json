@@ -20,14 +20,21 @@
       "author": "Auteur",
       "updated": "Mis à jour"
     },
-    "empty": "Aucun rapport pour ce statut."
+    "empty": "Aucun rapport pour ce statut.",
+    "count": "{count, plural, one {# rapport} other {# rapports}}",
+    "newReport": "Nouveau rapport",
+    "emptyForStatus": "Aucun rapport {status}.",
+    "byAndUpdated": "Par {name} · mis à jour le {date}"
   },
   "missing": {
     "search": "Rechercher par nom, prénoms ou matricule...",
     "emptySearch": "Aucun résultat pour cette recherche.",
     "allSubmitted": "Tout est soumis pour cette période.",
     "hasDraft": "Brouillon en cours",
-    "nothing": "Rien soumis"
+    "nothing": "Rien soumis",
+    "count": "{count, plural, one {# enfant sans rapport soumis} other {# enfants sans rapport soumis}}",
+    "childCode": "Code : {code}",
+    "sectionLabel": "Section :"
   },
   "form": {
     "back": "Retour à la liste",
@@ -49,7 +56,9 @@
     "createdSubmitted": "Rapport créé et soumis.",
     "createdDraft": "Rapport créé (brouillon).",
     "submitFailed": "Rapport créé en brouillon, mais la soumission a échoué : {error}",
-    "filesIgnored": "Fichier(s) ignoré(s) : {names}"
+    "filesIgnored": "Fichier(s) ignoré(s) : {names}",
+    "changeChild": "Changer",
+    "noTypeForDepartment": "Aucun type de rapport activé pour le département « {department} ». Configurez-le depuis l’onglet Paramètres."
   },
   "detail": {
     "saved": "Rapport enregistré.",
@@ -76,7 +85,16 @@
     "summary": "Résumé",
     "media": "Photos et vidéos",
     "attachments": "Pièces jointes",
-    "noAttachment": "Aucune pièce jointe."
+    "noAttachment": "Aucune pièce jointe.",
+    "notFound": "Rapport introuvable.",
+    "createdBy": "Créé par {name}",
+    "validatedBy": "Validé par {name}",
+    "rejectedReason": "Motif du rejet : {reason}",
+    "contentTitle": "Contenu",
+    "submit": "Soumettre",
+    "validateAndPublish": "Valider et publier",
+    "reject": "Rejeter",
+    "addAttachment": "Ajouter une pièce jointe"
   },
   "content": {
     "schedule": "Horaires",
@@ -163,7 +181,13 @@
   "parent": {
     "title": "Rapports",
     "description": "Rapports de vie validés de votre/vos enfant(s).",
-    "allChildren": "Tous les enfants"
+    "allChildren": "Tous les enfants",
+    "notFound": "Rapport introuvable.",
+    "pdfButton": "Bulletin PDF",
+    "publishedOn": "Publié le {date}",
+    "contentTitle": "Contenu",
+    "newBadge": "Nouveau",
+    "count": "{count, plural, one {# rapport} other {# rapports}}"
   },
   "multipleTypesHint": "Un département peut avoir plusieurs types de rapport actifs simultanément.",
   "noDepartment": "Aucun département. Créez-en depuis Organisation.",

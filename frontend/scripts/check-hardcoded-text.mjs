@@ -1,15 +1,30 @@
 /**
- * Repère le texte FRANÇAIS resté en dur dans le JSX.
+ * Repère le texte visible resté EN DUR dans le JSX.
  *
  * Complément indispensable de `check-messages.mjs`, qui vérifie l'inverse :
  * que chaque clé appelée existe bien au catalogue. Aucun des deux ne suffit
  * seul — une chaîne écrite directement dans le JSX n'appelle aucune clé, donc
- * `check-messages` ne la voit pas, et elle s'affiche en français au milieu
- * d'une interface anglaise sans la moindre erreur.
+ * `check-messages` ne la voit pas, et elle s'affiche telle quelle au milieu
+ * d'une interface dans l'autre langue.
  *
- * L'heuristique est volontairement simple (accents + mots-outils français) :
- * mieux vaut quelques faux positifs à écarter explicitement qu'un filtre
- * savant qui laisse passer de vraies chaînes.
+ * ⚠️ Cette garde a été réécrite après TROIS faux « aucune occurrence » :
+ *
+ *   1. l'analyse se faisait ligne à ligne, donc un paragraphe JSX écrit sur
+ *      plusieurs lignes était invisible (toute la page /offline) ;
+ *   2. la détection reposait sur les accents et une poignée de mots-outils,
+ *      donc « Hors ligne », « Retour », « Annuler » passaient ;
+ *   3. même élargie, elle ratait les mots isolés et sans accent —
+ *      « Repas », « Personnel », « Oui », « Non », « Tableau de bord ».
+ *
+ * Les trois échecs venaient de la même racine : deviner du texte avec une
+ * expression régulière sur du code. On ne devine donc plus. Le fichier est
+ * ANALYSÉ par le compilateur TypeScript, et seuls les nœuds qui sont
+ * réellement du texte affiché (`JsxText`, attributs visibles) sont examinés.
+ *
+ * Et puisque la position suffit à qualifier le défaut, la question « ce texte
+ * est-il français ? » ne se pose plus : TOUT littéral en position visible est
+ * un défaut, y compris en anglais. C'est ce qui ferme la classe de bug plutôt
+ * qu'un symptôme de plus.
  *
  * Usage :
  *   node scripts/check-hardcoded-text.mjs           # liste les occurrences
@@ -18,22 +33,39 @@
 
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import ts from 'typescript'
 
-/** Noms propres et marques : jamais traduits, donc jamais signalés. */
+/**
+ * Ce qui ne se traduit pas : noms propres, marques, sigles, formats et unités.
+ *
+ * Un fragment n'est signalé que s'il reste des lettres UNE FOIS ces jetons
+ * retirés — « PDF / Excel » ne déclenche donc rien, « Format PDF » si.
+ */
 const ALLOWLIST = [
   'Les Petits Rayons de Soleil',
   'LPRDS',
+  'Africa/Porto-Novo',
+  'PDF',
+  'Excel',
+  'JPG',
+  'PNG',
+  'GIF',
+  'WebP',
+  'QR',
+  'Mo',
+  'Ko',
+  'OK',
 ]
 
-/**
- * Accents, mots-outils, ET quelques mots français courants sans accent.
- *
- * Les accents seuls ne suffisent pas : « Hors ligne », « Retour », « Aucun
- * media » passaient au travers — un faux négatif est bien plus coûteux qu'un
- * faux positif, qu'il suffit d'écarter via ALLOWLIST.
- */
-const FRENCH =
-  /[éèêàçùôûîï]|\b(le|la|les|des|une|un|aucun|aucune|pour|avec|sans|votre|vos|cette|dans|hors|vers|chez|puis|donc|mais|plus|tous|toutes|chaque|ligne|retour|essayer|envoyer|ajouter|modifier|supprimer|enregistrer|annuler|fermer|ouvrir|charger|choisir|selectionner)\b/i
+/** Attributs dont la valeur est lue ou annoncée à l'utilisateur. */
+const VISIBLE_ATTRS = new Set([
+  'placeholder',
+  'title',
+  'alt',
+  'label',
+  'aria-label',
+  'aria-description',
+])
 
 const files = execSync("find src -name '*.tsx' -not -path '*/ui/*'", {
   encoding: 'utf8',
@@ -42,46 +74,61 @@ const files = execSync("find src -name '*.tsx' -not -path '*/ui/*'", {
   .split('\n')
   .filter(Boolean)
 
-/** Retire les commentaires — ils sont en français par convention dans ce projet. */
-function stripComments(source) {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ' '))
-    .replace(/(^|[^:'"\`])\/\/[^\n]*/g, (match, prefix) => prefix + ' '.repeat(match.length - prefix.length))
+/** Reste-t-il du texte une fois les noms propres et la ponctuation retirés ? */
+function isTranslatable(text) {
+  let rest = text
+  for (const allowed of ALLOWLIST) rest = rest.split(allowed).join(' ')
+  // Entités HTML (`&apos;`, `&amp;`) : du balisage, pas des mots.
+  rest = rest.replace(/&[a-z]+;/gi, ' ')
+  return /[A-Za-zÀ-ÿ]{2}/.test(rest)
 }
 
 const hits = []
 
 for (const file of files) {
-  const source = stripComments(readFileSync(file, 'utf8'))
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, 'utf8'),
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ true,
+    ts.ScriptKind.TSX,
+  )
 
-  // Texte d'élément — SANS le drapeau `m` et en autorisant les sauts de ligne :
-  // un paragraphe JSX s'écrit couramment sur plusieurs lignes, et une analyse
-  // ligne à ligne le rate entièrement (piège vécu sur la page /offline, dont
-  // les trois chaînes françaises étaient invisibles pour ce contrôle).
-  const candidates = [
-    ...[...source.matchAll(/>([^<>{}]{3,})</g)].map((m) => ({
-      text: m[1],
-      index: m.index,
-    })),
-    ...[
-      ...source.matchAll(/(?:placeholder|title|alt|label|aria-label)="([^"]{3,})"/g),
-    ].map((m) => ({ text: m[1], index: m.index })),
-  ]
-
-  for (const { text: raw, index } of candidates) {
+  const record = (node, raw) => {
     const text = raw.replace(/\s+/g, ' ').trim()
-    if (!text || !FRENCH.test(text)) continue
-    if (/^[\d\s.,:/%€-]+$/.test(text)) continue
-    if (ALLOWLIST.some((allowed) => text.includes(allowed))) continue
-    const line = source.slice(0, index).split('\n').length
-    hits.push({ file, line, text })
+    if (!text || !isTranslatable(text)) return
+    const { line } = source.getLineAndCharacterOfPosition(node.getStart(source))
+    hits.push({ file, line: line + 1, text })
   }
+
+  const visit = (node) => {
+    // Texte d'élément : `<p>Bonjour</p>`. Le compilateur a déjà séparé le
+    // texte du code, des expressions `{…}` et des commentaires — c'est
+    // précisément ce que l'expression régulière n'arrivait pas à faire.
+    if (ts.isJsxText(node)) record(node, node.text)
+
+    // Attributs visibles écrits en littéral : `placeholder="Rechercher"`.
+    // Une valeur `{t('…')}` n'est pas un `StringLiteral`, donc jamais
+    // signalée.
+    if (
+      ts.isJsxAttribute(node) &&
+      node.initializer &&
+      ts.isStringLiteral(node.initializer) &&
+      VISIBLE_ATTRS.has(node.name.getText(source))
+    ) {
+      record(node, node.initializer.text)
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(source)
 }
 
 const strict = process.argv.includes('--strict')
 
 if (hits.length === 0) {
-  console.log('[check-hardcoded-text] aucune chaîne française en dur.')
+  console.log('[check-hardcoded-text] aucun texte visible en dur.')
   process.exit(0)
 }
 
@@ -91,7 +138,7 @@ for (const hit of hits) {
   byFile.get(hit.file).push(hit)
 }
 
-console.log(`\n${hits.length} chaîne(s) française(s) en dur dans le JSX :\n`)
+console.log(`\n${hits.length} texte(s) visible(s) en dur dans le JSX :\n`)
 for (const [file, entries] of byFile) {
   console.log(`  ${file}`)
   for (const entry of entries) {
@@ -99,7 +146,7 @@ for (const [file, entries] of byFile) {
   }
 }
 console.log(
-  '\nCes chaînes s’affichent telles quelles dans l’interface anglaise.\n' +
+  '\nCes chaînes s’affichent telles quelles, quelle que soit la langue choisie.\n' +
     'Les remplacer par un appel de traduction, ou ajouter le nom propre à ALLOWLIST.',
 )
 

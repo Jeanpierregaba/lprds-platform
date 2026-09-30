@@ -1,7 +1,8 @@
 {
   "page": {
     "title": "Gallery",
-    "description": "Photos and videos from reports and messages."
+    "description": "Photos and videos from reports and messages.",
+    "count": "{count, plural, one {# item} other {# items}}"
   },
   "filters": {
     "allChildren": "All children",
@@ -21,5 +22,13 @@
     "staffHint": "Photos and videos attached to your reports will appear here.",
     "admin": "No media found.",
     "adminHint": "Try widening your filters."
+  },
+  "lightbox": {
+    "announcement": "Announcement: {title}",
+    "parent": "Parent: {name}",
+    "uploadedBy": "Sent by {name}"
+  },
+  "badges": {
+    "report": "Report"
   }
 }

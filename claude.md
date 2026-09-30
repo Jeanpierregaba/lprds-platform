@@ -215,7 +215,7 @@ messages/                          # Catalogues de traduction — ~1830 clés pa
 
 scripts/
 ├── check-messages.mjs             # Clé appelée absente du catalogue
-├── check-hardcoded-text.mjs       # Français en dur dans le JSX
+├── check-hardcoded-text.mjs       # Texte visible en dur dans le JSX (analyse AST)
 ├── check-zod-messages.mjs         # Messages de validation Zod en français
 └── stamp-version.mjs              # public/version.json au build (PWA auto-update)
 
@@ -2545,7 +2545,7 @@ anglaise.
 | Garde | Ce qu'elle attrape | Angle mort des autres |
 |---|---|---|
 | `check-messages.mjs` | Clé appelée absente du catalogue ; valeur d'énumération sans libellé | Une chaîne en dur n'appelle aucune clé |
-| `check-hardcoded-text.mjs` | Français en dur dans le JSX (texte d'élément, `placeholder`/`title`/`alt`/`aria-label`) | Un message Zod vit dans un argument de fonction, pas dans le JSX |
+| `check-hardcoded-text.mjs` | Texte visible en dur dans le JSX (`JsxText` + `placeholder`/`title`/`alt`/`aria-label`) | Un message Zod vit dans un argument de fonction, pas dans le JSX |
 | `check-zod-messages.mjs` | Messages de validation Zod écrits en français | Invisible pour les deux autres, mais s'affiche sous le champ fautif |
 
 Les noms propres (« Les Petits Rayons de Soleil », « LPRDS ») sont en
@@ -2717,20 +2717,43 @@ non traduite ne casse jamais rien — ni au type-check, ni à l'exécution.
 | Script | Vérifie | Sans lui |
 |---|---|---|
 | `scripts/check-messages.mjs` | Toute clé `t('…')` appelée existe au catalogue français | `next-intl` affiche le chemin de la clé tel quel à l'écran |
-| `scripts/check-hardcoded-text.mjs --strict` | Aucun texte français n'est écrit en dur dans le JSX | La chaîne s'affiche en français au milieu de l'interface anglaise |
+| `scripts/check-hardcoded-text.mjs --strict` | Aucun texte visible n'est écrit en dur dans le JSX | La chaîne s'affiche telle quelle quelle que soit la langue choisie |
 | `scripts/check-zod-messages.mjs --strict` | Aucun message de validation Zod n'est écrit en dur | Le message s'affiche en français sous le champ fautif, au premier formulaire mal rempli |
 
-Le deuxième repère le texte d'élément et les attributs visibles
-(`placeholder`, `title`, `alt`, `aria-label`) ; le troisième cible les
-**positions où Zod attend un message** (`.min()`, `.regex()`, `.refine()`,
-`message:`, `required_error:`…) — un message vit dans un argument de fonction,
-jamais dans le JSX, donc le deuxième ne peut structurellement pas le voir.
-Cibler la position plutôt que le fichier évite de confondre un message avec une
-valeur d'énumération ou un nom de champ.
+Le troisième cible les **positions où Zod attend un message** (`.min()`,
+`.regex()`, `.refine()`, `message:`, `required_error:`…) — un message vit dans
+un argument de fonction, jamais dans le JSX, donc le deuxième ne peut
+structurellement pas le voir. Cibler la position plutôt que le fichier évite de
+confondre un message avec une valeur d'énumération ou un nom de champ.
 
-Les deux partagent la même heuristique (accents + mots-outils français) et la
-même `ALLOWLIST` en tête de script, où s'ajoute tout nom propre signalé à tort
-— il ne se traduit pas. Lancés sans `--strict`, ils listent sans échouer.
+⚠️ **`check-hardcoded-text.mjs` a été réécrit après TROIS faux « aucune
+occurrence »** — c'est la leçon la plus chère du chantier i18n :
+
+1. l'analyse se faisait ligne à ligne, donc un paragraphe JSX écrit sur
+   plusieurs lignes était invisible (toute la page `/offline`) ;
+2. la détection reposait sur les accents et une poignée de mots-outils, donc
+   « Hors ligne », « Retour », « Annuler » passaient — 78 chaînes ;
+3. même élargie, elle ratait les mots isolés sans accent — « Repas »,
+   « Personnel », « Oui », « Non », « Tableau de bord » — 148 chaînes.
+
+Les trois échecs venaient de la même racine : **deviner du texte avec une
+expression régulière sur du code**. Le fichier est donc désormais analysé par
+le compilateur TypeScript (`ts.createSourceFile`), et seuls les nœuds qui sont
+réellement du texte affiché sont examinés. La position suffisant à qualifier le
+défaut, la question « ce texte est-il français ? » ne se pose plus : **tout**
+littéral en position visible est signalé, anglais compris. C'est ce qui ferme
+la classe de bug au lieu d'en corriger un symptôme de plus.
+
+Une `ALLOWLIST` en tête de script porte les noms propres, sigles et formats
+(LPRDS, PDF, Excel, JPG…) : un fragment n'est signalé que s'il reste des
+lettres une fois ces jetons retirés. Lancés sans `--strict`, les scripts
+listent sans échouer.
+
+⚠️ **Angle mort restant, connu et non couvert** : les littéraux de chaîne
+passés dans une expression JSX (`{cond ? 'Oui' : 'Non'}`, gabarits) ne sont pas
+analysés — la frontière entre texte affiché et valeur technique (classes CSS,
+identifiants, paramètres d'API) n'y est pas décidable par la position seule.
+Les occurrences connues ont été traitées à la main.
 
 ⚠️ **Un schéma Zod constant au niveau module ne peut pas appeler `t`** (le hook
 n'existe qu'à l'intérieur du composant). Le patron du projet est une fabrique :

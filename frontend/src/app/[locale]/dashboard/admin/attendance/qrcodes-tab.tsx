@@ -20,15 +20,17 @@ import { CardPreviewModal } from '@/components/card-preview-modal'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 
 export function QrCodesTab() {
+  const t = useTranslations('attendance')
+
   return (
     <div className="pt-2">
       <Tabs defaultValue="children">
         <PillsTabsList>
           <PillsTrigger value="children" active="primary" icon={Baby}>
-            Enfants
+            {t('qr.children')}
           </PillsTrigger>
           <PillsTrigger value="staff" active="teal" icon={UserRound}>
-            Personnel
+            {t('qr.staff')}
           </PillsTrigger>
         </PillsTabsList>
         <TabPanel value="children">

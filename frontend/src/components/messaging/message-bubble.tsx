@@ -120,7 +120,7 @@ export function MessageBubble({
       <div className="mt-0.5 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
         <span>{formatTime(msg.created_at)}</span>
         {msg.edited_at && <span>{t('bubble.edited')}</span>}
-        {isMine && msg.read_at && <span>· Vu</span>}
+        {isMine && msg.read_at && <span>{t('bubble.seen')}</span>}
         {showMenu && (
           // Visible au survol, au focus clavier, et toujours sur tactile
           // (pas de hover) — sinon édition/suppression inaccessibles sur mobile.

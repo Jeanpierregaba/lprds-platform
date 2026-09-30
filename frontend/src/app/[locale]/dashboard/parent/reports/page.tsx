@@ -126,14 +126,14 @@ export default function ParentReportsPage() {
                           </p>
                           <p className="truncate text-xs text-muted-foreground">{r.period_label}</p>
                         </div>
-                        {!r.is_read && <Badge variant="default" className="shrink-0">Nouveau</Badge>}
+                        {!r.is_read && <Badge variant="default" className="shrink-0">{t('parent.newBadge')}</Badge>}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium', style.soft)}>
                           <Icon className="size-3.5 shrink-0" />
                           {reportTypesLabel(r.report_type)}
                         </span>
-                        {published && <span className="text-xs text-muted-foreground">Publié le {published}</span>}
+                        {published && <span className="text-xs text-muted-foreground">{t('parent.publishedOn', { date: published })}</span>}
                       </div>
                       <span className="inline-flex items-center gap-1 text-sm font-medium text-sky">{t('readReport')}<ArrowRight className="size-4 transition group-hover:translate-x-1" />
                       </span>
@@ -148,7 +148,7 @@ export default function ParentReportsPage() {
 
       {!isLoading && total > PAGE_SIZE && (
         <ListPagination
-          label={<>{total} rapports</>}
+          label={t('parent.count', { count: total })}
           skip={skip}
           pageSize={PAGE_SIZE}
           total={total}

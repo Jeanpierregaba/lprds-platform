@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Coffee, Cookie, IceCream2, Utensils } from 'lucide-react'
 import { useLabel } from '@/lib/i18n/labels'
 
@@ -26,6 +28,7 @@ export function MenuWeekTable({
   today: string
   formatShortDate: (iso: string) => string
 }) {
+  const t = useTranslations('menus')
   const mealSlotsLabel = useLabel('mealSlots')
   const weekdaysLabel = useLabel('weekdays')
   return (
@@ -34,14 +37,14 @@ export function MenuWeekTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-40">Repas</TableHead>
+              <TableHead className="w-40">{t('week.mealColumn')}</TableHead>
               {WEEKDAYS.map((day) => {
                 const isToday = dayDates[day] === today
                 return (
                   <TableHead key={day} className={cn('text-center', isToday && 'text-primary')}>
                     <div>{weekdaysLabel(day)}</div>
                     <div className="text-xs font-normal text-muted-foreground">{formatShortDate(dayDates[day])}</div>
-                    {isToday && <Badge variant="default" className="mt-1">Aujourd&apos;hui</Badge>}
+                    {isToday && <Badge variant="default" className="mt-1">{t('week.today')}</Badge>}
                   </TableHead>
                 )
               })}

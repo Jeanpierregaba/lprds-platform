@@ -18,7 +18,8 @@
     "emptyHint": "Créez le premier compte pour donner accès à un parent.",
     "phoneLabel": "Téléphone :",
     "childrenLabel": "Enfants :",
-    "view": "Voir"
+    "view": "Voir",
+    "count": "{count, plural, one {# parent} other {# parents}}"
   },
   "status": {
     "deactivate": "Désactiver",
@@ -79,5 +80,8 @@
     "remove": "Retirer {name}",
     "search": "Rechercher un enfant par nom, prénoms ou matricule..."
   },
-  "resetHintParent": "Le nouveau mot de passe est envoyé par email au parent — il n'a pas à le redéfinir."
+  "resetHintParent": "Le nouveau mot de passe est envoyé par email au parent — il n'a pas à le redéfinir.",
+  "detail": {
+    "lastLogin": "Dernière connexion : {at}"
+  }
 }

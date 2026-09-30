@@ -20,20 +20,22 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 
-type T = (key: string) => string
+// Le second paramètre porte les valeurs d'interpolation (`{min}`, `{max}`) :
+// les bornes vivent dans le schéma, leur formulation dans le catalogue.
+type T = (key: string, values?: Record<string, string | number>) => string
 
 const makeformSchema = (t: T) => z.object({
   reminders_enabled: z.boolean(),
   reminder_days_before: z
     .number({ error: t('settings.number') })
-    .int('Nombre entier')
-    .min(0, 'Min 0 jour')
-    .max(90, 'Max 90 jours'),
+    .int(t('validation.integer'))
+    .min(0, t('validation.minDays', { min: 0 }))
+    .max(90, t('validation.maxDays', { max: 90 })),
   default_loan_days: z
     .number({ error: t('settings.number') })
-    .int('Nombre entier')
-    .min(1, 'Min 1 jour')
-    .max(365, 'Max 365 jours'),
+    .int(t('validation.integer'))
+    .min(1, t('validation.minDays', { min: 1 }))
+    .max(365, t('validation.maxDays', { max: 365 })),
 })
 
 type FormValues = z.infer<ReturnType<typeof makeformSchema>>

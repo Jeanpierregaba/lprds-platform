@@ -12,6 +12,7 @@ import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 
 export default function StaffLibraryPage() {
   const t = useTranslations('admin')
+  const tl = useTranslations('library')
   const { data, isLoading } = useQuery({
     queryKey: ['library', 'educator', 'books'],
     queryFn: () => libraryApi.listEducatorBooks().then((r) => r.data),
@@ -51,9 +52,7 @@ export default function StaffLibraryPage() {
                 <div className="flex items-center gap-2 pt-1 text-sm">
                   <BookOpen className="size-4 text-muted-foreground" />
                   <span className={book.available_quantity === 0 ? 'text-destructive' : undefined}>
-                    {book.available_quantity}/{book.total_quantity} exemplaire
-                    {book.available_quantity > 1 ? 's' : ''} disponible
-                    {book.available_quantity > 1 ? 's' : ''}
+                    {tl('book.availableRatio', { count: book.available_quantity, available: book.available_quantity, total: book.total_quantity })}
                   </span>
                 </div>
               </CardContent>

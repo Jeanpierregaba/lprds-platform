@@ -1,5 +1,5 @@
 /**
- * Repère les messages de validation Zod écrits en FRANÇAIS dans le code.
+ * Repère les messages de validation Zod écrits EN DUR dans le code.
  *
  * Troisième garde i18n du projet, et le seul angle que les deux autres ne
  * peuvent pas voir :
@@ -11,13 +11,20 @@
  *     jamais dans le JSX : invisible pour lui aussi.
  *
  * Or ces messages s'affichent bel et bien à l'écran, sous le champ fautif, dès
- * qu'un formulaire est soumis de travers — en français au milieu d'une
- * interface anglaise, sans la moindre erreur ni au type-check ni au lint.
+ * qu'un formulaire est soumis de travers — sans la moindre erreur ni au
+ * type-check ni au lint.
  *
- * L'heuristique suit celle de `check-hardcoded-text.mjs` : accents et
- * mots-outils français, appliqués UNIQUEMENT aux positions où Zod attend un
- * message. Cibler la position plutôt que le fichier évite d'avoir à distinguer
- * un message d'une valeur d'énumération ou d'un nom de champ.
+ * ⚠️ Comme `check-hardcoded-text.mjs`, cette garde a d'abord annoncé « aucune
+ * occurrence » alors qu'il restait des messages français : sa détection
+ * reposait sur les accents et une liste de mots-outils, et ratait « Nombre
+ * entier », « Min 0 jour », « Max 90 jours ».
+ *
+ * La correction est la même, et c'est la leçon du chantier : la POSITION
+ * suffit à qualifier le défaut. Un littéral en position de message Zod est
+ * toujours un défaut, quelle que soit sa langue — il n'y a donc plus rien à
+ * deviner, et plus de liste de mots à tenir à jour. L'analyse passe par le
+ * compilateur TypeScript, ce qui couvre aussi les appels écrits sur plusieurs
+ * lignes.
  *
  * Usage :
  *   node scripts/check-zod-messages.mjs           # liste les occurrences
@@ -26,6 +33,7 @@
 
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import ts from 'typescript'
 
 /** Noms propres et marques : jamais traduits, donc jamais signalés. */
 const ALLOWLIST = [
@@ -33,32 +41,21 @@ const ALLOWLIST = [
   'LPRDS',
 ]
 
-const FRENCH =
-  /[éèêàçùôûîï]|\b(le|la|les|des|une|aucun|aucune|pour|avec|sans|votre|vos|cette|dans|requis|requise|invalide|minimum|maximum|obligatoire|doit)\b/i
-
-/** Validateurs Zod dont le dernier argument est le message d'erreur. */
-const VALIDATORS = [
+/** Validateurs Zod dont un argument est le message d'erreur. */
+const VALIDATORS = new Set([
   'min', 'max', 'length', 'gt', 'gte', 'lt', 'lte',
   'int', 'positive', 'nonnegative', 'nonempty',
   'email', 'url', 'uuid', 'regex', 'startsWith', 'endsWith', 'includes',
   'refine', 'superRefine', 'check',
-].join('|')
+])
 
 /** Formes objet : `{ message: '…' }`, `{ error: '…' }`, `required_error`… */
-const KEYS = 'message|error|required_error|invalid_type_error'
+const KEYS = new Set(['message', 'error', 'required_error', 'invalid_type_error'])
 
-// `[^()'"]*?` interdit de franchir une parenthèse ouvrante : un message déjà
-// traduit (`.min(1, t('…'))`) n'est donc jamais capturé, la clé vivant dans
-// l'appel imbriqué `t(`.
-const MESSAGE = new RegExp(
-  `(?:\\.(?:${VALIDATORS})\\([^()'"\`]*?|(?:${KEYS})\\s*:\\s*)` +
-    `(['"\`])([^'"\`\\n]{2,})\\1`,
-  'g',
+const files = execSync(
+  "find src \\( -name '*.ts' -o -name '*.tsx' \\) -not -path '*/ui/*'",
+  { encoding: 'utf8' },
 )
-
-const files = execSync("find src \\( -name '*.ts' -o -name '*.tsx' \\) -not -path '*/ui/*'", {
-  encoding: 'utf8',
-})
   .trim()
   .split('\n')
   .filter(Boolean)
@@ -66,19 +63,81 @@ const files = execSync("find src \\( -name '*.ts' -o -name '*.tsx' \\) -not -pat
 const hits = []
 
 for (const file of files) {
-  readFileSync(file, 'utf8')
-    .split('\n')
-    .forEach((line, index) => {
-      if (/^\s*(\/\/|\*|\/\*)/.test(line)) return // commentaires : en français par convention
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, 'utf8'),
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  )
 
-      MESSAGE.lastIndex = 0
-      for (const match of line.matchAll(MESSAGE)) {
-        const text = match[2].trim()
-        if (!text || !FRENCH.test(text)) continue
-        if (ALLOWLIST.some((allowed) => text.includes(allowed))) continue
-        hits.push({ file, line: index + 1, text })
-      }
-    })
+  const record = (node) => {
+    const text = node.text.trim()
+    if (!text || !/[A-Za-zÀ-ÿ]{2}/.test(text)) return
+    if (ALLOWLIST.some((allowed) => text.includes(allowed))) return
+    const { line } = source.getLineAndCharacterOfPosition(node.getStart(source))
+    hits.push({ file, line: line + 1, text })
+  }
+
+  const isMessage = (node) =>
+    ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
+
+  /**
+   * L'appel appartient-il à une chaîne Zod ?
+   *
+   * Indispensable : `startsWith`, `endsWith`, `includes` et `min` sont AUSSI
+   * des méthodes de `String` et de tableaux. Sans cette vérification,
+   * `path.startsWith('/dashboard/')` ou `type.startsWith('image/')` seraient
+   * signalés comme des messages de validation — la position ne suffit donc
+   * pas ici, contrairement au texte JSX.
+   *
+   * On remonte la chaîne d'appels jusqu'à son expression la plus à gauche, et
+   * on exige que ce soit `z` : `z.string().min(…)`, `z.coerce.number().int(…)`.
+   */
+  const rootsAtZod = (node) => {
+    let current = node
+    while (current) {
+      if (ts.isCallExpression(current)) current = current.expression
+      else if (ts.isPropertyAccessExpression(current)) current = current.expression
+      else break
+    }
+    return current && ts.isIdentifier(current) && current.text === 'z'
+  }
+
+  const visit = (node) => {
+    // `.min(1, 'Trop court')`, `.int('Nombre entier')`, `.refine(fn, '…')` —
+    // un message DÉJÀ traduit est un appel `t('…')`, pas un littéral, donc
+    // jamais signalé.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      VALIDATORS.has(node.expression.name.getText(source)) &&
+      rootsAtZod(node)
+    ) {
+      for (const arg of node.arguments) if (isMessage(arg)) record(arg)
+    }
+
+    // `{ message: '…' }` et variantes, où qu'elles se trouvent.
+    if (
+      ts.isPropertyAssignment(node) &&
+      KEYS.has(node.name.getText(source).replace(/['"]/g, '')) &&
+      isMessage(node.initializer) &&
+      // Même précaution : `{ message: '…' }` existe ailleurs que chez Zod
+      // (options d'une requête, payload d'API…).
+      (() => {
+        for (let a = node.parent; a; a = a.parent) {
+          if (ts.isCallExpression(a) && rootsAtZod(a)) return true
+        }
+        return false
+      })()
+    ) {
+      record(node.initializer)
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(source)
 }
 
 const strict = process.argv.includes('--strict')
@@ -94,7 +153,7 @@ for (const hit of hits) {
   byFile.get(hit.file).push(hit)
 }
 
-console.log(`\n${hits.length} message(s) de validation en français dans les schémas Zod :\n`)
+console.log(`\n${hits.length} message(s) de validation en dur dans les schémas Zod :\n`)
 for (const [file, entries] of byFile) {
   console.log(`  ${file}`)
   for (const entry of entries) {
@@ -102,7 +161,7 @@ for (const [file, entries] of byFile) {
   }
 }
 console.log(
-  '\nCes messages s’affichent sous le champ fautif, en français, dans l’interface anglaise.\n' +
+  '\nCes messages s’affichent sous le champ fautif, tels quels, quelle que soit la langue.\n' +
     'Les remplacer par un appel de traduction — schéma construit par une fabrique\n' +
     '`makeSchema(t)` quand le schéma est une constante de module.',
 )

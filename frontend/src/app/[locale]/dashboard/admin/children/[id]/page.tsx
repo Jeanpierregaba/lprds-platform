@@ -107,7 +107,7 @@ export default function ChildDetailPage() {
   }
 
   if (!child) {
-    return <p className="text-muted-foreground">Fiche enfant introuvable.</p>
+    return <p className="text-muted-foreground">{t('detail.notFound')}</p>
   }
 
   return (
@@ -486,7 +486,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
               {guardianFields.fields.map((field, index) => (
                 <div key={field.id} className="space-y-3 rounded-md border border-border p-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-muted-foreground">Tuteur {index + 1}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t('form.guardianIndex', { index: index + 1 })}</p>
                     {guardianFields.fields.length > 1 && (
                       <Button
                         type="button"
@@ -553,7 +553,7 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
               {authorizedFields.fields.map((field, index) => (
                 <div key={field.id} className="space-y-3 rounded-md border border-border p-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-muted-foreground">Personne {index + 1}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t('form.authorizedIndex', { index: index + 1 })}</p>
                     <Button
                       type="button"
                       variant="ghost"

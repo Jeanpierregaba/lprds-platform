@@ -21,7 +21,8 @@
     "roleLabel": "Poste :",
     "view": "Voir",
     "qrCode": "QR Code",
-    "badge": "Badge de {name}"
+    "badge": "Badge de {name}",
+    "count": "{count, plural, one {# membre} other {# membres}}"
   },
   "status": {
     "deactivate": "Désactiver",
@@ -91,5 +92,8 @@
   },
   "staffTypeHint": "Poste purement descriptif — n'attribue aucun droit. Les droits se gèrent depuis Rôles & permissions.",
   "resetHintStaff": "Le nouveau mot de passe est envoyé par email au personnel — il n'a pas à le redéfinir.",
-  "noRoleYet": "Aucun rôle n'existe encore. Créez-en depuis Rôles & permissions."
+  "noRoleYet": "Aucun rôle n'existe encore. Créez-en depuis Rôles & permissions.",
+  "detail": {
+    "notFound": "Membre du personnel introuvable."
+  }
 }

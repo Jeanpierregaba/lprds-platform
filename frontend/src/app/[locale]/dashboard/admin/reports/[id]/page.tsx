@@ -193,7 +193,7 @@ export default function ReportDetailPage() {
   }
 
   if (!report) {
-    return <p className="text-muted-foreground">Rapport introuvable.</p>
+    return <p className="text-muted-foreground">{t('detail.notFound')}</p>
   }
 
   // L'admin peut modifier un rapport à tout moment (même soumis, validé et
@@ -221,19 +221,19 @@ export default function ReportDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-1 text-sm text-muted-foreground">
-          <p>Créé par {report.created_by.nickname || `${report.created_by.first_name} ${report.created_by.last_name}`} · {formatDateTime(report.created_at)}</p>
+          <p>{t('detail.createdBy', { name: report.created_by.nickname || `${report.created_by.first_name} ${report.created_by.last_name}` })} · {formatDateTime(report.created_at)}</p>
           {report.validated_by && report.validated_at && (
-            <p>Validé par {report.validated_by.nickname || `${report.validated_by.first_name} ${report.validated_by.last_name}`} · {formatDateTime(report.validated_at)}</p>
+            <p>{t('detail.validatedBy', { name: report.validated_by.nickname || `${report.validated_by.first_name} ${report.validated_by.last_name}` })} · {formatDateTime(report.validated_at)}</p>
           )}
           {report.status === 'rejected' && report.rejected_reason && (
-            <p className="text-destructive">Motif du rejet : {report.rejected_reason}</p>
+            <p className="text-destructive">{t('detail.rejectedReason', { reason: report.rejected_reason })}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Contenu</CardTitle>
+          <CardTitle className="text-base">{t('detail.contentTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           {isEditable && activeForm && vocabulary ? (
@@ -250,7 +250,7 @@ export default function ReportDetailPage() {
                 {isSubmittable && (
                   <Button type="button" onClick={onSubmitReport} disabled={submitMutation.isPending}>
                     {submitMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                    Soumettre
+                    {t('detail.submit')}
                   </Button>
                 )}
                 {isDeletable && (
@@ -288,11 +288,11 @@ export default function ReportDetailPage() {
             <p className="mr-auto text-sm text-muted-foreground">{t('awaitingValidation')}</p>
             <Button type="button" onClick={() => validateMutation.mutate()} disabled={validateMutation.isPending}>
               {validateMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-              Valider et publier
+              {t('detail.validateAndPublish')}
             </Button>
             <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
               <DialogTrigger render={<Button type="button" variant="destructive" />}>
-                Rejeter
+                {t('detail.reject')}
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -311,7 +311,7 @@ export default function ReportDetailPage() {
                   <DialogFooter>
                     <Button type="submit" disabled={isRejecting || rejectMutation.isPending}>
                       {isRejecting || rejectMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                      Rejeter
+                      {t('detail.reject')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -375,7 +375,7 @@ export default function ReportDetailPage() {
             disabled={uploadMutation.isPending}
           >
             {uploadMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Paperclip className="mr-1.5 size-4" />}
-            Ajouter une pièce jointe
+            {t('detail.addAttachment')}
           </Button>
           <input
             ref={fileInputRef}

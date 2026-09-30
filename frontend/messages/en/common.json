@@ -36,7 +36,11 @@
     "required": "Required",
     "optional": "Optional",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "submitting": "Submitting…",
+    "adding": "Adding…",
+    "searching": "Searching…",
+    "refreshing": "refreshing…"
   },
   "fields": {
     "firstName": "First name",
@@ -101,5 +105,9 @@
     "macStep3": "The app then appears in your Dock like any other app.",
     "offline": "You are offline — cached content is still available."
   },
-  "signOut": "Sign out"
+  "signOut": "Sign out",
+  "views": {
+    "list": "List view",
+    "cards": "Card view"
+  }
 }

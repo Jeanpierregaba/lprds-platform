@@ -32,6 +32,7 @@ const ALL = '__all__'
 
 export default function StaffListPage() {
   const t = useTranslations('staff')
+  const tCommon = useTranslations('common')
   const staffTypesLabel = useLabel('staffTypes')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const user = useUser()
@@ -194,7 +195,7 @@ export default function StaffListPage() {
       )}
 
       <ListPagination
-        label={<>{total} membre{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        label={<>{t('list.count', { count: total })} {isFetching && !isLoading && `· ${tCommon('states.refreshing')}`}</>}
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}

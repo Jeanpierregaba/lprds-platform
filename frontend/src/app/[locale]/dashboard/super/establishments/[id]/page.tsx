@@ -204,7 +204,7 @@ export default function EstablishmentDetailPage() {
       <Tabs defaultValue="infos">
         <TabsList>
           <TabsTrigger value="infos">{t('establishments.tabInfos')}</TabsTrigger>
-          <TabsTrigger value="admins">Administrateurs ({admins.length})</TabsTrigger>
+          <TabsTrigger value="admins">{t('establishments.adminsTab', { count: admins.length })}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="infos">
@@ -275,7 +275,7 @@ export default function EstablishmentDetailPage() {
                         {t('establishments.addAdmin')}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Maximum {MAX_ADMINS} administrateurs atteint.</TooltipContent>
+                    <TooltipContent>{t('establishments.maxAdminsReached', { max: MAX_ADMINS })}</TooltipContent>
                   </Tooltip>
                 )}
                 <DialogContent>
@@ -312,7 +312,7 @@ export default function EstablishmentDetailPage() {
                     </div>
                     <DialogFooter>
                       <Button type="submit" disabled={isAddingAdmin}>
-                        {isAddingAdmin ? <><Loader2 className="mr-2 size-4 animate-spin" /> Ajout...</> : 'Ajouter'}
+                        {isAddingAdmin ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.adding')}</> : 'Ajouter'}
                       </Button>
                     </DialogFooter>
                   </form>

@@ -100,7 +100,7 @@ export function ConversationsTab() {
     <Card className="lg:h-[600px]">
       <CardContent className="flex h-full flex-col p-0">
         <div className="flex items-center justify-between gap-2 border-b border-border p-3">
-          <p className="text-sm font-semibold text-primary">Conversations</p>
+          <p className="text-sm font-semibold text-primary">{t('conversations.listTitle')}</p>
           <Button variant="outline" size="sm" onClick={() => setStartDialogOpen(true)}>
             <Plus className="mr-1.5 size-4" />
             {t('conversations.new')}
@@ -385,7 +385,7 @@ function ConversationThread({
             className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-lg transition hover:bg-primary/90"
           >
             <ChevronDown className="size-3.5" />
-            {thread.newCount} nouveau{thread.newCount > 1 ? 'x' : ''} message{thread.newCount > 1 ? 's' : ''}
+            {t('thread.newMessages', { count: thread.newCount })}
           </button>
         )}
       </div>

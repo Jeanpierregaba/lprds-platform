@@ -28,6 +28,7 @@ const PAGE_SIZE = 20
 
 export default function ParentsListPage() {
   const t = useTranslations('parents')
+  const tCommon = useTranslations('common')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
@@ -166,7 +167,7 @@ export default function ParentsListPage() {
       )}
 
       <ListPagination
-        label={<>{total} parent{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        label={<>{t('list.count', { count: total })} {isFetching && !isLoading && `· ${tCommon('states.refreshing')}`}</>}
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}

@@ -134,7 +134,7 @@ export function ProfileSettingsTab() {
             <div className="flex justify-end">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting
-                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tc('states.saving')}</>
                   : t('settings.submit')}
               </Button>
             </div>

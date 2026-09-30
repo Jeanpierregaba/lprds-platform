@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -32,6 +34,7 @@ export function AttachmentLightbox({
   fetchBlob: () => Promise<Blob>
   onOpenChange: (open: boolean) => void
 }) {
+  const tCommon = useTranslations('common')
   const [isDownloading, setIsDownloading] = useState(false)
 
   const onDownload = async () => {
@@ -65,7 +68,7 @@ export function AttachmentLightbox({
         <div className="flex justify-end">
           <Button type="button" onClick={onDownload} disabled={isDownloading}>
             {isDownloading ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
-            Télécharger
+            {tCommon('actions.download')}
           </Button>
         </div>
       </DialogContent>

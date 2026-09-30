@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { Download, Loader2 } from 'lucide-react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
@@ -24,6 +26,8 @@ function formatDateTime(iso: string) {
 export function MediaLightbox({
   item, onOpenChange,
 }: { item: GalleryMediaItem | null; onOpenChange: (open: boolean) => void }) {
+  const t = useTranslations('gallery')
+  const tCommon = useTranslations('common')
   const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
   const reportTypesLabel = useLabel('reportTypes')
   const [isDownloading, setIsDownloading] = useState(false)
@@ -55,20 +59,20 @@ export function MediaLightbox({
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary">{gallerySourceBadgesLabel(item.source)}</Badge>
           {item.report_type && <Badge variant="outline">{reportTypesLabel(item.report_type)}</Badge>}
-          {item.announcement_title && <Badge variant="outline">Diffusion : {item.announcement_title}</Badge>}
+          {item.announcement_title && <Badge variant="outline">{t('lightbox.announcement', { title: item.announcement_title })}</Badge>}
           {item.child && <Badge variant="outline">{item.child.first_names} {item.child.last_name}</Badge>}
           {item.conversation_parent && (
-            <Badge variant="outline">Parent : {item.conversation_parent.first_name} {item.conversation_parent.last_name}</Badge>
+            <Badge variant="outline">{t('lightbox.parent', { name: `${item.conversation_parent.first_name} ${item.conversation_parent.last_name}` })}</Badge>
           )}
           <Badge variant="outline">
-            Envoyé par {item.uploaded_by.nickname ?? `${item.uploaded_by.first_name} ${item.uploaded_by.last_name}`}
+            {t('lightbox.uploadedBy', { name: item.uploaded_by.nickname ?? `${item.uploaded_by.first_name} ${item.uploaded_by.last_name}` })}
           </Badge>
         </div>
 
         <div className="flex justify-end">
           <Button type="button" onClick={onDownload} disabled={isDownloading}>
             {isDownloading ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
-            Télécharger
+            {tCommon('actions.download')}
           </Button>
         </div>
       </DialogContent>

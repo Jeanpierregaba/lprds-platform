@@ -48,6 +48,7 @@ function formatDateTime(iso: string) {
 
 export function AnnouncementsTab() {
   const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const [includeInactive, setIncludeInactive] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -244,7 +245,7 @@ export function AnnouncementsTab() {
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting
-                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                    ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</>
                     : editing ? t('announcements.save') : t('announcements.publish')}
                 </Button>
               </DialogFooter>
@@ -301,6 +302,7 @@ function AnnouncementCard({
   togglePending: boolean
 }) {
   const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const scoped = announcement.department_ids ?? []
   const [attachOpen, setAttachOpen] = useState(false)
@@ -340,7 +342,7 @@ function AnnouncementCard({
             </Badge>
             {announcement.read_count != null && announcement.total_parents != null && (
               <Badge variant="outline" className="whitespace-nowrap font-normal">
-                {announcement.read_count}/{announcement.total_parents} ont lu
+                {t('announcements.readRatio', { read: announcement.read_count, total: announcement.total_parents })}
               </Badge>
             )}
           </div>
@@ -411,7 +413,7 @@ function AnnouncementCard({
                   disabled={attachFiles.length === 0 || batchMutation.isPending}
                 >
                   {batchMutation.isPending
-                    ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Envoi...</>
+                    ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> {tCommon('states.sending')}</>
                     : `Envoyer (${attachFiles.length})`}
                 </Button>
               </DialogFooter>

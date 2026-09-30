@@ -83,7 +83,7 @@ export function TagsTab() {
               <DialogFooter>
                 <Button type="submit" disabled={!newName.trim() || createMutation.isPending}>
                   {createMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-                  Créer
+                  {t('tags.createSubmit')}
                 </Button>
               </DialogFooter>
             </form>

@@ -37,6 +37,7 @@ function formatDate(iso: string) {
 /** Liste paginée pour UN type et UN statut fixés (l'onglet parent porte les pills). */
 export function StatusList({ reportType, status }: { reportType: ReportType; status: ReportStatus }) {
   const t = useTranslations('reports')
+  const tCommon = useTranslations('common')
   const reportStatusLabel = useLabel('reportStatus')
   const reportTypesLabel = useLabel('reportTypes')
   const user = useUser()
@@ -88,7 +89,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
           {canWrite && (
             <Button render={<Link href="/dashboard/admin/reports/new" />}>
               <Plus className="mr-1.5 size-4" />
-              Nouveau rapport
+              {t('list.newReport')}
             </Button>
           )}
         </div>
@@ -118,7 +119,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                       <FileText className="size-5" />
                     </div>
-                    <p className="font-medium text-foreground">Aucun rapport {reportStatusLabel(status).toLowerCase()}.</p>
+                    <p className="font-medium text-foreground">{t('list.emptyForStatus', { status: reportStatusLabel(status).toLowerCase() })}</p>
                   </div>
                 </Td>
               </TableRow>
@@ -167,7 +168,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
       )}
 
       <ListPagination
-        label={<>{total} rapport{total > 1 ? 's' : ''} {isFetching && !isLoading && '· actualisation...'}</>}
+        label={<>{t('list.count', { count: total })} {isFetching && !isLoading && `· ${tCommon('states.refreshing')}`}</>}
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}
@@ -218,7 +219,7 @@ function ReportsCardGrid({
                 <span className="text-sm text-muted-foreground">{r.period_label}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Par {r.created_by.nickname || `${r.created_by.first_name} ${r.created_by.last_name}`} · mis à jour le {formatDate(r.updated_at)}
+                {t('list.byAndUpdated', { name: r.created_by.nickname || `${r.created_by.first_name} ${r.created_by.last_name}`, date: formatDate(r.updated_at) })}
               </p>
               <div className="flex flex-wrap gap-2 pt-3">
                 <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/reports/${r.id}`} />}>

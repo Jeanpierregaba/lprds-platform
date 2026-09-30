@@ -20,14 +20,21 @@
       "author": "Author",
       "updated": "Updated"
     },
-    "empty": "No reports with this status."
+    "empty": "No reports with this status.",
+    "count": "{count, plural, one {# report} other {# reports}}",
+    "newReport": "New report",
+    "emptyForStatus": "No {status} report.",
+    "byAndUpdated": "By {name} · updated on {date}"
   },
   "missing": {
     "search": "Search by surname, first names or ID...",
     "emptySearch": "No results for this search.",
     "allSubmitted": "Everything is submitted for this period.",
     "hasDraft": "Draft in progress",
-    "nothing": "Nothing submitted"
+    "nothing": "Nothing submitted",
+    "count": "{count, plural, one {# child with no submitted report} other {# children with no submitted report}}",
+    "childCode": "ID: {code}",
+    "sectionLabel": "Section:"
   },
   "form": {
     "back": "Back to the list",
@@ -49,7 +56,9 @@
     "createdSubmitted": "Report created and submitted.",
     "createdDraft": "Report created (draft).",
     "submitFailed": "Report saved as a draft, but submission failed: {error}",
-    "filesIgnored": "File(s) skipped: {names}"
+    "filesIgnored": "File(s) skipped: {names}",
+    "changeChild": "Change",
+    "noTypeForDepartment": "No report type is enabled for the “{department}” department. Enable one from the Settings tab."
   },
   "detail": {
     "saved": "Report saved.",
@@ -76,7 +85,16 @@
     "summary": "Summary",
     "media": "Photos and videos",
     "attachments": "Attachments",
-    "noAttachment": "No attachment."
+    "noAttachment": "No attachment.",
+    "notFound": "Report not found.",
+    "createdBy": "Created by {name}",
+    "validatedBy": "Approved by {name}",
+    "rejectedReason": "Reason for rejection: {reason}",
+    "contentTitle": "Content",
+    "submit": "Submit",
+    "validateAndPublish": "Approve and publish",
+    "reject": "Reject",
+    "addAttachment": "Add an attachment"
   },
   "content": {
     "schedule": "Times",
@@ -163,7 +181,13 @@
   "parent": {
     "title": "Reports",
     "description": "Validated daily-life reports for your child or children.",
-    "allChildren": "All children"
+    "allChildren": "All children",
+    "notFound": "Report not found.",
+    "pdfButton": "PDF report",
+    "publishedOn": "Published on {date}",
+    "contentTitle": "Content",
+    "newBadge": "New",
+    "count": "{count, plural, one {# report} other {# reports}}"
   },
   "multipleTypesHint": "A department can have several report types active at once.",
   "noDepartment": "No department yet. Create one under Organisation.",

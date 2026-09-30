@@ -98,7 +98,7 @@ export default function ParentMenusPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">
-            Semaine du {formatDate(weekStart)} — au {formatDate(weekEnd)}
+            {tMenus('parent.weekRange', { from: formatDate(weekStart), to: formatDate(weekEnd) })}
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export default function ParentMenusPage() {
             size="icon-sm"
             className="h-10 w-10"
             onClick={() => setWeekStart(toIsoDate(addDays(parseIsoDate(weekStart), 7)))}
-            aria-label="Semaine suivante"
+            aria-label={tMenus('parent.nextWeek')}
           >
             <ChevronRight className="size-4" />
           </Button>

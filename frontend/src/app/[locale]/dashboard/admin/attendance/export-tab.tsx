@@ -53,6 +53,7 @@ function periodRange(period: PeriodType): { from: string; to: string } {
 
 export function ExportTab() {
   const t = useTranslations('attendance')
+  const tCommon = useTranslations('common')
   const [period, setPeriod] = useState<PeriodType>('week')
   // Période initiale = semaine en cours (sinon le premier export part vide).
   const [dateFrom, setDateFrom] = useState(() => periodRange('week').from)
@@ -228,7 +229,7 @@ export function ExportTab() {
               {searchActive && (
                 <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
                   {searching ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">Recherche…</p>
+                    <p className="px-3 py-2 text-sm text-muted-foreground">{tCommon('states.searching')}</p>
                   ) : results.length === 0 ? (
                     <p className="px-3 py-2 text-sm text-muted-foreground">{t('export.noPerson')}</p>
                   ) : (
@@ -275,7 +276,7 @@ export function ExportTab() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="date_from">Du</Label>
+                <Label htmlFor="date_from">{t('export.from')}</Label>
                 <Input
                   id="date_from" type="date" value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
@@ -296,7 +297,7 @@ export function ExportTab() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Contenu &amp; format</CardTitle>
+            <CardTitle className="text-base">{t('export.contentTitle')}</CardTitle>
             <CardDescription>{t('export.scopeHint')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

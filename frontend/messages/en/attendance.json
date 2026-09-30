@@ -32,7 +32,9 @@
     "empty": "No events match these filters.",
     "count": "{count, plural, one {# event} other {# events}}",
     "refreshing": "· refreshing...",
-    "loadError": "Could not load the log."
+    "loadError": "Could not load the log.",
+    "from": "From",
+    "to": "To"
   },
   "qr": {
     "search": "Search",
@@ -50,7 +52,9 @@
     "copyToken": "Copy the token",
     "copied": "Copied!",
     "copyFailed": "Could not copy — take the token from the manual scan entry instead.",
-    "tokenHint": "Paste this token into the manual entry on the Scanner tab if you get stuck."
+    "tokenHint": "Paste this token into the manual entry on the Scanner tab if you get stuck.",
+    "children": "Children",
+    "staff": "Staff"
   },
   "export": {
     "intro": "An aggregated attendance export (status per person, per day) as PDF or Excel, for children and/or staff. Limited to 366 days.",
@@ -90,7 +94,8 @@
     "noPeriod": "Select a period.",
     "badRange": "The end date must be on or after the start date.",
     "tooLong": "The period cannot exceed 366 days.",
-    "noPerson": "No one found."
+    "noPerson": "No one found.",
+    "contentTitle": "Content & format"
   },
   "scan": {
     "title": "Scan a badge",
@@ -248,7 +253,10 @@
     "noChildInCategory": "No child in this category.",
     "noStaffInCategory": "Nobody in this category.",
     "childCount": "{count, plural, one {# child} other {# children}}",
-    "staffCount": "{count, plural, one {# person} other {# people}}"
+    "staffCount": "{count, plural, one {# person} other {# people}}",
+    "children": "Children",
+    "staff": "Staff",
+    "contact": "Get in touch"
   },
   "validation": {
     "timezoneRequired": "Time zone required",
@@ -262,5 +270,12 @@
   "generateCard": "Generate the school card",
   "correctionHint": "Only the times you change are saved. A time with no matching scan creates that entry.",
   "noAccess": "Insufficient rights — no access to the attendance module.",
-  "settingsTab": "Settings"
+  "settingsTab": "Settings",
+  "tabs": {
+    "dashboard": "Dashboard",
+    "journal": "Log",
+    "qrcodes": "QR codes",
+    "scan": "Scanner",
+    "export": "Export"
+  }
 }

@@ -180,7 +180,7 @@ function AnnouncementMediaViewer({
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            Média {safeIndex + 1} / {media.length}
+            {t('media.viewerTitle', { index: safeIndex + 1, total: media.length })}
           </DialogTitle>
           <DialogDescription className="sr-only">{t('carouselHint')}</DialogDescription>
         </DialogHeader>

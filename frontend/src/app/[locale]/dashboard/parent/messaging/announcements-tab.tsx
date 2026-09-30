@@ -98,6 +98,8 @@ export function AnnouncementsTab() {
 }
 
 function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement; onOpen: () => void }) {
+  const t = useTranslations('messaging')
+
   return (
     // Marquage au clic uniquement (jamais au survol : un survol n'est pas
     // une lecture) — le bouton natif couvre aussi le clavier.
@@ -114,7 +116,7 @@ function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>
-          {!announcement.is_read && <Badge variant="default" className="shrink-0">Nouveau</Badge>}
+          {!announcement.is_read && <Badge variant="default" className="shrink-0">{t('announcements.newBadge')}</Badge>}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

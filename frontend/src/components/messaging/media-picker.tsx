@@ -100,7 +100,7 @@ export function MediaPicker({
     <fieldset disabled={disabled} className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {files.length}/{max} média{files.length > 1 ? 's' : ''}
+          {t('media.count', { count: files.length, max })}
         </p>
         {files.length < max && (
           <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>

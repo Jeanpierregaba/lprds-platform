@@ -46,7 +46,7 @@ function SystemHealthCard() {
             <Skeleton className="h-8 w-40" />
           </div>
         ) : checks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Impossible de joindre l&apos;API.</p>
+          <p className="text-sm text-muted-foreground">{t('super.apiUnreachable')}</p>
         ) : (
           <div className="flex flex-wrap gap-3">
             {checks.map(([key, value]) => {
@@ -97,8 +97,8 @@ export default function SuperadminDashboardPage() {
       className="space-y-6"
     >
       <div>
-        <h1 className="text-2xl font-bold">Tableau de bord</h1>
-        <p className="text-muted-foreground">Vue d&apos;ensemble de la plateforme LPRDS.</p>
+        <h1 className="text-2xl font-bold">{t('super.dashboardTitle')}</h1>
+        <p className="text-muted-foreground">{t('super.dashboardSubtitle')}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

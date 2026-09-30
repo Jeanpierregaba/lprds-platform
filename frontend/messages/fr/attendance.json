@@ -32,7 +32,9 @@
     "empty": "Aucun événement pour ces filtres.",
     "count": "{count, plural, one {# événement} other {# événements}}",
     "refreshing": "· actualisation...",
-    "loadError": "Impossible de charger le journal."
+    "loadError": "Impossible de charger le journal.",
+    "from": "Du",
+    "to": "Au"
   },
   "qr": {
     "search": "Rechercher",
@@ -50,7 +52,9 @@
     "copyToken": "Copier le jeton",
     "copied": "Copié !",
     "copyFailed": "Copie impossible — copiez le jeton depuis la saisie manuelle du scan.",
-    "tokenHint": "Collez ce jeton dans la saisie manuelle de l’onglet Scanner en dépannage."
+    "tokenHint": "Collez ce jeton dans la saisie manuelle de l’onglet Scanner en dépannage.",
+    "children": "Enfants",
+    "staff": "Personnel"
   },
   "export": {
     "intro": "Export agrégé des présences (statut par personne et par jour) en PDF ou Excel, pour les enfants et/ou le personnel. Période limitée à 366 jours.",
@@ -90,7 +94,8 @@
     "noPeriod": "Sélectionnez une période.",
     "badRange": "La date de fin doit être postérieure ou égale à la date de début.",
     "tooLong": "La période ne peut pas dépasser 366 jours.",
-    "noPerson": "Aucune personne trouvée."
+    "noPerson": "Aucune personne trouvée.",
+    "contentTitle": "Contenu & format"
   },
   "scan": {
     "title": "Scanner un badge",
@@ -248,7 +253,10 @@
     "noChildInCategory": "Aucun enfant dans cette catégorie.",
     "noStaffInCategory": "Aucune personne dans cette catégorie.",
     "childCount": "{count, plural, one {# enfant} other {# enfants}}",
-    "staffCount": "{count, plural, one {# personne} other {# personnes}}"
+    "staffCount": "{count, plural, one {# personne} other {# personnes}}",
+    "children": "Enfants",
+    "staff": "Personnel",
+    "contact": "Contacter"
   },
   "validation": {
     "timezoneRequired": "Fuseau horaire requis",
@@ -262,5 +270,12 @@
   "generateCard": "Générer la carte scolaire",
   "correctionHint": "Seules les heures modifiées sont enregistrées. Une heure sans scan crée la ligne correspondante.",
   "noAccess": "Droits insuffisants — aucun accès au module présences.",
-  "settingsTab": "Paramètres"
+  "settingsTab": "Paramètres",
+  "tabs": {
+    "dashboard": "Tableau de bord",
+    "journal": "Journal",
+    "qrcodes": "QR codes",
+    "scan": "Scanner",
+    "export": "Export"
+  }
 }

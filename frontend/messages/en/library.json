@@ -21,7 +21,8 @@
     "activeLabel": "Active",
     "inactiveLabel": "Deactivated",
     "byAuthor": "by {author}",
-    "noSection": "No section"
+    "noSection": "No section",
+    "count": "{count, plural, one {# book} other {# books}}"
   },
   "lendings": {
     "new": "New loan",
@@ -49,7 +50,9 @@
     "bookRequired": "Select a book",
     "childRequired": "Select a child",
     "borrowedOn": "Borrowed on {date}",
-    "dueOn": "Due back on {date}"
+    "dueOn": "Due back on {date}",
+    "count": "{count, plural, one {# loan} other {# loans}}",
+    "overdue": "{count, plural, one {# day overdue} other {# days overdue}}"
   },
   "book": {
     "editTitle": "Edit the book",
@@ -75,7 +78,10 @@
     "number": "Enter a number",
     "integer": "Whole number",
     "minCopy": "At least 1 copy",
-    "maxCopies": "1000 copies max"
+    "maxCopies": "1000 copies max",
+    "available": "{count, plural, one {# copy available} other {# copies available}}",
+    "unavailable": "Unavailable",
+    "availableRatio": "{count, plural, one {{available}/{total} copy available} other {{available}/{total} copies available}}"
   },
   "settings": {
     "remindersTitle": "Return reminders",
@@ -96,10 +102,17 @@
     "borrowedBooks": "Borrowed books",
     "noneBorrowed": "No book is currently borrowed.",
     "returnOn": "due {date}",
-    "overdue": "Overdue"
+    "overdue": "Overdue",
+    "catalogueTab": "Catalogue",
+    "lendingsTab": "My loans"
   },
   "dueDateHint": "The due date follows the library settings (14 days by default).",
   "noSectionHint": "No section set up yet. Create sections in the Organisation module first.",
   "remindersEnable": "Enable reminders",
-  "remindersHint": "An email is sent to the parent and a message added to their conversation with the school office."
+  "remindersHint": "An email is sent to the parent and a message added to their conversation with the school office.",
+  "validation": {
+    "integer": "Whole number",
+    "minDays": "At least {min} day(s)",
+    "maxDays": "At most {max} days"
+  }
 }

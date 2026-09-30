@@ -119,7 +119,10 @@
     "partialUpload": "Record created, but {count} document(s) were not uploaded.",
     "invalidFields": "Some fields need your attention.",
     "noRights": "Insufficient permissions — you may not create a child record.",
-    "stepIndicator": "Step {current} of {total}"
+    "stepIndicator": "Step {current} of {total}",
+    "documentsHintUpload": "Documents are uploaded when the record is created: images or PDFs, {max} MB per file at most.",
+    "guardianIndex": "Guardian {index}",
+    "authorizedIndex": "Person {index}"
   },
   "summary": {
     "guardiansCount": "Guardians ({count})",
@@ -171,7 +174,17 @@
     "docAdded": "Document added.",
     "docDeleted": "Document deleted.",
     "fileTooBig": "The file exceeds {max} MB.",
-    "badFileType": "Only images and PDFs are accepted."
+    "badFileType": "Only images and PDFs are accepted.",
+    "notFound": "Child record not found.",
+    "codeLabel": "ID:",
+    "ageLabel": "Age:",
+    "sectionLabel": "Section:"
   },
-  "documentsHint": "Identity documents, certificates, authorisations…"
+  "documentsHint": "Identity documents, certificates, authorisations…",
+  "age": {
+    "days": "{count, plural, one {# day} other {# days}}",
+    "years": "{count, plural, one {# year} other {# years}}",
+    "yearsMonths": "{years, plural, one {# year} other {# years}} {months} mo",
+    "months": "{count} mo"
+  }
 }

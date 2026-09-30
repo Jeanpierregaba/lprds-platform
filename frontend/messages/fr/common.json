@@ -36,7 +36,11 @@
     "required": "Obligatoire",
     "optional": "Facultatif",
     "yes": "Oui",
-    "no": "Non"
+    "no": "Non",
+    "submitting": "Soumission…",
+    "adding": "Ajout…",
+    "searching": "Recherche…",
+    "refreshing": "actualisation…"
   },
   "fields": {
     "firstName": "Prénom",
@@ -101,5 +105,9 @@
     "macStep3": "L’application apparaît dans votre Dock comme une app.",
     "offline": "Vous êtes hors ligne — les contenus mis en cache restent disponibles."
   },
-  "signOut": "Se déconnecter"
+  "signOut": "Se déconnecter",
+  "views": {
+    "list": "Vue en liste",
+    "cards": "Vue en cartes"
+  }
 }

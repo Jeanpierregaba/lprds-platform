@@ -43,7 +43,9 @@
     "attachFiles": "Joindre des fichiers",
     "addMediaTitle": "Ajouter des médias",
     "loadError": "Impossible de charger les diffusions.",
-    "loadErrorHint": "Vérifiez votre connexion puis réessayez."
+    "loadErrorHint": "Vérifiez votre connexion puis réessayez.",
+    "readRatio": "{read}/{total} ont lu",
+    "newBadge": "Nouveau"
   },
   "conversations": {
     "new": "Nouvelle",
@@ -67,7 +69,8 @@
     "loadParentsError": "Impossible de charger les parents.",
     "noActiveParent": "Aucun parent actif.",
     "creating": "Création...",
-    "childCount": "{count, plural, one {# enfant} other {# enfants}}"
+    "childCount": "{count, plural, one {# enfant} other {# enfants}}",
+    "listTitle": "Conversations"
   },
   "parentConversation": {
     "placeholder": "Écrire à l’établissement..."
@@ -83,7 +86,8 @@
     "deleteTitle": "Supprimer",
     "deleteConfirmTitle": "Supprimer ce message ?",
     "deleteConfirmBody": "Le message sera remplacé par « Message supprimé » et ses pièces jointes seront définitivement effacées.",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "seen": "· Vu"
   },
   "media": {
     "prev": "Média précédent",
@@ -92,7 +96,11 @@
     "saveToGallery": "Enregistrer dans la galerie",
     "download": "Télécharger",
     "rejectedWithPdf": "Fichier(s) ignoré(s) — seules les photos, vidéos et PDF sont acceptés :",
-    "rejectedNoPdf": "Fichier(s) ignoré(s) — seules les photos et vidéos sont acceptées :"
+    "rejectedNoPdf": "Fichier(s) ignoré(s) — seules les photos et vidéos sont acceptées :",
+    "count": "{count}/{max} médias",
+    "slotsLeft": "{count, plural, one {Photos, vidéos ou PDF — # emplacement restant sur {max}.} other {Photos, vidéos ou PDF — # emplacements restants sur {max}.}}",
+    "viewerTitle": "Média {index} / {total}",
+    "loadingPreview": "Chargement de l’aperçu…"
   },
   "notifier": {
     "school": "L’établissement",
@@ -101,7 +109,8 @@
   },
   "thread": {
     "mediaFailed": "Message envoyé, mais les médias ont échoué — ajoutez-les via le trombone du message.",
-    "editWindowOver": "Délai d’édition dépassé — rechargez le fil."
+    "editWindowOver": "Délai d’édition dépassé — rechargez le fil.",
+    "newMessages": "{count, plural, one {# nouveau message} other {# nouveaux messages}}"
   },
   "parentPage": {
     "title": "Messagerie",

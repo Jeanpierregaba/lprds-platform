@@ -349,6 +349,7 @@ type ScheduleForm = z.infer<ReturnType<typeof makeScheduleSchema>>
 
 function StaffSchedulesSettings() {
   const t = useTranslations('attendance')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -563,7 +564,7 @@ function StaffSchedulesSettings() {
               ) : <div />}
               <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>
                 {(isSubmitting || saveMutation.isPending) ? (
-                  <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
+                  <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</>
                 ) : t('settings.save')}
               </Button>
             </DialogFooter>

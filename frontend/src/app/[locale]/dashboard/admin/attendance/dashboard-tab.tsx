@@ -78,6 +78,8 @@ function normalizeName(value: string) {
 }
 
 export function DashboardTab() {
+  const t = useTranslations('attendance')
+  const tc = useTranslations('common')
   const [date, setDate] = useState(todayIso())
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -87,17 +89,17 @@ export function DashboardTab() {
   return (
     <div className="space-y-4 pt-2">
       <div className="w-full space-y-1.5 sm:w-fit">
-        <Label htmlFor="attendance-date" className="text-white font-semibold text-sm">Date</Label>
+        <Label htmlFor="attendance-date" className="text-white font-semibold text-sm">{tc('fields.date')}</Label>
         <Input id="attendance-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-44" />
       </div>
 
       <Tabs defaultValue="children">
         <PillsTabsList>
           <PillsTrigger value="children" active="primary" icon={Baby}>
-            Enfants
+            {t('dashboard.children')}
           </PillsTrigger>
           <PillsTrigger value="staff" active="teal" icon={UserRound}>
-            Personnel
+            {t('dashboard.staff')}
           </PillsTrigger>
         </PillsTabsList>
 
@@ -703,7 +705,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
                       }}
                     >
                       <Mail className="size-4" />
-                      Contacter
+                      {t('dashboard.contact')}
                     </Button>
                   )}
                 </Td>
@@ -883,8 +885,8 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                 </Td>
                 <Td>
                   {item.meal_taken
-                    ? <span className="inline-block rounded-full bg-pale-green px-3 py-1 text-xs font-semibold text-white">Oui</span>
-                    : <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">Non</span>}
+                    ? <span className="inline-block rounded-full bg-pale-green px-3 py-1 text-xs font-semibold text-white">{tc('states.yes')}</span>
+                    : <span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">{tc('states.no')}</span>}
                 </Td>
               </TableRow>
             ))

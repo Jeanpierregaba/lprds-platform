@@ -160,7 +160,7 @@ export function GalleryTab() {
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Images uniquement (JPG, PNG, GIF, WebP).
+                    {t('gallery.imagesOnly')}
                   </p>
                 </div>
                 <DialogFooter>

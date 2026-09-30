@@ -119,7 +119,10 @@
     "partialUpload": "Fiche créée, mais {count} document(s) non envoyé(s).",
     "invalidFields": "Certains champs nécessitent votre attention.",
     "noRights": "Droits insuffisants — vous n’avez pas la permission de créer une fiche enfant.",
-    "stepIndicator": "Étape {current} sur {total}"
+    "stepIndicator": "Étape {current} sur {total}",
+    "documentsHintUpload": "Les documents seront envoyés au serveur à la création de la fiche : images ou PDF, {max} Mo maximum par fichier.",
+    "guardianIndex": "Tuteur {index}",
+    "authorizedIndex": "Personne {index}"
   },
   "summary": {
     "guardiansCount": "Tuteurs ({count})",
@@ -171,7 +174,17 @@
     "docAdded": "Document ajouté.",
     "docDeleted": "Document supprimé.",
     "fileTooBig": "Le fichier dépasse {max} Mo.",
-    "badFileType": "Seuls les images et PDF sont acceptés."
+    "badFileType": "Seuls les images et PDF sont acceptés.",
+    "notFound": "Fiche enfant introuvable.",
+    "codeLabel": "Code :",
+    "ageLabel": "Âge :",
+    "sectionLabel": "Section :"
   },
-  "documentsHint": "Pièces d'identité, certificats, autorisations..."
+  "documentsHint": "Pièces d'identité, certificats, autorisations...",
+  "age": {
+    "days": "{count, plural, one {# jour} other {# jours}}",
+    "years": "{count, plural, one {# an} other {# ans}}",
+    "yearsMonths": "{years, plural, one {# an} other {# ans}} {months} mois",
+    "months": "{count} mois"
+  }
 }

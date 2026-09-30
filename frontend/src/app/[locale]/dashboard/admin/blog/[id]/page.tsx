@@ -166,7 +166,7 @@ export default function ArticleDetailPage() {
   }
 
   if (!article) {
-    return <p className="text-muted-foreground">Article introuvable.</p>
+    return <p className="text-muted-foreground">{t('detail.notFound')}</p>
   }
 
   const isEditable = article.is_active
@@ -183,7 +183,7 @@ export default function ArticleDetailPage() {
             <div>
               <CardTitle>{article.title}</CardTitle>
               <CardDescription>
-                Créé par {article.created_by.nickname || `${article.created_by.first_name} ${article.created_by.last_name}`} · {formatDateTime(article.created_at)}
+                {t('detail.createdBy', { name: article.created_by.nickname || `${article.created_by.first_name} ${article.created_by.last_name}` })} · {formatDateTime(article.created_at)}
               </CardDescription>
             </div>
             <Badge variant={article.status === 'published' ? 'default' : 'outline'}>

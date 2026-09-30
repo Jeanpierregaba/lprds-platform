@@ -117,7 +117,7 @@ export function ArticlesTab() {
 
       <DataTable>
         <DataTableHead>
-          <Th className="w-16">Image</Th>
+          <Th className="w-16">{t('articles.columns.image')}</Th>
           <Th>{t('articles.columns.title')}</Th>
           <Th>{t('articles.columns.tag')}</Th>
           <Th>{t('articles.columns.status')}</Th>
@@ -193,13 +193,13 @@ export function ArticlesTab() {
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{total} article{total > 1 ? 's' : ''}</span>
+          <span>{t('articles.count', { count: total })}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
               {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
-              Suivant
+              {tCommon('actions.next')}
             </Button>
           </div>
         </div>

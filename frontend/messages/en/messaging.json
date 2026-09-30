@@ -43,7 +43,9 @@
     "attachFiles": "Attach files",
     "addMediaTitle": "Add media",
     "loadError": "Could not load announcements.",
-    "loadErrorHint": "Check your connection, then try again."
+    "loadErrorHint": "Check your connection, then try again.",
+    "readRatio": "{read}/{total} have read it",
+    "newBadge": "New"
   },
   "conversations": {
     "new": "New",
@@ -67,7 +69,8 @@
     "loadParentsError": "Could not load parents.",
     "noActiveParent": "No active parent.",
     "creating": "Creating…",
-    "childCount": "{count, plural, one {# child} other {# children}}"
+    "childCount": "{count, plural, one {# child} other {# children}}",
+    "listTitle": "Conversations"
   },
   "parentConversation": {
     "placeholder": "Write to the school..."
@@ -83,7 +86,8 @@
     "deleteTitle": "Delete",
     "deleteConfirmTitle": "Delete this message?",
     "deleteConfirmBody": "The message will be replaced by “Message deleted” and its attachments permanently erased.",
-    "delete": "Delete"
+    "delete": "Delete",
+    "seen": "· Seen"
   },
   "media": {
     "prev": "Previous media",
@@ -92,7 +96,11 @@
     "saveToGallery": "Save to the gallery",
     "download": "Download",
     "rejectedWithPdf": "File(s) skipped — only photos, videos and PDFs are accepted:",
-    "rejectedNoPdf": "File(s) skipped — only photos and videos are accepted:"
+    "rejectedNoPdf": "File(s) skipped — only photos and videos are accepted:",
+    "count": "{count}/{max} items",
+    "slotsLeft": "{count, plural, one {Photos, videos or PDFs — # slot left out of {max}.} other {Photos, videos or PDFs — # slots left out of {max}.}}",
+    "viewerTitle": "Item {index} of {total}",
+    "loadingPreview": "Loading preview…"
   },
   "notifier": {
     "school": "The school",
@@ -101,7 +109,8 @@
   },
   "thread": {
     "mediaFailed": "Message sent, but the media failed — add them again with the paperclip on the message.",
-    "editWindowOver": "The editing window has passed — reload the thread."
+    "editWindowOver": "The editing window has passed — reload the thread.",
+    "newMessages": "{count, plural, one {# new message} other {# new messages}}"
   },
   "parentPage": {
     "title": "Messages",

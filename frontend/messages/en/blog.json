@@ -17,12 +17,14 @@
       "title": "Title",
       "tag": "Tag",
       "status": "Status",
-      "publishedAt": "Published"
+      "publishedAt": "Published",
+      "image": "Image"
     },
     "open": "Open this article",
     "view": "View",
     "empty": "No articles yet.",
-    "deletedSuffix": "(deleted)"
+    "deletedSuffix": "(deleted)",
+    "count": "{count, plural, one {# article} other {# articles}}"
   },
   "tags": {
     "new": "New tag",
@@ -38,7 +40,8 @@
     "deleteBody": "Permanent deletion. Articles carrying it will be left untagged.",
     "created": "Tag created.",
     "renamed": "Tag renamed.",
-    "deleted": "Tag deleted."
+    "deleted": "Tag deleted.",
+    "createSubmit": "Create"
   },
   "gallery": {
     "allCategories": "All categories",
@@ -71,7 +74,8 @@
     "count": "{count, plural, one {# photo published} other {# photos published}} — visible on the public site.",
     "emptyHint": "Publish a photo to show it on the public site.",
     "createCategory": "Create",
-    "noCategory2": "No category yet — create the first one above."
+    "noCategory2": "No category yet — create the first one above.",
+    "imagesOnly": "Images only (JPG, PNG, GIF, WebP)."
   },
   "form": {
     "back": "Back to the list",
@@ -124,5 +128,9 @@
   "photoPublishHint": "The photo appears on the public site's gallery straight away.",
   "categoryNameHint": "A free-form name, unique per school — just like article tags.",
   "articleDeleted": "This article has been deleted (soft delete) — read only.",
-  "noCover": "No cover image"
+  "noCover": "No cover image",
+  "detail": {
+    "notFound": "Article not found.",
+    "createdBy": "Created by {name}"
+  }
 }

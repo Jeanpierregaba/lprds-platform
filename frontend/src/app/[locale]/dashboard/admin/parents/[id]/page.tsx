@@ -152,7 +152,7 @@ export default function ParentDetailPage() {
             <StatusPill active={parent.is_active} />
           </div>
           <p className="text-sm text-white">
-            Dernière connexion : {formatDateTime(parent.last_login_at)}
+            {t('detail.lastLogin', { at: formatDateTime(parent.last_login_at) })}
           </p>
         </div>
 

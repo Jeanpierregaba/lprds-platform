@@ -1,7 +1,8 @@
 {
   "page": {
     "title": "Galerie",
-    "description": "Photos et vidéos issues des rapports et de la messagerie."
+    "description": "Photos et vidéos issues des rapports et de la messagerie.",
+    "count": "{count, plural, one {# média} other {# médias}}"
   },
   "filters": {
     "allChildren": "Tous les enfants",
@@ -21,5 +22,13 @@
     "staffHint": "Les photos/vidéos jointes à vos rapports apparaîtront ici.",
     "admin": "Aucun média trouvé.",
     "adminHint": "Essayez d’élargir vos filtres."
+  },
+  "lightbox": {
+    "announcement": "Diffusion : {title}",
+    "parent": "Parent : {name}",
+    "uploadedBy": "Envoyé par {name}"
+  },
+  "badges": {
+    "report": "Rapport"
   }
 }

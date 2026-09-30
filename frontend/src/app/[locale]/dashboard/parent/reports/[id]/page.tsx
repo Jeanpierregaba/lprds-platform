@@ -69,7 +69,7 @@ export default function ParentReportDetailPage() {
   }
 
   if (!report) {
-    return <p className="text-muted-foreground">Rapport introuvable.</p>
+    return <p className="text-muted-foreground">{t('parent.notFound')}</p>
   }
 
   return (
@@ -88,13 +88,13 @@ export default function ParentReportDetailPage() {
             {report.report_type === 'annuel' && (
               <Button variant="outline" size="sm" className="h-10 shrink-0 sm:w-auto" onClick={() => downloadPdfMutation.mutate()} disabled={downloadPdfMutation.isPending}>
                 {downloadPdfMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Download className="mr-1.5 size-4" />}
-                Bulletin PDF
+                {t('parent.pdfButton')}
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Publié le {formatDate(report.validated_at)}
+          {t('parent.publishedOn', { date: formatDate(report.validated_at) })}
         </CardContent>
       </Card>
 
@@ -111,7 +111,7 @@ export default function ParentReportDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Contenu</CardTitle>
+          <CardTitle className="text-base">{t('parent.contentTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           {vocabulary ? (

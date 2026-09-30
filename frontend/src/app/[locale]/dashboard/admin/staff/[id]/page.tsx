@@ -130,7 +130,7 @@ export default function StaffDetailPage() {
   }
 
   if (!staff) {
-    return <p className="text-muted-foreground">Membre du personnel introuvable.</p>
+    return <p className="text-muted-foreground">{t('detail.notFound')}</p>
   }
 
   return (
@@ -262,7 +262,7 @@ export default function StaffDetailPage() {
                   </Button>
                   {canWrite && (
                   <Button type="submit" disabled={isSavingInfo}>
-                    {isSavingInfo ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</> : 'Enregistrer'}
+                    {isSavingInfo ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</> : tCommon('actions.save')}
                   </Button>
                   )}
                 </div>

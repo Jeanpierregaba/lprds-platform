@@ -124,7 +124,7 @@ function AttendanceCard({
             {loading ? '…' : `${rate}%`}
           </motion.span>
           <span className="pb-1.5 text-sm text-muted-foreground">
-            de présence · {present + late}/{total}
+            {t('home.attendanceShare', { present: present + late, total })}
           </span>
         </div>
         <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
@@ -304,7 +304,6 @@ export default function AdminDashboardPage() {
         </h1>
         <p className="mt-2 max-w-xl text-sm text-white/80">
           {t('home.adminIntro')}
-          validations et anniversaires du mois.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
@@ -317,13 +316,13 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/messaging"
             className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
           >
-            Messagerie{unreadTotal > 0 ? ` (${unreadTotal})` : ''}
+            {t('home.seeMessagingCount', { suffix: unreadTotal > 0 ? ` (${unreadTotal})` : '' })}
           </Link>
           <Link
             href="/dashboard/admin/reports"
             className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110"
           >
-            Valider les rapports{submittedTotal ? ` (${submittedTotal})` : ''}
+            {t('home.validateReports', { suffix: submittedTotal ? ` (${submittedTotal})` : '' })}
           </Link>
         </div>
       </motion.section>
@@ -414,9 +413,9 @@ export default function AdminDashboardPage() {
                         <span className="block truncate font-semibold">{b.name}</span>
                         <span className="block text-sm text-muted-foreground capitalize">
                           {b.isToday ? (
-                            <strong className="text-pink">Aujourd&apos;hui · {b.age} ans 🎉</strong>
+                            <strong className="text-pink">{t('home.birthdayToday', { age: b.age })}</strong>
                           ) : (
-                            <>{b.dayLabel} - {b.age} ans</>
+                            <>{t('home.birthdayOn', { day: b.dayLabel, age: b.age })}</>
                           )}
                         </span>
                         {b.section && (
@@ -472,7 +471,7 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Taux de lecture</span>
+                  <span className="text-muted-foreground">{t('home.readRate')}</span>
                   <span className="font-display font-semibold">
                     {latestAnnouncement.read_count ?? 0}/{latestAnnouncement.total_parents ?? 0}
                   </span>
@@ -496,7 +495,7 @@ export default function AdminDashboardPage() {
             <Card className="border-dashed">
               <CardContent className="flex items-center justify-between gap-2 pt-6">
                 <p className="text-sm">
-                  <strong className="font-display text-lg">{draftsTotal}</strong> article{draftsTotal! > 1 ? 's' : ''} en brouillon sur le site vitrine.
+                  {t.rich('home.blogDrafts', { count: draftsTotal!, strong: (chunks) => <strong className="font-display text-lg">{chunks}</strong> })}
                 </p>
                 <Button variant="outline" size="sm" render={<Link href="/dashboard/admin/blog" />}>
                   {t('home.seeBlog')}

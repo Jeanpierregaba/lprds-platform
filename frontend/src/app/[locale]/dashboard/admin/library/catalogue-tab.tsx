@@ -127,13 +127,13 @@ export function CatalogueTab() {
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{total} livre{total > 1 ? 's' : ''}</span>
+          <span>{t('catalogue.count', { count: total })}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
               {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
-              Suivant
+              {tCommon('actions.next')}
             </Button>
           </div>
         </div>

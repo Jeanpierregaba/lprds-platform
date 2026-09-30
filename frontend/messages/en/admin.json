@@ -8,7 +8,10 @@
     "down": "Unavailable",
     "establishments": "Establishments",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "apiUnreachable": "The API cannot be reached.",
+    "dashboardTitle": "Dashboard",
+    "dashboardSubtitle": "An overview of the LPRDS platform."
   },
   "establishments": {
     "new": "New establishment",
@@ -84,7 +87,10 @@
     "includeInactive": "Include inactive schools",
     "notFound": "School not found.",
     "sectionSchool": "School",
-    "sectionFirstAdmin": "First administrator"
+    "sectionFirstAdmin": "First administrator",
+    "count": "{count, plural, one {# school} other {# schools}}",
+    "adminsTab": "Administrators ({count})",
+    "maxAdminsReached": "Maximum of {max} administrators reached."
   },
   "portals": {
     "settings": "Settings",
@@ -105,7 +111,7 @@
   },
   "home": {
     "greeting": "Good morning — a lovely sunny day ☀️",
-    "adminIntro": "Here is how your school is doing today.",
+    "adminIntro": "Here is how your school is doing today: attendance, messages, approvals and this month’s birthdays.",
     "staffIntro": "Your class, your attendance and your reports for today.",
     "scan": "Record attendance",
     "myGroup": "My class",
@@ -171,7 +177,23 @@
       "lateShort": "{count, plural, one {late} other {late}}",
       "absent": "{count, plural, one {absent} other {absent}}"
     },
-    "noPendingMessage": "No message waiting. 🎉"
+    "noPendingMessage": "No message waiting. 🎉",
+    "blogDrafts": "{count, plural, one {<strong>#</strong> draft article on the public site.} other {<strong>#</strong> draft articles on the public site.}}",
+    "attendanceShare": "present · {present}/{total}",
+    "seeMessagingCount": "Messages{suffix}",
+    "validateReports": "Approve reports{suffix}",
+    "birthdayToday": "Today · turning {age} 🎉",
+    "birthdayOn": "{day} - turning {age}",
+    "readRate": "Read rate",
+    "parentGreeting": "Hello {name} ☀️",
+    "parentIntro": "Here is what is new for {who}: reports, messages and today’s meals.",
+    "parentIntroOneChild": "your child",
+    "parentIntroManyChildren": "your children",
+    "seeReportsCount": "Reports{suffix}",
+    "readBadge": "Read",
+    "staffGreeting": "Hello {name} ☀️",
+    "myDrafts": "My drafts ({count})",
+    "reportsToValidateLink": "Reports to approve ({count})"
   },
   "settings": {
     "title": "Settings",

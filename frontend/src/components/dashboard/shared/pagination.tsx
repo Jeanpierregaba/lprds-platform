@@ -25,7 +25,7 @@ export function ListPagination({
           {tCommon('actions.previous')}
         </Button>
         <Button variant="outline" className="h-10" disabled={skip + pageSize >= total} onClick={() => onSkipChange(skip + pageSize)}>
-          Suivant
+          {tCommon('actions.next')}
         </Button>
       </div>
     </div>

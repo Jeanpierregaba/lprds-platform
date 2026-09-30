@@ -54,10 +54,10 @@ export default function ParentLibraryPage() {
       <Tabs defaultValue="catalogue">
         <PillsTabsList>
           <PillsTrigger value="catalogue" active="primary" icon={BookOpen}>
-            Catalogue
+            {tl('mine.catalogueTab')}
           </PillsTrigger>
           <PillsTrigger value="lendings" active="teal" icon={BookMarked}>
-            Mes emprunts
+            {tl('mine.lendingsTab')}
           </PillsTrigger>
         </PillsTabsList>
 
@@ -90,8 +90,8 @@ export default function ParentLibraryPage() {
                     <div className="flex items-center justify-between gap-2 pt-1 text-sm">
                       <span className={book.available_quantity === 0 ? 'shrink-0 text-destructive' : 'shrink-0'}>
                         {book.available_quantity > 0
-                          ? `${book.available_quantity} exemplaire${book.available_quantity > 1 ? 's' : ''} disponible${book.available_quantity > 1 ? 's' : ''}`
-                          : 'Indisponible'}
+                          ? tl('book.available', { count: book.available_quantity })
+                          : tl('book.unavailable')}
                       </span>
                       {book.sections.length > 0 && (
                         <span className="min-w-0 text-right text-xs text-muted-foreground">
@@ -153,7 +153,7 @@ export default function ParentLibraryPage() {
                           </Badge>
                           {lending.overdue_days != null && (
                             <div className="mt-0.5 text-xs text-destructive">
-                              {lending.overdue_days} j de retard
+                              {tl('lendings.overdue', { count: lending.overdue_days })}
                             </div>
                           )}
                         </TableCell>
@@ -178,7 +178,7 @@ export default function ParentLibraryPage() {
                     </Badge>
                   </div>
                   {lending.overdue_days != null && (
-                    <p className="text-xs text-destructive">{lending.overdue_days} j de retard</p>
+                    <p className="text-xs text-destructive">{tl('lendings.overdue', { count: lending.overdue_days })}</p>
                   )}
                   <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span className="min-w-0 truncate">{lending.child_name}</span>

@@ -552,8 +552,7 @@ export default function NewChildPage() {
                     <div className="flex items-start gap-2 rounded-md bg-muted p-3 text-xs text-muted-foreground">
                       <Info className="mt-0.5 size-4 shrink-0" />
                       <span>
-                        Les documents seront envoyés au serveur à la création de la fiche : images ou PDF,
-                        {DOCUMENT_MAX_MB} Mo maximum par fichier.
+                        {t('form.documentsHintUpload', { max: DOCUMENT_MAX_MB })}
                       </span>
                     </div>
 

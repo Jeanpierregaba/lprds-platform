@@ -313,7 +313,7 @@ export function LendingsTab() {
                   </span>
                   {lending.overdue_days != null && (
                     <div className="mt-0.5 text-xs text-destructive">
-                      {lending.overdue_days} j de retard
+                      {t('lendings.overdue', { count: lending.overdue_days })}
                     </div>
                   )}
                 </Td>
@@ -338,13 +338,13 @@ export function LendingsTab() {
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{total} prêt{total > 1 ? 's' : ''}</span>
+          <span>{t('lendings.count', { count: total })}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
               {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
-              Suivant
+              {tCommon('actions.next')}
             </Button>
           </div>
         </div>

@@ -27,7 +27,8 @@
     "created": "Menu created.",
     "saved": "Menu saved.",
     "deleted": "Menu deleted.",
-    "pastReadOnly": "Past week — read only."
+    "pastReadOnly": "Past week — read only.",
+    "mealColumn": "Meal"
   },
   "history": {
     "department": "Department",
@@ -40,6 +41,16 @@
     "count": "{count, plural, one {# week saved} other {# weeks saved}}"
   },
   "parent": {
-    "empty": "No menu published for this week."
+    "empty": "No menu published for this week.",
+    "weekRange": "Week of {from} — to {to}",
+    "nextWeek": "Next week"
+  },
+  "translation": {
+    "review": "Review translation",
+    "title": "English translation for the week",
+    "hint": "French on the left, the English served to English-speaking families on the right. An empty field is not translated yet. A correction saved here also applies to future weeks where the dish comes back.",
+    "placeholder": "Not translated yet",
+    "corrected": "Reviewed",
+    "saved": "Translation saved."
   }
 }

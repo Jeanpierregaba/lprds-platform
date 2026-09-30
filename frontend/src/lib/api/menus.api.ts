@@ -1,7 +1,7 @@
 import { apiClient } from './client'
 import type {
-  CurrentMenusResponse, Menu, MenuCreatePayload, MenuListResponse, MenuWritePayload,
-  VisibleDepartmentsResponse,
+  CurrentMenusResponse, Menu, MenuCreatePayload, MenuListResponse, MenuTranslation,
+  MenuTranslationPayload, MenuWritePayload, VisibleDepartmentsResponse,
 } from '@/types/menus'
 
 export const menusApi = {
@@ -28,6 +28,22 @@ export const menusApi = {
 
   remove: (weekStart: string, departmentId: string) =>
     apiClient.delete<void>(`/api/v1/menus/${weekStart}`, {
+      params: { department_id: departmentId },
+    }),
+
+  /** Français et anglais côte à côte — `menus:write` requis. */
+  getTranslation: (weekStart: string, departmentId: string) =>
+    apiClient.get<MenuTranslation>(`/api/v1/menus/${weekStart}/translation`, {
+      params: { department_id: departmentId },
+    }),
+
+  /**
+   * Enregistre l'anglais relu. Le backend le grave aussi dans la mémoire de
+   * traduction : la correction vaut pour les semaines suivantes, pas seulement
+   * pour celle-ci.
+   */
+  setTranslation: (weekStart: string, departmentId: string, data: MenuTranslationPayload) =>
+    apiClient.patch<MenuTranslation>(`/api/v1/menus/${weekStart}/translation`, data, {
       params: { department_id: departmentId },
     }),
 

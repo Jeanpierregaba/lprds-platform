@@ -72,7 +72,7 @@ app/
 ├── main.py                        # Point d'entrée FastAPI + lifespan + CORS
 ├── core/
 │   ├── config.py                  # Settings Pydantic (lire .env)
-│   ├── database.py                # Engine SQLAlchemy async + get_db
+│   ├── database.py                # Engine SQLAlchemy async + get_db + task_sessions()
 │   ├── models.py                  # ⚠️ Registre central des modèles (cf. ci-dessous)
 │   ├── redis.py                   # Client Redis async partagé
 │   ├── storage.py                 # Stockage fichiers (backend local uniquement)
@@ -160,6 +160,7 @@ app/
 │   │   ├── models.py              # WeeklyMenu (1 ligne = 1 semaine, content JSONB typé)
 │   │   ├── schemas.py             # DayMenu, MenuCreateRequest/WriteRequest/Response
 │   │   ├── service.py             # Règles lundi/passé, contrôle d'accès historique
+│   │   ├── tasks.py               # Reprise planifiée des traductions manquantes
 │   │   ├── dependencies.py        # get_establishment_member (lecture ouverte à tous)
 │   │   └── router.py              # Endpoints HTTP /menus/*
 │   ├── blog/                      # ⚠️ SEUL module avec un volet public sans authentification
@@ -167,6 +168,7 @@ app/
 │   │   ├── schemas.py             # Schémas gestion (internes) + publics (site vitrine)
 │   │   ├── service.py             # Workflow publication, soft delete, requêtes publiques scopées establishment_code
 │   │   ├── router.py              # /blog/* — authentifié, blog:write
+│   │   ├── tasks.py               # Reprise planifiée des traductions manquantes
 │   │   └── public_router.py       # /public/blog/* — AUCUNE authentification
 │   ├── library/
 │   │   ├── models.py              # Livres, prêts, paramètres bibliothèque
@@ -236,6 +238,8 @@ src/
 │       ├── auth/                  # login, reset-password, new-password
 │       └── dashboard/             # super, admin, staff, parent
 ├── components/
+│   ├── menus/
+│   │   └── menu-translation-dialog.tsx  # Relecture FR/EN d'une semaine de menus
 │   ├── pwa/pwa-provider.tsx       # Enregistrement SW + prompt d'installation + voile hors-ligne
 │   └── ui/                        # Composants shadcn (button, input, card, form, sonner...)
 ├── lib/
@@ -2028,6 +2032,9 @@ PATCH  /api/v1/menus/{week_start}?department_id=  # menus:write — remplace le 
 DELETE /api/v1/menus/{week_start}?department_id=  # menus:write
 GET    /api/v1/menus?department_id=  # admin/menus:read/menus:write — historique scopé, paginé
 GET    /api/v1/menus/departments      # départements visibles (sélecteurs UI)
+GET    /api/v1/menus/{week_start}/translation?department_id=   # menus:write — FR + EN côte à côte
+PATCH  /api/v1/menus/{week_start}/translation?department_id=   # menus:write — anglais relu à la main
+                                      #   (seule écriture du module admise sur une semaine passée)
 
 GET    /api/v1/menus/current         # UN menu par département visible (liste, éventuellement vide)
 GET    /api/v1/menus/{week_start}?department_id=  # 403 hors périmètre, 403 historique sans droit, 404 si rien
@@ -2431,12 +2438,21 @@ indexable, et debout quand l'API de traduction tombe.
 
 **Trois invariants, chacun sous test (`tests/e2e/test_translation.py`) :**
 
-1. **L'humain a le dernier mot.** `articles.translation_status` :
-   `pending` → `auto` → `manual` / `failed`. Tant qu'il vaut `auto`, modifier
-   le texte français relance la traduction. Dès qu'un rédacteur a corrigé
-   l'anglais (`manual`), la machine n'y touche plus, même après dix
-   modifications du français. Seul `POST /articles/{id}/retranslate` — un geste
-   explicite — reprend la main.
+1. **L'humain a le dernier mot** — pour le blog ET pour les menus, avec une
+   granularité différente parce que l'unité éditoriale diffère.
+   - **Blog** : `articles.translation_status` (`pending` → `auto` →
+     `manual` / `failed`) porte l'état de l'ARTICLE entier. Tant qu'il vaut
+     `auto`, modifier le texte français relance la traduction ; dès qu'un
+     rédacteur a corrigé l'anglais (`manual`), la machine n'y touche plus, même
+     après dix modifications du français. Seul
+     `POST /articles/{id}/retranslate` — un geste explicite — reprend la main.
+   - **Menus** : pas de statut de semaine, un **marquage par CRÉNEAU** dans la
+     branche `manual` du JSONB (`{jour: {créneau: true}}`). Geler les 20
+     créneaux parce qu'un seul plat a été relu empêcherait de traduire ceux
+     ajoutés le lendemain — or un menu se remplit jour après jour. Un créneau
+     marqué n'est ni renvoyé au modèle ni écrasé ; il perd son marquage dès que
+     **son** plat français change (la correction portait sur un autre plat,
+     l'afficher serait un contresens — même raisonnement que `_salvage_english`).
 2. **Best-effort strict.** Un échec ne bloque jamais une publication ni un
    enregistrement de menu : statut `failed`, repli français à la lecture,
    bouton « Retraduire ». Même politique que la messagerie, à l'opposé du mot
@@ -2453,6 +2469,18 @@ indexable, et debout quand l'API de traduction tombe.
    `TRUNCATE ... CASCADE` de `conftest.py` — vidée explicitement, sinon une
    entrée posée par un test fait sauter l'appel du suivant.
 
+   ⚠️ **Une correction de menu est écrite dans la mémoire** (`is_correction`,
+   `ON CONFLICT DO UPDATE`), et c'est ce qui donne son sens au point 1. Sans
+   cette écriture, corriger « riz au gras » cette semaine ne servirait à rien :
+   la semaine suivante relirait l'entrée posée par la machine et réafficherait
+   la même erreur. La machine, elle, n'écrase jamais une entrée existante
+   (`ON CONFLICT DO NOTHING`) — l'humain seul peut le faire.
+   Deux conséquences assumées : la mémoire étant **globale**, une correction
+   vaut pour tous les établissements (cohérent avec le choix d'origine, et une
+   relecture humaine vaut mieux qu'une sortie de modèle) ; et `is_correction`
+   existe pour qu'un futur rejeu de la mémoire (changement de prompt) puisse
+   régénérer l'automatique **sans effacer** le travail de relecture.
+
 **Menus** : le JSONB `content` est un arbre `{langue: {jour: {créneau: plat}}}`
 (migration `5e16d04b9050`, l'existant remonté sous `fr`). `_localized()` sait
 encore lire l'ancienne forme à plat — une donnée JSONB n'a pas de schéma imposé
@@ -2461,6 +2489,39 @@ pendant une panne s'affiche en français sans faire basculer toute la semaine.
 En cas d'échec sur une modification, les traductions dont le texte français
 n'a pas bougé sont **conservées** ; celles dont le français a changé sont
 écartées (afficher la traduction d'un plat remplacé serait pire qu'un repli).
+
+**Écran de relecture des menus** (`GET`/`PATCH /menus/{week_start}/translation`,
+`menus:write`) : français et anglais côte à côte. Trois choix à connaître —
+- l'anglais renvoyé est celui qui est **stocké**, sans le repli créneau par
+  créneau servi partout ailleurs : cet écran doit montrer les TROUS, c'est ce
+  qu'on y cherche ;
+- le corps **remplace** la branche anglaise en entier (même contrat que
+  `PATCH /menus/{week_start}`) — un créneau laissé vide perd sa traduction et
+  son marquage, donc repasse à la machine ;
+- **aucune garde « semaine passée »**, contrairement à toutes les autres
+  écritures du module. La règle « on ne réécrit jamais l'historique » protège
+  ce qui a été SERVI ; une traduction ne dit rien de plus sur le repas. L'interdire
+  rendrait incorrigible une erreur repérée le vendredi.
+
+**Reprise planifiée** (`blog/tasks.py`, `menus/tasks.py`, beat horaire) : la
+traduction étant best-effort, un incident passager laissait derrière lui du
+contenu que plus personne ne reprenait — le bouton « Retraduire » suppose que
+quelqu'un revienne voir l'article. Les deux tâches balaient ce qui est resté
+en arrière.
+- **Blog** : articles `published` + actifs en `pending`/`failed`, les plus
+  anciens d'abord (avec une limite par passage, servir les plus récents ferait
+  attendre indéfiniment un article coincé derrière un flux de publications).
+  Les **brouillons sont exclus** : invisibles du public, souvent jamais publiés.
+- **Menus** : pas de statut à interroger, l'état se lit dans le JSONB
+  (`needs_translation()` : un créneau français sans anglais, hors créneaux
+  relus à la main). Fenêtre limitée à la **semaine en cours et aux suivantes**,
+  les seules qu'un parent puisse lire.
+- Les deux ne font **rien** si `TRANSLATION_ENABLED` est faux — sans ce garde,
+  chaque passage poserait `failed` sur des articles parfaitement sains.
+- ⚠️ Compromis assumé : **aucune limite de tentatives**. Un article qui
+  échouerait à chaque passage serait réessayé indéfiniment. Plafonner
+  rouvrirait le trou qu'on vient de combler (un contenu abandonné en silence) ;
+  le coût reste borné par `limit` × la fréquence du beat.
 
 **Blog public** : `GET /public/blog/{code}/articles?locale=en`. Le `?locale=`
 fait foi — une réponse publique indexable doit dépendre de l'URL seule — avec
@@ -2770,7 +2831,9 @@ tests/
     ├── test_i18n.py                     # catalogues symétriques, précédence users.locale,
     │                                    #   vocabulaire traduit, libellé de période, exports bilingues
     ├── test_translation.py              # blog/menus traduits, correction `manual` jamais écrasée,
-    │                                    #   repli sur échec, mémoire de traduction (faux traducteur)
+    │                                    #   repli sur échec, mémoire de traduction (faux traducteur),
+    │                                    #   correction de menu propagée à la semaine suivante,
+    │                                    #   reprise planifiée (tâches Celery appelées directement)
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
@@ -2798,6 +2861,22 @@ Jamais de date codée en dur pour une comparaison au « aujourd'hui » serveur
 calculée par rapport à `date.today()` au moment de l'exécution (cf.
 `test_menus.py`). Un test committé doit rester valide indéfiniment, contrairement
 à un script manuel ponctuel où une date figée pour la session suffisait.
+
+---
+
+## ⚠️ Tâches Celery : jamais le moteur global
+
+Une tâche Celery s'exécute par `asyncio.run(...)`, qui ouvre une boucle neuve
+puis la ferme **à chaque passage**. Or une connexion asyncpg appartient à la
+boucle qui l'a créée : réutiliser `AsyncSessionLocal` reviendrait, au deuxième
+passage du beat, à piocher dans le pool une connexion rattachée à une boucle
+fermée. Le premier passage marcherait, les suivants non — le pire profil de
+panne qui soit, invisible en test comme au premier lancement.
+
+Toute tâche passe donc par **`task_sessions()`** (`app/core/database.py`) :
+moteur jetable, `NullPool`, refermé en sortie. Même raisonnement que le moteur
+jetable de `tests/conftest.py`. Les trois tâches (`library`, `blog`, `menus`)
+l'utilisent.
 
 ---
 

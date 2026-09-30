@@ -27,7 +27,8 @@
     "created": "Menu créé.",
     "saved": "Menu enregistré.",
     "deleted": "Menu supprimé.",
-    "pastReadOnly": "Semaine passée — lecture seule."
+    "pastReadOnly": "Semaine passée — lecture seule.",
+    "mealColumn": "Repas"
   },
   "history": {
     "department": "Département",
@@ -40,6 +41,16 @@
     "count": "{count, plural, one {# semaine enregistrée} other {# semaines enregistrées}}"
   },
   "parent": {
-    "empty": "Aucun menu publié pour cette semaine."
+    "empty": "Aucun menu publié pour cette semaine.",
+    "weekRange": "Semaine du {from} — au {to}",
+    "nextWeek": "Semaine suivante"
+  },
+  "translation": {
+    "review": "Relire la traduction",
+    "title": "Traduction anglaise de la semaine",
+    "hint": "Le français à gauche, l'anglais servi aux familles anglophones à droite. Un champ vide n'est pas encore traduit. Une correction enregistrée ici s'applique aussi aux prochaines semaines où le plat reviendra.",
+    "placeholder": "Pas encore traduit",
+    "corrected": "Relu",
+    "saved": "Traduction enregistrée."
   }
 }

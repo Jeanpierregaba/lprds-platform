@@ -17,7 +17,7 @@ plats et du texte d'actualités publiques).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -47,6 +47,20 @@ class TranslationMemory(Base):
     # rejouer la mémoire si le prompt de traduction change un jour.
     source_text: Mapped[str] = mapped_column(Text, nullable=False)
     target_text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Entrée posée par un HUMAIN (correction d'un menu), pas par le modèle.
+    #
+    # Deux usages, tous deux nécessaires :
+    # - la machine n'écrase jamais une entrée existante (`ON CONFLICT DO
+    #   NOTHING`), mais une correction, elle, doit écraser ce que la machine
+    #   avait mis — c'est `remember_correction` qui s'en charge ;
+    # - le « rejeu de la mémoire » évoqué plus haut (changement de prompt)
+    #   doit pouvoir régénérer les entrées automatiques SANS toucher aux
+    #   corrections. Sans ce drapeau, un rejeu effacerait silencieusement tout
+    #   le travail de relecture humain.
+    is_correction: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false", default=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -66,6 +66,25 @@ export interface VisibleDepartmentsResponse {
 
 export type MenuWritePayload = WeekContent
 
+/**
+ * Relecture de la traduction : les deux langues côte à côte.
+ *
+ * `english` est la version STOCKÉE, sans repli sur le français — cet écran est
+ * le seul qui doive montrer les trous, c'est précisément ce qu'on y cherche.
+ */
+export interface MenuTranslation {
+  week_start:      string
+  week_end:        string
+  department_id:   string
+  department_name: string | null
+  french:  WeekContent
+  english: WeekContent
+  /** Créneaux relus à la main, en « jour.créneau » (ex. « monday.dejeuner »). */
+  manual_slots: string[]
+}
+
+export type MenuTranslationPayload = WeekContent
+
 export interface MenuCreatePayload extends WeekContent {
   week_start: string
   department_id: string

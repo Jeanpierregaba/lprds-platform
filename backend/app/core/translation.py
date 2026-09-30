@@ -148,6 +148,48 @@ async def _remember(
     )
 
 
+async def remember_correction(
+    db: AsyncSession,
+    source_text: str,
+    target_text: str,
+    target: Locale = Locale.EN,
+) -> None:
+    """Grave une traduction corrigée à la main — elle écrase la machine.
+
+    C'est le pendant indispensable de la mémoire : sans lui, corriger
+    « riz au gras » sur le menu de cette semaine ne servirait à rien, puisque
+    la semaine suivante relirait la même mauvaise entrée en mémoire et
+    réafficherait la même erreur. Une correction ne vaut que si elle vaut pour
+    la suite.
+
+    Conséquence assumée : la mémoire étant GLOBALE (cf.
+    `translation_models.py`), une correction posée par un établissement
+    s'applique à tous. C'est cohérent avec le choix d'origine — « riz au gras »
+    se traduit pareil partout — et une relecture humaine vaut toujours mieux
+    qu'une sortie de modèle.
+
+    `DO UPDATE` ici, alors que `_remember` fait `DO NOTHING` : la machine ne
+    doit jamais réécrire une entrée, l'humain doit toujours pouvoir le faire.
+    """
+    if not source_text.strip() or not target_text.strip():
+        return
+    await db.execute(
+        pg_insert(TranslationMemory)
+        .values(
+            source_hash=_fingerprint(source_text),
+            source_locale=str(DEFAULT_LOCALE),
+            target_locale=str(target),
+            source_text=source_text,
+            target_text=target_text,
+            is_correction=True,
+        )
+        .on_conflict_do_update(
+            index_elements=["source_hash", "source_locale", "target_locale"],
+            set_={"target_text": target_text, "is_correction": True},
+        )
+    )
+
+
 def _call_model(items: list[str]) -> list[str]:
     """Appel bloquant au SDK Anthropic — toujours via `asyncio.to_thread`.
 

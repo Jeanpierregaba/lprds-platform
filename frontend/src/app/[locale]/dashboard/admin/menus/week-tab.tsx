@@ -21,6 +21,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { MenuTranslationDialog } from '@/components/menus/menu-translation-dialog'
 import { menusApi } from '@/lib/api/menus.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
@@ -178,7 +179,7 @@ export function WeekTab({
             <ChevronLeft className="size-4" />
           </Button>
           <Button variant="outline" className="h-10" onClick={() => onWeekStartChange(currentMonday)}>
-            Aujourd&apos;hui
+            {t('week.today')}
           </Button>
           <Button variant="outline" size="icon-sm" className="h-10 w-10" onClick={() => onWeekStartChange(toIsoDate(addDays(parseIsoDate(weekStart), 7)))} aria-label={t('week.nextWeek')}>
             <ChevronRight className="size-4" />
@@ -213,14 +214,14 @@ export function WeekTab({
                 <Table className="border-collapse">
                   <TableHeader className="bg-primary [&_tr]:border-transparent">
                     <TableRow className="bg-primary hover:bg-primary">
-                      <TableHead className="w-40 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">Repas</TableHead>
+                      <TableHead className="w-40 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-primary-foreground">{t('week.mealColumn')}</TableHead>
                       {WEEKDAYS.map((day) => {
                         const isToday = dayDates[day] === today
                         return (
                           <TableHead key={day} className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wide text-primary-foreground">
                             <div>{weekdaysLabel(day)}</div>
                             <div className="text-xs font-normal normal-case text-primary-foreground/70">{formatShortDate(dayDates[day])}</div>
-                            {isToday && <Badge className="mt-1 border-transparent bg-navy text-white">Aujourd&apos;hui</Badge>}
+                            {isToday && <Badge className="mt-1 border-transparent bg-navy text-white">{t('week.today')}</Badge>}
                           </TableHead>
                         )
                       })}
@@ -292,6 +293,15 @@ export function WeekTab({
           )}
         </CardContent>
       </Card>
+
+      {canWrite && menu && !isLoading && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hors du bloc ci-dessous, qui exige `isEditable` : relire une
+              traduction ne réécrit pas ce qui a été servi, c'est donc la seule
+              action encore ouverte sur une semaine passée (cf. backend). */}
+          <MenuTranslationDialog weekStart={weekStart} departmentId={departmentId} />
+        </div>
+      )}
 
       {isEditable && canWrite && !showEmptyPastState && !isLoading && (
         <div className="flex flex-wrap items-center gap-2">

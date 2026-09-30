@@ -3,7 +3,11 @@ import uuid
 from datetime import date, timedelta
 
 from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
-from app.core.translation import TranslationUnavailable, translate_texts
+from app.core.translation import (
+    TranslationUnavailable,
+    remember_correction,
+    translate_texts,
+)
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -20,8 +24,11 @@ from app.modules.menus.schemas import (
     MenuListItem,
     MenuListResponse,
     MenuResponse,
+    MenuTranslationRequest,
+    MenuTranslationResponse,
     MenuWriteRequest,
     UserBrief,
+    WeekMenuDays,
     VisibleDepartmentsResponse,
 )
 from app.modules.organization.models import Department, Group, Section
@@ -33,6 +40,14 @@ logger = logging.getLogger(__name__)
 
 _DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
 _SLOTS = ["collation", "dejeuner", "dessert", "gouter"]
+
+# Branche du JSONB listant les créneaux dont l'anglais a été corrigé à la
+# main : {jour: {créneau: true}}. Volontairement un MARQUAGE PAR CRÉNEAU et
+# non un statut par semaine (contrairement au blog, où l'unité éditoriale
+# est l'article entier) : un menu se remplit jour après jour, et geler les
+# 20 créneaux parce qu'un seul plat a été relu empêcherait de traduire ceux
+# ajoutés ensuite.
+_MANUAL = "manual"
 
 
 # ── Contenu bilingue ─────────────────────────────────────────────
@@ -64,6 +79,50 @@ def _localized(content: dict, locale: Locale) -> dict:
     return merged
 
 
+def _with_branches(content: dict, english: dict, manual: dict) -> dict:
+    """Recompose le contenu avec ses branches anglaise et « corrigé ».
+
+    Une branche vide est RETIRÉE plutôt que stockée à vide : `_localized` lit
+    `content.get("en")` et traite `{}` comme l'absence, mais une semaine sans
+    aucune traduction doit aussi se relire correctement si la forme change un
+    jour — mieux vaut que l'absence soit littérale.
+    """
+    out = {key: value for key, value in content.items() if key not in {str(Locale.EN), _MANUAL}}
+    if english:
+        out[str(Locale.EN)] = english
+    if manual:
+        out[_MANUAL] = manual
+    return out
+
+
+def _kept_manual(content: dict, previous: dict | None) -> tuple[dict, dict]:
+    """Corrections humaines encore valables : celles dont le français n'a pas bougé.
+
+    Même raisonnement que `_salvage_english`, appliqué au cas humain : si le
+    plat français a été remplacé, la correction portait sur un autre plat et
+    l'afficher serait un contresens. Le créneau repasse alors à la machine.
+    """
+    if not previous:
+        return {}, {}
+    old_fr = previous.get(str(DEFAULT_LOCALE)) or {}
+    old_en = previous.get(str(Locale.EN)) or {}
+    flags = previous.get(_MANUAL) or {}
+    new_fr = content.get(str(DEFAULT_LOCALE)) or {}
+    kept_en: dict = {}
+    kept_flags: dict = {}
+    for day in _DAYS:
+        for slot in _SLOTS:
+            if not (flags.get(day) or {}).get(slot):
+                continue
+            if (old_fr.get(day) or {}).get(slot) != (new_fr.get(day) or {}).get(slot):
+                continue
+            translation = (old_en.get(day) or {}).get(slot)
+            if translation:
+                kept_en.setdefault(day, {})[slot] = translation
+                kept_flags.setdefault(day, {})[slot] = True
+    return kept_en, kept_flags
+
+
 async def _translate_week(
     content: dict, db: AsyncSession, previous: dict | None = None
 ) -> dict:
@@ -73,6 +132,10 @@ async def _translate_week(
     pas un appel par plat : c'est aussi ce qui permet à la mémoire de
     traduction de ne renvoyer au modèle que les plats réellement inédits.
 
+    Les créneaux corrigés à la main dont le français n'a pas changé ne sont
+    NI renvoyés au modèle NI écrasés — c'est la règle « l'humain a le dernier
+    mot », déjà appliquée au blog, portée ici au créneau près.
+
     `previous` est l'ancien contenu complet, sur une modification. En cas
     d'échec, on n'abandonne pas toute la branche anglaise : on garde les
     créneaux dont le texte FRANÇAIS n'a pas changé — leur traduction reste
@@ -80,11 +143,19 @@ async def _translate_week(
     sinon un plat remplacé afficherait la traduction de l'ancien, ce qui est
     pire qu'un repli en français.
     """
+    kept_en, kept_flags = _kept_manual(content, previous)
     source = content.get(str(DEFAULT_LOCALE), {})
     keys = [(day, slot) for day in _DAYS for slot in _SLOTS]
-    values = [(source.get(day) or {}).get(slot) or "" for day, slot in keys]
+    # Un créneau corrigé à la main part vide : inutile de le faire traduire
+    # pour écraser le résultat juste après.
+    values = [
+        "" if (kept_flags.get(day) or {}).get(slot)
+        else (source.get(day) or {}).get(slot) or ""
+        for day, slot in keys
+    ]
     if not any(v.strip() for v in values):
-        return content  # semaine encore vide : rien à traduire
+        # Semaine vide, ou entièrement relue à la main : rien à traduire.
+        return _with_branches(content, kept_en, kept_flags)
 
     try:
         translated = await translate_texts(values, db)
@@ -92,13 +163,18 @@ async def _translate_week(
         # Best-effort comme le blog : la lecture retombera créneau par créneau
         # sur le français, et le prochain enregistrement retentera.
         logger.info("Traduction du menu non aboutie : %s", exc)
-        return {**content, str(Locale.EN): _salvage_english(content, previous)}
+        # Pas besoin de rajouter `kept_en` : un créneau corrigé à la main a par
+        # construction un français inchangé et une traduction existante, donc
+        # `_salvage_english` le conserve déjà.
+        return _with_branches(content, _salvage_english(content, previous), kept_flags)
 
     out: dict = {day: {} for day in _DAYS}
     for (day, slot), value in zip(keys, translated):
         if value and value.strip():
             out[day][slot] = value
-    return {**content, str(Locale.EN): out}
+    for day, slots in kept_en.items():
+        out.setdefault(day, {}).update(slots)
+    return _with_branches(content, out, kept_flags)
 
 
 def _salvage_english(content: dict, previous: dict | None) -> dict:
@@ -117,6 +193,42 @@ def _salvage_english(content: dict, previous: dict | None) -> dict:
             if unchanged and previous_translation:
                 kept.setdefault(day, {})[slot] = previous_translation
     return kept
+
+
+def needs_translation(content: dict) -> bool:
+    """Un créneau au moins est rempli en français sans anglais correspondant.
+
+    Un menu ne porte aucun statut de traduction, à la différence d'un article :
+    l'état se lit directement dans l'arbre JSONB. C'est plus juste qu'un statut
+    pour un contenu qui se complète jour après jour — seuls les créneaux
+    réellement ajoutés depuis apparaissent comme manquants.
+
+    Les créneaux relus à la main sont ignorés : leur anglais appartient à un
+    humain, et son absence est alors un choix, pas un manque.
+    """
+    french = content.get(str(DEFAULT_LOCALE)) or {}
+    english = content.get(str(Locale.EN)) or {}
+    flags = content.get(_MANUAL) or {}
+    for day in _DAYS:
+        for slot in _SLOTS:
+            if (flags.get(day) or {}).get(slot):
+                continue
+            source = (french.get(day) or {}).get(slot)
+            if source and source.strip() and not (english.get(day) or {}).get(slot):
+                return True
+    return False
+
+
+async def retranslate_content(content: dict, db: AsyncSession) -> dict:
+    """Relance la traduction d'un contenu déjà stocké — utilisée par la tâche
+    de reprise (`menus/tasks.py`).
+
+    Le contenu sert à la fois de source et de `previous` : le français n'ayant
+    pas changé, les corrections manuelles et les traductions déjà obtenues
+    sont toutes conservées, et seuls les créneaux sans anglais partent
+    réellement au modèle (les autres sont servis par la mémoire).
+    """
+    return await _translate_week(content, db, previous=content)
 
 
 def _current_monday() -> date:
@@ -291,6 +403,94 @@ async def update_menu(
     return _to_response(menu, department_name=names.get(menu.department_id))
 
 
+# ── Correction manuelle de la version anglaise ───────────────────
+async def get_menu_translation(
+    week_start: date,
+    department_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> MenuTranslationResponse:
+    """Les deux langues côte à côte, pour l'écran de relecture.
+
+    Volontairement PAS `_localized()` : cet écran est le seul du projet qui
+    doit voir la branche anglaise telle qu'elle est stockée, trous compris.
+    Le repli créneau par créneau, utile partout ailleurs, masquerait ici
+    exactement ce que le relecteur cherche — ce qui n'est pas encore traduit.
+    """
+    menu = await _get_menu_or_404(week_start, department_id, establishment_id, db)
+    names = await _department_names(establishment_id, db)
+    french = menu.content.get(str(DEFAULT_LOCALE)) or {}
+    english = menu.content.get(str(Locale.EN)) or {}
+    flags = menu.content.get(_MANUAL) or {}
+    return MenuTranslationResponse(
+        week_start=menu.week_start,
+        week_end=menu.week_start + timedelta(days=4),
+        department_id=menu.department_id,
+        department_name=names.get(menu.department_id),
+        french=_week_days(french),
+        english=_week_days(english),
+        manual_slots=[
+            f"{day}.{slot}"
+            for day in _DAYS
+            for slot in _SLOTS
+            if (flags.get(day) or {}).get(slot)
+        ],
+    )
+
+
+async def set_menu_translation(
+    week_start: date,
+    department_id: uuid.UUID,
+    payload: MenuTranslationRequest,
+    establishment_id: uuid.UUID,
+    editor: User,
+    db: AsyncSession,
+) -> MenuTranslationResponse:
+    """Enregistre la version anglaise relue — et la grave en mémoire.
+
+    ⚠️ Pas de `_ensure_not_past` ici, à la différence de toutes les autres
+    écritures du module. La règle « on ne réécrit jamais l'historique » protège
+    ce qui a été SERVI aux enfants ; une traduction ne dit rien de plus sur le
+    repas, elle ne fait que le donner à lire dans une autre langue. Interdire
+    la correction sur une semaine passée rendrait d'ailleurs incorrigible une
+    erreur repérée le vendredi, ce qui viderait la fonction de son sens.
+
+    Le corps REMPLACE la branche anglaise en entier (même contrat que
+    `update_menu`, pas de fusion partielle) : un créneau laissé vide perd sa
+    traduction et son marquage, et repassera donc à la machine au prochain
+    enregistrement.
+
+    Chaque créneau relu est répercuté dans la mémoire de traduction. C'est le
+    point essentiel : sans lui la correction ne vaudrait que pour cette
+    semaine-ci, et le même plat réapparaîtrait faux la semaine suivante en
+    relisant l'entrée que la machine avait posée.
+    """
+    menu = await _get_menu_or_404(week_start, department_id, establishment_id, db)
+    french = menu.content.get(str(DEFAULT_LOCALE)) or {}
+
+    english: dict = {}
+    flags: dict = {}
+    for day in _DAYS:
+        day_payload = getattr(payload, day)
+        for slot in _SLOTS:
+            value = getattr(day_payload, slot)
+            if not value:
+                continue
+            english.setdefault(day, {})[slot] = value
+            flags.setdefault(day, {})[slot] = True
+            source = (french.get(day) or {}).get(slot)
+            if source:
+                await remember_correction(db, source, value)
+
+    menu.content = _with_branches(menu.content, english, flags)
+    menu.updated_by_id = editor.id
+    await db.flush()
+    await db.refresh(menu)
+    return await get_menu_translation(
+        week_start, department_id, establishment_id, db
+    )
+
+
 async def delete_menu(
     week_start: date,
     department_id: uuid.UUID,
@@ -450,6 +650,22 @@ async def _get_menu_or_404(
             detail=t("errors.menus.no_menu"),
         )
     return menu
+
+
+def _week_days(days: dict) -> WeekMenuDays:
+    """Arbre JSONB brut → schéma typé, en ignorant les clés inconnues.
+
+    Une colonne JSONB n'a pas de schéma imposé par la base : un contenu écrit
+    par une version antérieure (ou à la main en SQL) peut porter des clés que
+    `DayMenu` ne connaît pas, et `DayMenu(**slots)` lèverait alors une 500 sur
+    une simple lecture.
+    """
+    return WeekMenuDays(**{
+        day: DayMenu(**{
+            slot: (days.get(day) or {}).get(slot) or None for slot in _SLOTS
+        })
+        for day in _DAYS
+    })
 
 
 def _user_brief(user: User) -> UserBrief:

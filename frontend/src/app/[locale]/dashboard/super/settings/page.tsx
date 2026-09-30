@@ -18,8 +18,8 @@ export default function SuperadminSettingsPage() {
       className="max-w-2xl space-y-4"
     >
       <div>
-        <h1 className="text-2xl font-bold">Paramètres</h1>
-        <p className="text-muted-foreground">Gérer votre compte et vos préférences.</p>
+        <h1 className="text-2xl font-bold">{t('portals.settings')}</h1>
+        <p className="text-muted-foreground">{t('portals.settingsHint')}</p>
       </div>
 
       <Tabs defaultValue="profil">

@@ -95,7 +95,7 @@ export default function NewEstablishmentPage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Établissement</h3>
+              <h3 className="text-sm font-semibold">{t('establishments.sectionSchool')}</h3>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -133,7 +133,7 @@ export default function NewEstablishmentPage() {
             <Separator />
 
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Premier administrateur</h3>
+              <h3 className="text-sm font-semibold">{t('establishments.sectionFirstAdmin')}</h3>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -173,7 +173,7 @@ export default function NewEstablishmentPage() {
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting
-                ? <><Loader2 className="mr-2 size-4 animate-spin" /> Création...</>
+                ? <><Loader2 className="mr-2 size-4 animate-spin" /> {t('establishments.submitting')}</>
                 : t('establishments.submit')}
             </Button>
           </form>

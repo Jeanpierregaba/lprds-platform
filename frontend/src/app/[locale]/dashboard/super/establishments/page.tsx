@@ -57,8 +57,8 @@ export default function EstablishmentsListPage() {
     >
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Établissements</h1>
-          <p className="text-muted-foreground">Gérer les crèches, garderies et écoles maternelles.</p>
+          <h1 className="text-2xl font-bold">{t('establishments.title')}</h1>
+          <p className="text-muted-foreground">{t('establishments.description')}</p>
         </div>
         <Button render={<Link href="/dashboard/super/establishments/new" />}>
           <Plus className="mr-1.5 size-4" />
@@ -78,7 +78,7 @@ export default function EstablishmentsListPage() {
         </div>
         <div className="flex items-center gap-2">
           <Switch id="include-inactive" checked={includeInactive} onCheckedChange={setIncludeInactive} />
-          <Label htmlFor="include-inactive" className="text-sm">Inclure les établissements inactifs</Label>
+          <Label htmlFor="include-inactive" className="text-sm">{t('establishments.includeInactive')}</Label>
         </div>
       </div>
 

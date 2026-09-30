@@ -508,6 +508,7 @@
     "cta": "Book a visit"
   },
   "newsArticle": {
-    "fallbackNotice": "This article is not available in English yet — it is shown in French."
+    "fallbackNotice": "This article is not available in English yet — it is shown in French.",
+    "related": "Read next"
   }
 }

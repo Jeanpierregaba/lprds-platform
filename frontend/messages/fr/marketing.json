@@ -508,6 +508,7 @@
     "cta": "Réserver une visite"
   },
   "newsArticle": {
-    "fallbackNotice": "Cet article n'est pas encore disponible en anglais — il est affiché en français."
+    "fallbackNotice": "Cet article n'est pas encore disponible en anglais — il est affiché en français.",
+    "related": "À lire aussi"
   }
 }

@@ -76,7 +76,13 @@
       "phone": "Phone required",
       "firstName": "First name required",
       "passwordMin": "8 characters minimum"
-    }
+    },
+    "title": "Schools",
+    "description": "Manage nurseries, day-care centres and preschools.",
+    "includeInactive": "Include inactive schools",
+    "notFound": "School not found.",
+    "sectionSchool": "School",
+    "sectionFirstAdmin": "First administrator"
   },
   "portals": {
     "settings": "Settings",

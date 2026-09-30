@@ -142,7 +142,7 @@ export default function EstablishmentDetailPage() {
   }
 
   if (!establishment) {
-    return <p className="text-muted-foreground">Établissement introuvable.</p>
+    return <p className="text-muted-foreground">{t('establishments.notFound')}</p>
   }
 
   const admins = establishment.admins

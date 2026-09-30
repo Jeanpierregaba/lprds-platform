@@ -98,7 +98,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
       {related.length > 0 && (
         <section className="bg-muted/40 px-6 py-16 lg:px-8">
           <div className="mx-auto max-w-2xl">
-            <h2 className="font-display text-xl text-primary">À lire aussi</h2>
+            <h2 className="font-display text-xl text-primary">{t('related')}</h2>
             <div className="mt-6 space-y-4">
               {related.map((post) => (
                 <Link

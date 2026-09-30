@@ -76,7 +76,13 @@
       "phone": "Téléphone requis",
       "firstName": "Prénom requis",
       "passwordMin": "8 caractères minimum"
-    }
+    },
+    "title": "Établissements",
+    "description": "Gérer les crèches, garderies et écoles maternelles.",
+    "includeInactive": "Inclure les établissements inactifs",
+    "notFound": "Établissement introuvable.",
+    "sectionSchool": "Établissement",
+    "sectionFirstAdmin": "Premier administrateur"
   },
   "portals": {
     "settings": "Paramètres",

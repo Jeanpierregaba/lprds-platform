@@ -22,7 +22,8 @@
     "deactivate": "Deactivate",
     "retry": "Try again",
     "seeMore": "See more",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "backToList": "Back to list"
   },
   "states": {
     "loading": "Loading…",
@@ -48,7 +49,9 @@
     "date": "Date",
     "time": "Time",
     "status": "Status",
-    "notes": "Notes"
+    "notes": "Notes",
+    "fullName": "Full name",
+    "role": "Role"
   },
   "pagination": {
     "showing": "{from}–{to} of {total}",
@@ -74,5 +77,27 @@
   "newVersion": "A new version is available ({reason}) — refreshing…",
   "reasonVersion": "update detected",
   "reasonWorker": "service worker renewed",
-  "appDescription": "Nursery and preschool management"
+  "appDescription": "Nursery and preschool management",
+  "profile": {
+    "infoTitle": "Details"
+  },
+  "card": {
+    "title": "School card",
+    "generating": "Generating…",
+    "alt": "{name}’s card"
+  },
+  "pwa": {
+    "install": "Install the app",
+    "dismiss": "Hide the install button",
+    "hide": "Hide",
+    "iosIntro": "On iPhone/iPad, installation is done from Safari:",
+    "macIntro": "On Mac, installation is done from Safari:",
+    "iosStep1": "Open this page in <b>Safari</b>.",
+    "iosStep2": "Tap the <b>Share</b> button (square with an arrow pointing up).",
+    "iosStep3": "Choose <b>“Add to Home Screen”</b>, then <b>Add</b>.",
+    "macStep1": "Open this page in <b>Safari</b>.",
+    "macStep2": "<b>File → Add to Dock</b> menu (or Share → Add to Dock).",
+    "macStep3": "The app then appears in your Dock like any other app.",
+    "offline": "You are offline — cached content is still available."
+  }
 }

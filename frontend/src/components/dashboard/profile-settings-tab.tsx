@@ -37,6 +37,7 @@ type Form = z.infer<ReturnType<typeof makeschema>>
 
 export function ProfileSettingsTab() {
   const t = useTranslations('admin')
+  const tc = useTranslations('common')
   const rolesLabel = useLabel('roles')
   const user = useUser()
 
@@ -59,19 +60,19 @@ export function ProfileSettingsTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Informations</CardTitle>
+          <CardTitle className="text-base">{tc('profile.infoTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Nom complet</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.fullName')}</Label>
             <p className="text-sm font-medium">{user.first_name} {user.last_name}</p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Email</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.email')}</Label>
             <p className="break-all text-sm font-medium">{user.email}</p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Rôle</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.role')}</Label>
             <div>
               <Badge variant="default">
                 <ShieldCheck className="mr-1 size-3" />
@@ -80,7 +81,7 @@ export function ProfileSettingsTab() {
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Téléphone</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.phone')}</Label>
             <p className="text-sm font-medium">{user.phone ?? '—'}</p>
           </div>
         </CardContent>

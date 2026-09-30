@@ -17,6 +17,7 @@ import { useRouter } from '@/i18n/navigation'
 
 export function MobileNav() {
   const t = useTranslations('common')
+  const tNav = useTranslations('nav')
   const user = useUser()
   const router = useRouter()
   const items = useNavItems()
@@ -46,7 +47,7 @@ export function MobileNav() {
             variant="ghost"
             size="icon"
             className="md:hidden"
-            aria-label="Ouvrir la navigation"
+            aria-label={tNav('openNavigation')}
           />
         }
       >

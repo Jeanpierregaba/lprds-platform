@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -60,10 +61,11 @@ export function BackLink({ href, label, bold = true }: { href: string; label: st
 
 /** Garde « Droits insuffisants » des pages `new` (M15). */
 export function RightsGuard({ message, backHref }: { message: string; backHref: string }) {
+  const t = useTranslations('common')
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <p className="text-sm text-muted-foreground">{message}</p>
-      <Link href={backHref} className="text-sm text-primary hover:underline">Retour à la liste</Link>
+      <Link href={backHref} className="text-sm text-primary hover:underline">{t('actions.backToList')}</Link>
     </div>
   )
 }

@@ -47,6 +47,9 @@ const UPDATED_FLAG = 'lprds-sw-updated'
 // toujours l'installation via son menu). Effacé si l'app est installée.
 const INSTALL_DISMISSED_FLAG = 'lprds-install-dismissed'
 
+// Rendu de la balise `<b>` des libellés d'installation (next-intl `t.rich`).
+const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>
+
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const t = useTranslations('common')
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
@@ -232,13 +235,13 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
             ) : (
               <Download className="size-4" aria-hidden="true" />
             )}
-            Installer l&rsquo;application
+            {t('pwa.install')}
           </button>
           <button
             type="button"
             onClick={dismissInstall}
-            aria-label="Masquer le bouton d'installation"
-            title="Masquer"
+            aria-label={t('pwa.dismiss')}
+            title={t('pwa.hide')}
             className={cn(
               'absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full',
               'bg-card text-muted-foreground shadow-soft ring-1 ring-border',
@@ -253,24 +256,22 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Installer l&rsquo;application</DialogTitle>
+            <DialogTitle>{t('pwa.install')}</DialogTitle>
             <DialogDescription>
-              {installFallback === 'ios'
-                ? 'Sur iPhone/iPad, l\u2019installation se fait depuis Safari :'
-                : 'Sur Mac, l\u2019installation se fait depuis Safari :'}
+              {t(installFallback === 'ios' ? 'pwa.iosIntro' : 'pwa.macIntro')}
             </DialogDescription>
           </DialogHeader>
           {installFallback === 'ios' ? (
             <ol className="list-decimal space-y-2 pl-5 text-sm">
-              <li>Ouvrez cette page dans <strong>Safari</strong>.</li>
-              <li>Touchez le bouton <strong>Partager</strong> (carré avec une flèche vers le haut).</li>
-              <li>Choisissez <strong>« Sur l&rsquo;écran d&rsquo;accueil »</strong> puis <strong>Ajouter</strong>.</li>
+              <li>{t.rich('pwa.iosStep1', { b: strong })}</li>
+              <li>{t.rich('pwa.iosStep2', { b: strong })}</li>
+              <li>{t.rich('pwa.iosStep3', { b: strong })}</li>
             </ol>
           ) : (
             <ol className="list-decimal space-y-2 pl-5 text-sm">
-              <li>Ouvrez cette page dans <strong>Safari</strong>.</li>
-              <li>Menu <strong>Fichier → Ajouter au Dock</strong> (ou Partager → Ajouter au Dock).</li>
-              <li>L&rsquo;application apparaît dans votre Dock comme une app.</li>
+              <li>{t.rich('pwa.macStep1', { b: strong })}</li>
+              <li>{t.rich('pwa.macStep2', { b: strong })}</li>
+              <li>{t.rich('pwa.macStep3', { b: strong })}</li>
             </ol>
           )}
         </DialogContent>
@@ -285,7 +286,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
           )}
         >
           <WifiOff className="size-4" aria-hidden="true" />
-          Vous êtes hors ligne — les contenus mis en cache restent disponibles.
+          {t('pwa.offline')}
         </div>
       )}
     </div>

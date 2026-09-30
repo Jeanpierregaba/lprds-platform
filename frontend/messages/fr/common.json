@@ -22,7 +22,8 @@
     "deactivate": "Désactiver",
     "retry": "Réessayer",
     "seeMore": "Voir plus",
-    "seeAll": "Tout voir"
+    "seeAll": "Tout voir",
+    "backToList": "Retour à la liste"
   },
   "states": {
     "loading": "Chargement…",
@@ -48,7 +49,9 @@
     "date": "Date",
     "time": "Heure",
     "status": "Statut",
-    "notes": "Notes"
+    "notes": "Notes",
+    "fullName": "Nom complet",
+    "role": "Rôle"
   },
   "pagination": {
     "showing": "{from}–{to} sur {total}",
@@ -74,5 +77,27 @@
   "newVersion": "Nouvelle version disponible ({reason}) — actualisation…",
   "reasonVersion": "mise à jour détectée",
   "reasonWorker": "service worker renouvelé",
-  "appDescription": "Gestion de crèche et école maternelle"
+  "appDescription": "Gestion de crèche et école maternelle",
+  "profile": {
+    "infoTitle": "Informations"
+  },
+  "card": {
+    "title": "Carte scolaire",
+    "generating": "Génération en cours…",
+    "alt": "Carte de {name}"
+  },
+  "pwa": {
+    "install": "Installer l’application",
+    "dismiss": "Masquer le bouton d’installation",
+    "hide": "Masquer",
+    "iosIntro": "Sur iPhone/iPad, l’installation se fait depuis Safari :",
+    "macIntro": "Sur Mac, l’installation se fait depuis Safari :",
+    "iosStep1": "Ouvrez cette page dans <b>Safari</b>.",
+    "iosStep2": "Touchez le bouton <b>Partager</b> (carré avec une flèche vers le haut).",
+    "iosStep3": "Choisissez <b>« Sur l’écran d’accueil »</b> puis <b>Ajouter</b>.",
+    "macStep1": "Ouvrez cette page dans <b>Safari</b>.",
+    "macStep2": "Menu <b>Fichier → Ajouter au Dock</b> (ou Partager → Ajouter au Dock).",
+    "macStep3": "L’application apparaît dans votre Dock comme une app.",
+    "offline": "Vous êtes hors ligne — les contenus mis en cache restent disponibles."
+  }
 }

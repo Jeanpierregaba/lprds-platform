@@ -41,8 +41,11 @@ import { ContentView } from '../content-view'
 import { useRouter } from '@/i18n/navigation'
 import { useReportVocabulary } from '@/lib/hooks/use-report-vocabulary'
 
-const rejectSchema = z.object({ reason: z.string().min(1, 'Motif requis') })
-type RejectForm = z.infer<typeof rejectSchema>
+/** Signature minimale d'un traducteur next-intl. */
+type T = (key: string) => string
+
+const makeRejectSchema = (t: T) => z.object({ reason: z.string().min(1, t('validation.reasonRequired')) })
+type RejectForm = z.infer<ReturnType<typeof makeRejectSchema>>
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
@@ -141,7 +144,7 @@ export default function ReportDetailPage() {
   })
 
   const { register: registerReject, handleSubmit: handleRejectSubmit, reset: resetReject, formState: { errors: rejectErrors, isSubmitting: isRejecting } } =
-    useForm<RejectForm>({ resolver: zodResolver(rejectSchema) })
+    useForm<RejectForm>({ resolver: zodResolver(makeRejectSchema(t)) })
 
   const rejectMutation = useMutation({
     mutationFn: (reason: string) => reportsApi.reject(id, reason),

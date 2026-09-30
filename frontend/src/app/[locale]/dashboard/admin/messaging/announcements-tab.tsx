@@ -33,11 +33,14 @@ import { CardsEmptyState } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Announcement } from '@/types/messaging'
 
-const schema = z.object({
-  title: z.string().min(1, 'Titre requis').max(200),
-  body: z.string().min(1, 'Contenu requis'),
+/** Signature minimale d'un traducteur next-intl. */
+type T = (key: string) => string
+
+const makeSchema = (t: T) => z.object({
+  title: z.string().min(1, t('validation.titleRequired')).max(200),
+  body: z.string().min(1, t('validation.bodyRequired')),
 })
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeSchema>>
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
@@ -90,7 +93,7 @@ export function AnnouncementsTab() {
   })
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(t)),
   })
 
   const openCreate = () => {

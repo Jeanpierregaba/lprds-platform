@@ -70,13 +70,16 @@ export function SettingsTab() {
   )
 }
 
-const generalSchema = z.object({
-  timezone: z.string().min(1, 'Fuseau horaire requis').max(50),
-  staff_expected_arrival_time: z.string().min(1, 'Heure requise'),
-  staff_expected_departure_time: z.string().min(1, 'Heure requise'),
-  late_grace_minutes: z.number().int().min(0, '0 minimum').max(120, '120 maximum'),
+/** Signature minimale d'un traducteur next-intl. */
+type T = (key: string) => string
+
+const makeGeneralSchema = (t: T) => z.object({
+  timezone: z.string().min(1, t('validation.timezoneRequired')).max(50),
+  staff_expected_arrival_time: z.string().min(1, t('validation.timeRequired')),
+  staff_expected_departure_time: z.string().min(1, t('validation.timeRequired')),
+  late_grace_minutes: z.number().int().min(0, t('validation.graceMin')).max(120, t('validation.graceMax')),
 })
-type GeneralForm = z.infer<typeof generalSchema>
+type GeneralForm = z.infer<ReturnType<typeof makeGeneralSchema>>
 
 function GeneralSettings() {
   const t = useTranslations('attendance')
@@ -91,7 +94,7 @@ function GeneralSettings() {
   })
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<GeneralForm>({
-    resolver: zodResolver(generalSchema),
+    resolver: zodResolver(makeGeneralSchema(t)),
     defaultValues: { timezone: 'UTC', staff_expected_arrival_time: '', staff_expected_departure_time: '', late_grace_minutes: 0 },
     values: settings
       ? {
@@ -189,11 +192,11 @@ function GeneralSettings() {
   )
 }
 
-const departmentSchema = z.object({
-  expected_arrival_time: z.string().min(1, 'Heure requise'),
-  expected_departure_time: z.string().min(1, 'Heure requise'),
+const makeDepartmentSchema = (t: T) => z.object({
+  expected_arrival_time: z.string().min(1, t('validation.timeRequired')),
+  expected_departure_time: z.string().min(1, t('validation.timeRequired')),
 })
-type DepartmentForm = z.infer<typeof departmentSchema>
+type DepartmentForm = z.infer<ReturnType<typeof makeDepartmentSchema>>
 
 function DepartmentSettings() {
   const t = useTranslations('attendance')
@@ -223,7 +226,7 @@ function DepartmentSettings() {
   const isLoadingSettings = settingsQueries.some((q) => q.isLoading)
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<DepartmentForm>({
-    resolver: zodResolver(departmentSchema),
+    resolver: zodResolver(makeDepartmentSchema(t)),
   })
 
   const openEdit = (dept: Department) => {
@@ -341,11 +344,11 @@ function DepartmentSettings() {
   )
 }
 
-const scheduleSchema = z.object({
-  expected_arrival_time: z.string().min(1, 'Heure requise'),
-  expected_departure_time: z.string().min(1, 'Heure requise'),
+const makeScheduleSchema = (t: T) => z.object({
+  expected_arrival_time: z.string().min(1, t('validation.timeRequired')),
+  expected_departure_time: z.string().min(1, t('validation.timeRequired')),
 })
-type ScheduleForm = z.infer<typeof scheduleSchema>
+type ScheduleForm = z.infer<ReturnType<typeof makeScheduleSchema>>
 
 function StaffSchedulesSettings() {
   const t = useTranslations('attendance')
@@ -382,7 +385,7 @@ function StaffSchedulesSettings() {
   )
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ScheduleForm>({
-    resolver: zodResolver(scheduleSchema),
+    resolver: zodResolver(makeScheduleSchema(t)),
   })
 
   const saveMutation = useMutation({

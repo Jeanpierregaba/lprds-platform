@@ -2343,28 +2343,41 @@ pnpm dev
 
 # Vérifications avant commit
 pnpm type-check
-pnpm lint      # eslint + check-messages + check-hardcoded-text --strict
+pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
 pnpm build
 
 # Ajouter un composant shadcn
 pnpm dlx shadcn@latest add <composant>
 ```
 
-#### Les deux gardes i18n de `pnpm lint`
+#### Les trois gardes i18n de `pnpm lint`
 
-Aucun des deux ne suffit seul : ils vérifient des sens opposés, et une chaîne
-non traduite ne casse jamais rien à l'exécution.
+Aucune ne suffit seule : elles couvrent trois angles disjoints, et une chaîne
+non traduite ne casse jamais rien — ni au type-check, ni à l'exécution.
 
 | Script | Vérifie | Sans lui |
 |---|---|---|
 | `scripts/check-messages.mjs` | Toute clé `t('…')` appelée existe au catalogue français | `next-intl` affiche le chemin de la clé tel quel à l'écran |
 | `scripts/check-hardcoded-text.mjs --strict` | Aucun texte français n'est écrit en dur dans le JSX | La chaîne s'affiche en français au milieu de l'interface anglaise |
+| `scripts/check-zod-messages.mjs --strict` | Aucun message de validation Zod n'est écrit en dur | Le message s'affiche en français sous le champ fautif, au premier formulaire mal rempli |
 
-Le second repère le texte d'élément et les attributs visibles (`placeholder`,
-`title`, `alt`, `aria-label`) contenant des accents ou des mots-outils
-français. Un nom propre signalé à tort s'ajoute à l'`ALLOWLIST` en tête du
-script — il ne se traduit pas. Lancé sans `--strict`, il liste les occurrences
-sans échouer.
+Le deuxième repère le texte d'élément et les attributs visibles
+(`placeholder`, `title`, `alt`, `aria-label`) ; le troisième cible les
+**positions où Zod attend un message** (`.min()`, `.regex()`, `.refine()`,
+`message:`, `required_error:`…) — un message vit dans un argument de fonction,
+jamais dans le JSX, donc le deuxième ne peut structurellement pas le voir.
+Cibler la position plutôt que le fichier évite de confondre un message avec une
+valeur d'énumération ou un nom de champ.
+
+Les deux partagent la même heuristique (accents + mots-outils français) et la
+même `ALLOWLIST` en tête de script, où s'ajoute tout nom propre signalé à tort
+— il ne se traduit pas. Lancés sans `--strict`, ils listent sans échouer.
+
+⚠️ **Un schéma Zod constant au niveau module ne peut pas appeler `t`** (le hook
+n'existe qu'à l'intérieur du composant). Le patron du projet est une fabrique :
+`const makeSchema = (t: T) => z.object({…})`, `type Form =
+z.infer<ReturnType<typeof makeSchema>>`, puis
+`zodResolver(makeSchema(t))` au point d'appel.
 
 La parité fr/en, elle, est tenue par le type : `messages/en/index.ts` porte un
 `satisfies Messages` dérivé du français, donc une clé ajoutée d'un seul côté

@@ -7,12 +7,13 @@
     "prebuild": "node scripts/stamp-version.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict",
+    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict && node scripts/check-zod-messages.mjs --strict",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "check-messages": "node scripts/check-messages.mjs",
-    "check-hardcoded-text": "node scripts/check-hardcoded-text.mjs"
+    "check-hardcoded-text": "node scripts/check-hardcoded-text.mjs",
+    "check-zod-messages": "node scripts/check-zod-messages.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

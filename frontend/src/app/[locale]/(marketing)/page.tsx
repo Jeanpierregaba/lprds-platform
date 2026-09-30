@@ -15,6 +15,7 @@ import { buildStats, buildSections, BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, sortByPublished, fetchPublicGallery } from '@/lib/api/public-blog.api'
 import heroImg from '../../../../public/images/marketing/hero-img.png'
 import { Link } from '@/i18n/navigation'
+import { asAppLocale } from '@/i18n/routing'
 
 // Icône Lucide par section (aperçu accueil : 3 sections crèche) — voir aussi
 // sectionPinIcon() pour la page Nos Sections (les 7 sections).
@@ -38,7 +39,7 @@ export async function generateMetadata(
 }
 
 export default async function HomePage() {
-  const locale = await getLocale()
+  const locale = asAppLocale(await getLocale())
   const t = await getTranslations('marketing')
   const tHome = await getTranslations('marketing.home')
 
@@ -47,7 +48,7 @@ export default async function HomePage() {
     Icon: SECTION_ICONS[section.id] || Baby,
   }))
   const stats = buildStats(t)
-  const newsPreview = sortByPublished(await fetchPublicBlogPosts()).slice(0, 3)
+  const newsPreview = sortByPublished(await fetchPublicBlogPosts(undefined, locale)).slice(0, 3)
   const galleryPreview = await fetchPublicGallery()
   // Le format de date suit la langue affichée : « 3 mars 2026 » en français,
   // « 3 March 2026 » en anglais.

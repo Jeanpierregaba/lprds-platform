@@ -71,5 +71,11 @@
     "absent": "Absent",
     "not_expected": "Non attendu",
     "exempt": "Exempté"
+  },
+  "translationStatus": {
+    "pending": "À traduire",
+    "auto": "Traduction auto",
+    "manual": "Relue à la main",
+    "failed": "Traduction en échec"
   }
 }

@@ -506,5 +506,8 @@
     "body": "De la première visite au premier jour de votre enfant : un parcours d’inscription simple et accompagné.",
     "step": "Étape {n}",
     "cta": "Réserver une visite"
+  },
+  "newsArticle": {
+    "fallbackNotice": "Cet article n'est pas encore disponible en anglais — il est affiché en français."
   }
 }

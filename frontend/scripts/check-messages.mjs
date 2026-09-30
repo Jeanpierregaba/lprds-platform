@@ -135,6 +135,7 @@ const ENUM_GROUPS = {
   LENDING_STATUSES: 'enums.lendingStatus',
   PERMISSION_CODES: 'rbac.permissions',
   CHILD_IMPORT_STATUSES: 'children.import.status',
+  TRANSLATION_STATUSES: 'enums.translationStatus',
 }
 
 const typesBlob = readdirSync(join(SRC, 'types'))

@@ -506,5 +506,8 @@
     "body": "From the first visit to your child's first day: a simple enrolment process, with us beside you throughout.",
     "step": "Step {n}",
     "cta": "Book a visit"
+  },
+  "newsArticle": {
+    "fallbackNotice": "This article is not available in English yet — it is shown in French."
   }
 }

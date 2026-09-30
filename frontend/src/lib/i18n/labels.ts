@@ -31,6 +31,7 @@ export type EnumGroup =
   | 'gallerySourceBadges'
   | 'lendingStatus'
   | 'attendanceStatus'
+  | 'translationStatus'
 
 /** Traduit une valeur d'énumération. Une valeur inconnue du catalogue est
  *  rendue telle quelle plutôt que de faire échouer l'affichage — le backend

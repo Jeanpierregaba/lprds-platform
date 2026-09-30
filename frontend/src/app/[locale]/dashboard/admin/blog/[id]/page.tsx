@@ -8,7 +8,7 @@ import { useLabel } from '@/lib/i18n/labels'
 import { useParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ImagePlus, Loader2, Send, Trash2, Upload } from 'lucide-react'
+import { ImagePlus, Languages, Loader2, Send, Trash2, Upload } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { blogApi } from '@/lib/api/blog.api'
+import type { TranslationStatus } from '@/types/blog'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink } from '@/components/dashboard/shared/page'
@@ -28,6 +29,19 @@ import { useRouter } from '@/i18n/navigation'
 
 const NO_TAG = '__no_tag__'
 
+/**
+ * Couleur de la pastille par état de traduction — invariante, contrairement
+ * au libellé qui vient des catalogues (même séparation que les statuts de
+ * rapport). `manual` en `default` : c'est l'état le plus « sûr », celui d'une
+ * traduction relue par un humain.
+ */
+const TRANSLATION_BADGE: Record<TranslationStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+  pending: 'outline',
+  auto:    'secondary',
+  manual:  'default',
+  failed:  'destructive',
+}
+
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
@@ -35,6 +49,7 @@ function formatDateTime(iso: string) {
 export default function ArticleDetailPage() {
   const t = useTranslations('blog')
   const articleStatusLabel = useLabel('articleStatus')
+  const translationStatusLabel = useLabel('translationStatus')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -45,6 +60,8 @@ export default function ArticleDetailPage() {
   const [content, setContent] = useState('')
   const [tagId, setTagId] = useState(NO_TAG)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [titleEn, setTitleEn] = useState('')
+  const [contentEn, setContentEn] = useState('')
 
   const { data: article, isLoading } = useQuery({
     queryKey: ['blog', 'article', id],
@@ -61,7 +78,11 @@ export default function ArticleDetailPage() {
     setTitle(article.title)
     setContent(article.content)
     setTagId(article.tag?.id ?? NO_TAG)
-  }, [article?.id])
+    setTitleEn(article.title_en ?? '')
+    setContentEn(article.content_en ?? '')
+    // Dépendance sur le statut EN PLUS de l'id : une retraduction change le
+    // contenu anglais sans changer d'article, et les champs doivent suivre.
+  }, [article?.id, article?.translation_status])
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['blog', 'article', id] })
@@ -83,6 +104,28 @@ export default function ArticleDetailPage() {
   const publishMutation = useMutation({
     mutationFn: () => blogApi.publish(id),
     onSuccess: () => { toast.success(t('form.published')); invalidate() },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const retranslateMutation = useMutation({
+    mutationFn: () => blogApi.retranslate(id),
+    onSuccess: (res) => {
+      // Le statut renvoyé dit si ça a marché : `failed` n'est pas une erreur
+      // HTTP (la traduction est best-effort), donc `onError` ne se déclenche
+      // pas — sans ce test, un échec afficherait « traduction relancée ».
+      if (res.data.translation_status === 'failed') toast.error(t('translation.failedToast'))
+      else toast.success(t('translation.relaunched'))
+      invalidate()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  const saveTranslationMutation = useMutation({
+    mutationFn: () => blogApi.setTranslation(id, {
+      title_en: titleEn.trim(),
+      content_en: contentEn.trim(),
+    }),
+    onSuccess: () => { toast.success(t('translation.saved')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -269,6 +312,86 @@ export default function ArticleDetailPage() {
                   deleteMutation.mutate()
                 }}
               />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-base">{t('translation.title')}</CardTitle>
+              <CardDescription>{t('translation.hint')}</CardDescription>
+            </div>
+            <Badge variant={TRANSLATION_BADGE[article.translation_status]}>
+              {translationStatusLabel(article.translation_status)}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {article.translation_status === 'pending' && (
+            <p className="text-sm text-muted-foreground">{t('translation.pendingHint')}</p>
+          )}
+          {article.translation_status === 'failed' && (
+            <p className="text-sm text-destructive">{t('translation.failedHint')}</p>
+          )}
+          {article.translation_status === 'manual' && (
+            <p className="text-sm text-muted-foreground">{t('translation.manualHint')}</p>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="title-en">{t('form.title')}</Label>
+            <Input
+              id="title-en"
+              value={titleEn}
+              onChange={(e) => setTitleEn(e.target.value)}
+              disabled={!isEditable}
+              placeholder={t('translation.placeholder')}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="content-en">{t('form.content')}</Label>
+            <Textarea
+              id="content-en"
+              rows={10}
+              value={contentEn}
+              onChange={(e) => setContentEn(e.target.value)}
+              disabled={!isEditable}
+              placeholder={t('translation.placeholder')}
+            />
+          </div>
+
+          {isEditable && (
+            <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => saveTranslationMutation.mutate()}
+                disabled={
+                  saveTranslationMutation.isPending || !titleEn.trim() || !contentEn.trim()
+                }
+              >
+                {saveTranslationMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                {t('translation.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => retranslateMutation.mutate()}
+                disabled={retranslateMutation.isPending}
+                title={
+                  article.translation_status === 'manual'
+                    ? t('translation.overwriteWarning')
+                    : undefined
+                }
+              >
+                {retranslateMutation.isPending
+                  ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+                  : <Languages className="mr-1.5 size-4" />}
+                {t('translation.retranslate')}
+              </Button>
             </div>
           )}
         </CardContent>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { getLocale } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { asAppLocale } from '@/i18n/routing'
 import { intlLocaleFor } from '@/lib/utils/locale-format'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
-  const article = await fetchPublicBlogPost(id)
+  const article = await fetchPublicBlogPost(id, asAppLocale(await getLocale()))
   if (!article) return {}
   return {
     title: `${article.title} — ${BRAND.name}`,
@@ -27,17 +28,19 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function NewsArticlePage({ params }: { params: Promise<{ id: string }> }) {
   // Page rendue côté serveur : la locale vient du segment d'URL, pas du
   // cookie — `intlLocale()` y retomberait invariablement sur le français.
+  const locale = asAppLocale(await getLocale())
+  const t = await getTranslations('marketing.newsArticle')
   const dateFormatter = new Intl.DateTimeFormat(
-    intlLocaleFor(await getLocale()),
+    intlLocaleFor(locale),
     { day: 'numeric', month: 'long', year: 'numeric' },
   )
   const { id } = await params
-  const article = await fetchPublicBlogPost(id)
+  const article = await fetchPublicBlogPost(id, locale)
   if (!article) notFound()
 
   let related: PublicBlogPostPreview[] = []
   if (article.tag) {
-    const sameTag = await fetchPublicBlogPosts(article.tag.id)
+    const sameTag = await fetchPublicBlogPosts(article.tag.id, locale)
     related = sameTag.filter((post) => post.id !== article.id).slice(0, 2)
   }
 
@@ -77,6 +80,14 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
               </time>
             )}
             <h1 className="mt-3 font-display text-3xl leading-tight text-primary sm:text-4xl">{article.title}</h1>
+            {/* Honnêteté envers le visiteur : quand la traduction manque, on
+                sert le français — autant le dire plutôt que de le laisser
+                croire à un problème d'affichage. */}
+            {locale !== article.locale && (
+              <p className="mt-4 rounded-md bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
+                {t('fallbackNotice')}
+              </p>
+            )}
             <div className="mt-6 whitespace-pre-line break-words border-t border-border pt-6 text-foreground/85">
               {article.content}
             </div>

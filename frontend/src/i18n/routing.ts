@@ -25,6 +25,18 @@ export const DEFAULT_LOCALE: AppLocale = 'fr'
 export const LOCALE_COOKIE = 'NEXT_LOCALE'
 export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 an
 
+/**
+ * Ramène une valeur libre à une locale connue.
+ *
+ * `getLocale()` de next-intl est typé `string` : sans cette normalisation,
+ * chaque appel côté serveur devrait soit caster, soit dupliquer la garde.
+ * Toute valeur inattendue retombe sur le français, jamais d'exception — une
+ * page vitrine ne doit pas planter sur un segment d'URL bizarre.
+ */
+export function asAppLocale(value: unknown): AppLocale {
+  return isAppLocale(value) ? value : DEFAULT_LOCALE
+}
+
 export function isAppLocale(value: unknown): value is AppLocale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value)
 }

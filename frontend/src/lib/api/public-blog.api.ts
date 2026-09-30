@@ -10,6 +10,7 @@
 
 import type { PublicBlogPostItem, PublicBlogTag, PublicGalleryPhoto } from '@/types/public-blog'
 import type { GalleryPhotoCategory } from '@/types/blog'
+import type { AppLocale } from '@/i18n/routing'
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '')
 const ESTABLISHMENT_CODE = process.env.NEXT_PUBLIC_ESTABLISHMENT_CODE ?? 'LPRDS'
@@ -20,6 +21,8 @@ type RawListItem = {
   tag: PublicBlogTag | null
   cover_url: string | null
   published_at: string | null
+  /** Langue RÉELLEMENT servie — « fr » quand la traduction anglaise manque. */
+  locale: string
 }
 
 type RawDetail = RawListItem & {
@@ -44,6 +47,7 @@ function toPostItem(raw: RawListItem): PublicBlogPostItem {
     tag: raw.tag,
     coverUrl: raw.cover_url,
     publishedAt: raw.published_at,
+    locale: raw.locale,
   }
 }
 
@@ -56,16 +60,26 @@ function buildExcerpt(content: string, max = 170): string {
   return `${cut.slice(0, boundary > 0 ? boundary : max).trim()}…`
 }
 
-/** Liste des articles publiés (avec excerpt calculée à partir du contenu). */
-export async function fetchPublicBlogPosts(tagId?: string) {
-  const query = tagId ? `?tag_id=${tagId}` : ''
+/**
+ * Liste des articles publiés (avec excerpt calculée à partir du contenu).
+ *
+ * `locale` est passée explicitement à l'API plutôt que laissée deviner via
+ * `Accept-Language` : ces pages sont rendues côté serveur et indexées, une
+ * réponse publique doit donc dépendre de l'URL seule. L'API renvoie la langue
+ * réellement servie, qui peut retomber sur le français.
+ */
+export async function fetchPublicBlogPosts(tagId?: string, locale: AppLocale = 'fr') {
+  const params = new URLSearchParams({ locale })
+  if (tagId) params.set('tag_id', tagId)
   const data = await getJson<{ total: number; items: RawListItem[] }>(
-    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/articles${query}`
+    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/articles?${params}`
   )
   if (!data) return []
 
   const items = data.items.map(toPostItem)
-  const details = await Promise.all(items.map((item) => fetchPublicBlogPost(item.id)))
+  const details = await Promise.all(
+    items.map((item) => fetchPublicBlogPost(item.id, locale))
+  )
 
   return items.map((item, index) => ({
     ...item,
@@ -74,9 +88,9 @@ export async function fetchPublicBlogPosts(tagId?: string) {
 }
 
 /** Détail d'un article publié — null si introuvable (status non-2xx). */
-export async function fetchPublicBlogPost(id: string) {
+export async function fetchPublicBlogPost(id: string, locale: AppLocale = 'fr') {
   const data = await getJson<RawDetail>(
-    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/articles/${id}`
+    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/articles/${id}?locale=${locale}`
   )
   if (!data) return null
   return { ...toPostItem(data), content: data.content }

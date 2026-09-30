@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type {
-  Article, ArticleCreatePayload, ArticleListResponse, ArticleStatus, ArticleUpdatePayload,
+  Article, ArticleCreatePayload, ArticleListResponse, ArticleStatus,
+  ArticleTranslationPayload, ArticleUpdatePayload,
   BlogAttachment, BlogTag, BlogTagListResponse, GalleryPhoto, GalleryPhotoCategory,
   GalleryPhotoCategoryListResponse, GalleryPhotoListResponse,
 } from '@/types/blog'
@@ -29,6 +30,14 @@ export const blogApi = {
   remove: (id: string) => apiClient.delete<void>(`/api/v1/blog/articles/${id}`),
 
   publish: (id: string) => apiClient.post<Article>(`/api/v1/blog/articles/${id}/publish`),
+
+  /** Relance la traduction — seul chemin qui écrase une correction manuelle. */
+  retranslate: (id: string) =>
+    apiClient.post<Article>(`/api/v1/blog/articles/${id}/retranslate`),
+
+  /** Corrige la version anglaise — bascule le statut en `manual`. */
+  setTranslation: (id: string, data: ArticleTranslationPayload) =>
+    apiClient.patch<Article>(`/api/v1/blog/articles/${id}/translation`, data),
 
   setCover: (id: string, file: File) => {
     const form = new FormData()

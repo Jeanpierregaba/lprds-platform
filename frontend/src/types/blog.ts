@@ -73,12 +73,29 @@ export interface ArticleListItem {
   updated_at: string
 }
 
+/**
+ * État de la version anglaise d'un article — codes stables du backend.
+ * `manual` est celui qui porte la règle : une traduction corrigée à la main
+ * n'est jamais réécrite par la machine.
+ */
+export const TRANSLATION_STATUSES = ['pending', 'auto', 'manual', 'failed'] as const
+export type TranslationStatus = (typeof TRANSLATION_STATUSES)[number]
+
 export interface Article extends ArticleListItem {
   establishment_id: string
   content: string
   created_by: BlogUserBrief
   updated_by: BlogUserBrief | null
   attachments: BlogAttachment[]
+  title_en: string | null
+  content_en: string | null
+  source_locale: string
+  translation_status: TranslationStatus
+}
+
+export interface ArticleTranslationPayload {
+  title_en: string
+  content_en: string
 }
 
 export interface ArticleListResponse {

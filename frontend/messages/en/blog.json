@@ -101,5 +101,19 @@
     "coverUpdated": "Cover image updated.",
     "mediaAdded": "Media added.",
     "mediaDeleted": "Media deleted."
+  },
+  "translation": {
+    "title": "English version",
+    "hint": "Generated automatically on publication, then whenever the French text changes. Edit it freely: once reviewed by hand, it is never rewritten.",
+    "pendingHint": "Not translated yet. Translation runs on publication, or right now with “Retranslate”.",
+    "failedHint": "Automatic translation did not go through. The site shows French in the meantime — you can retry, or write the English yourself.",
+    "manualHint": "This version was reviewed by hand: automatic translation will no longer overwrite it, even if you change the French text.",
+    "placeholder": "Leave empty to show French on the site",
+    "save": "Save English",
+    "saved": "English version saved.",
+    "retranslate": "Retranslate",
+    "relaunched": "Translation relaunched.",
+    "failedToast": "Translation did not go through. The site stays in French.",
+    "overwriteWarning": "Will overwrite the hand-reviewed version"
   }
 }

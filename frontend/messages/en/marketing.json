@@ -467,7 +467,8 @@
     "subtitle": "Follow everyday life, events and teaching projects with our little sunbeams.",
     "allCategories": "All news",
     "searchPlaceholder": "Search...",
-    "empty": "No article matches your search."
+    "empty": "No article matches your search.",
+    "featured": "Featured"
   },
   "galleryPage": {
     "meta": {
@@ -509,6 +510,8 @@
   },
   "newsArticle": {
     "fallbackNotice": "This article is not available in English yet — it is shown in French.",
-    "related": "Read next"
-  }
+    "related": "Read next",
+    "allNews": "All news"
+  },
+  "step": "Step"
 }

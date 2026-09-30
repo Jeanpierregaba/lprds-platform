@@ -172,5 +172,6 @@
     "docDeleted": "Document supprimé.",
     "fileTooBig": "Le fichier dépasse {max} Mo.",
     "badFileType": "Seuls les images et PDF sont acceptés."
-  }
+  },
+  "documentsHint": "Pièces d'identité, certificats, autorisations..."
 }

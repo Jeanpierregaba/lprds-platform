@@ -52,6 +52,7 @@ interface BookFormDialogProps {
 
 export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormDialogProps) {
   const t = useTranslations('library')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const [sectionIds, setSectionIds] = useState<string[]>([])
 
@@ -150,9 +151,7 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
           <div className="space-y-2">
             <Label>{t('book.sections')}</Label>
             {sections.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Aucune section configurée. Créez d'abord des sections dans le module Organisation.
-              </p>
+              <p className="text-sm text-muted-foreground">{t('noSectionHint')}</p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {sections.map((section) => (
@@ -173,7 +172,7 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+              {tCommon('actions.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}

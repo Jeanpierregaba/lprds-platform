@@ -255,5 +255,12 @@
     "timeRequired": "Heure requise",
     "graceMin": "0 minimum",
     "graceMax": "120 maximum"
-  }
+  },
+  "graceHint": "Une arrivée dans ce délai après l'horaire attendu compte « présent ». 0 = aucun pardon. S'applique aux enfants comme au personnel.",
+  "staffScheduleHint": "Par défaut, tout le personnel suit l'horaire général (cf. Général). Posez un horaire personnalisé ici pour un membre — il surcharge l'horaire général pour le calcul des retards.",
+  "exemptHint": "Un membre du personnel exempté n'est jamais compté « absent » lorsqu'il ne scanne pas.",
+  "generateCard": "Générer la carte scolaire",
+  "correctionHint": "Seules les heures modifiées sont enregistrées. Une heure sans scan crée la ligne correspondante.",
+  "noAccess": "Droits insuffisants — aucun accès au module présences.",
+  "settingsTab": "Paramètres"
 }

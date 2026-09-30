@@ -223,7 +223,7 @@ function ReportsCardGrid({
               <div className="flex flex-wrap gap-2 pt-3">
                 <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/reports/${r.id}`} />}>
                   <Eye className="mr-1.5 size-4" />
-                  Ouvrir
+                  {t('open')}
                 </Button>
               </div>
             </CardContent>

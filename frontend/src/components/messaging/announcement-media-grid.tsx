@@ -142,6 +142,7 @@ function AnnouncementMediaViewer({
   onClose: () => void
 }) {
   const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   // Index borné : la liste peut rétrécir pendant que le viewer est ouvert
   // (suppression) — sans ça `att` devient undefined après les hooks.
   const safeIndex = media.length === 0 ? 0 : index % media.length
@@ -181,9 +182,7 @@ function AnnouncementMediaViewer({
           <DialogTitle>
             Média {safeIndex + 1} / {media.length}
           </DialogTitle>
-          <DialogDescription className="sr-only">
-            Carrousel des médias de la diffusion — flèches ou clavier pour naviguer, Échap pour fermer.
-          </DialogDescription>
+          <DialogDescription className="sr-only">{t('carouselHint')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex h-[50dvh] items-center justify-center overflow-hidden rounded-md bg-black">
@@ -224,7 +223,7 @@ function AnnouncementMediaViewer({
           </div>
           <Button type="button" variant="outline" className="h-10" onClick={onDownload}>
             <Download className="mr-1.5 size-4" />
-            Télécharger
+            {tCommon('actions.download')}
           </Button>
         </DialogFooter>
       </DialogContent>

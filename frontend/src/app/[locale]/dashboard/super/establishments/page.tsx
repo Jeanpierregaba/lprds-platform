@@ -23,6 +23,7 @@ const PAGE_SIZE = 20
 
 export default function EstablishmentsListPage() {
   const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -173,7 +174,7 @@ export default function EstablishmentsListPage() {
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-            Précédent
+            {tCommon('actions.previous')}
           </Button>
           <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setSkip(skip + PAGE_SIZE)}>
             Suivant

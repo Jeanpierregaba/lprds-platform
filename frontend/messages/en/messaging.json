@@ -114,5 +114,14 @@
   "validation": {
     "titleRequired": "Title required",
     "bodyRequired": "Content required"
-  }
+  },
+  "announcementScopeHint": "Write the whole message first, then tick the departments it concerns before sending.",
+  "departmentsLoadError": "Could not load the departments — reopen this dialog to try again.",
+  "attachFiles": "Attach files",
+  "send": "Send",
+  "realtimeOn": "Live updates on",
+  "conversationEmpty": "No messages yet. Write to the school below.",
+  "enterToSend": "Press Enter to send.",
+  "carouselHint": "Announcement media carousel — use the arrows or keyboard to navigate, Esc to close.",
+  "previewUnavailable": "Preview unavailable"
 }

@@ -108,8 +108,7 @@ function AttendanceCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardDescription>{subtitle}</CardDescription>
-          <Link href={href} className="inline-flex items-center gap-1 text-xs font-medium text-sky hover:underline">
-            Détail <ArrowRight className="size-3.5" />
+          <Link href={href} className="inline-flex items-center gap-1 text-xs font-medium text-sky hover:underline">{t('detail')}<ArrowRight className="size-3.5" />
           </Link>
         </div>
         <CardTitle className="font-display text-2xl">{title}</CardTitle>

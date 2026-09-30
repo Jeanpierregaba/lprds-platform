@@ -52,9 +52,7 @@ export function SettingsTab() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-white font-semibold">
-        Un département peut avoir plusieurs types de rapport actifs simultanément.
-      </p>
+      <p className="text-sm text-white font-semibold">{t('multipleTypesHint')}</p>
 
       <Card>
         <CardContent className="p-0">
@@ -77,9 +75,7 @@ export function SettingsTab() {
                 ))
               ) : departments?.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={REPORT_TYPES.length + 1} className="h-32 text-center text-muted-foreground">
-                    Aucun département. Créez-en depuis Organisation.
-                  </TableCell>
+                  <TableCell colSpan={REPORT_TYPES.length + 1} className="h-32 text-center text-muted-foreground">{t('noDepartment')}</TableCell>
                 </TableRow>
               ) : (
                 departments?.map((dept) => {

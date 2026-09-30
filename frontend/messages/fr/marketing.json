@@ -467,7 +467,8 @@
     "subtitle": "Suivez la vie quotidienne, les événements et les projets pédagogiques de nos petits rayons.",
     "allCategories": "Toutes les actualités",
     "searchPlaceholder": "Rechercher...",
-    "empty": "Aucun article ne correspond à votre recherche."
+    "empty": "Aucun article ne correspond à votre recherche.",
+    "featured": "À la une"
   },
   "galleryPage": {
     "meta": {
@@ -509,6 +510,8 @@
   },
   "newsArticle": {
     "fallbackNotice": "Cet article n'est pas encore disponible en anglais — il est affiché en français.",
-    "related": "À lire aussi"
-  }
+    "related": "À lire aussi",
+    "allNews": "Toutes les actualités"
+  },
+  "step": "Étape"
 }

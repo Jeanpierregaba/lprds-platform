@@ -88,5 +88,8 @@
     "revoke": "Revoke {name}",
     "assigned": "Role assigned.",
     "revoked": "Role revoked."
-  }
+  },
+  "staffTypeHint": "A purely descriptive job title — it grants no rights. Rights are managed under Roles & permissions.",
+  "resetHintStaff": "The new password is emailed to the staff member — they do not have to set it again.",
+  "noRoleYet": "No role exists yet. Create one under Roles & permissions."
 }

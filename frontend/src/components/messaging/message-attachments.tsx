@@ -151,7 +151,7 @@ function MediaPreview({
       ) : isError || !url ? (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ImageOff className="size-3.5" />
-          Aperçu indisponible
+          {t('previewUnavailable')}
         </span>
       ) : isVideo ? (
         <span className="relative block">

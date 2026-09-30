@@ -114,9 +114,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
             className="group grid grid-cols-1 overflow-hidden rounded-3xl bg-primary text-primary-foreground shadow-lg sm:grid-cols-2"
           >
             <div className="flex flex-col justify-center p-6 sm:p-10">
-              <span className="w-fit rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-                À la une
-              </span>
+              <span className="w-fit rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">{t('featured')}</span>
               {featured.tag && (
                 <span className="mt-3 text-xs font-semibold uppercase tracking-wide text-primary-foreground/70">
                   {featured.tag.name}

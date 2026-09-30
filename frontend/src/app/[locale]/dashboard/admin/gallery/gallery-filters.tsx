@@ -61,6 +61,7 @@ export function GalleryFilters({
   hideSource?: boolean
 }) {
   const t = useTranslations('gallery')
+  const tCommon = useTranslations('common')
   const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
   const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
   const { data: children } = useQuery({
@@ -146,7 +147,7 @@ export function GalleryFilters({
 
       {hasActiveFilters && (
         <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => onChange(EMPTY_FILTERS)}>
-          Réinitialiser
+          {tCommon('actions.reset')}
         </Button>
       )}
     </div>

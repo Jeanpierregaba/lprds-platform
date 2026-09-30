@@ -33,6 +33,7 @@ function formatDate(iso: string | null) {
 
 export function ArticlesTab() {
   const t = useTranslations('blog')
+  const tCommon = useTranslations('common')
   const articleStatusLabel = useLabel('articleStatus')
   const articleStatusLabels = useLabelMap('articleStatus', ARTICLE_STATUSES)
   const router = useRouter()
@@ -195,7 +196,7 @@ export function ArticlesTab() {
           <span>{total} article{total > 1 ? 's' : ''}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-              Précédent
+              {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
               Suivant

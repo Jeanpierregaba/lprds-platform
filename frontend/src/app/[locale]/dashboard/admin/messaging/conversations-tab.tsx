@@ -427,7 +427,7 @@ function ConversationThread({
               ? <Loader2 className="size-4 animate-spin" />
               : <Paperclip className="size-4" />}
           </Button>
-          <Button type="button" className="h-10 w-10" onClick={thread.onSend} disabled={!thread.canSend} aria-label="Envoyer">
+          <Button type="button" className="h-10 w-10" onClick={thread.onSend} disabled={!thread.canSend} aria-label={t('send')}>
             {thread.busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </Button>
         </div>

@@ -172,5 +172,6 @@
     "docDeleted": "Document deleted.",
     "fileTooBig": "The file exceeds {max} MB.",
     "badFileType": "Only images and PDFs are accepted."
-  }
+  },
+  "documentsHint": "Identity documents, certificates, authorisations…"
 }

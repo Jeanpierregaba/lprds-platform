@@ -100,5 +100,6 @@
     "macStep2": "<b>File → Add to Dock</b> menu (or Share → Add to Dock).",
     "macStep3": "The app then appears in your Dock like any other app.",
     "offline": "You are offline — cached content is still available."
-  }
+  },
+  "signOut": "Sign out"
 }

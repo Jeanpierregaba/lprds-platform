@@ -135,9 +135,7 @@ export default function ParentReportsPage() {
                         </span>
                         {published && <span className="text-xs text-muted-foreground">Publié le {published}</span>}
                       </div>
-                      <span className="inline-flex items-center gap-1 text-sm font-medium text-sky">
-                        Lire le rapport
-                        <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-sky">{t('readReport')}<ArrowRight className="size-4 transition group-hover:translate-x-1" />
                       </span>
                     </CardContent>
                   </Card>

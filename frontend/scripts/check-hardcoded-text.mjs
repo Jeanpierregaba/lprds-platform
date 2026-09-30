@@ -25,8 +25,15 @@ const ALLOWLIST = [
   'LPRDS',
 ]
 
+/**
+ * Accents, mots-outils, ET quelques mots français courants sans accent.
+ *
+ * Les accents seuls ne suffisent pas : « Hors ligne », « Retour », « Aucun
+ * media » passaient au travers — un faux négatif est bien plus coûteux qu'un
+ * faux positif, qu'il suffit d'écarter via ALLOWLIST.
+ */
 const FRENCH =
-  /[éèêàçùôûîï]|\b(le|la|les|des|une|aucun|aucune|pour|avec|sans|votre|vos|cette|dans)\b/i
+  /[éèêàçùôûîï]|\b(le|la|les|des|une|un|aucun|aucune|pour|avec|sans|votre|vos|cette|dans|hors|vers|chez|puis|donc|mais|plus|tous|toutes|chaque|ligne|retour|essayer|envoyer|ajouter|modifier|supprimer|enregistrer|annuler|fermer|ouvrir|charger|choisir|selectionner)\b/i
 
 const files = execSync("find src -name '*.tsx' -not -path '*/ui/*'", {
   encoding: 'utf8',
@@ -35,27 +42,40 @@ const files = execSync("find src -name '*.tsx' -not -path '*/ui/*'", {
   .split('\n')
   .filter(Boolean)
 
+/** Retire les commentaires — ils sont en français par convention dans ce projet. */
+function stripComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:'"\`])\/\/[^\n]*/g, (match, prefix) => prefix + ' '.repeat(match.length - prefix.length))
+}
+
 const hits = []
 
 for (const file of files) {
-  readFileSync(file, 'utf8')
-    .split('\n')
-    .forEach((line, index) => {
-      if (/^\s*(\/\/|\*|\/\*)/.test(line)) return // commentaires : en français par convention
+  const source = stripComments(readFileSync(file, 'utf8'))
 
-      const between = [...line.matchAll(/>([^<>{}\n]{3,})</g)].map((m) => m[1])
-      const attrs = [
-        ...line.matchAll(/(?:placeholder|title|alt|label|aria-label)="([^"]{3,})"/g),
-      ].map((m) => m[1])
+  // Texte d'élément — SANS le drapeau `m` et en autorisant les sauts de ligne :
+  // un paragraphe JSX s'écrit couramment sur plusieurs lignes, et une analyse
+  // ligne à ligne le rate entièrement (piège vécu sur la page /offline, dont
+  // les trois chaînes françaises étaient invisibles pour ce contrôle).
+  const candidates = [
+    ...[...source.matchAll(/>([^<>{}]{3,})</g)].map((m) => ({
+      text: m[1],
+      index: m.index,
+    })),
+    ...[
+      ...source.matchAll(/(?:placeholder|title|alt|label|aria-label)="([^"]{3,})"/g),
+    ].map((m) => ({ text: m[1], index: m.index })),
+  ]
 
-      for (const raw of [...between, ...attrs]) {
-        const text = raw.trim()
-        if (!text || !FRENCH.test(text)) continue
-        if (/^[\d\s.,:/%€-]+$/.test(text)) continue
-        if (ALLOWLIST.some((allowed) => text.includes(allowed))) continue
-        hits.push({ file, line: index + 1, text })
-      }
-    })
+  for (const { text: raw, index } of candidates) {
+    const text = raw.replace(/\s+/g, ' ').trim()
+    if (!text || !FRENCH.test(text)) continue
+    if (/^[\d\s.,:/%€-]+$/.test(text)) continue
+    if (ALLOWLIST.some((allowed) => text.includes(allowed))) continue
+    const line = source.slice(0, index).split('\n').length
+    hits.push({ file, line, text })
+  }
 }
 
 const strict = process.argv.includes('--strict')

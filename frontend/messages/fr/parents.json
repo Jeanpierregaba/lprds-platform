@@ -78,5 +78,6 @@
   "multiselect": {
     "remove": "Retirer {name}",
     "search": "Rechercher un enfant par nom, prénoms ou matricule..."
-  }
+  },
+  "resetHintParent": "Le nouveau mot de passe est envoyé par email au parent — il n'a pas à le redéfinir."
 }

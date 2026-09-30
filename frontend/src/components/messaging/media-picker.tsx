@@ -59,6 +59,7 @@ export function MediaPicker({
   allowPdf?: boolean
 }) {
   const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   const inputRef = useRef<HTMLInputElement>(null)
   const [urls, setUrls] = useState<string[]>([])
 
@@ -104,7 +105,7 @@ export function MediaPicker({
         {files.length < max && (
           <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
             <Plus className="mr-1.5 size-3.5" />
-            Ajouter
+            {tCommon('actions.add')}
           </Button>
         )}
       </div>

@@ -113,13 +113,8 @@ export function SettingsTab() {
           <form onSubmit={handleSubmit((values) => saveMutation.mutate(values))} className="space-y-4">
             <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
               <div className="space-y-1">
-                <label htmlFor="reminders-enabled" className="text-sm font-medium">
-                  Activer les rappels
-                </label>
-                <p className="text-sm text-muted-foreground">
-                  Un email est envoyé au parent et un message ajouté dans sa conversation avec
-                  l'administration.
-                </p>
+                <label htmlFor="reminders-enabled" className="text-sm font-medium">{t('remindersEnable')}</label>
+                <p className="text-sm text-muted-foreground">{t('remindersHint')}</p>
               </div>
               <Switch
                 id="reminders-enabled"

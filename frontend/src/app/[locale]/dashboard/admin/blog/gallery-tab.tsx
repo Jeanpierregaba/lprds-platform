@@ -122,9 +122,7 @@ export function GalleryTab() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{t('gallery.publishTitle')}</DialogTitle>
-                <DialogDescription>
-                  La photo apparaît immédiatement dans la galerie du site vitrine.
-                </DialogDescription>
+                <DialogDescription>{t('photoPublishHint')}</DialogDescription>
               </DialogHeader>
               <form
                 onSubmit={(e) => {
@@ -282,9 +280,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('gallery.categoriesTitle')}</DialogTitle>
-            <DialogDescription>
-              Nom libre, unique par établissement — comme les étiquettes des articles.
-            </DialogDescription>
+            <DialogDescription>{t('categoryNameHint')}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => { e.preventDefault(); if (newName.trim()) createMutation.mutate(newName.trim()) }}

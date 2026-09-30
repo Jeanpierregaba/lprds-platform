@@ -100,5 +100,6 @@
     "macStep2": "Menu <b>Fichier → Ajouter au Dock</b> (ou Partager → Ajouter au Dock).",
     "macStep3": "L’application apparaît dans votre Dock comme une app.",
     "offline": "Vous êtes hors ligne — les contenus mis en cache restent disponibles."
-  }
+  },
+  "signOut": "Se déconnecter"
 }

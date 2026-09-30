@@ -112,9 +112,7 @@ export default function ParentMenusPage() {
           >
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="outline" className="h-10" disabled={isCurrentWeek} onClick={() => setWeekStart(currentMonday)}>
-            Cette semaine
-          </Button>
+          <Button variant="outline" className="h-10" disabled={isCurrentWeek} onClick={() => setWeekStart(currentMonday)}>{t('thisWeek')}</Button>
           <Button
             variant="outline"
             size="icon-sm"

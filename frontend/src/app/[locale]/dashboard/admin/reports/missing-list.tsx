@@ -85,8 +85,7 @@ export function MissingList({
       </div>
 
       {!isLoading && data && (
-        <p className="text-sm text-white font-medium">
-          Période : <span className="font-medium text-white font-semibold">{data.period_label}</span>
+        <p className="text-sm text-white font-medium">{t('periodLabel')}<span className="font-medium text-white font-semibold">{data.period_label}</span>
           {' · '}{data.total} enfant{data.total > 1 ? 's' : ''} sans rapport soumis
         </p>
       )}

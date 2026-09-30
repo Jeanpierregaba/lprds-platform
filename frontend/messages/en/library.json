@@ -97,5 +97,9 @@
     "noneBorrowed": "No book is currently borrowed.",
     "returnOn": "due {date}",
     "overdue": "Overdue"
-  }
+  },
+  "dueDateHint": "The due date follows the library settings (14 days by default).",
+  "noSectionHint": "No section set up yet. Create sections in the Organisation module first.",
+  "remindersEnable": "Enable reminders",
+  "remindersHint": "An email is sent to the parent and a message added to their conversation with the school office."
 }

@@ -175,9 +175,7 @@ export function AnnouncementsTab() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editing ? t('announcements.editTitle') : t('announcements.newTitle')}</DialogTitle>
-              <DialogDescription>
-                Rédigez le message en entier, puis cochez les départements concernés avant l&apos;envoi.
-              </DialogDescription>
+              <DialogDescription>{t('announcementScopeHint')}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
@@ -217,9 +215,7 @@ export function AnnouncementsTab() {
                         <Skeleton className="h-4 w-2/3" />
                       </div>
                     ) : isDeptsError ? (
-                      <p className="text-sm text-destructive">
-                        Impossible de charger les départements — réessayez en rouvrant ce dialogue.
-                      </p>
+                      <p className="text-sm text-destructive">{t('departmentsLoadError')}</p>
                     ) : departments.length === 0 ? (
                       <p className="text-sm text-muted-foreground">{t('announcements.noDepartment')}</p>
                     ) : (
@@ -396,7 +392,7 @@ function AnnouncementCard({
               />
             }>
               <Paperclip className="mr-1.5 size-3.5" />
-              Joindre des fichiers
+              {t('attachFiles')}
             </DialogTrigger>
           <DialogContent className="max-h-[90dvh] overflow-y-auto">
               <DialogHeader>

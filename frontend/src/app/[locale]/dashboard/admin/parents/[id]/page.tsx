@@ -54,6 +54,7 @@ function formatDateTime(iso: string | null) {
 
 export default function ParentDetailPage() {
   const t = useTranslations('parents')
+  const tCommon = useTranslations('common')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const user = useUser()
@@ -165,9 +166,7 @@ export default function ParentDetailPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{t('form.resetPassword')}</DialogTitle>
-                <DialogDescription>
-                  Le nouveau mot de passe est envoyé par email au parent — il n&apos;a pas à le redéfinir.
-                </DialogDescription>
+                <DialogDescription>{t('resetHintParent')}</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleResetSubmit(onResetPassword)} className="space-y-4" noValidate>
                 <div className="space-y-2">
@@ -259,7 +258,7 @@ export default function ParentDetailPage() {
                 variant="outline"
                 onClick={() => { resetInfoForm(); setChildren(parent.assigned_children); setChildrenError(null) }}
               >
-                Annuler
+                {tCommon('actions.cancel')}
               </Button>
               {canWrite && (
               <Button type="submit" disabled={isSavingInfo}>

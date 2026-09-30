@@ -53,6 +53,7 @@ function formatDateTime(iso: string) {
 
 export default function ReportDetailPage() {
   const t = useTranslations('reports')
+  const tCommon = useTranslations('common')
   const reportStatusLabel = useLabel('reportStatus')
   const reportTypesLabel = useLabel('reportTypes')
   const { id } = useParams<{ id: string }>()
@@ -255,7 +256,7 @@ export default function ReportDetailPage() {
                 {isDeletable && (
                   <>
                     <Button type="button" variant="destructive" className="ml-auto" onClick={() => setConfirmDelete(true)}>
-                      Supprimer
+                      {tCommon('actions.delete')}
                     </Button>
                     <ConfirmDialog
                       open={confirmDelete}
@@ -284,9 +285,7 @@ export default function ReportDetailPage() {
       {report.status === 'submitted' && !isLoadingPermissions && canValidate && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-2">
-            <p className="mr-auto text-sm text-muted-foreground">
-              Ce rapport est en attente de validation — sa publication notifie les parents par email.
-            </p>
+            <p className="mr-auto text-sm text-muted-foreground">{t('awaitingValidation')}</p>
             <Button type="button" onClick={() => validateMutation.mutate()} disabled={validateMutation.isPending}>
               {validateMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
               Valider et publier

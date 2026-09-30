@@ -24,10 +24,11 @@ import messaging from './messaging.json'
 import nav from './nav.json'
 import organization from './organization.json'
 import parents from './parents.json'
+import pwa from './pwa.json'
 import rbac from './rbac.json'
 import reports from './reports.json'
 import staff from './staff.json'
 
-export const messages = { admin, attendance, auth, blog, children, common, enums, errors, gallery, library, marketing, menus, messaging, nav, organization, parents, rbac, reports, staff } satisfies Messages
+export const messages = { admin, attendance, auth, blog, children, common, enums, errors, gallery, library, marketing, menus, messaging, nav, organization, parents, pwa, rbac, reports, staff } satisfies Messages
 
 export default messages

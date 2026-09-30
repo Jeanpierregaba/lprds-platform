@@ -194,5 +194,14 @@
     "currentPasswordRequired": "Mot de passe actuel requis",
     "passwordUpper": "Une majuscule requise",
     "passwordDigit": "Un chiffre requis"
-  }
+  },
+  "detail": "Détail",
+  "passwordRulesHandover": "8 caractères minimum · 1 majuscule · 1 chiffre — à transmettre à l'admin hors plateforme (aucun email n'est envoyé pour ce mot de passe).",
+  "temporaryPasswordHint": "Le mot de passe est temporaire — l'admin devra le changer à sa première connexion. Transmettez-le hors plateforme (aucun email n'est envoyé).",
+  "noAdmin": "Aucun administrateur.",
+  "catalogueEmpty": "Le catalogue est vide pour le moment.",
+  "noLending": "Votre enfant n'a aucun emprunt en cours.",
+  "sectionCatalogueEmpty": "Aucun livre disponible dans votre section pour le moment.",
+  "passwordRules": "8 caractères minimum · 1 majuscule · 1 chiffre",
+  "thisWeek": "Cette semaine"
 }

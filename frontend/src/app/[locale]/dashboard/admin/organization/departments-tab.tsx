@@ -117,9 +117,7 @@ export function DepartmentsTab() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editing ? t('departments.editTitle') : t('departments.newTitle')}</DialogTitle>
-              <DialogDescription>
-                Premier niveau de la hiérarchie (Département → Section → Groupe).
-              </DialogDescription>
+              <DialogDescription>{t('departmentHint')}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
@@ -164,9 +162,7 @@ export function DepartmentsTab() {
                     <Building className="size-5" />
                   </div>
                   <p className="font-medium text-foreground">{t('departments.empty')}</p>
-                  <p className="max-w-sm text-sm">
-                    Créez le premier département pour commencer à structurer votre établissement.
-                  </p>
+                  <p className="max-w-sm text-sm">{t('departmentEmpty')}</p>
                 </div>
               </Td>
             </TableRow>

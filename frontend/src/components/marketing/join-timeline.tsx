@@ -79,7 +79,7 @@ export function JoinTimeline() {
                     </div>
                     <div className="mt-5 flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-widest" style={{ color: style.color }}>
                       <Icon className="size-4" aria-hidden="true" />
-                      Étape
+                      {t('step')}
                     </div>
                     <div className="mx-auto mt-2 h-0.5 w-10" style={{ backgroundColor: style.color }} />
                     <h3 className="mt-2 font-display text-xl font-bold text-navy">{step.title}</h3>

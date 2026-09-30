@@ -133,10 +133,7 @@ export function RolesTab() {
           <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? t('roles.editTitle') : t('roles.newTitle')}</DialogTitle>
-              <DialogDescription>
-                Ex. Directrice, Assistant de direction... Les droits attribués s&apos;appliquent
-                à tout membre du personnel qui portera ce rôle.
-              </DialogDescription>
+              <DialogDescription>{t('roleNameHint')}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="space-y-2">
@@ -243,9 +240,7 @@ export function RolesTab() {
                     <ShieldCheck className="size-5" />
                   </div>
                   <p className="font-medium text-foreground">{t('roles.empty')}</p>
-                  <p className="max-w-sm text-sm">
-                    Créez des rôles pour donner des droits fins à votre personnel (ex. Directrice, Secrétaire).
-                  </p>
+                  <p className="max-w-sm text-sm">{t('rolesEmpty')}</p>
                 </div>
               </Td>
             </TableRow>

@@ -1,20 +1,74 @@
 import type { MetadataRoute } from 'next'
+import { headers } from 'next/headers'
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS'
+import enMarketing from '../../messages/en/marketing.json'
+import frMarketing from '../../messages/fr/marketing.json'
+import enPwa from '../../messages/en/pwa.json'
+import frPwa from '../../messages/fr/pwa.json'
+import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale, type AppLocale } from '@/i18n/routing'
+import { prefersFrench } from '@/i18n/detect'
+
 const SHORT_NAME = 'LPRDS'
 const THEME_COLOR = '#F5AA2D'
 const BACKGROUND_COLOR = '#FFFFFF'
 
-export default function manifest(): MetadataRoute.Manifest {
+const CATALOGS = {
+  fr: { marketing: frMarketing, pwa: frPwa },
+  en: { marketing: enMarketing, pwa: enPwa },
+} as const
+
+/**
+ * Langue du manifeste.
+ *
+ * Un Web App Manifest ne déclare qu'UNE langue, et il est servi hors du
+ * segment `[locale]` — il n'a donc pas de préfixe d'URL d'où la déduire. On la
+ * lit dans le cookie posé par le sélecteur de langue, à défaut dans
+ * `Accept-Language` (même règle que partout : le français seulement s'il est
+ * explicitement préféré).
+ *
+ * Conséquence assumée : l'OS récupère le manifeste AU MOMENT DE
+ * L'INSTALLATION et le fige. Un utilisateur qui installe l'app en anglais
+ * garde des raccourcis anglais même s'il repasse l'interface en français —
+ * c'est le comportement attendu, et de toute façon le seul possible : rien ne
+ * permet de re-négocier un manifeste déjà installé.
+ */
+async function resolveLocale(): Promise<AppLocale> {
+  const headerList = await headers()
+
+  const cookieHeader = headerList.get('cookie') ?? ''
+  const fromCookie = new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`).exec(cookieHeader)?.[1]
+  if (isAppLocale(fromCookie)) return fromCookie
+
+  return prefersFrench(headerList.get('accept-language')) ? 'fr' : 'en'
+}
+
+/**
+ * ⚠️ Route DYNAMIQUE : l'appel à `headers()` empêche Next de la figer au
+ * build. C'est indispensable ici — un manifeste statique serait forcément
+ * dans une seule langue pour tout le monde.
+ */
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const locale = await resolveLocale()
+  const { marketing, pwa } = CATALOGS[locale]
+
+  // Le français garde les URL nues, l'anglais prend son préfixe — même règle
+  // que le reste du site (`localePrefix: 'as-needed'`). Sans ce préfixe, un
+  // raccourci installé en anglais rouvrirait la page en français.
+  // `|| '/'` : sans lui, la racine donnerait `/en/` — un slash final qui
+  // déclencherait une redirection à chaque lancement de l'app installée.
+  const path = (route: string) =>
+    locale === DEFAULT_LOCALE ? route : `/${locale}${route === '/' ? '' : route}` || '/'
+
   return {
     id: '/',
-    name: String(APP_NAME),
+    name: pwa.name,
     short_name: SHORT_NAME,
-    description:
-      "LPRDS — plateforme de gestion des crèches, garderies et écoles maternelles : présences, messagerie, rapports, galerie, menus et actualités de l'établissement.",
-    lang: 'fr',
+    description: pwa.description,
+    lang: locale,
     dir: 'ltr',
-    start_url: '/',
+    start_url: path('/'),
+    // `scope` reste la racine quelle que soit la langue : le limiter à `/en`
+    // sortirait les pages françaises de l'application installée.
     scope: '/',
     display: 'standalone',
     display_override: ['window-controls-overlay', 'standalone'],
@@ -41,15 +95,15 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: 'Galerie',
-        short_name: 'Galerie',
-        url: '/galerie',
+        name: marketing.nav.gallery,
+        short_name: marketing.nav.gallery,
+        url: path('/galerie'),
         icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
       },
       {
-        name: 'Actualités',
-        short_name: 'Actualités',
-        url: '/actualites',
+        name: marketing.nav.news,
+        short_name: marketing.nav.news,
+        url: path('/actualites'),
         icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
       },
     ],

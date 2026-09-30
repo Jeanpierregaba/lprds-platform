@@ -74,9 +74,7 @@ export default function ParentLibraryPage() {
                 <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                   <LibraryBig className="size-5" />
                 </div>
-                <p className="font-medium text-foreground">
-                  Le catalogue est vide pour le moment.
-                </p>
+                <p className="font-medium text-foreground">{t('catalogueEmpty')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -121,9 +119,7 @@ export default function ParentLibraryPage() {
                 <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                   <BookMarked className="size-5" />
                 </div>
-                <p className="font-medium text-foreground">
-                  Votre enfant n'a aucun emprunt en cours.
-                </p>
+                <p className="font-medium text-foreground">{t('noLending')}</p>
               </CardContent>
             </Card>
           ) : (

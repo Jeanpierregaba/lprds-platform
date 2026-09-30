@@ -546,9 +546,7 @@ export default function NewChildPage() {
                         className="hidden"
                         onChange={onFilesSelected}
                       />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Pièces d&apos;identité, certificats, autorisations...
-                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t('documentsHint')}</p>
                     </div>
 
                     <div className="flex items-start gap-2 rounded-md bg-muted p-3 text-xs text-muted-foreground">

@@ -194,5 +194,14 @@
     "currentPasswordRequired": "Current password required",
     "passwordUpper": "One capital letter required",
     "passwordDigit": "One digit required"
-  }
+  },
+  "detail": "Details",
+  "passwordRulesHandover": "At least 8 characters · 1 capital · 1 digit — hand it to the admin outside the platform (no email is sent for this password).",
+  "temporaryPasswordHint": "The password is temporary — the admin must change it at first login. Hand it over outside the platform (no email is sent).",
+  "noAdmin": "No administrator.",
+  "catalogueEmpty": "The catalogue is empty for now.",
+  "noLending": "Your child has no books on loan at the moment.",
+  "sectionCatalogueEmpty": "No book available in your section at the moment.",
+  "passwordRules": "At least 8 characters · 1 capital · 1 digit",
+  "thisWeek": "This week"
 }

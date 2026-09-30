@@ -221,7 +221,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
                   onClick={() => setShowCardModal(true)}
                 >
                   <IdCard className="mr-1.5 size-4" />
-                  Générer la carte scolaire
+                  {t('generateCard')}
                 </Button>
               )}
             </div>

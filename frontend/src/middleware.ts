@@ -30,6 +30,9 @@ const PUBLIC_ROUTES = [
   '/auth/login',
   '/auth/reset-password',
   '/auth/new-password',
+  // Repli hors-ligne du service worker : par définition atteinte sans réseau,
+  // donc sans possibilité de valider une session.
+  '/offline',
 ]
 
 // Site vitrine — accessible sans compte. La racine "/" est gérée séparément
@@ -157,15 +160,23 @@ export const config = {
     // `/api/*` est exclu : le rewrite next.config proximise vers le backend,
     // qui applique SA propre authentification. Seul le blog public
     // (/api/v1/public/blog/...) est volontairement sans token (cf. module Blog).
-    // Les ressources PWA (manifest, service worker, page /offline, icônes,
-    // sonde de version) sont aussi exclues : elles doivent rester accessibles
-    // sans session — /version.json est sondé par l'auto-update y compris
-    // visiteur anonyme.
+    // Les ressources PWA servies telles quelles (manifest, service worker,
+    // icônes, sonde de version) sont aussi exclues : elles doivent rester
+    // accessibles sans session — /version.json est sondé par l'auto-update y
+    // compris visiteur anonyme.
+    //
+    // ⚠️ La page /offline, elle, n'est PAS exclue ici — elle l'a été jusqu'à
+    // ce que les routes passent sous `[locale]`, et ça la cassait des deux
+    // côtés : `/offline` renvoyait 404 (exclue du middleware, donc jamais
+    // réécrite vers le segment de langue) et `/en/offline` partait sur
+    // /auth/login (l'exclusion ne porte que sur le PREMIER segment, donc un
+    // chemin préfixé y échappe). Elle passe désormais par le middleware, et
+    // c'est PUBLIC_ROUTES qui la garde accessible sans session.
     //
     // `sitemap.xml` et `robots.txt` le sont pour une autre raison : ils ne se
     // déclinent PAS par langue. Un robot les cherche à la racine du domaine et
     // nulle part ailleurs ; les laisser passer par la détection de langue
     // renverrait /sitemap.xml vers /en/sitemap.xml, que rien n'ira lire.
-    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|offline|version.json|sitemap.xml|robots.txt).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|version.json|sitemap.xml|robots.txt).*)',
   ],
 }

@@ -164,5 +164,15 @@
     "title": "Rapports",
     "description": "Rapports de vie validés de votre/vos enfant(s).",
     "allChildren": "Tous les enfants"
-  }
+  },
+  "multipleTypesHint": "Un département peut avoir plusieurs types de rapport actifs simultanément.",
+  "noDepartment": "Aucun département. Créez-en depuis Organisation.",
+  "mediaElsewhereHint": "Les photos et vidéos de la période s'ajoutent depuis la section Pièces jointes ci-dessous.",
+  "childWithoutDepartment": "Cet enfant n'a pas de département assigné — impossible de créer un rapport.",
+  "chooseFiles": "Choisir des fichiers",
+  "attachmentsAutoSent": "Envoyées automatiquement à la création du rapport.",
+  "awaitingValidation": "Ce rapport est en attente de validation — sa publication notifie les parents par email.",
+  "periodLabel": "Période :",
+  "open": "Ouvrir",
+  "readReport": "Lire le rapport"
 }

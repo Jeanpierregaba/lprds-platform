@@ -129,9 +129,7 @@ export function ProfileSettingsTab() {
               />
               {errors.confirm && <p className="text-sm text-destructive">{errors.confirm.message}</p>}
             </div>
-            <p className="text-xs text-muted-foreground">
-              8 caractères minimum · 1 majuscule · 1 chiffre
-            </p>
+            <p className="text-xs text-muted-foreground">{t('passwordRules')}</p>
 
             <div className="flex justify-end">
               <Button type="submit" disabled={isSubmitting}>

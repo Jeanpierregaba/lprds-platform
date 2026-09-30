@@ -164,5 +164,15 @@
     "title": "Reports",
     "description": "Validated daily-life reports for your child or children.",
     "allChildren": "All children"
-  }
+  },
+  "multipleTypesHint": "A department can have several report types active at once.",
+  "noDepartment": "No department yet. Create one under Organisation.",
+  "mediaElsewhereHint": "Photos and videos for the period are added from the Attachments section below.",
+  "childWithoutDepartment": "This child has no department assigned — a report cannot be created.",
+  "chooseFiles": "Choose files",
+  "attachmentsAutoSent": "Sent automatically when the report is created.",
+  "awaitingValidation": "This report is awaiting approval — publishing it notifies the parents by email.",
+  "periodLabel": "Period:",
+  "open": "Open",
+  "readReport": "Read the report"
 }

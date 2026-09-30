@@ -50,7 +50,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
         <div className="mx-auto max-w-2xl">
           <Link href="/actualites" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
             <ArrowLeft className="size-4" />
-            Toutes les actualités
+            {t('allNews')}
           </Link>
 
           {article.coverUrl && (

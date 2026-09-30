@@ -192,9 +192,7 @@ export default function ArticleDetailPage() {
           </div>
         </CardHeader>
         {!article.is_active && (
-          <CardContent className="text-sm text-destructive">
-            Cet article a été supprimé (soft delete) — lecture seule.
-          </CardContent>
+          <CardContent className="text-sm text-destructive">{t('articleDeleted')}</CardContent>
         )}
       </Card>
 
@@ -213,9 +211,7 @@ export default function ArticleDetailPage() {
               className="h-48 w-full rounded-md object-cover"
             />
           ) : (
-            <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
-              Aucune image à la une
-            </div>
+            <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">{t('noCover')}</div>
           )}
           {isEditable && (
             <>

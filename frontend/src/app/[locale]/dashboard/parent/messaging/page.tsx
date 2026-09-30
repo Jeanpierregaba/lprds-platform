@@ -19,7 +19,7 @@ function ConnectionBadge() {
     return (
       <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
         <Wifi className="size-3" />
-        Temps réel actif
+        {t('realtimeOn')}
       </Badge>
     )
   }

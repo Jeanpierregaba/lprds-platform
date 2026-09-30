@@ -59,6 +59,7 @@ type AdminForm = z.infer<ReturnType<typeof makeadminSchema>>
 
 export default function EstablishmentDetailPage() {
   const t = useTranslations('admin')
+  const tCommon = useTranslations('common')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [addAdminOpen, setAddAdminOpen] = useState(false)
@@ -191,7 +192,7 @@ export default function EstablishmentDetailPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogCancel>{tCommon('actions.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={() => toggleActiveMutation.mutate()}>
                 {t('establishments.confirm')}
               </AlertDialogAction>
@@ -280,10 +281,7 @@ export default function EstablishmentDetailPage() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>{t('establishments.addAdminTitle')}</DialogTitle>
-                    <DialogDescription>
-                      Le mot de passe est temporaire — l&apos;admin devra le changer à sa première connexion.
-                      Transmettez-le hors plateforme (aucun email n&apos;est envoyé).
-                    </DialogDescription>
+                    <DialogDescription>{t('temporaryPasswordHint')}</DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleAdminSubmit(onAddAdmin)} className="space-y-4" noValidate>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -334,9 +332,7 @@ export default function EstablishmentDetailPage() {
                 <TableBody>
                   {admins.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
-                        Aucun administrateur.
-                      </TableCell>
+                      <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">{t('noAdmin')}</TableCell>
                     </TableRow>
                   ) : (
                     admins.map((admin) => (
@@ -361,7 +357,7 @@ export default function EstablishmentDetailPage() {
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                  <AlertDialogCancel>{tCommon('actions.cancel')}</AlertDialogCancel>
                                   <AlertDialogAction onClick={() => removeAdminMutation.mutate(admin.id)}>
                                     {t('establishments.remove')}
                                   </AlertDialogAction>

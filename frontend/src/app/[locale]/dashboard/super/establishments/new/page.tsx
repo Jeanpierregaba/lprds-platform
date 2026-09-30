@@ -164,10 +164,7 @@ export default function NewEstablishmentPage() {
                 <Label htmlFor="admin_password">{t('establishments.tempPassword')}</Label>
                 <Input id="admin_password" type="password" {...register('admin_password')} aria-invalid={!!errors.admin_password} />
                 {errors.admin_password && <p className="text-sm text-destructive">{errors.admin_password.message}</p>}
-                <p className="text-xs text-muted-foreground">
-                  8 caractères minimum · 1 majuscule · 1 chiffre — à transmettre à l&apos;admin hors plateforme
-                  (aucun email n&apos;est envoyé pour ce mot de passe).
-                </p>
+                <p className="text-xs text-muted-foreground">{t('passwordRulesHandover')}</p>
               </div>
             </div>
 

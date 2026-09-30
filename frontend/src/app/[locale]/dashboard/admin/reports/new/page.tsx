@@ -285,9 +285,7 @@ export default function NewReportPage() {
           )}
 
           {selectedChild && !selectedChild.department && (
-            <p className="text-sm text-destructive">
-              Cet enfant n&apos;a pas de département assigné — impossible de créer un rapport.
-            </p>
+            <p className="text-sm text-destructive">{t('childWithoutDepartment')}</p>
           )}
 
           {selectedChild?.department && (
@@ -345,9 +343,7 @@ export default function NewReportPage() {
                   <Label htmlFor="attachments">{t('form.attachments')}</Label>
                   <div className="rounded-md border border-dashed border-border p-6 text-center ">
                     <FileUp className="mx-auto mb-2 size-6 text-muted-foreground" />
-                    <Label htmlFor="attachments" className="cursor-pointer text-sm font-medium text-primary">
-                      Choisir des fichiers
-                    </Label>
+                    <Label htmlFor="attachments" className="cursor-pointer text-sm font-medium text-primary">{t('chooseFiles')}</Label>
                     <input
                       id="attachments"
                       type="file"
@@ -356,9 +352,7 @@ export default function NewReportPage() {
                       className="hidden"
                       onChange={onFilesSelected}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Envoyées automatiquement à la création du rapport.
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('attachmentsAutoSent')}</p>
                   </div>
                   {stagedFiles.length > 0 && (
                     <ul className="space-y-2">

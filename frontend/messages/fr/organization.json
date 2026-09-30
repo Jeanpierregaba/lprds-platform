@@ -82,5 +82,7 @@
     "updated": "Groupe mis à jour.",
     "deactivated": "Groupe désactivé.",
     "reactivated": "Groupe réactivé."
-  }
+  },
+  "departmentHint": "Premier niveau de la hiérarchie (Département → Section → Groupe).",
+  "departmentEmpty": "Créez le premier département pour commencer à structurer votre établissement."
 }

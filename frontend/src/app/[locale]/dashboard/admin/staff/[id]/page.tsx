@@ -54,6 +54,7 @@ type ResetForm = z.infer<ReturnType<typeof makeResetSchema>>
 
 export default function StaffDetailPage() {
   const t = useTranslations('staff')
+  const tCommon = useTranslations('common')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
@@ -155,9 +156,7 @@ export default function StaffDetailPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{t('form.resetPassword')}</DialogTitle>
-                <DialogDescription>
-                  Le nouveau mot de passe est envoyé par email au personnel — il n&apos;a pas à le redéfinir.
-                </DialogDescription>
+                <DialogDescription>{t('resetHintStaff')}</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleResetSubmit(onResetPassword)} className="space-y-4" noValidate>
                 <div className="space-y-2">
@@ -259,7 +258,7 @@ export default function StaffDetailPage() {
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => resetInfoForm()}>
-                    Annuler
+                    {tCommon('actions.cancel')}
                   </Button>
                   {canWrite && (
                   <Button type="submit" disabled={isSavingInfo}>
@@ -375,9 +374,7 @@ function StaffRolesCard({ staffId }: { staffId: string }) {
             ) : roles?.length === 0 ? (
               <div className="flex flex-col items-center gap-2 border-t border-border py-6 pt-6 text-center text-muted-foreground">
                 <ShieldCheck className="size-6" />
-                <p className="text-sm">
-                  Aucun rôle n&apos;existe encore. Créez-en depuis Rôles &amp; permissions.
-                </p>
+                <p className="text-sm">{t('noRoleYet')}</p>
               </div>
             ) : null}
           </>

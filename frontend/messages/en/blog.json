@@ -120,5 +120,9 @@
     "relaunched": "Translation relaunched.",
     "failedToast": "Translation did not go through. The site stays in French.",
     "overwriteWarning": "Will overwrite the hand-reviewed version"
-  }
+  },
+  "photoPublishHint": "The photo appears on the public site's gallery straight away.",
+  "categoryNameHint": "A free-form name, unique per school — just like article tags.",
+  "articleDeleted": "This article has been deleted (soft delete) — read only.",
+  "noCover": "No cover image"
 }

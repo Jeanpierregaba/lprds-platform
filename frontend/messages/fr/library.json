@@ -97,5 +97,9 @@
     "noneBorrowed": "Aucun livre emprunté en ce moment.",
     "returnOn": "retour le {date}",
     "overdue": "En retard"
-  }
+  },
+  "dueDateHint": "La date de retour est planifiée selon les paramètres de la bibliothèque (par défaut 14 jours).",
+  "noSectionHint": "Aucune section configurée. Créez d'abord des sections dans le module Organisation.",
+  "remindersEnable": "Activer les rappels",
+  "remindersHint": "Un email est envoyé au parent et un message ajouté dans sa conversation avec l'administration."
 }

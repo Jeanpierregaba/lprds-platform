@@ -82,5 +82,7 @@
     "updated": "Class updated.",
     "deactivated": "Class deactivated.",
     "reactivated": "Class reactivated."
-  }
+  },
+  "departmentHint": "The first level of the hierarchy (Department → Section → Group).",
+  "departmentEmpty": "Create the first department to start structuring your school."
 }

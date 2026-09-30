@@ -27,6 +27,7 @@ const ALL = '__all__'
 
 export function CatalogueTab() {
   const t = useTranslations('library')
+  const tCommon = useTranslations('common')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('library:write')
@@ -129,7 +130,7 @@ export function CatalogueTab() {
           <span>{total} livre{total > 1 ? 's' : ''}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-              Précédent
+              {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
               Suivant
@@ -168,6 +169,7 @@ function BooksCardGrid({
   onDeactivate: (book: Book) => void
 }) {
   const t = useTranslations('library')
+  const tCommon = useTranslations('common')
   if (isLoading) {
     return <CardsSkeleton />
   }
@@ -219,7 +221,7 @@ function BooksCardGrid({
                   {book.is_active && (
                     <Button variant="ghost" size="sm" onClick={() => onDeactivate(book)}>
                       <Trash2 className="mr-1.5 size-4" />
-                      Désactiver
+                      {tCommon('actions.deactivate')}
                     </Button>
                   )}
                 </div>

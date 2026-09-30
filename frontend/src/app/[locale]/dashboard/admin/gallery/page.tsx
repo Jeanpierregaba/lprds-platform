@@ -22,6 +22,7 @@ const PAGE_SIZE = 30
 
 export default function GalleryPage() {
   const t = useTranslations('gallery')
+  const tCommon = useTranslations('common')
   const gallerySourceBadgesLabel = useLabel('gallerySourceBadges')
   const user = useUser()
   const staffReportsOnly = user?.role === 'staff'
@@ -92,7 +93,7 @@ export default function GalleryPage() {
           <span>{total} média{total > 1 ? 's' : ''}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-              Précédent
+              {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
               Suivant

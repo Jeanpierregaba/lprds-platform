@@ -78,5 +78,6 @@
   "multiselect": {
     "remove": "Remove {name}",
     "search": "Search for a child by surname, first names or ID..."
-  }
+  },
+  "resetHintParent": "The new password is emailed to the parent — they do not have to set it again."
 }

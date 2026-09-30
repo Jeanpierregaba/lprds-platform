@@ -66,6 +66,7 @@ function CreateLendingDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const t = useTranslations('library')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
 
   const { data: books } = useQuery({
@@ -131,9 +132,7 @@ function CreateLendingDialog({
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('lendings.newTitle')}</DialogTitle>
-          <DialogDescription>
-            La date de retour est planifiée selon les paramètres de la bibliothèque (par défaut 14 jours).
-          </DialogDescription>
+          <DialogDescription>{t('dueDateHint')}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
@@ -187,7 +186,7 @@ function CreateLendingDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+              {tCommon('actions.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-1.5 size-4 animate-spin" />}
@@ -203,6 +202,7 @@ function CreateLendingDialog({
 export function LendingsTab() {
   const lendingStatusLabel = useLabel('lendingStatus')
   const t = useTranslations('library')
+  const tCommon = useTranslations('common')
   const lendingStatusLabels = useLabelMap('lendingStatus', LENDING_STATUSES)
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -341,7 +341,7 @@ export function LendingsTab() {
           <span>{total} prêt{total > 1 ? 's' : ''}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={!hasPrev || isFetching} onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}>
-              Précédent
+              {tCommon('actions.previous')}
             </Button>
             <Button variant="outline" size="sm" disabled={!hasNext || isFetching} onClick={() => setSkip(skip + PAGE_SIZE)}>
               Suivant

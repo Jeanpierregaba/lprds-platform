@@ -2,7 +2,8 @@
  *
  * Stratégies (documentées dans CLAUDE.md, section PWA) :
  *  - Install  : précache le shell (page hors-ligne, manifest, icônes, accueil).
- *  - Navigate  : network-first, repli sur le HTML en cache puis /offline.
+ *  - Navigate  : network-first, repli sur le HTML en cache puis /offline
+ *                (ou /en/offline — le repli suit la langue de l'URL demandée).
  *  - /_next/static, /icons, /images : stale-while-revalidate / cache-first.
  *  - /api/*    : jamais caché (données authentifiées, sensibles RGPD).
  *  - /version.json : jamais caché (sonde réseau de l'auto-update PWA —
@@ -12,12 +13,16 @@
  * pré-cachés, sinon les clients gardent l'ancienne version de ce worker.
  */
 
-const CACHE_VERSION = '2026.10'
+const CACHE_VERSION = '2026.11'
 const SHELL = 'lprds-shell@' + CACHE_VERSION
 
 const PRECACHE_URLS = [
   '/',
+  '/en',
+  // Les deux langues de la page hors-ligne : sans `/en/offline`, un visiteur
+  // anglophone coupé du réseau tomberait sur la version française.
   '/offline',
+  '/en/offline',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -127,6 +132,12 @@ self.addEventListener('fetch', (event) => {
 
   // Navigation (pages) : network-first, repli HTML -> /offline.
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+    // Le repli suit la langue du chemin demandé : `/en/...` retombe sur la
+    // page hors-ligne anglaise, tout le reste sur la française (le français
+    // n'a pas de préfixe — cf. localePrefix 'as-needed').
+    const isEnglish = url.pathname === '/en' || url.pathname.startsWith('/en/')
+    const home = isEnglish ? '/en' : '/'
+    const offline = isEnglish ? '/en/offline' : '/offline'
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -139,8 +150,8 @@ self.addEventListener('fetch', (event) => {
         .catch(() =>
           caches
             .match(request)
-            .then((cached) => cached || caches.match('/'))
-            .then((fallback) => fallback || caches.match('/offline')),
+            .then((cached) => cached || caches.match(home))
+            .then((fallback) => fallback || caches.match(offline)),
         ),
     )
     return

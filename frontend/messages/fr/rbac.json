@@ -67,5 +67,7 @@
     "library:write": "Créer, modifier et supprimer les livres du catalogue",
     "library:lend": "Enregistrer les prêts, retours et rappels de la bibliothèque"
   },
-  "permissionsOther": "Autres"
+  "permissionsOther": "Autres",
+  "roleNameHint": "Ex. Directrice, Assistant de direction... Les droits attribués s'appliquent à tout membre du personnel qui portera ce rôle.",
+  "rolesEmpty": "Créez des rôles pour donner des droits fins à votre personnel (ex. Directrice, Secrétaire)."
 }

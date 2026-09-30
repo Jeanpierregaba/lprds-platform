@@ -48,9 +48,7 @@ export default function AttendancePage() {
       />
 
       {!isLoadingPermissions && !showRead && !showWrite && !showScan ? (
-        <p className="text-sm text-muted-foreground">
-          Droits insuffisants — aucun accès au module présences.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('noAccess')}</p>
       ) : (
       <Tabs value={active} onValueChange={(v) => v && setTab(v)}>
         <PillsTabsList fit={false}>
@@ -105,7 +103,7 @@ export default function AttendancePage() {
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-secondary data-active:text-white data-active:shadow-md"
             >
               <Settings className="mr-1.5 size-4" />
-              Paramètres
+              {t('settingsTab')}
             </TabsTrigger>
           )}
         </PillsTabsList>

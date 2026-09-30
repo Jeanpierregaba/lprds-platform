@@ -77,9 +77,7 @@ export function BiMensuelFields({
         {errors.teacher_observations && <p className="text-sm text-destructive">{errors.teacher_observations.message}</p>}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Les photos et vidéos de la période s&apos;ajoutent depuis la section Pièces jointes ci-dessous.
-      </p>
+      <p className="text-xs text-muted-foreground">{t('mediaElsewhereHint')}</p>
     </div>
   )
 }

@@ -120,5 +120,9 @@
     "relaunched": "Traduction relancée.",
     "failedToast": "La traduction n'a pas abouti. Le site reste en français.",
     "overwriteWarning": "Écrasera la version relue à la main"
-  }
+  },
+  "photoPublishHint": "La photo apparaît immédiatement dans la galerie du site vitrine.",
+  "categoryNameHint": "Nom libre, unique par établissement — comme les étiquettes des articles.",
+  "articleDeleted": "Cet article a été supprimé (soft delete) — lecture seule.",
+  "noCover": "Aucune image à la une"
 }

@@ -55,6 +55,7 @@ export function WeekTab({
   onDepartmentChange: (departmentId: string) => void
 }) {
   const t = useTranslations('menus')
+  const tCommon = useTranslations('common')
   const mealSlotsLabel = useLabel('mealSlots')
   const weekdaysLabel = useLabel('weekdays')
   const queryClient = useQueryClient()
@@ -305,7 +306,7 @@ export function WeekTab({
           {menu && (
             <AlertDialog>
               <AlertDialogTrigger render={<Button type="button" variant="destructive" />}>
-                Supprimer
+                {tCommon('actions.delete')}
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>

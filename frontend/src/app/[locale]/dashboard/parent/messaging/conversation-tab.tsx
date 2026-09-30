@@ -98,9 +98,7 @@ export function ConversationTab() {
                   </div>
                 )}
                 {thread.messages.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground">
-                    Aucun message pour l&apos;instant. Écrivez à l&apos;établissement ci-dessous.
-                  </p>
+                  <p className="text-center text-sm text-muted-foreground">{t('conversationEmpty')}</p>
                 ) : (
                   thread.messages.map((msg) => {
                     const isMine = msg.sender_role === 'parent'
@@ -164,9 +162,7 @@ export function ConversationTab() {
               }}
               className="w-full resize-none"
             />
-            <p className="mt-1 hidden text-[11px] text-muted-foreground max-sm:block">
-              Touche Entrée pour envoyer.
-            </p>
+            <p className="mt-1 hidden text-[11px] text-muted-foreground max-sm:block">{t('enterToSend')}</p>
           </div>
           <div className="flex shrink-0 flex-col items-center gap-1">
             <Button
@@ -183,7 +179,7 @@ export function ConversationTab() {
                 ? <Loader2 className="size-4 animate-spin" />
                 : <Paperclip className="size-4" />}
             </Button>
-            <Button type="button" className="h-10 w-10" onClick={thread.onSend} disabled={!thread.canSend} aria-label="Envoyer">
+            <Button type="button" className="h-10 w-10" onClick={thread.onSend} disabled={!thread.canSend} aria-label={t('send')}>
               {thread.busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             </Button>
           </div>

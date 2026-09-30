@@ -38,9 +38,7 @@ export default function StaffLibraryPage() {
             <div className="flex size-12 items-center justify-center rounded-full bg-muted">
               <LibraryBig className="size-5" />
             </div>
-            <p className="font-medium text-foreground">
-              Aucun livre disponible dans votre section pour le moment.
-            </p>
+            <p className="font-medium text-foreground">{t('sectionCatalogueEmpty')}</p>
           </CardContent>
         </Card>
       ) : (

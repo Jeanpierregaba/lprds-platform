@@ -142,10 +142,7 @@ export default function NewStaffPage() {
                 )}
               />
               {errors.staff_type && <p className="text-sm text-destructive">{errors.staff_type.message}</p>}
-              <p className="text-xs text-muted-foreground">
-                Poste purement descriptif — n&apos;attribue aucun droit. Les droits se gèrent depuis
-                Rôles &amp; permissions.
-              </p>
+              <p className="text-xs text-muted-foreground">{t('staffTypeHint')}</p>
             </div>
 
             <div className="space-y-2">

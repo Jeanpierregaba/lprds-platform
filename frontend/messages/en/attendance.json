@@ -255,5 +255,12 @@
     "timeRequired": "Time required",
     "graceMin": "0 minimum",
     "graceMax": "120 maximum"
-  }
+  },
+  "graceHint": "An arrival within this window after the expected time still counts as “present”. 0 means no leeway. Applies to children and staff alike.",
+  "staffScheduleHint": "By default every staff member follows the general schedule (see General). Set an individual schedule here to override it when calculating that person’s lateness.",
+  "exemptHint": "An exempt staff member is never counted as “absent” when they do not scan.",
+  "generateCard": "Generate the school card",
+  "correctionHint": "Only the times you change are saved. A time with no matching scan creates that entry.",
+  "noAccess": "Insufficient rights — no access to the attendance module.",
+  "settingsTab": "Settings"
 }

@@ -114,5 +114,14 @@
   "validation": {
     "titleRequired": "Titre requis",
     "bodyRequired": "Contenu requis"
-  }
+  },
+  "announcementScopeHint": "Rédigez le message en entier, puis cochez les départements concernés avant l'envoi.",
+  "departmentsLoadError": "Impossible de charger les départements — réessayez en rouvrant ce dialogue.",
+  "attachFiles": "Joindre des fichiers",
+  "send": "Envoyer",
+  "realtimeOn": "Temps réel actif",
+  "conversationEmpty": "Aucun message pour l'instant. Écrivez à l'établissement ci-dessous.",
+  "enterToSend": "Touche Entrée pour envoyer.",
+  "carouselHint": "Carrousel des médias de la diffusion — flèches ou clavier pour naviguer, Échap pour fermer.",
+  "previewUnavailable": "Aperçu indisponible"
 }

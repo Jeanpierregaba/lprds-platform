@@ -67,5 +67,7 @@
     "library:write": "Create, edit and remove books from the catalogue",
     "library:lend": "Record library loans, returns and reminders"
   },
-  "permissionsOther": "Other"
+  "permissionsOther": "Other",
+  "roleNameHint": "E.g. Head teacher, Deputy head… The rights granted apply to every staff member holding this role.",
+  "rolesEmpty": "Create roles to grant fine-grained rights to your staff (e.g. Head teacher, Secretary)."
 }

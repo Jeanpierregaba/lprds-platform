@@ -176,10 +176,7 @@ function GeneralSettings() {
             {errors.late_grace_minutes && (
               <p className="text-sm text-destructive">{errors.late_grace_minutes.message}</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Une arrivée dans ce délai après l&apos;horaire attendu compte « présent ».
-              0 = aucun pardon. S&apos;applique aux enfants comme au personnel.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('graceHint')}</p>
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
@@ -442,10 +439,7 @@ function StaffSchedulesSettings() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-white font-semibold">
-        Par défaut, tout le personnel suit l&apos;horaire général (cf. Général). Posez un horaire
-        personnalisé ici pour un membre — il surcharge l&apos;horaire général pour le calcul des retards.
-      </p>
+      <p className="text-sm text-white font-semibold">{t('staffScheduleHint')}</p>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -620,9 +614,7 @@ function ExemptionsSettings() {
 
   return (
     <div className="mt-2 space-y-4">
-      <p className="text-sm text-white font-semibold">
-        Un membre du personnel exempté n&apos;est jamais compté « absent » lorsqu&apos;il ne scanne pas.
-      </p>
+      <p className="text-sm text-white font-semibold">{t('exemptHint')}</p>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

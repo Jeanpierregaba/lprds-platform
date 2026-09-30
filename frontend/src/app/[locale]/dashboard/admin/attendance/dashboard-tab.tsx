@@ -307,10 +307,7 @@ function CorrectionDialog({
             )}
           </div>
         )}
-        <p className="text-xs text-muted-foreground">
-          Seules les heures modifiées sont enregistrées. Une heure sans scan crée
-          la ligne correspondante.
-        </p>
+        <p className="text-xs text-muted-foreground">{t('correctionHint')}</p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{t('dashboard.cancel')}</Button>
           <Button

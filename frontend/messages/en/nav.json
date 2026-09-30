@@ -33,5 +33,6 @@
     "blog": "Blog",
     "library": "Library"
   },
-  "openNavigation": "Open navigation"
+  "openNavigation": "Open navigation",
+  "signOut": "Sign out"
 }

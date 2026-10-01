@@ -1,4 +1,5 @@
-import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale, type AppLocale } from '@/i18n/routing'
+import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/routing'
+import { clientLocale } from '@/i18n/client-locale'
 
 /**
  * Étiquette de locale pour `Intl` et les méthodes `toLocale*String`.
@@ -7,7 +8,8 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale, type AppLocale } from '@/i1
  * déclarées au niveau module (`function formatDate(iso) { … }`), appelées
  * depuis le rendu. Les convertir en hooks imposerait de remonter la
  * traduction dans chaque composant appelant — pour un formatage de date. La
- * langue est donc lue dans le cookie, comme pour `getApiErrorMessage`.
+ * langue vient donc de `clientLocale()` (préfixe d'URL, puis cookie), comme
+ * pour `getApiErrorMessage`.
  *
  * ⚠️ `en-GB` et non `en-US` : l'ordre jour-mois-année reste celui du français,
  * ce qui évite qu'un parent lisant les deux versions confonde 03/04 et 04/03.
@@ -18,15 +20,11 @@ const INTL_TAGS: Record<AppLocale, string> = {
   en: 'en-GB',
 }
 
-const LOCALE_PATTERN = new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`)
-
 /** Locale applicative courante, côté navigateur. Retombe sur le français au
- *  rendu serveur, où le cookie n'est pas lisible depuis ce module — les pages
- *  serveur qui affichent des dates doivent passer par `getLocale()`. */
+ *  rendu serveur, où ni l'URL ni le cookie ne sont lisibles depuis ce module —
+ *  les pages serveur qui affichent des dates doivent passer par `getLocale()`. */
 export function uiLocale(): AppLocale {
-  if (typeof document === 'undefined') return DEFAULT_LOCALE
-  const value = document.cookie.match(LOCALE_PATTERN)?.[1]
-  return isAppLocale(value) ? value : DEFAULT_LOCALE
+  return clientLocale()
 }
 
 /** Étiquette à passer à `Intl` / `toLocaleDateString` / `toLocaleString`. */

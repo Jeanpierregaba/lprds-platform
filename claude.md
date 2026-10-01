@@ -222,6 +222,7 @@ scripts/
 src/
 ├── i18n/
 │   ├── routing.ts                 # LOCALES, localePrefix 'as-needed', asAppLocale()
+│   ├── client-locale.ts           # clientLocale() — URL puis cookie, hors React
 │   ├── detect.ts                  # Règle de détection (FR seulement si préféré)
 │   ├── navigation.ts              # ⚠️ SEULE source de Link/useRouter/usePathname
 │   ├── request.ts                 # Chargement des catalogues
@@ -2308,6 +2309,26 @@ regardent que la préférence la MIEUX notée, jamais la liste entière.
 | Visiteur anonyme | Cookie `NEXT_LOCALE`, à défaut `Accept-Language` | Pas de compte à interroger |
 | Utilisateur connecté | **`users.locale`** (colonne, `PATCH /auth/me/locale`) | Son choix explicite prime |
 | Email, PDF, push | **`users.locale` du DESTINATAIRE**, passé en paramètre | Sort du cycle requête/réponse : le destinataire n'est pas l'appelant |
+
+⚠️ **Côté navigateur, hors composant React : `clientLocale()`**
+(`src/i18n/client-locale.ts`) — **le préfixe d'URL d'abord, le cookie ensuite.**
+
+Quatre modules doivent connaître la langue sans pouvoir appeler `useLocale()`
+(ils tournent dans des `catch`, des rappels asynchrones ou au niveau module) :
+`lib/utils/locale-format.ts` (toutes les dates), `lib/utils/api-error.ts`
+(replis d'erreur), `lib/push-subscription.ts`, et `lib/api/client.ts` qui pose
+l'en-tête `Accept-Language` de **chaque** requête.
+
+Les quatre lisaient le cookie **seul**, chacun avec sa propre copie de la
+regex. C'était faux : avec `localePrefix: 'as-needed'`, on peut parfaitement se
+trouver sur `/en/...` SANS cookie — lien partagé, favori, cookie expiré,
+navigation privée. Constaté en recette : « JEUDI 1 OCTOBRE 2026 » en tête d'un
+tableau de bord anglais, mois des anniversaires en français, et surtout
+`Accept-Language: fr` envoyé au backend depuis une page anglaise. Le préfixe
+d'URL est ce qui a décidé de la langue de la page : c'est donc lui qui fait foi.
+
+(`manifest.ts` reste au cookie + `Accept-Language` : il est servi hors du
+segment `[locale]`, il n'a aucune URL d'où déduire la langue.)
 
 ⚠️ **`users.locale` prime sur `Accept-Language` dès qu'on est authentifié** —
 c'est vérifié par test en envoyant délibérément l'en-tête contraire

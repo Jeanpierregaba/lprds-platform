@@ -2,9 +2,7 @@ import { AxiosError } from 'axios'
 
 import en from '../../../messages/en/errors.json'
 import fr from '../../../messages/fr/errors.json'
-import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale } from '@/i18n/routing'
-
-const LOCALE_PATTERN = new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`)
+import { clientLocale } from '@/i18n/client-locale'
 
 /**
  * Message affichable à partir d'une erreur d'API.
@@ -19,22 +17,15 @@ const LOCALE_PATTERN = new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`)
  * la traduction passe par `useTranslations`. Elle est appelée 163 fois dans
  * 48 fichiers, souvent dans des `catch` et des rappels asynchrones où les
  * règles des hooks ne s'appliquent pas. La convertir imposerait de réécrire
- * tous ces appels pour huit chaînes de repli. La langue est donc lue
- * directement dans le cookie, et les textes viennent des mêmes catalogues que
- * partout ailleurs — une seule source de vérité, pas de doublon.
+ * tous ces appels pour huit chaînes de repli. La langue vient donc de
+ * `clientLocale()`, et les textes des mêmes catalogues que partout ailleurs —
+ * une seule source de vérité, pas de doublon.
  */
 
 const CATALOGS = { fr, en } as const
 
-function currentLocale() {
-  if (typeof document === 'undefined') return DEFAULT_LOCALE
-  const match = document.cookie.match(LOCALE_PATTERN)
-  const value = match?.[1]
-  return isAppLocale(value) ? value : DEFAULT_LOCALE
-}
-
 export function getApiErrorMessage(error: unknown): string {
-  const t = CATALOGS[currentLocale()]
+  const t = CATALOGS[clientLocale()]
 
   if (error instanceof AxiosError) {
     const detail = error.response?.data?.detail

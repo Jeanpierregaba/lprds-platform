@@ -3,16 +3,13 @@
 import { useEffect, useState, useCallback } from "react"
 import en from '../../messages/en/errors.json'
 import fr from '../../messages/fr/errors.json'
-import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale } from '@/i18n/routing'
+import { clientLocale } from '@/i18n/client-locale'
 
-/** Ces messages sortent d'un hook appelé hors rendu : la langue est lue dans
- *  le cookie, comme pour getApiErrorMessage. */
+/** Ces messages sortent d'un hook appelé hors rendu : la langue vient de
+ *  `clientLocale()`, comme pour getApiErrorMessage. */
 function pushError(key: 'pushUnsupported' | 'pushDenied' | 'vapidFailed'): string {
-  if (typeof document === 'undefined') return fr[key]
-  const value = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`))?.[1]
-  return (isAppLocale(value) && value === 'en' ? en : fr)[key]
+  return (clientLocale() === 'en' ? en : fr)[key]
 }
-void DEFAULT_LOCALE
 import { useAuthStore } from "@/lib/stores/auth.store"
 import { getApiErrorMessage } from "@/lib/utils/api-error"
 

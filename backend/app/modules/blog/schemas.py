@@ -34,15 +34,22 @@ class AttachmentResponse(BaseModel):
 # ── Étiquettes ──────────────────────────────────────────────────
 class TagCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    # Nom anglais imposé par le rédacteur. Absent = traduction automatique.
+    # Fourni, il vaut CORRECTION : il est gravé dans la mémoire de traduction,
+    # donc restitué partout où le même libellé français réapparaîtra.
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class TagUpdateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class TagResponse(BaseModel):
     id:         uuid.UUID
     name:       str
+    # `None` = pas encore traduit ; le site vitrine affiche alors le français.
+    name_en:    str | None = None
     created_at: datetime
 
 
@@ -145,15 +152,19 @@ class PublicArticleDetail(BaseModel):
 # ── Galerie du site vitrine ──────────────────────────────────────
 class GalleryCategoryCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    # Cf. TagCreateRequest : fourni, il vaut correction et nourrit la mémoire.
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class GalleryCategoryUpdateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class GalleryCategoryResponse(BaseModel):
     id:         uuid.UUID
     name:       str
+    name_en:    str | None = None
     created_at: datetime
 
 

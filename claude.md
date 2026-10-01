@@ -2585,15 +2585,25 @@ en arrière.
   rouvrirait le trou qu'on vient de combler (un contenu abandonné en silence) ;
   le coût reste borné par `limit` × la fréquence du beat.
 
-⚠️ **Non traduit, et visible du public** : les **étiquettes d'article**
-(`blog_tags.name`) et les **catégories de la galerie**
-(`blog_gallery_categories.name`) sont des vocabulaires libres créés par
-l'établissement, sans colonne anglaise. Les pastilles de filtre de
-`/en/actualites` et `/en/galerie` affichent donc « Activités », « Spectacle »,
-« Repas » au milieu d'une page anglaise. Ces deux tables n'ont jamais été dans
-le périmètre de la traduction automatique (qui ne couvre que titre et contenu
-d'article, et les créneaux de menu) — c'est le trou le plus voyant qui reste,
-sur la surface la plus exposée.
+**Vocabulaires libres — étiquettes d'article et catégories de galerie**
+(`blog_tags.name_en`, `blog_gallery_categories.name_en`, migration
+`356af593e71c`) : ces deux listes sont créées à la volée par l'établissement et
+s'affichent **sur le site vitrine** (les pastilles de filtre de `/actualites` et
+`/galerie`). Elles restaient en français sur les pages anglaises.
+
+- Traduction à la création et à chaque **renommage**, best-effort : un échec
+  laisse `name_en` à NULL et la lecture publique retombe sur le français.
+  Créer une étiquette ne dépend pas d'un service de traduction.
+- **Pas de statut `manual` ici**, à la différence des articles. Un `name_en`
+  fourni explicitement vaut correction et part dans `translation_memory`, qui
+  le restituera à la prochaine traduction du même libellé — y compris pour un
+  autre établissement. Pour un nom de deux mots qui revient partout, la mémoire
+  tient le rôle du drapeau, et la correction profite à tous.
+- ⚠️ Les routes publiques renvoient `name` **déjà dans la langue demandée**
+  (`?locale=`), prêt à afficher ; `name_en` n'est exposé que pour l'écran de
+  gestion, où le rédacteur édite le français et corrige l'anglais à côté.
+  Les trois listes concernées sont `/tags`, `/gallery/categories` et
+  `/gallery` (catégorie embarquée dans chaque photo).
 
 **Blog public** : `GET /public/blog/{code}/articles?locale=en`. Le `?locale=`
 fait foi — une réponse publique indexable doit dépendre de l'URL seule — avec

@@ -233,7 +233,7 @@ function ParentCard({
     <>
       <ClickableCard
         href={detailHref}
-        label={`Ouvrir le compte de ${parent.nickname ?? `${parent.first_name} ${parent.last_name}`}`}
+        label={t('list.openAccount', { name: parent.nickname ?? `${parent.first_name} ${parent.last_name}` })}
         inactive={!parent.is_active}
       >
       <CardContent className="space-y-1.5 p-5">

@@ -32,6 +32,7 @@ export function TagsTab() {
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<BlogTag | null>(null)
   const [editName, setEditName] = useState('')
+  const [editNameEn, setEditNameEn] = useState('')
   const [tagToDelete, setTagToDelete] = useState<BlogTag | null>(null)
 
   const { data: tags, isLoading } = useQuery({
@@ -48,7 +49,8 @@ export function TagsTab() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => blogApi.updateTag(id, name),
+    mutationFn: ({ id, name, nameEn }: { id: string; name: string; nameEn: string }) =>
+      blogApi.updateTag(id, name, nameEn),
     onSuccess: () => { toast.success(t('tags.renamed')); setEditing(null); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
@@ -128,7 +130,7 @@ export function TagsTab() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => { setEditing(tag); setEditName(tag.name) }}
+                      onClick={() => { setEditing(tag); setEditName(tag.name); setEditNameEn(tag.name_en ?? '') }}
                       aria-label={t('tags.rename')}
                     >
                       <Pencil className="size-4" />
@@ -152,7 +154,7 @@ export function TagsTab() {
       <ConfirmDialog
         open={!!tagToDelete}
         onOpenChange={(open) => !open && setTagToDelete(null)}
-        title={`Supprimer l\u2019étiquette « ${tagToDelete?.name ?? ''} » ?`}
+        title={t('tags.deleteTitleNamed', { name: tagToDelete?.name ?? '' })}
         description={t('tags.deleteBody')}
         confirmLabel={t('tags.delete')}
         onConfirm={() => {
@@ -169,13 +171,26 @@ export function TagsTab() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              if (editing && editName.trim()) updateMutation.mutate({ id: editing.id, name: editName.trim() })
+              if (editing && editName.trim()) {
+                updateMutation.mutate({
+                  id: editing.id, name: editName.trim(), nameEn: editNameEn.trim(),
+                })
+              }
             }}
             className="space-y-4"
           >
             <div className="space-y-1.5">
               <Label htmlFor="edit-tag-name">{t('tags.name')}</Label>
               <Input id="edit-tag-name" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-tag-name-en">{t('tags.nameEn')}</Label>
+              <Input
+                id="edit-tag-name-en"
+                value={editNameEn}
+                onChange={(e) => setEditNameEn(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{t('tags.nameEnHint')}</p>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={!editName.trim() || updateMutation.isPending}>

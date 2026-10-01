@@ -19,7 +19,8 @@
     "phoneLabel": "Phone:",
     "childrenLabel": "Children:",
     "view": "View",
-    "count": "{count, plural, one {# parent} other {# parents}}"
+    "count": "{count, plural, one {# parent} other {# parents}}",
+    "openAccount": "Open {name}’s account"
   },
   "status": {
     "deactivate": "Deactivate",

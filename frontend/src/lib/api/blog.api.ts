@@ -9,7 +9,10 @@ import type {
 export const blogApi = {
   listTags: () => apiClient.get<BlogTagListResponse>('/api/v1/blog/tags'),
   createTag: (name: string) => apiClient.post<BlogTag>('/api/v1/blog/tags', { name }),
-  updateTag: (id: string, name: string) => apiClient.patch<BlogTag>(`/api/v1/blog/tags/${id}`, { name }),
+  /** `nameEn` fourni = correction humaine : le backend la grave dans la
+   *  mémoire de traduction, donc elle vaut aussi pour la suite. */
+  updateTag: (id: string, name: string, nameEn?: string) =>
+    apiClient.patch<BlogTag>(`/api/v1/blog/tags/${id}`, { name, name_en: nameEn || null }),
   deleteTag: (id: string) => apiClient.delete<void>(`/api/v1/blog/tags/${id}`),
 
   list: (params?: {
@@ -66,8 +69,10 @@ export const blogApi = {
   createGalleryCategory: (name: string) =>
     apiClient.post<GalleryPhotoCategory>('/api/v1/blog/gallery/categories', { name }),
 
-  updateGalleryCategory: (id: string, name: string) =>
-    apiClient.patch<GalleryPhotoCategory>(`/api/v1/blog/gallery/categories/${id}`, { name }),
+  updateGalleryCategory: (id: string, name: string, nameEn?: string) =>
+    apiClient.patch<GalleryPhotoCategory>(
+      `/api/v1/blog/gallery/categories/${id}`, { name, name_en: nameEn || null },
+    ),
 
   deleteGalleryCategory: (id: string) =>
     apiClient.delete<void>(`/api/v1/blog/gallery/categories/${id}`),

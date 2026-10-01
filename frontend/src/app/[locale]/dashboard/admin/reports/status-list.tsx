@@ -201,7 +201,7 @@ function ReportsCardGrid({
         <StaggerItem key={r.id} index={i}>
           <ClickableCard
             href={`/dashboard/admin/reports/${r.id}`}
-            label={`Ouvrir le rapport de ${r.child.first_names} ${r.child.last_name}`}
+            label={t('list.openReport', { name: `${r.child.first_names} ${r.child.last_name}` })}
           >
             <CardContent className="space-y-1.5 p-5">
               <div className="flex items-start justify-between gap-3">

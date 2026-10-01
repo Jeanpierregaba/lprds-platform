@@ -24,7 +24,8 @@
     "count": "{count, plural, one {# report} other {# reports}}",
     "newReport": "New report",
     "emptyForStatus": "No {status} report.",
-    "byAndUpdated": "By {name} · updated on {date}"
+    "byAndUpdated": "By {name} · updated on {date}",
+    "openReport": "Open {name}’s report"
   },
   "missing": {
     "search": "Search by surname, first names or ID...",

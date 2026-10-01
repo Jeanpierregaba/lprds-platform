@@ -18,6 +18,9 @@ export interface TagBrief {
 export interface GalleryPhotoCategory {
   id: string
   name: string
+  /** Version anglaise, remplie par traduction automatique. `null` = pas
+   *  encore traduite : le site vitrine affiche alors le français. */
+  name_en: string | null
   created_at: string
 }
 
@@ -28,6 +31,9 @@ export interface GalleryPhotoCategoryListResponse {
 export interface BlogTag {
   id: string
   name: string
+  /** Version anglaise, remplie par traduction automatique. `null` = pas
+   *  encore traduite : le site vitrine affiche alors le français. */
+  name_en: string | null
   created_at: string
 }
 

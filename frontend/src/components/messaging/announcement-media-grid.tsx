@@ -94,6 +94,7 @@ function MediaFrame({
   onOpen: () => void
   overlay?: React.ReactNode
 }) {
+  const t = useTranslations('messaging')
   const { url, isLoading, isError } = useAttachmentBlob(att.id)
   const isVideo = att.content_type.startsWith('video/')
 
@@ -101,7 +102,7 @@ function MediaFrame({
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Voir le média ${att.filename}`}
+      aria-label={t('media.viewNamed', { name: att.filename })}
       className="group relative block aspect-square w-full overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary"
     >
       {isLoading ? (

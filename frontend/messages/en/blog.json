@@ -41,7 +41,10 @@
     "created": "Tag created.",
     "renamed": "Tag renamed.",
     "deleted": "Tag deleted.",
-    "createSubmit": "Create"
+    "createSubmit": "Create",
+    "deleteTitleNamed": "Delete the “{name}” tag?",
+    "nameEn": "English name",
+    "nameEnHint": "Translated automatically. Correct it if needed: the correction will apply everywhere this label comes up again."
   },
   "gallery": {
     "allCategories": "All categories",
@@ -75,7 +78,9 @@
     "emptyHint": "Publish a photo to show it on the public site.",
     "createCategory": "Create",
     "noCategory2": "No category yet — create the first one above.",
-    "imagesOnly": "Images only (JPG, PNG, GIF, WebP)."
+    "imagesOnly": "Images only (JPG, PNG, GIF, WebP).",
+    "deleteCategoryTitleNamed": "Delete the “{name}” category?",
+    "categoryNameEn": "English name"
   },
   "form": {
     "back": "Back to the list",

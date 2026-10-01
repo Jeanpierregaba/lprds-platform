@@ -23,7 +23,8 @@
     "retry": "Try again",
     "seeMore": "See more",
     "seeAll": "See all",
-    "backToList": "Back to list"
+    "backToList": "Back to list",
+    "removeNamed": "Remove {name}"
   },
   "states": {
     "loading": "Loading…",

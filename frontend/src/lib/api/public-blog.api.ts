@@ -96,27 +96,42 @@ export async function fetchPublicBlogPost(id: string, locale: AppLocale = 'fr') 
   return { ...toPostItem(data), content: data.content }
 }
 
-/** Étiquettes utilisées pour le filtre de la page actualités. */
-export async function fetchPublicBlogTags(): Promise<PublicBlogTag[]> {
+/**
+ * Étiquettes utilisées pour le filtre de la page actualités.
+ *
+ * `locale` n'est pas optionnelle par confort : ces noms sont créés librement
+ * par l'établissement, et l'API renvoie `name` DÉJÀ dans la langue demandée.
+ * L'oublier affichait « Activités » et « Spectacle » au milieu d'une page
+ * anglaise.
+ */
+export async function fetchPublicBlogTags(locale: AppLocale = 'fr'): Promise<PublicBlogTag[]> {
   const data = await getJson<{ items: PublicBlogTag[] }>(
-    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/tags`
+    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/tags?locale=${locale}`
   )
   return data?.items ?? []
 }
 
 /** Photos de la galerie du site vitrine (toutes catégories ou une seule). */
-export async function fetchPublicGallery(categoryId?: string): Promise<PublicGalleryPhoto[]> {
-  const query = categoryId ? `?category_id=${categoryId}` : ''
+export async function fetchPublicGallery(
+  categoryId?: string, locale: AppLocale = 'fr',
+): Promise<PublicGalleryPhoto[]> {
+  const params = new URLSearchParams({ locale })
+  if (categoryId) params.set('category_id', categoryId)
   const data = await getJson<{ total: number; items: PublicGalleryPhoto[] }>(
-    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/gallery${query}`
+    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/gallery?${params}`
   )
   return data?.items ?? []
 }
 
-/** Catégories de la galerie — pastilles de filtre (jamais d'identifiant exposé). */
-export async function fetchPublicGalleryCategories(): Promise<GalleryPhotoCategory[]> {
+/**
+ * Catégories de la galerie — pastilles de filtre (jamais d'identifiant exposé).
+ * `name` arrive déjà dans la langue demandée, comme les étiquettes.
+ */
+export async function fetchPublicGalleryCategories(
+  locale: AppLocale = 'fr',
+): Promise<GalleryPhotoCategory[]> {
   const data = await getJson<{ items: GalleryPhotoCategory[] }>(
-    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/gallery/categories`
+    `/api/v1/public/blog/${ESTABLISHMENT_CODE}/gallery/categories?locale=${locale}`
   )
   return data?.items ?? []
 }

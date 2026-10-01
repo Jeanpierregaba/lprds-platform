@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, t
-from app.core.translation import TranslationUnavailable, translate_texts
+from app.core.translation import (
+    TranslationUnavailable,
+    remember_correction,
+    translate_texts,
+)
 from app.modules.auth.models import User
 from app.modules.blog.models import (
     Article,
@@ -124,6 +128,55 @@ async def set_article_translation(
     return await _to_response(article, db)
 
 
+# ── Vocabulaires libres : étiquettes et catégories ───────────────
+async def translate_label(name: str, db: AsyncSession) -> str | None:
+    """Nom anglais d'une étiquette ou d'une catégorie — best-effort.
+
+    Ces deux vocabulaires sont créés librement par l'établissement, et ils
+    s'affichent **sur le site vitrine** : les pastilles de filtre de
+    `/en/actualites` et `/en/galerie`. Les laisser en français était le trou le
+    plus voyant du bilinguisme, sur la surface la plus exposée.
+
+    Un échec rend `None` : la lecture publique retombe sur le français, comme
+    partout. Jamais d'exception — créer une étiquette ne doit pas dépendre d'un
+    service de traduction.
+
+    Publique (et non préfixée d'un souligné) parce qu'elle a un second
+    appelant : la tâche de reprise `blog/tasks.py`, qui rattrape aussi bien un
+    échec passager que les lignes antérieures à la colonne `name_en`.
+
+    Ces noms sont courts et se répètent beaucoup (« Activités », « Événement »,
+    « Repas » reviennent d'un établissement à l'autre) : la mémoire de
+    traduction les sert donc presque toujours sans appel au modèle.
+    """
+    try:
+        [translated] = await translate_texts([name], db)
+    except TranslationUnavailable as exc:
+        logger.info("Traduction du libellé « %s » non aboutie : %s", name, exc)
+        return None
+    return translated[:50] if translated and translated.strip() else None
+
+
+async def _apply_name_translation(
+    entity, name: str, name_en: str | None, db: AsyncSession
+) -> None:
+    """Pose le nom français et sa version anglaise.
+
+    Un `name_en` fourni explicitement est une **correction humaine** : il est
+    gravé dans la mémoire de traduction, donc restitué à la prochaine
+    traduction du même texte — y compris pour un autre établissement. C'est ce
+    qui remplace, ici, le statut `manual` des articles : pour un libellé de
+    deux mots qui revient partout, la mémoire est le bon support.
+    """
+    renamed = entity.name != name
+    entity.name = name
+    if name_en is not None:
+        entity.name_en = name_en
+        await remember_correction(db, name, name_en)
+    elif renamed or entity.name_en is None:
+        entity.name_en = await translate_label(name, db)
+
+
 # ── Étiquettes (créées librement par l'admin/rédacteur) ───────────
 async def create_tag(
     payload: TagCreateRequest, establishment_id: uuid.UUID, db: AsyncSession
@@ -139,10 +192,11 @@ async def create_tag(
             detail=t("errors.blog.tag_exists"),
         )
     tag = BlogTag(establishment_id=establishment_id, name=payload.name)
+    await _apply_name_translation(tag, payload.name, payload.name_en, db)
     db.add(tag)
     await db.flush()
     await db.refresh(tag)
-    return TagResponse(id=tag.id, name=tag.name, created_at=tag.created_at)
+    return _tag_response(tag)
 
 
 async def list_tags(establishment_id: uuid.UUID, db: AsyncSession) -> TagListResponse:
@@ -151,10 +205,7 @@ async def list_tags(establishment_id: uuid.UUID, db: AsyncSession) -> TagListRes
         .where(BlogTag.establishment_id == establishment_id)
         .order_by(BlogTag.name)
     )
-    return TagListResponse(items=[
-        TagResponse(id=t.id, name=t.name, created_at=t.created_at)
-        for t in result.scalars().all()
-    ])
+    return TagListResponse(items=[_tag_response(tag) for tag in result.scalars().all()])
 
 
 async def update_tag(
@@ -173,9 +224,9 @@ async def update_tag(
             status_code=status.HTTP_409_CONFLICT,
             detail=t("errors.blog.tag_exists"),
         )
-    tag.name = payload.name
+    await _apply_name_translation(tag, payload.name, payload.name_en, db)
     await db.flush()
-    return TagResponse(id=tag.id, name=tag.name, created_at=tag.created_at)
+    return _tag_response(tag)
 
 
 async def delete_tag(tag_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession) -> None:
@@ -447,6 +498,7 @@ async def create_gallery_category(
             detail=t("errors.blog.category_exists"),
         )
     category = BlogGalleryCategory(establishment_id=establishment_id, name=payload.name)
+    await _apply_name_translation(category, payload.name, payload.name_en, db)
     db.add(category)
     await db.flush()
     await db.refresh(category)
@@ -483,7 +535,7 @@ async def update_gallery_category(
             status_code=status.HTTP_409_CONFLICT,
             detail=t("errors.blog.category_exists"),
         )
-    category.name = payload.name
+    await _apply_name_translation(category, payload.name, payload.name_en, db)
     await db.flush()
     return _gallery_category_response(category)
 
@@ -512,14 +564,42 @@ async def _get_gallery_category_or_404(
     return category
 
 
+def _localized_name(entity, locale: Locale) -> str:
+    """Nom à afficher au public. Repli français si l'anglais manque.
+
+    Jamais utilisé côté gestion : l'admin édite le français, et voit l'anglais
+    dans un champ à part (`name_en`) pour pouvoir le corriger.
+    """
+    if locale is Locale.EN and entity.name_en:
+        return entity.name_en
+    return entity.name
+
+
+def _tag_response(tag: BlogTag) -> TagResponse:
+    return TagResponse(
+        id=tag.id, name=tag.name, name_en=tag.name_en, created_at=tag.created_at
+    )
+
+
 def _gallery_category_response(category: BlogGalleryCategory) -> GalleryCategoryResponse:
-    return GalleryCategoryResponse(id=category.id, name=category.name, created_at=category.created_at)
+    return GalleryCategoryResponse(
+        id=category.id, name=category.name, name_en=category.name_en,
+        created_at=category.created_at,
+    )
 
 
-def _category_brief(category: BlogGalleryCategory | None) -> TagBrief | None:
+def _tag_brief(tag: BlogTag | None, locale: Locale = DEFAULT_LOCALE) -> TagBrief | None:
+    if tag is None:
+        return None
+    return TagBrief(id=tag.id, name=_localized_name(tag, locale))
+
+
+def _category_brief(
+    category: BlogGalleryCategory | None, locale: Locale = DEFAULT_LOCALE
+) -> TagBrief | None:
     if category is None:
         return None
-    return TagBrief(id=category.id, name=category.name)
+    return TagBrief(id=category.id, name=_localized_name(category, locale))
 
 
 async def create_gallery_photo(
@@ -599,6 +679,7 @@ async def list_public_gallery_photos(
     db: AsyncSession,
     *,
     category_id: uuid.UUID | None = None,
+    locale: Locale = DEFAULT_LOCALE,
     skip: int = 0,
     limit: int = 50,
 ) -> PublicGalleryListResponse:
@@ -617,7 +698,7 @@ async def list_public_gallery_photos(
     )
     items = [
         PublicGalleryPhoto(
-            id=p.id, category=_category_brief(p.category), content_type=p.content_type,
+            id=p.id, category=_category_brief(p.category, locale), content_type=p.content_type,
             size_bytes=p.size_bytes, created_at=p.created_at,
             url=_public_gallery_url(establishment_code, p.id),
         )
@@ -627,11 +708,26 @@ async def list_public_gallery_photos(
 
 
 async def list_public_gallery_categories(
-    establishment_code: str, db: AsyncSession
+    establishment_code: str, db: AsyncSession, locale: Locale = DEFAULT_LOCALE
 ) -> GalleryCategoryListResponse:
-    """Catégories pour les pastilles de filtre du site vitrine (public)."""
+    """Catégories pour les pastilles de filtre du site vitrine (public).
+
+    `name` porte le libellé DANS LA LANGUE DEMANDÉE — le site vitrine l'affiche
+    tel quel. `name_en` reste exposé pour la gestion, pas pour la vitrine.
+    """
     establishment = await get_public_establishment_or_404(establishment_code, db)
-    return await list_gallery_categories(establishment.id, db)
+    result = await db.execute(
+        select(BlogGalleryCategory)
+        .where(BlogGalleryCategory.establishment_id == establishment.id)
+        .order_by(BlogGalleryCategory.name)
+    )
+    return GalleryCategoryListResponse(items=[
+        GalleryCategoryResponse(
+            id=c.id, name=_localized_name(c, locale), name_en=c.name_en,
+            created_at=c.created_at,
+        )
+        for c in result.scalars().all()
+    ])
 
 
 async def get_public_gallery_photo(
@@ -694,7 +790,7 @@ async def list_public_articles(
         title, _content, served = _public_text(a, locale)
         items.append(PublicArticleListItem(
             id=a.id, title=title,
-            tag=TagBrief(id=a.tag.id, name=a.tag.name) if a.tag else None,
+            tag=_tag_brief(a.tag, locale),
             cover_url=_public_cover_url(establishment_code, a),
             published_at=a.published_at,
             locale=served,
@@ -724,7 +820,7 @@ async def get_public_article(
     title, content, served = _public_text(article, locale)
     return PublicArticleDetail(
         id=article.id, title=title, content=content, locale=served,
-        tag=TagBrief(id=article.tag.id, name=article.tag.name) if article.tag else None,
+        tag=_tag_brief(article.tag, locale),
         cover_url=_public_cover_url(establishment_code, article),
         published_at=article.published_at,
         attachments=[
@@ -734,9 +830,26 @@ async def get_public_article(
     )
 
 
-async def list_public_tags(establishment_code: str, db: AsyncSession) -> TagListResponse:
+async def list_public_tags(
+    establishment_code: str, db: AsyncSession, locale: Locale = DEFAULT_LOCALE
+) -> TagListResponse:
+    """Étiquettes des pastilles de filtre du site vitrine (public).
+
+    Comme pour les catégories, `name` est déjà dans la langue demandée.
+    """
     establishment = await get_public_establishment_or_404(establishment_code, db)
-    return await list_tags(establishment.id, db)
+    result = await db.execute(
+        select(BlogTag)
+        .where(BlogTag.establishment_id == establishment.id)
+        .order_by(BlogTag.name)
+    )
+    return TagListResponse(items=[
+        TagResponse(
+            id=tag.id, name=_localized_name(tag, locale), name_en=tag.name_en,
+            created_at=tag.created_at,
+        )
+        for tag in result.scalars().all()
+    ])
 
 
 async def get_public_cover(
@@ -937,7 +1050,8 @@ def _gallery_item(photo: BlogGalleryPhoto) -> GalleryPhotoListItem:
 def _to_list_item(article: Article) -> ArticleListItem:
     return ArticleListItem(
         id=article.id, title=article.title, status=article.status,
-        tag=TagBrief(id=article.tag.id, name=article.tag.name) if article.tag else None,
+        # Vue de GESTION : le français, que le rédacteur édite.
+        tag=_tag_brief(article.tag),
         cover_url=_internal_cover_url(article),
         is_active=article.is_active, published_at=article.published_at,
         created_at=article.created_at, updated_at=article.updated_at,

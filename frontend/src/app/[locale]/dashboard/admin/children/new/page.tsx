@@ -95,6 +95,7 @@ function formatDate(iso: string) {
 
 export default function NewChildPage() {
   const t = useTranslations('children')
+  const tCommon = useTranslations('common')
   const schema = makeSchema(t)
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -565,7 +566,7 @@ export default function NewChildPage() {
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`Retirer ${file.name}`}
+                              aria-label={tCommon('actions.removeNamed', { name: file.name })}
                               onClick={() => setDocuments((prev) => prev.filter((_, i) => i !== index))}
                             >
                               <X className="size-4" />

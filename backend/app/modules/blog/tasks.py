@@ -28,14 +28,21 @@ from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.core.database import task_sessions
 from app.modules.blog import service as blog_service
-from app.modules.blog.models import Article, ArticleStatus, TranslationStatus
+from app.modules.blog.models import (
+    Article,
+    ArticleStatus,
+    BlogGalleryCategory,
+    BlogTag,
+    TranslationStatus,
+)
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="app.modules.blog.tasks.retry_missing_translations")
 def retry_missing_translations(limit: int = 50) -> dict:
-    """Reprend les articles PUBLIÉS dont l'anglais manque encore.
+    """Reprend les articles PUBLIÉS dont l'anglais manque encore, et les
+    libellés (étiquettes, catégories de galerie) jamais traduits.
 
     Les brouillons sont volontairement exclus : ils ne sont visibles de
     personne hors de l'établissement, et beaucoup ne seront jamais publiés —
@@ -88,10 +95,44 @@ def retry_missing_translations(limit: int = 50) -> dict:
                     else:
                         still_failing += 1
 
-            return {"translated": translated, "still_failing": still_failing}
+            # Vocabulaires libres — étiquettes d'article et catégories de
+            # galerie. Ils n'ont pas de statut : « il manque la version
+            # anglaise » se lit directement (`name_en IS NULL`).
+            #
+            # C'est aussi ce qui rattrape l'existant : les lignes créées avant
+            # l'ajout de la colonne partent toutes de NULL, et le site vitrine
+            # anglais afficherait sinon leurs libellés français jusqu'au
+            # prochain renommage — c'est-à-dire, en pratique, indéfiniment.
+            labels = 0
+            for model in (BlogTag, BlogGalleryCategory):
+                async with Session() as db:
+                    pending = (
+                        await db.execute(
+                            select(model.id)
+                            .where(model.name_en.is_(None))
+                            .order_by(model.created_at.asc())
+                            .limit(limit)
+                        )
+                    ).scalars().all()
+
+                for entity_id in pending:
+                    async with Session() as db:
+                        entity = await db.get(model, entity_id)
+                        if entity is None:
+                            continue
+                        entity.name_en = await blog_service.translate_label(entity.name, db)
+                        await db.commit()
+                        if entity.name_en:
+                            labels += 1
+
+            return {
+                "translated": translated,
+                "still_failing": still_failing,
+                "labels": labels,
+            }
 
     try:
         return asyncio.run(_run())
     except Exception:  # noqa: BLE001 — la tâche ne peut pas crasher le beat
-        logger.exception("Échec de la reprise des traductions d'articles")
-        return {"translated": 0, "still_failing": 0, "error": "unexpected"}
+        logger.exception("Échec de la reprise des traductions du blog")
+        return {"translated": 0, "still_failing": 0, "labels": 0, "error": "unexpected"}

@@ -22,7 +22,8 @@
     "view": "Voir",
     "qrCode": "QR Code",
     "badge": "Badge de {name}",
-    "count": "{count, plural, one {# membre} other {# membres}}"
+    "count": "{count, plural, one {# membre} other {# membres}}",
+    "openAccount": "Ouvrir le compte de {name}"
   },
   "status": {
     "deactivate": "Désactiver",

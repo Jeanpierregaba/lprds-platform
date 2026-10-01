@@ -271,7 +271,7 @@ function StaffCard({
     <>
       <ClickableCard
         href={detailHref}
-        label={`Ouvrir le compte de ${member.nickname ?? `${member.first_name} ${member.last_name}`}`}
+        label={t('list.openAccount', { name: member.nickname ?? `${member.first_name} ${member.last_name}` })}
         inactive={!member.is_active}
       >
       <CardContent className="space-y-1.5 p-5">

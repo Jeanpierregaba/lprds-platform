@@ -31,7 +31,7 @@ export default async function NewsPage() {
   const locale = asAppLocale(await getLocale())
   const [posts, tags] = await Promise.all([
     fetchPublicBlogPosts(undefined, locale),
-    fetchPublicBlogTags(),
+    fetchPublicBlogTags(locale),
   ])
 
   return (

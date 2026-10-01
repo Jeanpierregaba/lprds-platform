@@ -41,7 +41,10 @@
     "created": "Étiquette créée.",
     "renamed": "Étiquette renommée.",
     "deleted": "Étiquette supprimée.",
-    "createSubmit": "Créer"
+    "createSubmit": "Créer",
+    "deleteTitleNamed": "Supprimer l’étiquette « {name} » ?",
+    "nameEn": "Nom en anglais",
+    "nameEnHint": "Traduit automatiquement. Corrigez-le si besoin : la correction s’appliquera partout où ce libellé réapparaîtra."
   },
   "gallery": {
     "allCategories": "Toutes les catégories",
@@ -75,7 +78,9 @@
     "emptyHint": "Publiez une photo pour l’afficher sur le site vitrine.",
     "createCategory": "Créer",
     "noCategory2": "Aucune catégorie — créez la première ci-dessus.",
-    "imagesOnly": "Images uniquement (JPG, PNG, GIF, WebP)."
+    "imagesOnly": "Images uniquement (JPG, PNG, GIF, WebP).",
+    "deleteCategoryTitleNamed": "Supprimer la catégorie « {name} » ?",
+    "categoryNameEn": "Nom en anglais"
   },
   "form": {
     "back": "Retour à la liste",

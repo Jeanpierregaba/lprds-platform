@@ -59,9 +59,15 @@ async def list_public_articles(
 
 @router.get("/{establishment_code}/tags", response_model=TagListResponse)
 async def list_public_tags(
-    establishment_code: str, db: AsyncSession = Depends(get_db)
+    establishment_code: str,
+    locale: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
 ) -> TagListResponse:
-    return await service.list_public_tags(establishment_code, db)
+    """`name` arrive DÉJÀ dans la langue demandée — le site vitrine l'affiche
+    tel quel, comme pour le titre d'un article."""
+    return await service.list_public_tags(
+        establishment_code, db, locale=_requested_locale(locale)
+    )
 
 
 @router.get("/{establishment_code}/articles/{article_id}", response_model=PublicArticleDetail)
@@ -106,11 +112,14 @@ async def download_public_attachment(
 )
 async def list_public_gallery_categories(
     establishment_code: str,
+    locale: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> GalleryCategoryListResponse:
     """Catégories pour les pastilles de filtre (jamais d'identifiant exposé :
     seuls id+nom sont renvoyés, comme pour les étiquettes)."""
-    return await service.list_public_gallery_categories(establishment_code, db)
+    return await service.list_public_gallery_categories(
+        establishment_code, db, locale=_requested_locale(locale)
+    )
 
 
 @router.get("/{establishment_code}/gallery", response_model=PublicGalleryListResponse)
@@ -118,13 +127,15 @@ async def list_public_gallery(
     establishment_code: str,
     db: AsyncSession = Depends(get_db),
     category_id: uuid.UUID | None = Query(default=None),
+    locale: str | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> PublicGalleryListResponse:
     """Toutes les photos de l'établissement — la galerie étant « publication
     immédiate », tout ce qui est uploadé est visible (pas de statut à filtrer)."""
     return await service.list_public_gallery_photos(
-        establishment_code, db, category_id=category_id, skip=skip, limit=limit
+        establishment_code, db, category_id=category_id,
+        locale=_requested_locale(locale), skip=skip, limit=limit,
     )
 
 

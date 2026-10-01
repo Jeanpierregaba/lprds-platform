@@ -34,6 +34,7 @@ export function MessageAttachments({
   removingId?: string | null
 }) {
   const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   return (
     <>
       {attachments.map((att) => (
@@ -48,7 +49,7 @@ export function MessageAttachments({
               type="button"
               onClick={() => onRemove(att.id)}
               disabled={removingId === att.id}
-              aria-label={`Retirer ${att.filename}`}
+              aria-label={tCommon('actions.removeNamed', { name: att.filename })}
               title={t('media.removeAttachment')}
               className="absolute left-1 top-2.5 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive disabled:opacity-60"
             >

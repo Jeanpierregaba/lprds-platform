@@ -131,7 +131,7 @@ export function MediaPicker({
               <button
                 type="button"
                 onClick={() => removeAt(i)}
-                aria-label={`Retirer ${file.name}`}
+                aria-label={tCommon('actions.removeNamed', { name: file.name })}
                 className="absolute right-1 top-1 rounded-full bg-black/60 p-2 text-white transition hover:bg-destructive"
               >
                 <X className="size-3.5" />

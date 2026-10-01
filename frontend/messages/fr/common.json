@@ -23,7 +23,8 @@
     "retry": "Réessayer",
     "seeMore": "Voir plus",
     "seeAll": "Tout voir",
-    "backToList": "Retour à la liste"
+    "backToList": "Retour à la liste",
+    "removeNamed": "Retirer {name}"
   },
   "states": {
     "loading": "Chargement…",

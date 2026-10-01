@@ -80,6 +80,16 @@ class BlogGalleryCategory(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Version anglaise du nom, remplie par traduction automatique à la création
+    # et à chaque renommage. NULL = pas (encore) traduit : la lecture publique
+    # retombe alors sur le français, comme partout ailleurs.
+    #
+    # Pas de colonne « corrigé à la main » ici, à la différence des articles :
+    # une correction saisie par le rédacteur est gravée dans
+    # `translation_memory`, qui la restituera à la prochaine traduction du même
+    # texte. La mémoire tient donc le rôle du drapeau, pour un nom de deux mots
+    # qui revient d'un établissement à l'autre.
+    name_en: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -105,6 +115,16 @@ class BlogTag(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Version anglaise du nom, remplie par traduction automatique à la création
+    # et à chaque renommage. NULL = pas (encore) traduit : la lecture publique
+    # retombe alors sur le français, comme partout ailleurs.
+    #
+    # Pas de colonne « corrigé à la main » ici, à la différence des articles :
+    # une correction saisie par le rédacteur est gravée dans
+    # `translation_memory`, qui la restituera à la prochaine traduction du même
+    # texte. La mémoire tient donc le rôle du drapeau, pour un nom de deux mots
+    # qui revient d'un établissement à l'autre.
+    name_en: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

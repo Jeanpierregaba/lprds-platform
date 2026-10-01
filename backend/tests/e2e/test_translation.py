@@ -84,12 +84,16 @@ def test_article_translated_on_publish(client, fake_translator):
     su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
     adm = onboard(c, su, "LPRDS", "admin@a.fr")
     article_id = _setup_blog(c, adm)
+    # Repère pris APRÈS le montage : celui-ci crée une étiquette, dont le nom
+    # est désormais traduit lui aussi (cf. vocabulaires libres). Ce qu'on
+    # mesure ici, c'est l'ARTICLE.
+    after_setup = fake_translator.translated_count
 
     # Un brouillon n'est pas traduit : il bouge encore, chaque frappe
     # déclencherait un appel pour rien.
     draft = c.get(f"/blog/articles/{article_id}", headers=adm).json()
     ck("brouillon non traduit", draft["translation_status"], "pending")
-    ck("aucun appel sur un brouillon", fake_translator.translated_count, 0)
+    ck("aucun appel sur un brouillon", fake_translator.translated_count, after_setup)
 
     published = c.post(f"/blog/articles/{article_id}/publish", headers=adm).json()
     ck("traduit à la publication", published["translation_status"], "auto")
@@ -519,6 +523,40 @@ def test_retry_task_recovers_a_failed_article(client, fake_translator):
        blog_tasks.retry_missing_translations()["translated"], 0)
 
 
+def test_retry_task_backfills_labels_never_translated(client, fake_translator):
+    """Le rattrapage de l'existant.
+
+    Les étiquettes et catégories créées AVANT la colonne `name_en` partent
+    toutes de NULL : sans ce balayage, le site vitrine anglais afficherait
+    leurs libellés français jusqu'au prochain renommage — autant dire
+    indéfiniment, un libellé se renommant rarement.
+    """
+    from app.modules.blog import tasks as blog_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    # Panne au moment de la création : c'est l'état où se trouvent les lignes
+    # antérieures à la colonne.
+    fake_translator.fail = True
+    tag = c.post("/blog/tags", json={"name": "Activités"}, headers=adm).json()
+    category = c.post("/blog/gallery/categories", json={"name": "Repas"}, headers=adm).json()
+    ck("étiquette sans anglais", tag["name_en"], None)
+    ck("catégorie sans anglais", category["name_en"], None)
+
+    fake_translator.fail = False
+    ck("deux libellés rattrapés", blog_tasks.retry_missing_translations()["labels"], 2)
+
+    en = {i["name"] for i in c.get("/public/blog/LPRDS/tags?locale=en").json()["items"]}
+    ck("pastille d'étiquette en anglais", en, {"[EN] Activités"})
+    cats = {i["name"] for i in c.get("/public/blog/LPRDS/gallery/categories?locale=en").json()["items"]}
+    ck("pastille de catégorie en anglais", cats, {"[EN] Repas"})
+
+    ck("rien à reprendre au passage suivant",
+       blog_tasks.retry_missing_translations()["labels"], 0)
+
+
 def test_retry_task_ignores_drafts(client, fake_translator):
     """Un brouillon n'est visible de personne hors de l'établissement, et
     beaucoup ne seront jamais publiés — les traduire serait payer pour du
@@ -529,13 +567,15 @@ def test_retry_task_ignores_drafts(client, fake_translator):
     su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
     adm = onboard(c, su, "LPRDS", "admin@a.fr")
     article_id = _setup_blog(c, adm)
+    # Cf. test_article_translated_on_publish : le montage traduit l'étiquette.
+    after_setup = fake_translator.translated_count
 
     ck("brouillon en attente",
        c.get(f"/blog/articles/{article_id}", headers=adm).json()["translation_status"],
        "pending")
     ck("tâche sans effet sur un brouillon",
        blog_tasks.retry_missing_translations()["translated"], 0)
-    ck("aucun appel au modèle", fake_translator.translated_count, 0)
+    ck("aucun appel au modèle", fake_translator.translated_count, after_setup)
 
 
 def test_retry_task_fills_menu_gaps_without_touching_corrections(client, fake_translator):
@@ -594,3 +634,103 @@ def test_retry_tasks_do_nothing_when_translation_is_disabled(client):
        blog_tasks.retry_missing_translations(), {"skipped": "translation_disabled"})
     ck("menus : tâche neutralisée",
        menu_tasks.retry_missing_translations(), {"skipped": "translation_disabled"})
+
+
+# ── Vocabulaires libres : étiquettes et catégories ──────────────
+def test_free_form_vocabularies_are_translated_for_the_public_site(client, fake_translator):
+    """Étiquettes d'article et catégories de galerie — le trou le plus voyant.
+
+    Ces deux vocabulaires sont créés librement par l'établissement et
+    s'affichent sur le SITE VITRINE : les pastilles de filtre de /actualites et
+    /galerie restaient en français au milieu d'une page anglaise.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    tag = c.post("/blog/tags", json={"name": "Événement"}, headers=adm).json()
+    ck("étiquette traduite à la création", tag["name_en"], "[EN] Événement")
+    ck("français intact", tag["name"], "Événement")
+
+    category = c.post("/blog/gallery/categories", json={"name": "Repas"}, headers=adm).json()
+    ck("catégorie traduite à la création", category["name_en"], "[EN] Repas")
+
+    # Le site vitrine sert le libellé DANS la langue demandée, prêt à afficher.
+    fr = c.get("/public/blog/LPRDS/tags?locale=fr").json()["items"][0]
+    ck("[FR] pastille française", fr["name"], "Événement")
+    en = c.get("/public/blog/LPRDS/tags?locale=en").json()["items"][0]
+    ck("[EN] pastille anglaise", en["name"], "[EN] Événement")
+
+    cat_en = c.get("/public/blog/LPRDS/gallery/categories?locale=en").json()["items"][0]
+    ck("[EN] catégorie anglaise", cat_en["name"], "[EN] Repas")
+    cat_fr = c.get("/public/blog/LPRDS/gallery/categories?locale=fr").json()["items"][0]
+    ck("[FR] catégorie française", cat_fr["name"], "Repas")
+
+    # L'étiquette portée par un article suit la même langue que l'article.
+    article = c.post("/blog/articles", json={
+        "title": "La kermesse", "content": "Les enfants ont chanté.", "tag_id": tag["id"],
+    }, headers=adm).json()
+    c.post(f"/blog/articles/{article['id']}/cover",
+           files={"file": ("c.png", PNG, "image/png")}, headers=adm)
+    c.post(f"/blog/articles/{article['id']}/publish", headers=adm)
+
+    listed = c.get("/public/blog/LPRDS/articles?locale=en").json()["items"][0]
+    ck("[EN] étiquette de l'article en liste", listed["tag"]["name"], "[EN] Événement")
+    detail = c.get(f"/public/blog/LPRDS/articles/{article['id']}?locale=en").json()
+    ck("[EN] étiquette de l'article au détail", detail["tag"]["name"], "[EN] Événement")
+
+    # Vue de GESTION : le rédacteur édite le français, et voit l'anglais à part.
+    managed = c.get("/blog/tags", headers=adm).json()["items"][0]
+    ck("gestion : nom français", managed["name"], "Événement")
+    ck("gestion : anglais exposé pour correction", managed["name_en"], "[EN] Événement")
+
+
+def test_vocabulary_correction_sticks_and_spreads(client, fake_translator):
+    """Une correction de libellé est gravée en mémoire, comme pour les menus.
+
+    C'est ce qui remplace ici le statut `manual` des articles : pour un nom de
+    deux mots qui revient d'un établissement à l'autre, la mémoire de
+    traduction est le bon support — la correction vaut pour la suite, partout.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm_a = onboard(c, su, "AAA", "admin@a.fr")
+    adm_b = onboard(c, su, "BBB", "admin@b.fr")
+
+    tag = c.post("/blog/tags", json={"name": "Sortie scolaire"}, headers=adm_a).json()
+    ck("traduction automatique", tag["name_en"], "[EN] Sortie scolaire")
+
+    corrected = c.patch(f"/blog/tags/{tag['id']}", json={
+        "name": "Sortie scolaire", "name_en": "School trip",
+    }, headers=adm_a).json()
+    ck("correction enregistrée", corrected["name_en"], "School trip")
+
+    # LE contrôle : le même libellé, créé ailleurs, reprend la correction —
+    # sans repasser par le modèle.
+    before = fake_translator.translated_count
+    other = c.post("/blog/tags", json={"name": "Sortie scolaire"}, headers=adm_b).json()
+    ck("correction reprise dans un autre établissement", other["name_en"], "School trip")
+    ck("aucun appel au modèle", fake_translator.translated_count, before)
+
+
+def test_vocabulary_translation_failure_never_blocks(client, fake_translator):
+    """Best-effort : créer une étiquette ne dépend pas du service de traduction."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    fake_translator.fail = True
+    created = c.post("/blog/tags", json={"name": "Spectacle"}, headers=adm)
+    ck("création réussie malgré la panne", created.status_code, 201)
+    ck("pas de version anglaise", created.json()["name_en"], None)
+
+    # Le site vitrine reste lisible : repli français, pas de trou.
+    en = c.get("/public/blog/LPRDS/tags?locale=en").json()["items"][0]
+    ck("repli français sur la pastille", en["name"], "Spectacle")
+
+    # Et le renommage rattrape, une fois le service revenu.
+    fake_translator.fail = False
+    tag_id = created.json()["id"]
+    renamed = c.patch(f"/blog/tags/{tag_id}", json={"name": "Spectacle de fin d'année"},
+                      headers=adm).json()
+    ck("traduction rattrapée au renommage", renamed["name_en"], "[EN] Spectacle de fin d'année")

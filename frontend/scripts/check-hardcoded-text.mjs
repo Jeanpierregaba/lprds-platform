@@ -107,16 +107,27 @@ for (const file of files) {
     // précisément ce que l'expression régulière n'arrivait pas à faire.
     if (ts.isJsxText(node)) record(node, node.text)
 
-    // Attributs visibles écrits en littéral : `placeholder="Rechercher"`.
-    // Une valeur `{t('…')}` n'est pas un `StringLiteral`, donc jamais
-    // signalée.
-    if (
-      ts.isJsxAttribute(node) &&
-      node.initializer &&
-      ts.isStringLiteral(node.initializer) &&
-      VISIBLE_ATTRS.has(node.name.getText(source))
-    ) {
-      record(node, node.initializer.text)
+    // Attributs visibles : `placeholder="Rechercher"`, mais aussi
+    // `title={\`Supprimer « ${x} » ?\`}` — un gabarit dans une expression.
+    // Seul le NOM de l'attribut qualifie le défaut, donc la forme de la valeur
+    // n'a pas à être devinée : littéral nu, littéral entre accolades, ou
+    // gabarit, c'est du texte affiché dans les trois cas. Une valeur
+    // `{t('…')}` est un appel, jamais un littéral : jamais signalée.
+    if (ts.isJsxAttribute(node) && node.initializer && VISIBLE_ATTRS.has(node.name.getText(source))) {
+      const value = ts.isJsxExpression(node.initializer)
+        ? node.initializer.expression
+        : node.initializer
+
+      if (value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value))) {
+        record(node, value.text)
+      } else if (value && ts.isTemplateExpression(value)) {
+        // Un gabarit : on n'examine que ses parties FIXES — les trous
+        // (`${name}`) portent des données, pas du texte à traduire.
+        const literal = [value.head, ...value.templateSpans.map((span) => span.literal)]
+          .map((part) => part.text)
+          .join(' ')
+        record(node, literal)
+      }
     }
 
     ts.forEachChild(node, visit)

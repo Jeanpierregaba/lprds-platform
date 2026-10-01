@@ -248,6 +248,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<GalleryPhotoCategory | null>(null)
   const [editName, setEditName] = useState('')
+  const [editNameEn, setEditNameEn] = useState('')
   const [deleting, setDeleting] = useState<GalleryPhotoCategory | null>(null)
 
   const { data: categories = [], isLoading } = useGalleryCategories()
@@ -263,7 +264,8 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => blogApi.updateGalleryCategory(id, name),
+    mutationFn: ({ id, name, nameEn }: { id: string; name: string; nameEn: string }) =>
+      blogApi.updateGalleryCategory(id, name, nameEn),
     onSuccess: () => { toast.success(t('gallery.categoryRenamed')); setEditing(null); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
@@ -313,10 +315,20 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
                       className="flex flex-1 gap-2"
                       onSubmit={(e) => {
                         e.preventDefault()
-                        if (editName.trim()) updateMutation.mutate({ id: c.id, name: editName.trim() })
+                        if (editName.trim()) {
+                          updateMutation.mutate({
+                            id: c.id, name: editName.trim(), nameEn: editNameEn.trim(),
+                          })
+                        }
                       }}
                     >
                       <Input value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus aria-label={t('gallery.newNameAria')} />
+                      <Input
+                        value={editNameEn}
+                        onChange={(e) => setEditNameEn(e.target.value)}
+                        aria-label={t('gallery.categoryNameEn')}
+                        placeholder={t('gallery.categoryNameEn')}
+                      />
                       <Button type="submit" size="sm" disabled={!editName.trim() || updateMutation.isPending}>
                         OK
                       </Button>
@@ -327,7 +339,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
                       <span className="flex gap-1">
                         <Button
                           variant="ghost" size="icon-sm" aria-label={t('gallery.renameCategory', { name: c.name })}
-                          onClick={() => { setEditing(c); setEditName(c.name) }}
+                          onClick={() => { setEditing(c); setEditName(c.name); setEditNameEn(c.name_en ?? '') }}
                         >
                           <Pencil className="size-4" />
                         </Button>
@@ -350,7 +362,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title={`Supprimer la catégorie « ${deleting?.name ?? ''} » ?`}
+        title={t('gallery.deleteCategoryTitleNamed', { name: deleting?.name ?? '' })}
         description={t('gallery.deleteCategoryBody')}
         confirmLabel="Supprimer"
         confirmDisabled={deleteMutation.isPending}

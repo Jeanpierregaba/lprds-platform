@@ -2258,6 +2258,15 @@ GET    /api/v1/library/mine/lendings                    # parent — ses prêts
 GET    /api/v1/library/educator/books                   # staff — livres de sa section (hors RBAC)
 ```
 
+### Pagination — 200, comme partout ailleurs
+Le module plafonnait seul `limit` à **100** quand les dix autres acceptent 200,
+et que le frontend demande 200 partout : `GET /library/lendings?limit=200`
+(compteur « prêts en retard » du tableau de bord admin) renvoyait **422**, donc
+un compteur qui ne se chargeait jamais sans rien afficher d'anormal. Les cinq
+routes paginées sont alignées, et `test_library.py` le verrouille — bornes
+testées par HTTP sur les deux routes de gestion, et contrôle à la source pour
+les trois portails (un admin y reçoit 403 avant toute validation).
+
 ### Règles métier
 - **Quantités** : `available_quantity` décrémenté à chaque prêt, restauré au
   retour ; prêt impossible sans exemplaire disponible (409), ni sur livre
@@ -2857,7 +2866,8 @@ tests/
     │                                    #   repli sur échec, mémoire de traduction (faux traducteur),
     │                                    #   correction de menu propagée à la semaine suivante,
     │                                    #   reprise planifiée (tâches Celery appelées directement)
-    ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend
+    ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend,
+    │                                     #   borne de pagination alignée sur le reste de l'API
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
     │                                 #   retrait PJ, pagination curseur before_id

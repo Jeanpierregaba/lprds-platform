@@ -7,6 +7,7 @@ import enPwa from '../../messages/en/pwa.json'
 import frPwa from '../../messages/fr/pwa.json'
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale, type AppLocale } from '@/i18n/routing'
 import { prefersFrench } from '@/i18n/detect'
+import { marketingPath } from '@/i18n/slugs'
 
 const SHORT_NAME = 'LPRDS'
 const THEME_COLOR = '#F5AA2D'
@@ -56,8 +57,13 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   // raccourci installé en anglais rouvrirait la page en français.
   // `|| '/'` : sans lui, la racine donnerait `/en/` — un slash final qui
   // déclencherait une redirection à chaque lancement de l'app installée.
-  const path = (route: string) =>
-    locale === DEFAULT_LOCALE ? route : `/${locale}${route === '/' ? '' : route}` || '/'
+  // Les raccourcis pointent vers des pages publiques, qui ont un slug par
+  // langue : un raccourci anglais sur `/en/galerie` serait redirigé à chaque
+  // lancement depuis l'écran d'accueil.
+  const path = (route: string) => {
+    const slug = marketingPath(route, locale)
+    return locale === DEFAULT_LOCALE ? slug : `/${locale}${slug === '/' ? '' : slug}` || '/'
+  }
 
   return {
     id: '/',

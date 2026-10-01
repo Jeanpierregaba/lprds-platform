@@ -11,11 +11,20 @@
  * à un visiteur dont on ne sait pas déduire la langue.
  */
 import { DEFAULT_LOCALE, LOCALES } from './routing'
+import { marketingPath } from './slugs'
 
-/** Chemin réellement servi pour une locale, en mode `as-needed`. */
+/**
+ * Chemin réellement servi pour une locale, en mode `as-needed`.
+ *
+ * `path` est le chemin NU, tel qu'il existe sur le disque (`/a-propos`) ; la
+ * sortie porte le slug de la langue (`/en/about`). C'est ce qui fait que les
+ * balises `hreflang` et le plan du site désignent l'URL canonique, et non une
+ * seconde forme que le middleware redirigerait.
+ */
 export function localePath(path: string, locale: string): string {
-  if (locale === DEFAULT_LOCALE) return path
-  return path === '/' ? `/${locale}` : `/${locale}${path}`
+  const slug = marketingPath(path, locale)
+  if (locale === DEFAULT_LOCALE) return slug
+  return slug === '/' ? `/${locale}` : `/${locale}${slug}`
 }
 
 /**

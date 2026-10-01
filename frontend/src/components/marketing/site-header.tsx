@@ -1,17 +1,19 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Menu, X, MessageCircle, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BRAND, MARKETING_NAV } from '@/lib/marketing/data'
+import { marketingPath } from '@/i18n/slugs'
 import { LocaleSwitcher } from '@/components/locale-switcher'
 import { Link, usePathname } from '@/i18n/navigation'
 
 export function SiteHeader() {
   const tNav = useTranslations('marketing.nav')
+  const locale = useLocale()
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
 
@@ -31,11 +33,15 @@ export function SiteHeader() {
 
         <nav className="hidden items-center gap-7 lg:flex">
           {MARKETING_NAV.map((item) => {
-            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+            // `usePathname()` rend le chemin SERVI, débarrassé du préfixe de
+            // langue — donc `/about` en anglais, pas `/a-propos`. Comparer au
+            // chemin français n'allumerait jamais l'onglet actif côté anglais.
+            const href = marketingPath(item.href, locale)
+            const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={href}
                 className={cn(
                   'relative text-sm font-medium transition-colors',
                   'text-secondary hover:text-primary',
@@ -96,7 +102,7 @@ export function SiteHeader() {
             {MARKETING_NAV.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={marketingPath(item.href, locale)}
                 onClick={() => setMenuOpen(false)}
                 className="py-3 text-base font-medium text-foreground/90 hover:text-primary"
               >

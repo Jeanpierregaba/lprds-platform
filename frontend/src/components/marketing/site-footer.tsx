@@ -1,4 +1,6 @@
-import { useTranslations } from 'next-intl'
+import { getLocale, getTranslations } from 'next-intl/server'
+
+import { marketingPath } from '@/i18n/slugs'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import { BRAND, buildBrandCopy, MARKETING_NAV } from '@/lib/marketing/data'
@@ -12,10 +14,11 @@ const SOCIALS = [
   { href: BRAND.social.tiktok, label: 'TikTok', Icon: TiktokIcon },
 ]
 
-export function SiteFooter() {
-  const t = useTranslations('marketing')
-  const tNav = useTranslations('marketing.nav')
-  const tFooter = useTranslations('marketing.footer')
+export async function SiteFooter() {
+  const t = await getTranslations('marketing')
+  const locale = await getLocale()
+  const tNav = await getTranslations('marketing.nav')
+  const tFooter = await getTranslations('marketing.footer')
   const brand = buildBrandCopy(t)
 
   return (
@@ -50,7 +53,7 @@ export function SiteFooter() {
             <ul className="mt-5 space-y-3">
               {MARKETING_NAV.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="text-sm text-primary-foreground/75 transition-colors hover:text-primary">
+                  <Link href={marketingPath(l.href, locale)} className="text-sm text-primary-foreground/75 transition-colors hover:text-primary">
                     {tNav(l.key)}
                   </Link>
                 </li>
@@ -93,8 +96,8 @@ export function SiteFooter() {
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-6 text-xs text-primary-foreground/60 sm:flex-row sm:justify-between lg:px-8">
           <p>{tFooter('rights', { year: new Date().getFullYear(), name: BRAND.name })}</p>
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-6">
-            <Link href="/mentions-legales" className="hover:text-primary">{tFooter('legal')}</Link>
-            <Link href="/confidentialite" className="hover:text-primary">{tFooter('privacy')}</Link>
+            <Link href={marketingPath('/mentions-legales', locale)} className="hover:text-primary">{tFooter('legal')}</Link>
+            <Link href={marketingPath('/confidentialite', locale)} className="hover:text-primary">{tFooter('privacy')}</Link>
           </div>
         </div>
       </div>

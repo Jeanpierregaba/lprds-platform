@@ -15,6 +15,7 @@ import { buildStats, buildSections, BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPosts, sortByPublished, fetchPublicGallery } from '@/lib/api/public-blog.api'
 import heroImg from '../../../../public/images/marketing/hero-img.png'
 import { Link } from '@/i18n/navigation'
+import { marketingPath } from '@/i18n/slugs'
 import { asAppLocale } from '@/i18n/routing'
 
 // Icône Lucide par section (aperçu accueil : 3 sections crèche) — voir aussi
@@ -91,10 +92,10 @@ export default async function HomePage() {
                 </Reveal>
                 <Reveal delay={0.24}>
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <MarketingButton href="/contact" size="lg" variant="primary" className="w-full sm:w-auto">
+                    <MarketingButton href={marketingPath('/contact', locale)} size="lg" variant="primary" className="w-full sm:w-auto">
                       {tHome('hero.bookVisit')}
                     </MarketingButton>
-                    <MarketingButton href="/nos-sections" size="lg" variant="tertiary" className="w-full sm:w-auto">
+                    <MarketingButton href={marketingPath('/nos-sections', locale)} size="lg" variant="tertiary" className="w-full sm:w-auto">
                       {tHome('hero.discoverSections')}
                     </MarketingButton>
                   </div>
@@ -131,7 +132,7 @@ export default async function HomePage() {
               {tHome('about.body')}
             </p>
 
-            <MarketingButton href="/a-propos" size="lg" variant="tertiary">
+            <MarketingButton href={marketingPath('/a-propos', locale)} size="lg" variant="tertiary">
                 {tHome('about.cta')}
             </MarketingButton>
 
@@ -164,7 +165,7 @@ export default async function HomePage() {
               return (
                 <Reveal key={section.id} delay={i * 0.08} className={style.offset}>
                   <Link
-                    href="/nos-sections"
+                    href={marketingPath('/nos-sections', locale)}
                     aria-label={tHome('sections.cardLabel', { name: section.shortTitle, age: section.ageRange })}
                     className="group relative block h-full"
                   >
@@ -180,7 +181,7 @@ export default async function HomePage() {
             })}
           </div>
           <div className="mt-12 text-center sm:mt-20">
-            <MarketingButton href="/nos-sections" variant="tertiary">
+            <MarketingButton href={marketingPath('/nos-sections', locale)} variant="tertiary">
               {tHome('sections.cta')}
               <ArrowRight className="size-4" />
             </MarketingButton>
@@ -207,7 +208,7 @@ export default async function HomePage() {
                 </p>
               </Reveal>
               <Reveal delay={0.1}>
-                <MarketingButton href="/galerie" variant="tertiary">
+                <MarketingButton href={marketingPath('/galerie', locale)} variant="tertiary">
                   {tHome('gallery.cta')}
                   <ArrowRight className="size-4" />
                 </MarketingButton>
@@ -250,7 +251,7 @@ export default async function HomePage() {
               <h2 className="font-bold text-3xl text-primary sm:text-4xl">{tHome('news.title')}</h2>
             </Reveal>
             <Reveal delay={0.1}>
-              <MarketingButton href="/actualites" variant="tertiary">
+              <MarketingButton href={marketingPath('/actualites', locale)} variant="tertiary">
                 {tHome('news.cta')}
                 <ArrowRight className="size-4" />
               </MarketingButton>

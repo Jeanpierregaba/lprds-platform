@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { marketingPath } from '@/i18n/slugs'
 import { asAppLocale } from '@/i18n/routing'
 import { intlLocaleFor } from '@/lib/utils/locale-format'
 import Image from 'next/image'
@@ -48,7 +49,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
     <>
       <article className="px-4 pb-16 pt-24 sm:px-6 sm:pb-20 sm:pt-32 lg:px-8">
         <div className="mx-auto max-w-2xl">
-          <Link href="/actualites" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
+          <Link href={marketingPath('/actualites', locale)} className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
             <ArrowLeft className="size-4" />
             {t('allNews')}
           </Link>

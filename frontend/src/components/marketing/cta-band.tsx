@@ -1,12 +1,15 @@
 import { MessageCircle } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { getLocale, getTranslations } from 'next-intl/server'
+
+import { marketingPath } from '@/i18n/slugs'
 import { Reveal } from './reveal'
 import { MarketingButton } from './marketing-button'
 import { BRAND } from '@/lib/marketing/data'
 
 /** Bandeau de conversion — repris en bas de chaque page (sauf Contact, déjà orienté action). */
-export function CtaBand() {
-  const t = useTranslations('marketing.cta')
+export async function CtaBand() {
+  const t = await getTranslations('marketing.cta')
+  const locale = await getLocale()
 
   return (
     <section className="bg-accent px-6 py-16 text-accent-foreground sm:py-20 lg:px-8">
@@ -16,7 +19,7 @@ export function CtaBand() {
           {t('body')}
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <MarketingButton href="/contact" size="lg" variant="primary" className="w-full sm:w-auto">
+          <MarketingButton href={marketingPath('/contact', locale)} size="lg" variant="primary" className="w-full sm:w-auto">
             {t('visit')}
           </MarketingButton>
           <MarketingButton href={BRAND.whatsapp} size="lg" variant="whatsapp" className="w-full sm:w-auto">

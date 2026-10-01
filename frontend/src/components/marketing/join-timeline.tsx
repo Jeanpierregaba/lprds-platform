@@ -1,4 +1,6 @@
-import { useTranslations } from 'next-intl'
+import { getLocale, getTranslations } from 'next-intl/server'
+
+import { marketingPath } from '@/i18n/slugs'
 import { ArrowRight, BadgeCheck, Eye, FileText } from 'lucide-react'
 import { Doodle } from '@/components/marketing/doodle'
 import { MarketingButton } from '@/components/marketing/marketing-button'
@@ -26,9 +28,10 @@ function ringBackground(color: string, topHalf: boolean): string {
 const RING_MASK =
   'radial-gradient(farthest-side, transparent calc(100% - 12px), black calc(100% - 11px))'
 
-export function JoinTimeline() {
-  const t = useTranslations('marketing')
-  const tSection = useTranslations('marketing.joinSection')
+export async function JoinTimeline() {
+  const t = await getTranslations('marketing')
+  const locale = await getLocale()
+  const tSection = await getTranslations('marketing.joinSection')
   const steps = buildJoinSteps(t)
 
   return (
@@ -122,7 +125,7 @@ export function JoinTimeline() {
 
         <div className="mt-12 text-center">
           <Reveal>
-            <MarketingButton href="/contact" size="lg" variant="tertiary">
+            <MarketingButton href={marketingPath('/contact', locale)} size="lg" variant="tertiary">
               {tSection('cta')}
               <ArrowRight className="size-4" />
             </MarketingButton>

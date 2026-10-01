@@ -1,7 +1,8 @@
 import createMiddleware from 'next-intl/middleware'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 import { resolveLocale } from '@/i18n/detect'
+import { hasLocalizedSlug, marketingPath, routePathFor } from '@/i18n/slugs'
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE,
@@ -62,7 +63,8 @@ const ROLE_BY_DASHBOARD_PREFIX: Record<string, UserRole> = {
  *  Le français est la locale par défaut en mode `as-needed` : il ne porte
  *  jamais de préfixe, et garde donc les URL historiques du projet. */
 function localized(path: string, locale: AppLocale): string {
-  return locale === DEFAULT_LOCALE ? path : `/${locale}${path}`
+  const slug = marketingPath(path, locale)
+  return locale === DEFAULT_LOCALE ? slug : `/${locale}${slug}`
 }
 
 /** Sépare un chemin en (langue explicite ou non, chemin nu). */
@@ -104,7 +106,7 @@ function readSession(request: NextRequest): {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const { prefixed, bare } = splitLocale(pathname)
+  const { prefixed, bare: servedPath } = splitLocale(pathname)
 
   // La session est lue AVANT la résolution de langue : le cookie `lprds-auth`
   // porte `user.locale`, qui doit pouvoir départager une URL sans préfixe.
@@ -113,13 +115,18 @@ export function middleware(request: NextRequest) {
   // Une langue explicite dans l'URL fait toujours foi : elle exprime une
   // intention (lien partagé, favori, choix du sélecteur) et ne doit jamais
   // être écrasée par la préférence du navigateur.
-  const locale: AppLocale = prefixed
-    ? (pathname.split('/')[1] as AppLocale)
-    : resolveLocale(
+  const localeFromUrl = prefixed ? (pathname.split('/')[1] as AppLocale) : null
+  const locale: AppLocale = localeFromUrl
+    ?? resolveLocale(
         request.cookies.get(LOCALE_COOKIE)?.value,
         request.headers.get('accept-language'),
         session.locale,
       )
+
+  // Les pages publiques ont un slug par langue (`/en/about` ↔ `/a-propos`).
+  // Tout le reste du middleware raisonne sur le chemin de la ROUTE — celui qui
+  // existe sur le disque — et jamais sur le slug servi.
+  const bare = routePathFor(servedPath, locale)
 
   // Détection automatique — un visiteur dont l'appareil n'est pas en français
   // et qui arrive sur une URL sans préfixe est envoyé vers sa version anglaise.
@@ -129,6 +136,16 @@ export function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = localized(pathname, locale)
     return NextResponse.redirect(url)
+  }
+
+  // Forme non canonique : `/en/a-propos` alors que l'anglais dit `/en/about`.
+  // Redirection permanente plutôt que double service — deux URL pour une même
+  // page, c'est du contenu dupliqué pour un moteur, et les balises `hreflang`
+  // n'en désignent qu'une.
+  if (prefixed && hasLocalizedSlug(servedPath, locale)) {
+    const url = request.nextUrl.clone()
+    url.pathname = `/${locale}${marketingPath(servedPath, locale)}`
+    return NextResponse.redirect(url, 308)
   }
 
   const isMarketing = bare === '/' || MARKETING_ROUTES.some((r) => bare.startsWith(r))
@@ -169,6 +186,35 @@ export function middleware(request: NextRequest) {
 
   // Rien à intercepter : `next-intl` prend la main pour la réécriture vers le
   // segment [locale] et la mise à jour du cookie de langue.
+  //
+  // Le slug traduit est résolu AVANT de lui passer la main : `/en/about` n'a
+  // pas de dossier, `/en/a-propos` oui. Réécriture et non redirection — l'URL
+  // affichée reste `/en/about`, qui est justement ce qu'on cherchait.
+  if (bare !== servedPath) {
+    const url = request.nextUrl.clone()
+    url.pathname = prefixed ? `/${locale}${bare}` : bare
+
+    // Deux pièges se cumulent ici, et chacun donne un symptôme différent.
+    //
+    // 1. Passer la main à `next-intl` ne suffit pas : un chemin déjà préfixé
+    //    lui paraît correct, il rend `next()` — qui reprend la requête
+    //    d'ORIGINE, donc `/en/about`, qui n'a pas de dossier. 404 muet.
+    // 2. Mais une réécriture SEULE ne suffit pas non plus : `next-intl`
+    //    transmet la locale aux composants serveur par un en-tête de requête
+    //    qu'il pose lui-même. Sans lui, `requestLocale` est absent et retombe
+    //    sur le français — on obtenait une page au titre anglais et au corps
+    //    français, ce que seule une vraie page ouverte à l'écran révèle.
+    //
+    // D'où les deux : on lui fait calculer sa réponse pour le chemin RÉÉCRIT,
+    // et on reporte ses en-têtes sur notre réécriture.
+    const intlResponse = intlMiddleware(new NextRequest(url, request))
+    const response = NextResponse.rewrite(url)
+    intlResponse.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== 'x-middleware-rewrite') response.headers.set(key, value)
+    })
+    return response
+  }
+
   return intlMiddleware(request)
 }
 

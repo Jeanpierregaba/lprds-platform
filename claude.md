@@ -223,6 +223,7 @@ src/
 ├── i18n/
 │   ├── routing.ts                 # LOCALES, localePrefix 'as-needed', asAppLocale()
 │   ├── client-locale.ts           # clientLocale() — URL puis cookie, hors React
+│   ├── slugs.ts                   # Slugs publics traduits (/a-propos ↔ /en/about)
 │   ├── detect.ts                  # Règle de détection (FR seulement si préféré)
 │   ├── navigation.ts              # ⚠️ SEULE source de Link/useRouter/usePathname
 │   ├── request.ts                 # Chargement des catalogues
@@ -2395,8 +2396,29 @@ messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
   résolution de langue → redirection de détection → garde auth/rôle **sur le
   chemin débarrassé de son préfixe**. Sans ce débarras, `/en/dashboard/admin`
   ne correspondrait à aucune règle et serait accessible sans session.
-- **Slugs non traduits** : `/en/a-propos`, pas `/en/about` — les `pathnames`
-  de next-intl ne sont pas câblés (décision en suspens, pas un oubli).
+- **Slugs traduits pour les pages PUBLIQUES** (`src/i18n/slugs.ts`) :
+  `/a-propos` ↔ `/en/about`, `/galerie` ↔ `/en/gallery`, etc. L'espace connecté
+  garde ses chemins (`/en/dashboard/admin`) : ces URL ne se partagent pas et ne
+  s'indexent pas.
+  - ⚠️ **`pathnames` de next-intl a été écarté sciemment.** Le déclarer rend le
+    typage de `href` strict pour TOUTE l'application : 56 routes à énumérer et
+    61 `href` dynamiques à convertir en `{pathname, params}` — cent cinquante
+    points d'appel, dont tout l'espace connecté, pour sept URL publiques.
+  - Le mécanisme tient en trois endroits : `marketingPath()` pour les liens
+    sortants, le middleware pour la réécriture entrante, `localePath()` pour
+    `hreflang` et le plan du site.
+  - La forme non canonique (`/en/a-propos`) **redirige en 308** vers le slug
+    anglais : deux URL pour une page, c'est du contenu dupliqué.
+  - ⚠️ La réécriture doit reporter les en-têtes de `next-intl`, pas seulement
+    changer le chemin. Deux pièges s'y cumulent, et chacun a son symptôme :
+    lui passer la main rend `next()` sur la requête d'origine (404 muet) ;
+    réécrire seul perd l'en-tête de locale, et `requestLocale` retombe sur le
+    français — page au **titre anglais et au corps français**, que seule une
+    vraie page ouverte à l'écran révèle.
+  - `check-marketing-slugs.mjs` garde l'ensemble : carte cohérente avec les
+    routes réelles, et aucun lien qui court-circuite `marketingPath` — ni en
+    littéral (`href="/galerie"`), ni en indirect (`href={item.href}` depuis
+    `MARKETING_NAV`, la forme qui a échappé deux fois à la première version).
 
 ### Backend — catalogues plats + ContextVar
 
@@ -2786,7 +2808,8 @@ pnpm dev
 # Vérifications avant commit
 pnpm type-check
 pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
-               #   + check-locale-resolution + check-password-policy
+               #   + check-locale-resolution + check-marketing-slugs
+               #   + check-password-policy
 pnpm build
 
 # Ajouter un composant shadcn

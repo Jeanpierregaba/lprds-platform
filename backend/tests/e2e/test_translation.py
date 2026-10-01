@@ -734,3 +734,132 @@ def test_vocabulary_translation_failure_never_blocks(client, fake_translator):
     renamed = c.patch(f"/blog/tags/{tag_id}", json={"name": "Spectacle de fin d'année"},
                       headers=adm).json()
     ck("traduction rattrapée au renommage", renamed["name_en"], "[EN] Spectacle de fin d'année")
+
+
+# ── Moteurs de traduction ───────────────────────────────────────
+class _FakeHttpx:
+    """Client httpx minimal — LibreTranslate sans réseau.
+
+    On intercepte au niveau du client HTTP, et non de `_call_model`, parce que
+    c'est précisément le code du moteur qu'on veut exercer : la forme du
+    payload, la lecture de la réponse, et le traitement des cas tordus.
+    """
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.requests: list[dict] = []
+
+    def __call__(self, *_args, **_kwargs):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def post(self, url, json):
+        self.requests.append({"url": url, "json": json})
+        return self.responses.pop(0)
+
+
+class _FakeResponse:
+    def __init__(self, payload, error: Exception | None = None):
+        self.payload = payload
+        self.error = error
+
+    def raise_for_status(self):
+        if self.error:
+            raise self.error
+
+    def json(self):
+        return self.payload
+
+
+@pytest.fixture
+def libretranslate(monkeypatch):
+    """Bascule le moteur sur LibreTranslate, instance fictive."""
+    monkeypatch.setattr(settings, "translation_enabled", True)
+    monkeypatch.setattr(settings, "translation_provider", "libretranslate")
+    monkeypatch.setattr(settings, "libretranslate_url", "http://libretranslate:5000/")
+    monkeypatch.setattr(settings, "libretranslate_api_key", "")
+    return settings
+
+
+def test_libretranslate_engine_respects_the_shared_contract(libretranslate, monkeypatch):
+    """Même contrat que Claude : même nombre, même ordre."""
+    import httpx
+
+    fake = _FakeHttpx([
+        _FakeResponse({"translatedText": "Fatty rice"}),
+        _FakeResponse({"translatedText": "Pineapple"}),
+    ])
+    monkeypatch.setattr(httpx, "Client", fake)
+
+    got = translation._call_model(["Riz au gras", "Ananas"])
+    ck("ordre et nombre préservés", got, ["Fatty rice", "Pineapple"])
+    ck("un appel par élément", len(fake.requests), 2)
+
+    first = fake.requests[0]
+    ck("URL construite sans double slash", first["url"], "http://libretranslate:5000/translate")
+    ck("source française", first["json"]["source"], "fr")
+    ck("cible anglaise", first["json"]["target"], "en")
+    ck("texte brut, pas du HTML", first["json"]["format"], "text")
+    # Une instance auto-hébergée n'exige aucune clé : ne pas en envoyer une vide.
+    ck("aucune clé envoyée sans clé configurée", "api_key" in first["json"], False)
+
+
+def test_libretranslate_sends_the_key_only_when_configured(libretranslate, monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(settings, "libretranslate_api_key", "clé-publique")
+    fake = _FakeHttpx([_FakeResponse({"translatedText": "Show"})])
+    monkeypatch.setattr(httpx, "Client", fake)
+
+    translation._call_model(["Spectacle"])
+    ck("clé transmise", fake.requests[0]["json"]["api_key"], "clé-publique")
+
+
+def test_libretranslate_failures_degrade_like_the_other_engine(libretranslate, monkeypatch):
+    """Un moteur en panne doit rendre `TranslationUnavailable`, jamais autre
+    chose : c'est ce que tout l'amont (blog, menus, libellés) sait traiter."""
+    import httpx
+
+    # 1. L'instance répond en erreur HTTP.
+    fake = _FakeHttpx([_FakeResponse({}, error=RuntimeError("502"))])
+    monkeypatch.setattr(httpx, "Client", fake)
+    with pytest.raises(RuntimeError):
+        translation._call_model(["Riz au gras"])
+
+    # 2. Réponse malformée ou vide : le moteur refuse plutôt que de propager
+    #    une chaîne vide, qui écraserait silencieusement une traduction.
+    for payload in ({"translatedText": ""}, {"translatedText": None}, {}):
+        monkeypatch.setattr(httpx, "Client", _FakeHttpx([_FakeResponse(payload)]))
+        with pytest.raises(translation.TranslationUnavailable):
+            translation._call_model(["Riz au gras"])
+
+
+def test_translation_active_depends_on_the_chosen_engine(monkeypatch):
+    """Chaque moteur a sa propre condition d'activation.
+
+    Les confondre ferait croire la traduction appelable alors qu'elle ne peut
+    pas aboutir — et chaque publication partirait en `failed` au lieu de se
+    comporter comme « non configurée ».
+    """
+    monkeypatch.setattr(settings, "translation_enabled", True)
+
+    monkeypatch.setattr(settings, "translation_provider", "anthropic")
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "libretranslate_url", "http://libretranslate:5000")
+    ck("anthropic sans clé → inactif", settings.translation_active, False)
+    monkeypatch.setattr(settings, "anthropic_api_key", "clé")
+    ck("anthropic avec clé → actif", settings.translation_active, True)
+
+    monkeypatch.setattr(settings, "translation_provider", "libretranslate")
+    monkeypatch.setattr(settings, "libretranslate_url", "")
+    ck("libretranslate sans URL → inactif", settings.translation_active, False)
+    monkeypatch.setattr(settings, "libretranslate_url", "http://libretranslate:5000")
+    ck("libretranslate avec URL → actif", settings.translation_active, True)
+
+    monkeypatch.setattr(settings, "translation_enabled", False)
+    ck("drapeau éteint → inactif quel que soit le moteur", settings.translation_active, False)

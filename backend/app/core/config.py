@@ -1,4 +1,6 @@
 from functools import lru_cache
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -186,21 +188,43 @@ class Settings(BaseSettings):
     # clone le repo ne doit pas appeler une API payante sans l'avoir décidé,
     # et la suite de tests ne doit dépendre ni du réseau ni d'une clé.
     translation_enabled: bool = False
+
+    # Moteur de traduction : `anthropic` (Claude Haiku, payant, meilleure
+    # qualité) ou `libretranslate` (open source, auto-hébergeable, gratuit).
+    # Les deux respectent le même contrat ; changer de moteur ne demande que
+    # cette variable.
+    translation_provider: Literal["anthropic", "libretranslate"] = "anthropic"
+
     anthropic_api_key: str = ""
     translation_model: str = "claude-haiku-4-5"
+
+    # Instance LibreTranslate — typiquement `http://libretranslate:5000` dans
+    # le docker-compose du projet. Une instance auto-hébergée n'exige aucune
+    # clé ; `libretranslate_api_key` ne sert qu'aux instances publiques.
+    libretranslate_url: str = ""
+    libretranslate_api_key: str = ""
+
     # Plafond au-delà duquel on n'attend plus la traduction dans la requête
     # HTTP : le statut reste `pending` et l'utilisateur relance depuis l'UI.
     translation_timeout_seconds: float = 20.0
 
     @property
     def translation_active(self) -> bool:
-        """Traduction réellement appelable — le drapeau ET la clé.
+        """Traduction réellement appelable — le drapeau ET ce qu'exige le moteur.
 
         Sans ce couple, un `TRANSLATION_ENABLED=true` laissé dans un .env sans
         clé ferait échouer chaque publication d'article en `failed` au lieu de
         se comporter comme « traduction non configurée ».
+
+        Chaque moteur a sa propre condition : une clé pour Anthropic, une URL
+        d'instance pour LibreTranslate. Les confondre ferait croire la
+        traduction active alors qu'elle ne peut pas aboutir.
         """
-        return self.translation_enabled and bool(self.anthropic_api_key)
+        if not self.translation_enabled:
+            return False
+        if self.translation_provider == "libretranslate":
+            return bool(self.libretranslate_url)
+        return bool(self.anthropic_api_key)
 
     @property
     def is_production(self) -> bool:

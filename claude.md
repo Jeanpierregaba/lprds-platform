@@ -2520,6 +2520,42 @@ est générée puis **stockée** (`app/core/translation.py`, Claude Haiku 4.5 pa
 défaut). Jamais calculée à la lecture : le site vitrine doit rester instantané,
 indexable, et debout quand l'API de traduction tombe.
 
+**Deux moteurs, un seul contrat** (`TRANSLATION_PROVIDER`) :
+
+| | `anthropic` (défaut) | `libretranslate` |
+|---|---|---|
+| Qualité | Meilleure, surtout sur le ton | Honnête sur du français courant, en retrait sur les tournures |
+| Coût | Payant à l'appel | **Gratuit, sans limite** |
+| Dépendance | Clé API, connexion sortante | Un conteneur à faire tourner |
+| Confidentialité | Le contenu part chez un tiers | Auto-hébergé : **rien ne quitte le serveur** |
+| Exige | `ANTHROPIC_API_KEY` | `LIBRETRANSLATE_URL` |
+
+Les deux respectent le même contrat — même nombre d'éléments en sortie qu'en
+entrée, même ordre, `TranslationUnavailable` sur tout échec — si bien que la
+mémoire, le dédoublonnage, le repli et les trois invariants ci-dessous valent
+pour l'un comme pour l'autre. Changer de moteur ne demande qu'une variable.
+
+LibreTranslate se lance avec le profil dédié du compose, hors du démarrage
+normal (l'image embarque les modèles de langue, plusieurs Go) :
+
+```bash
+docker compose --profile translate up -d
+# puis, dans backend/.env :
+#   TRANSLATION_PROVIDER=libretranslate
+#   LIBRETRANSLATE_URL=http://libretranslate:5000
+```
+
+⚠️ **Un appel HTTP par élément** côté LibreTranslate, à dessein : le tableau
+dans `q` existe sur les versions récentes mais n'est pas garanti sur une
+instance quelconque, et un tableau refusé ferait échouer tout le lot. La
+mémoire dédoublonne déjà en amont, et une instance locale répond en quelques
+dizaines de millisecondes.
+
+⚠️ **La mémoire est partagée entre moteurs** : une entrée produite par Claude
+est resservie telle quelle sous LibreTranslate, et inversement. C'est voulu —
+on ne retraduit pas ce qui l'est déjà, et la cohérence d'un libellé d'une
+semaine à l'autre prime sur l'homogénéité de style entre moteurs.
+
 **Trois invariants, chacun sous test (`tests/e2e/test_translation.py`) :**
 
 1. **L'humain a le dernier mot** — pour le blog ET pour les menus, avec une
@@ -2749,8 +2785,15 @@ VAPID_SUBJECT=mailto:no-reply@lespetitsrayonsdesoleil.fr
 # ⚠️ Laisser à false en dev ET en test — sinon chaque publication d'article et
 # chaque enregistrement de menu appelle une API payante.
 TRANSLATION_ENABLED=false
+# Moteur : "anthropic" (payant, meilleure qualité) ou "libretranslate"
+# (open source, auto-hébergeable, gratuit) — même contrat, cf. ci-dessus.
+TRANSLATION_PROVIDER=anthropic
 ANTHROPIC_API_KEY=
 TRANSLATION_MODEL=claude-haiku-4-5
+# Moteur gratuit — service "libretranslate" du compose, profil "translate".
+LIBRETRANSLATE_URL=
+# Uniquement pour une instance PUBLIQUE qui l'exige ; inutile en auto-hébergé.
+LIBRETRANSLATE_API_KEY=
 # Au-delà, la requête n'attend plus : statut `pending`, l'utilisateur relance
 # depuis l'interface (« Retraduire »).
 TRANSLATION_TIMEOUT_SECONDS=20
@@ -2972,6 +3015,7 @@ tests/
     ├── test_i18n.py                     # catalogues symétriques, précédence users.locale,
     │                                    #   vocabulaire traduit, libellé de période, exports bilingues
     ├── test_translation.py              # blog/menus traduits, correction `manual` jamais écrasée,
+    │                                    #   contrat du moteur LibreTranslate (sans réseau),
     │                                    #   repli sur échec, mémoire de traduction (faux traducteur),
     │                                    #   correction de menu propagée à la semaine suivante,
     │                                    #   reprise planifiée (tâches Celery appelées directement)
@@ -3031,6 +3075,14 @@ données Postgres et les fichiers uploadés).
 
 ```bash
 docker compose up --build
+```
+
+Un quatrième service, `libretranslate`, est derrière le **profil `translate`** :
+il ne démarre pas par défaut (son image embarque les modèles de langue,
+plusieurs Go) et n'a de sens que si `TRANSLATION_PROVIDER=libretranslate`.
+
+```bash
+docker compose --profile translate up -d
 ```
 
 `DATABASE_URL`/`REDIS_URL` sont **surchargées** dans `docker-compose.yml` vers

@@ -48,6 +48,32 @@ services:
       redis:
         condition: service_healthy
 
+  # Moteur de traduction gratuit, activé à la demande :
+  #   docker compose --profile translate up -d
+  #
+  # Hors profil, il ne démarre pas : l'image embarque les modèles de langue
+  # (plusieurs Go) et n'a aucune raison de tourner sur une installation qui
+  # utilise Claude, ou qui n'a pas activé la traduction du tout.
+  #
+  # `LT_LOAD_ONLY` limite le téléchargement aux deux langues du projet — sans
+  # lui, l'image tire une cinquantaine de paires dont aucune ne sert.
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    profiles: ["translate"]
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: "fr,en"
+      LT_DISABLE_WEB_UI: "true"
+    volumes:
+      - lprds_libretranslate:/home/libretranslate/.local
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:5000/languages')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
 volumes:
   lprds_postgres_data:
   lprds_media:
+  lprds_libretranslate:

@@ -24,9 +24,25 @@ Trois principes, tous délibérés :
    plat est toujours traduit pareil d'une semaine à l'autre — une cohérence
    qu'un appel indépendant par semaine ne donnerait pas.
 
-Le modèle par défaut est Claude Haiku 4.5 (choix explicite de l'utilisateur) :
-la tâche est courte, bien cadrée et volumineuse, elle n'appelle pas un modèle
-de raisonnement. Le modèle reste configurable (`TRANSLATION_MODEL`).
+Deux moteurs, derrière un contrat unique (`TRANSLATION_PROVIDER`) :
+
+- **`anthropic`** (défaut) — Claude Haiku 4.5. La tâche est courte, bien cadrée
+  et volumineuse : elle n'appelle pas un modèle de raisonnement. Meilleure
+  qualité, notamment sur le ton, mais payante à l'appel.
+- **`libretranslate`** — open source, auto-hébergeable, gratuit et sans
+  limite. Qualité en retrait sur les tournures, mais honnête sur du français
+  courant. Et une instance auto-hébergée n'envoie **rien à un tiers** : le
+  contenu de l'établissement ne quitte pas son serveur.
+
+Changer de moteur ne demande qu'une variable d'environnement. Les deux
+respectent le même contrat — même nombre d'éléments en sortie qu'en entrée,
+même ordre, `TranslationUnavailable` sur tout échec — si bien que la mémoire de
+traduction, le dédoublonnage et le repli valent pour l'un comme pour l'autre.
+
+⚠️ La mémoire est partagée entre moteurs : une entrée produite par Claude sera
+resservie telle quelle sous LibreTranslate, et inversement. C'est voulu — on ne
+retraduit pas ce qui l'est déjà, et la cohérence d'un même libellé d'une
+semaine à l'autre prime sur l'homogénéité de style entre moteurs.
 """
 
 from __future__ import annotations
@@ -190,12 +206,19 @@ async def remember_correction(
     )
 
 
-def _call_model(items: list[str]) -> list[str]:
-    """Appel bloquant au SDK Anthropic — toujours via `asyncio.to_thread`.
+# ── Moteurs ──────────────────────────────────────────────────────
+# Deux moteurs, un seul contrat : `list[str] -> list[str]`, même longueur,
+# même ordre, et `TranslationUnavailable` sur tout échec. L'appelant
+# (`translate_texts`) ne sait pas lequel tourne, et n'a pas à le savoir.
+#
+# Les deux sont BLOQUANTS : ils partent dans `asyncio.to_thread`.
 
-    Import local : le paquet `anthropic` ne doit être requis que si la
-    traduction est réellement activée, et ce module est importé par le
-    registre de modèles au démarrage de l'app.
+def _call_anthropic(items: list[str]) -> list[str]:
+    """Claude Haiku — meilleure qualité, payant, sortie structurée.
+
+    Import local : le paquet `anthropic` ne doit être requis que si ce moteur
+    est réellement choisi, et ce module est importé par le registre de modèles
+    au démarrage de l'app.
     """
     import anthropic
 
@@ -222,6 +245,64 @@ def _call_model(items: list[str]) -> list[str]:
             f"{len(parsed.translations)} traductions pour {len(items)} éléments"
         )
     return parsed.translations
+
+
+def _call_libretranslate(items: list[str]) -> list[str]:
+    """LibreTranslate — open source, auto-hébergeable, sans coût par appel.
+
+    Moteur de repli gratuit. Qualité en retrait de Claude sur le ton et les
+    tournures, mais honnête sur du français courant — ce qui couvre l'essentiel
+    du contenu ici : des plats, des libellés, des actualités de crèche.
+
+    Deux raisons de l'avoir, au-delà du coût : une instance auto-hébergée
+    n'envoie **rien à un tiers** (le contenu reste sur le serveur de
+    l'établissement), et elle fonctionne sans connexion sortante.
+
+    ⚠️ Un appel HTTP par élément, à dessein. LibreTranslate accepte un tableau
+    dans `q` sur les versions récentes, mais ce n'est pas documenté comme
+    stable et le projet peut viser une instance quelconque : un tableau refusé
+    ferait échouer tout le lot. La mémoire de traduction dédoublonne déjà en
+    amont, et une instance locale répond en quelques dizaines de
+    millisecondes — le surcoût reste sous le délai global.
+    """
+    import httpx
+
+    url = settings.libretranslate_url.rstrip("/") + "/translate"
+    payload_base: dict[str, object] = {
+        "source": str(DEFAULT_LOCALE),
+        "format": "text",
+    }
+    if settings.libretranslate_api_key:
+        payload_base["api_key"] = settings.libretranslate_api_key
+
+    out: list[str] = []
+    with httpx.Client(timeout=settings.translation_timeout_seconds) as client:
+        for text in items:
+            response = client.post(
+                url, json={**payload_base, "q": text, "target": str(Locale.EN)}
+            )
+            response.raise_for_status()
+            translated = response.json().get("translatedText")
+            if not isinstance(translated, str) or not translated.strip():
+                raise TranslationUnavailable(f"réponse vide pour « {text[:40]} »")
+            out.append(translated)
+    return out
+
+
+_ENGINES = {
+    "anthropic": _call_anthropic,
+    "libretranslate": _call_libretranslate,
+}
+
+
+def _call_model(items: list[str]) -> list[str]:
+    """Aiguillage vers le moteur configuré.
+
+    Point de couture unique, et c'est voulu : la suite de tests le remplace par
+    un faux traducteur déterministe, donc elle couvre l'orchestration (mémoire,
+    dédoublonnage, repli) sans dépendre d'aucun moteur.
+    """
+    return _ENGINES[settings.translation_provider](items)
 
 
 async def translate_texts(

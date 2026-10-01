@@ -31,3 +31,34 @@ export const passwordField = (tAuth: T) =>
     .min(8, tAuth('validation.passwordMin'))
     .regex(/[A-Z]/, tAuth('validation.passwordUpper'))
     .regex(/[0-9]/, tAuth('validation.passwordDigit'))
+
+/**
+ * Couple « nouveau mot de passe + confirmation », règle de concordance incluse.
+ *
+ * Le champ `confirm` n'a aucune contrainte propre : c'est le `.refine()` au
+ * niveau de l'objet qui porte la règle, avec `path: ['confirm']` pour que
+ * l'erreur s'affiche sous le second champ et non sous le premier.
+ *
+ * Étendre le schéma avec des champs supplémentaires se fait par `.extend()` :
+ *
+ * ```ts
+ * passwordConfirmation(tAuth).extend({
+ *   current_password: z.string().min(1, t('settings.currentPasswordRequired')),
+ * })
+ * ```
+ *
+ * ⚠️ Cela repose sur un comportement précis de **Zod 4** : un `.refine()` posé
+ * sur un `ZodObject` rend un `ZodObject`, et le raffinement **survit** au
+ * `.extend()` qui suit (vérifié à l'exécution sur 4.4.3 — en Zod 3 il aurait
+ * été perdu, silencieusement). À revérifier lors d'une montée de version
+ * majeure : si le raffinement disparaît, la confirmation cesse d'être
+ * contrôlée sans que rien n'échoue. `pnpm check-password-policy` le vérifie.
+ */
+export const passwordConfirmation = (tAuth: T) =>
+  z.object({
+    new_password: passwordField(tAuth),
+    confirm: z.string(),
+  }).refine((d) => d.new_password === d.confirm, {
+    message: tAuth('validation.passwordMismatch'),
+    path: ['confirm'],
+  })

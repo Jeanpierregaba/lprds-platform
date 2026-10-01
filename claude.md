@@ -2984,15 +2984,22 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 - **Validation Zod** sur tous les formulaires via `zodResolver` — les messages
   d'erreur passent par une **fabrique de schéma** prenant le traducteur
   (`makeXSchema = (t) => z.object({...})`), jamais de message écrit en dur
-- **🔒 Champ mot de passe : `passwordField(tAuth)`**
-  (`lib/validation/password.ts`), jamais une chaîne de `.min(8).regex(…)`
+- **🔒 Champ mot de passe : `passwordField(tAuth)`**, et pour un formulaire
+  avec confirmation **`passwordConfirmation(tAuth)`** (qui porte déjà le
+  `.refine()` de concordance, `path: ['confirm']`) — tous deux dans
+  `lib/validation/password.ts`, jamais une chaîne de `.min(8).regex(…)`
   recopiée. La règle vivait en **huit** exemplaires identiques (création et
   réinitialisation du personnel, des parents, des administrateurs
   d'établissement, premier mot de passe, profil) : huit occasions de la durcir
   à sept endroits sur huit. Le helper attend le traducteur du domaine
   **`auth`**, seul foyer des trois libellés (`auth.validation.password{Min,
   Upper,Digit}`) — d'où le second traducteur passé aux fabriques concernées :
-  `makeSchema(t, tAuth)`. Ne pas recréer de `password*` dans un autre domaine
+  `makeSchema(t, tAuth)`. Ne pas recréer de `password*` dans un autre domaine.
+  Des champs en plus s'ajoutent par `.extend()` — ce que Zod 4 autorise après un
+  `.refine()` **en conservant** le raffinement (Zod 3 le perdait sans erreur) ;
+  `pnpm check-password-policy` le vérifie, à lancer à toute montée de Zod. Ce
+  script n'est **pas** dans `pnpm lint` : il dépend du retrait de types natif de
+  Node, et le dépôt ne fixe aucun `engines`
 - **Imports** : toujours via alias `@/` (ex: `@/components/ui/button`)
 - **🌍 Jamais de texte visible écrit en dur** — ni dans le JSX, ni dans un
   message Zod, ni dans un `placeholder`/`title`/`alt`/`aria-label`. Toute

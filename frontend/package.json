@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "check-messages": "node scripts/check-messages.mjs",
     "check-hardcoded-text": "node scripts/check-hardcoded-text.mjs",
-    "check-zod-messages": "node scripts/check-zod-messages.mjs"
+    "check-zod-messages": "node scripts/check-zod-messages.mjs",
+    "check-password-policy": "node scripts/check-password-policy.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

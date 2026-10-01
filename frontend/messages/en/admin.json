@@ -206,7 +206,6 @@
     "currentPassword": "Current password",
     "newPassword": "New password",
     "confirmPassword": "Confirm the new password",
-    "mismatch": "Passwords do not match",
     "submit": "Update the password",
     "updated": "Password updated.",
     "currentPasswordRequired": "Current password required"

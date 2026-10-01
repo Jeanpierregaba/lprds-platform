@@ -206,7 +206,6 @@
     "currentPassword": "Mot de passe actuel",
     "newPassword": "Nouveau mot de passe",
     "confirmPassword": "Confirmer le nouveau mot de passe",
-    "mismatch": "Les mots de passe ne correspondent pas",
     "submit": "Mettre à jour le mot de passe",
     "updated": "Mot de passe mis à jour.",
     "currentPasswordRequired": "Mot de passe actuel requis"

@@ -18,17 +18,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { authApi } from '@/lib/api/auth.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { passwordField } from '@/lib/validation/password'
+import { passwordConfirmation } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
-const makeschema = (t: T, tAuth: T) => z.object({
+const makeschema = (t: T, tAuth: T) => passwordConfirmation(tAuth).extend({
   current_password: z.string().min(1, t('settings.currentPasswordRequired')),
-  new_password: passwordField(tAuth),
-  confirm: z.string(),
-}).refine((d) => d.new_password === d.confirm, {
-  message: t('settings.mismatch'),
-  path: ['confirm'],
 })
 
 type Form = z.infer<ReturnType<typeof makeschema>>

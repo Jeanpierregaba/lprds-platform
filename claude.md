@@ -2396,12 +2396,21 @@ messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
   résolution de langue → redirection de détection → garde auth/rôle **sur le
   chemin débarrassé de son préfixe**. Sans ce débarras, `/en/dashboard/admin`
   ne correspondrait à aucune règle et serait accessible sans session.
-- **Vocabulaire anglais du site vitrine** : `section` se dit **`group`** en
-  anglais (« Our Groups », « All groups », « Explore our groups ») — d'où le
-  slug `/en/our-groups`. Les noms de sections restent en français (Étoile,
-  Nuage, Soleil, Petite/Moyenne/Grande Section) : ce sont des noms propres.
-  `crèche` → `nursery`, `garderie` → `after-school care`, `maternelle` →
-  `preschool`.
+- **Vocabulaire métier anglais — correspondance 1:1 avec le français**, sur
+  décision de l'utilisateur. `section` → **`section`**, `groupe` → **`group`**
+  (d'où le slug `/en/our-sections`).
+  ⚠️ L'anglais faisait auparavant un **double décalage** : `Section` rendu par
+  « group » et `Group` par « class ». Il fallait le défaire des deux côtés en
+  même temps, certaines phrases portant les deux termes (« un seul groupe actif
+  par section »). Une substitution automatique s'y casse les dents — casse,
+  pluriels et chevauchements — et le catalogue se contredisait déjà lui-même
+  (`rbac.json` disait « sections and groups » quand `organization.json` disait
+  « groups and classes »). Les 71 entrées ont été réécrites à la main, puis
+  l'absence de décalage résiduel vérifiée dans les deux sens, par comparaison
+  automatique du français et de l'anglais clé par clé.
+  Les noms de sections restent en français (Étoile, Nuage, Soleil,
+  Petite/Moyenne/Grande Section) : ce sont des noms propres. `crèche` →
+  `nursery`, `garderie` → `after-school care`, `maternelle` → `preschool`.
   ⚠️ **Incohérence dans la source FRANÇAISE, non corrigée** : le pied de page
   annonce « de 3 mois à 6 ans » tandis que la page des sections et le
   formulaire de contact disent « 3 mois à 8 ans ». L'anglais la reproduit

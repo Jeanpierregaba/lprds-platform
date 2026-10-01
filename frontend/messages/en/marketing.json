@@ -11,7 +11,7 @@
   "nav": {
     "home": "Home",
     "about": "About",
-    "sections": "Our Groups",
+    "sections": "Our Sections",
     "gallery": "Gallery",
     "news": "News",
     "contact": "Contact",
@@ -31,7 +31,7 @@
   "stats": {
     "children": "Children in our care",
     "professionals": "Qualified professionals",
-    "sections": "Groups, from 3 months to 6 years",
+    "sections": "Sections, from 3 months to 6 years",
     "satisfaction": "Happy parents"
   },
   "whyUs": {
@@ -42,7 +42,7 @@
   },
   "sections": {
     "creche_etoile": {
-      "title": "Nursery — Étoile Group",
+      "title": "Nursery — Étoile Section",
       "shortTitle": "Étoile",
       "ageRange": "3 – 18 months",
       "capacity": "10 children",
@@ -62,7 +62,7 @@
       }
     },
     "creche_nuage": {
-      "title": "Nursery — Nuage Group",
+      "title": "Nursery — Nuage Section",
       "shortTitle": "Nuage",
       "ageRange": "18 – 24 months",
       "capacity": "14 children",
@@ -82,7 +82,7 @@
       }
     },
     "creche_soleil": {
-      "title": "Nursery — Soleil Group",
+      "title": "Nursery — Soleil Section",
       "shortTitle": "Soleil",
       "ageRange": "24 – 36 months",
       "capacity": "14 children",
@@ -185,7 +185,7 @@
   },
   "explorer": {
     "filters": {
-      "all": "All groups",
+      "all": "All sections",
       "creche": "Nursery",
       "garderie": "After-school",
       "maternelle": "Preschool"
@@ -301,7 +301,7 @@
       "titleLine2": "and shines",
       "lead": "Your child deserves the best possible start: a caring, secure place to grow, learn, flourish and show everything they are capable of.",
       "bookVisit": "Book a visit",
-      "discoverSections": "Explore our groups",
+      "discoverSections": "Explore our sections",
       "imageAlt": "Happy children in the nursery playground"
     },
     "about": {
@@ -312,11 +312,11 @@
       "imageAlt": "An educator with a group of children"
     },
     "sections": {
-      "eyebrow": "OUR GROUPS",
+      "eyebrow": "OUR SECTIONS",
       "title": "A path shaped for every age",
       "body": "From nursery to Grande Section, each stage has its own pace, its own activities and its own dedicated team.",
-      "cardLabel": "Explore the {name} group — {age}",
-      "cta": "See all our groups"
+      "cardLabel": "Explore the {name} section — {age}",
+      "cta": "See all our sections"
     },
     "gallery": {
       "eyebrow": "OUR GALLERY",
@@ -489,12 +489,12 @@
   },
   "sectionsPage": {
     "meta": {
-      "title": "Our Groups — {name}",
-      "description": "From nursery to Grande Section: discover our 7 age groups, what they do and what a typical day looks like."
+      "title": "Our Sections — {name}",
+      "description": "From nursery to Grande Section: discover our 7 age sections, what they do and what a typical day looks like."
     },
-    "badge": "Our groups",
+    "badge": "Our sections",
     "title": "A path shaped for every age",
-    "subtitle": "From 3 months to 8 years, each group has its own pace, its own activities and a dedicated team to support your child."
+    "subtitle": "From 3 months to 8 years, each section has its own pace, its own activities and a dedicated team to support your child."
   },
   "differencesSection": {
     "eyebrow": "Why choose us",

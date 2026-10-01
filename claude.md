@@ -2345,6 +2345,23 @@ c'est vérifié par test en envoyant délibérément l'en-tête contraire
 (`test_i18n.py::test_account_locale_wins_over_accept_language`). Un compte
 basculé en anglais reçoit de l'anglais même avec `Accept-Language: fr`.
 
+
+⚠️ **Écart connu — cette précédence ne vaut QUE pour le backend.** Le
+`middleware.ts` résout la langue à partir du cookie puis de `Accept-Language`,
+et ne lit jamais `user.locale` — alors qu'il déballe déjà le cookie
+`lprds-auth`, qui le contient, pour en tirer le jeton et le rôle.
+
+Conséquence constatée en recette : compte basculé en anglais
+(`users.locale = "en"`), cookie resté à `fr` → **interface en français, mais
+messages d'erreur d'API en anglais**, puisque le backend, lui, obéit au compte.
+Le cas se produit dès qu'on efface ses cookies, qu'on change d'appareil, ou
+qu'on bascule la langue ailleurs que par le sélecteur.
+
+Correctif pressenti (non fait) : dans le middleware, pour une URL **sans
+préfixe** et un utilisateur authentifié, faire primer `user.locale` sur le
+cookie. Une URL préfixée doit continuer de l'emporter sur tout — elle exprime
+une intention explicite.
+
 `PATCH /auth/me/locale` est sous `get_current_user`, comme toutes les routes
 authentifiées.
 
@@ -2561,6 +2578,16 @@ en arrière.
   échouerait à chaque passage serait réessayé indéfiniment. Plafonner
   rouvrirait le trou qu'on vient de combler (un contenu abandonné en silence) ;
   le coût reste borné par `limit` × la fréquence du beat.
+
+⚠️ **Non traduit, et visible du public** : les **étiquettes d'article**
+(`blog_tags.name`) et les **catégories de la galerie**
+(`blog_gallery_categories.name`) sont des vocabulaires libres créés par
+l'établissement, sans colonne anglaise. Les pastilles de filtre de
+`/en/actualites` et `/en/galerie` affichent donc « Activités », « Spectacle »,
+« Repas » au milieu d'une page anglaise. Ces deux tables n'ont jamais été dans
+le périmètre de la traduction automatique (qui ne couvre que titre et contenu
+d'article, et les créneaux de menu) — c'est le trou le plus voyant qui reste,
+sur la surface la plus exposée.
 
 **Blog public** : `GET /public/blog/{code}/articles?locale=en`. Le `?locale=`
 fait foi — une réponse publique indexable doit dépendre de l'URL seule — avec
@@ -2792,11 +2819,20 @@ Une `ALLOWLIST` en tête de script porte les noms propres, sigles et formats
 lettres une fois ces jetons retirés. Lancés sans `--strict`, les scripts
 listent sans échouer.
 
-⚠️ **Angle mort restant, connu et non couvert** : les littéraux de chaîne
-passés dans une expression JSX (`{cond ? 'Oui' : 'Non'}`, gabarits) ne sont pas
-analysés — la frontière entre texte affiché et valeur technique (classes CSS,
-identifiants, paramètres d'API) n'y est pas décidable par la position seule.
-Les occurrences connues ont été traitées à la main.
+⚠️ **Angles morts restants, connus et non couverts** — dans les deux cas la
+frontière entre texte affiché et valeur technique (classes CSS, identifiants,
+paramètres d'API) n'est pas décidable par la position seule :
+
+1. les littéraux passés dans une expression JSX (`{cond ? 'Oui' : 'Non'}`,
+   gabarits) ;
+2. les **valeurs par défaut de paramètres** — `StatusPill` affichait « Actif »
+   dans tout l'espace admin anglophone à cause de
+   `activeLabel = 'Actif'`, et douze de ses treize appels ne passaient rien.
+   Un composant qui affiche du texte doit le **traduire lui-même**, les props
+   ne servant qu'à préciser (la bibliothèque dit « disponible »).
+
+Les occurrences connues sont traitées ; un relevé par AST des valeurs par
+défaut littérales ne laisse plus que des valeurs techniques.
 
 ⚠️ **Un schéma Zod constant au niveau module ne peut pas appeler `t`** (le hook
 n'existe qu'à l'intérieur du composant). Le patron du projet est une fabrique :

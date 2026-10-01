@@ -17,13 +17,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { authApi } from '@/lib/api/auth.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { useRouter } from '@/i18n/navigation'
+import { passwordField } from '@/lib/validation/password'
 
 const makePwdSchema = (t: (k: string) => string) =>
   z.object({
-    new_password: z.string()
-      .min(8, t('validation.passwordMin'))
-      .regex(/[A-Z]/, t('validation.passwordUpper'))
-      .regex(/[0-9]/, t('validation.passwordDigit')),
+    new_password: passwordField(t),
     confirm: z.string(),
   }).refine((d) => d.new_password === d.confirm, {
     message: t('validation.passwordMismatch'),

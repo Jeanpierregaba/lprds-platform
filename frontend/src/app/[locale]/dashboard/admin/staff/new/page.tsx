@@ -22,25 +22,24 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { STAFF_TYPES, type StaffType } from '@/types/staff'
 import { useRouter } from '@/i18n/navigation'
+import { passwordField } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
-const makeSchema = (t: T) => z.object({
+const makeSchema = (t: T, tAuth: T) => z.object({
   first_name: z.string().min(1, t('validation.firstName')).max(100),
   last_name:  z.string().min(1, t('validation.lastName')).max(100),
   nickname:   z.string().min(1, t('validation.nickname')).max(100),
   phone:      z.string().min(1, t('validation.phone')).max(20),
   email:      z.string().email(t('validation.email')),
   staff_type: z.string().min(1, t('validation.staffType')),
-  password:   z.string()
-    .min(8, t('validation.passwordMin'))
-    .regex(/[A-Z]/, t('validation.passwordUpper'))
-    .regex(/[0-9]/, t('validation.passwordDigit')),
+  password: passwordField(tAuth),
 })
 type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export default function NewStaffPage() {
   const t = useTranslations('staff')
+  const tAuth = useTranslations('auth')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -49,7 +48,7 @@ export default function NewStaffPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(makeSchema(t)), defaultValues: { staff_type: '' } })
+    useForm<Form>({ resolver: zodResolver(makeSchema(t, tAuth)), defaultValues: { staff_type: '' } })
 
   const onSubmit = async (values: Form) => {
     try {

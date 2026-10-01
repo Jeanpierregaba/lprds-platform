@@ -17,10 +17,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { establishmentsApi } from '@/lib/api/establishments.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { Link, useRouter } from '@/i18n/navigation'
+import { passwordField } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
-const makeSchema = (t: T) => z.object({
+const makeSchema = (t: T, tAuth: T) => z.object({
   code:    z.string().min(2, t('establishments.validation.codeMin')).max(10, t('establishments.validation.codeMax'))
     .regex(/^[A-Za-z0-9]+$/, t('establishments.validation.alphanumeric')),
   name:    z.string().min(1, t('establishments.validation.name')).max(200),
@@ -32,20 +33,18 @@ const makeSchema = (t: T) => z.object({
   admin_last_name:  z.string().min(1, t('establishments.validation.name')).max(100),
   admin_email:      z.string().email(t('establishments.validation.email')),
   admin_phone:      z.string().max(20).optional().or(z.literal('')),
-  admin_password:   z.string()
-    .min(8, t('establishments.validation.passwordMin'))
-    .regex(/[A-Z]/, t('establishments.validation.passwordUpper'))
-    .regex(/[0-9]/, t('establishments.validation.passwordDigit')),
+  admin_password: passwordField(tAuth),
 })
 
 type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export default function NewEstablishmentPage() {
   const t = useTranslations('admin')
+  const tAuth = useTranslations('auth')
   const router = useRouter()
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(makeSchema(t)) })
+    useForm<Form>({ resolver: zodResolver(makeSchema(t, tAuth)) })
 
   const onSubmit = async (values: Form) => {
     try {

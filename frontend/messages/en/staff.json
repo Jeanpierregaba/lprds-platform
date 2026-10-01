@@ -41,10 +41,7 @@
     "nickname": "Nickname required",
     "phone": "Phone required",
     "email": "Invalid email",
-    "staffType": "Type required",
-    "passwordMin": "8 characters minimum",
-    "passwordUpper": "One capital letter required",
-    "passwordDigit": "One digit required"
+    "staffType": "Type required"
   },
   "fields": {
     "firstName": "First name",

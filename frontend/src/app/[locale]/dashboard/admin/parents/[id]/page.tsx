@@ -28,6 +28,7 @@ import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
+import { passwordField } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
@@ -40,11 +41,8 @@ const makeInfoSchema = (t: T) => z.object({
 })
 type InfoForm = z.infer<ReturnType<typeof makeInfoSchema>>
 
-const makeResetSchema = (t: T) => z.object({
-  new_password: z.string()
-    .min(8, t('validation.passwordMin'))
-    .regex(/[A-Z]/, t('validation.passwordUpper'))
-    .regex(/[0-9]/, t('validation.passwordDigit')),
+const makeResetSchema = (t: T, tAuth: T) => z.object({
+  new_password: passwordField(tAuth),
 })
 type ResetForm = z.infer<ReturnType<typeof makeResetSchema>>
 
@@ -55,6 +53,7 @@ function formatDateTime(iso: string | null) {
 export default function ParentDetailPage() {
   const t = useTranslations('parents')
   const tCommon = useTranslations('common')
+  const tAuth = useTranslations('auth')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const user = useUser()
@@ -120,7 +119,7 @@ export default function ParentDetailPage() {
     handleSubmit: handleResetSubmit,
     formState: { errors: resetErrors, isSubmitting: isResetting },
     reset: resetResetForm,
-  } = useForm<ResetForm>({ resolver: zodResolver(makeResetSchema(t)) })
+  } = useForm<ResetForm>({ resolver: zodResolver(makeResetSchema(t, tAuth)) })
 
   const onResetPassword = async (values: ResetForm) => {
     try {

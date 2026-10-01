@@ -21,24 +21,23 @@ import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 import { useRouter } from '@/i18n/navigation'
+import { passwordField } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
-const makeSchema = (t: T) => z.object({
+const makeSchema = (t: T, tAuth: T) => z.object({
   first_name: z.string().min(1, t('validation.firstName')).max(100),
   last_name:  z.string().min(1, t('validation.lastName')).max(100),
   nickname:   z.string().min(1, t('validation.nickname')).max(100),
   phone:      z.string().min(1, t('validation.phone')).max(20),
   email:      z.string().email(t('validation.email')),
-  password:   z.string()
-    .min(8, t('validation.passwordMin'))
-    .regex(/[A-Z]/, t('validation.passwordUpper'))
-    .regex(/[0-9]/, t('validation.passwordDigit')),
+  password: passwordField(tAuth),
 })
 type Form = z.infer<ReturnType<typeof makeSchema>>
 
 export default function NewParentPage() {
   const t = useTranslations('parents')
+  const tAuth = useTranslations('auth')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
@@ -48,7 +47,7 @@ export default function NewParentPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(makeSchema(t)) })
+    useForm<Form>({ resolver: zodResolver(makeSchema(t, tAuth)) })
 
   const onSubmit = async (values: Form) => {
     if (children.length === 0) {

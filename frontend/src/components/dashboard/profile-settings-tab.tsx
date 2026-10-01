@@ -18,15 +18,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { authApi } from '@/lib/api/auth.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { passwordField } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
-const makeschema = (t: T) => z.object({
+const makeschema = (t: T, tAuth: T) => z.object({
   current_password: z.string().min(1, t('settings.currentPasswordRequired')),
-  new_password: z.string()
-    .min(8, t('settings.passwordMin'))
-    .regex(/[A-Z]/, t('settings.passwordUpper'))
-    .regex(/[0-9]/, t('settings.passwordDigit')),
+  new_password: passwordField(tAuth),
   confirm: z.string(),
 }).refine((d) => d.new_password === d.confirm, {
   message: t('settings.mismatch'),
@@ -38,11 +36,12 @@ type Form = z.infer<ReturnType<typeof makeschema>>
 export function ProfileSettingsTab() {
   const t = useTranslations('admin')
   const tc = useTranslations('common')
+  const tAuth = useTranslations('auth')
   const rolesLabel = useLabel('roles')
   const user = useUser()
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(makeschema(t)) })
+    useForm<Form>({ resolver: zodResolver(makeschema(t, tAuth)) })
 
   const onSubmit = async ({ current_password, new_password }: Form) => {
     try {

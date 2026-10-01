@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { establishmentsApi } from '@/lib/api/establishments.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { Link } from '@/i18n/navigation'
+import { passwordField } from '@/lib/validation/password'
 
 type T = (key: string) => string
 
@@ -45,21 +46,19 @@ const makeinfoSchema = (t: T) => z.object({
 })
 type InfoForm = z.infer<ReturnType<typeof makeinfoSchema>>
 
-const makeadminSchema = (t: T) => z.object({
+const makeadminSchema = (t: T, tAuth: T) => z.object({
   first_name: z.string().min(1, t('establishments.validation.firstName')).max(100),
   last_name:  z.string().min(1, t('establishments.validation.name')).max(100),
   email:      z.string().email(t('establishments.validation.email')),
   phone:      z.string().max(20).optional().or(z.literal('')),
-  password:   z.string()
-    .min(8, t('establishments.validation.passwordMin'))
-    .regex(/[A-Z]/, t('establishments.validation.passwordUpper'))
-    .regex(/[0-9]/, t('establishments.validation.passwordDigit')),
+  password: passwordField(tAuth),
 })
 type AdminForm = z.infer<ReturnType<typeof makeadminSchema>>
 
 export default function EstablishmentDetailPage() {
   const t = useTranslations('admin')
   const tCommon = useTranslations('common')
+  const tAuth = useTranslations('auth')
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [addAdminOpen, setAddAdminOpen] = useState(false)
@@ -110,7 +109,7 @@ export default function EstablishmentDetailPage() {
     handleSubmit: handleAdminSubmit,
     formState: { errors: adminErrors, isSubmitting: isAddingAdmin },
     reset: resetAdminForm,
-  } = useForm<AdminForm>({ resolver: zodResolver(makeadminSchema(t)) })
+  } = useForm<AdminForm>({ resolver: zodResolver(makeadminSchema(t, tAuth)) })
 
   const onAddAdmin = async (values: AdminForm) => {
     try {

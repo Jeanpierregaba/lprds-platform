@@ -2957,7 +2957,11 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 - **UUIDs** pour toutes les clés primaires
 - **Timestamps** `created_at` / `updated_at` sur tous les modèles
 - **Politique de mot de passe centralisée** : utiliser le type `StrongPassword`
-  de `auth/schemas.py`, ne pas redéfinir de validator (min 8 + majuscule + chiffre)
+  de `auth/schemas.py`, ne pas redéfinir de validator (min 8 + majuscule + chiffre).
+  Son miroir frontend est `passwordField()` (`lib/validation/password.ts`) — les
+  deux doivent dire la même chose, sinon l'API refuse un mot de passe que le
+  formulaire venait d'accepter. Durcir la règle = toucher ces **deux** fichiers,
+  et eux seuls.
 - **Les invariants métier se vérifient dans le service**, jamais dans le schéma
   Pydantic — et pensez aux autres chemins qui pourraient les contourner
 - **`HTTPException.detail` est toujours une chaîne**, jamais une liste/dict,
@@ -2980,6 +2984,15 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 - **Validation Zod** sur tous les formulaires via `zodResolver` — les messages
   d'erreur passent par une **fabrique de schéma** prenant le traducteur
   (`makeXSchema = (t) => z.object({...})`), jamais de message écrit en dur
+- **🔒 Champ mot de passe : `passwordField(tAuth)`**
+  (`lib/validation/password.ts`), jamais une chaîne de `.min(8).regex(…)`
+  recopiée. La règle vivait en **huit** exemplaires identiques (création et
+  réinitialisation du personnel, des parents, des administrateurs
+  d'établissement, premier mot de passe, profil) : huit occasions de la durcir
+  à sept endroits sur huit. Le helper attend le traducteur du domaine
+  **`auth`**, seul foyer des trois libellés (`auth.validation.password{Min,
+  Upper,Digit}`) — d'où le second traducteur passé aux fabriques concernées :
+  `makeSchema(t, tAuth)`. Ne pas recréer de `password*` dans un autre domaine
 - **Imports** : toujours via alias `@/` (ex: `@/components/ui/button`)
 - **🌍 Jamais de texte visible écrit en dur** — ni dans le JSX, ni dans un
   message Zod, ni dans un `placeholder`/`title`/`alt`/`aria-label`. Toute

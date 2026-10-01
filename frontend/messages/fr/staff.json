@@ -41,10 +41,7 @@
     "nickname": "Surnom requis",
     "phone": "Téléphone requis",
     "email": "Email invalide",
-    "staffType": "Type requis",
-    "passwordMin": "8 caractères minimum",
-    "passwordUpper": "Une majuscule requise",
-    "passwordDigit": "Un chiffre requis"
+    "staffType": "Type requis"
   },
   "fields": {
     "firstName": "Prénom",

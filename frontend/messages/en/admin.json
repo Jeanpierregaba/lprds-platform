@@ -77,10 +77,7 @@
       "address": "Address required",
       "email": "Invalid email",
       "phone": "Phone required",
-      "firstName": "First name required",
-      "passwordMin": "8 characters minimum",
-      "passwordUpper": "One capital letter required",
-      "passwordDigit": "One digit required"
+      "firstName": "First name required"
     },
     "title": "Schools",
     "description": "Manage nurseries, day-care centres and preschools.",
@@ -212,10 +209,7 @@
     "mismatch": "Passwords do not match",
     "submit": "Update the password",
     "updated": "Password updated.",
-    "passwordMin": "8 characters minimum",
-    "currentPasswordRequired": "Current password required",
-    "passwordUpper": "One capital letter required",
-    "passwordDigit": "One digit required"
+    "currentPasswordRequired": "Current password required"
   },
   "detail": "Details",
   "passwordRulesHandover": "At least 8 characters · 1 capital · 1 digit — hand it to the admin outside the platform (no email is sent for this password).",

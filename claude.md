@@ -2411,10 +2411,11 @@ messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
   Les noms de sections restent en français (Étoile, Nuage, Soleil,
   Petite/Moyenne/Grande Section) : ce sont des noms propres. `crèche` →
   `nursery`, `garderie` → `after-school care`, `maternelle` → `preschool`.
-  ⚠️ **Incohérence dans la source FRANÇAISE, non corrigée** : le pied de page
-  annonce « de 3 mois à 6 ans » tandis que la page des sections et le
-  formulaire de contact disent « 3 mois à 8 ans ». L'anglais la reproduit
-  fidèlement. C'est une donnée d'établissement, pas une question de traduction.
+  L'établissement accueille **de 3 mois à 6 ans** — borne confirmée par
+  l'utilisateur. Deux endroits annonçaient « 3 mois à 8 ans » (sous-titre de la
+  page des sections, option d'âge du formulaire de contact) ; corrigés dans les
+  deux langues. Toutes les bornes concordent désormais : garderie 3–6 ans,
+  Grande Section 5–6 ans, pied de page et statistiques 3 mois à 6 ans.
 
 - **Slugs traduits pour les pages PUBLIQUES** (`src/i18n/slugs.ts`) :
   `/a-propos` ↔ `/en/about`, `/galerie` ↔ `/en/gallery`, etc. L'espace connecté

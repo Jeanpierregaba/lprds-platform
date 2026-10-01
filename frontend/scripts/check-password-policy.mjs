@@ -1,30 +1,45 @@
 /**
  * Vérifie la politique de mot de passe partagée (`lib/validation/password.ts`).
  *
- * Contrairement aux trois gardes i18n, ce script n'est PAS dans `pnpm lint` :
- * il s'appuie sur le retrait de types natif de Node (sans drapeau à partir de
- * 22.18 / 23.6, mais `--experimental-strip-types` avant), et le dépôt ne fixe
- * aucun `engines`. Le câbler au lint échangerait un risque silencieux contre un
- * pipeline qui casse selon la version de Node de la machine.
- *
- * À lancer donc au moment où il compte — **toute montée de version de Zod** :
- *
- *   pnpm check-password-policy
- *
  * Ce qu'il protège : `passwordConfirmation()` pose son `.refine()` sur un
  * `ZodObject`, et l'onglet profil y ajoute `current_password` par `.extend()`.
  * Que le raffinement survive à cette extension est un comportement de Zod 4 ;
  * en Zod 3 il était perdu **sans erreur**. S'il repart, la confirmation du mot
- * de passe cesse d'être contrôlée et rien ne le signale.
+ * de passe cesse d'être contrôlée et rien ne le signale — ni le type-check, ni
+ * le lint, ni l'écran.
+ *
+ * ⚠️ Ce script importe un module TypeScript (`password.ts`), ce qui exige le
+ * retrait de types natif de Node (sans drapeau à partir de 22.18 / 23.6). Le
+ * dépôt ne fixe aucun `engines`, et câbler tel quel au lint casserait le
+ * contrôle sur une machine plus ancienne.
+ *
+ * D'où l'**esquive explicite** ci-dessous : sur un Node qui ne sait pas lire
+ * TypeScript, le script le dit et sort en succès. Il rejoint donc `pnpm lint`
+ * sans pouvoir rien casser — ce qui vaut mieux qu'une garde correcte que
+ * personne ne lance. Il reste à lancer sciemment à toute montée de Zod :
+ *
+ *   pnpm check-password-policy
  */
 
 import { z } from 'zod'
-import { passwordConfirmation } from '../src/lib/validation/password.ts'
 import fr from '../messages/fr/auth.json' with { type: 'json' }
 import en from '../messages/en/auth.json' with { type: 'json' }
 
-const translator = (cat: Record<string, Record<string, string>>) =>
-  (key: string) => {
+// Importé dynamiquement pour pouvoir esquiver proprement : un `import` statique
+// échouerait au chargement du module, avant toute possibilité de message.
+let passwordConfirmation
+try {
+  ;({ passwordConfirmation } = await import('../src/lib/validation/password.ts'))
+} catch (error) {
+  console.log(
+    '[check-password-policy] ignoré — ce Node ne lit pas TypeScript nativement ' +
+      `(22.18+ requis, ici ${process.version}).`,
+  )
+  console.log('  Détail :', error.message)
+  process.exit(0)
+}
+
+const translator = (cat) => (key) => {
     const [a, b] = key.split('.')
     const v = cat[a]?.[b]
     if (v === undefined) throw new Error(`clé absente: ${key}`)
@@ -32,21 +47,21 @@ const translator = (cat: Record<string, Record<string, string>>) =>
   }
 
 let failures = 0
-const ck = (label: string, got: unknown, exp: unknown) => {
+const ck = (label, got, exp) => {
   const ok = JSON.stringify(got) === JSON.stringify(exp)
   if (!ok) failures++
   console.log(`${ok ? '  ok  ' : '  ÉCHEC'} ${label}${ok ? '' : ` — attendu ${JSON.stringify(exp)}, obtenu ${JSON.stringify(got)}`}`)
 }
 
-const firstError = (schema: z.ZodType, value: unknown) => {
+const firstError = (schema, value) => {
   const r = schema.safeParse(value)
   if (r.success) return null
   const i = r.error.issues[0]
   return `${i.path.join('.')}: ${i.message}`
 }
 
-for (const [locale, cat] of [['fr', fr], ['en', en]] as const) {
-  const t = translator(cat as never)
+for (const [locale, cat] of [['fr', fr], ['en', en]]) {
+  const t = translator(cat)
   console.log(`\n── ${locale} ────────────────────────────────`)
 
   // 1. Le couple seul (page « nouveau mot de passe »).

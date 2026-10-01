@@ -396,8 +396,15 @@ par diverger. Après un `git pull` ou un changement de modèle → `alembic upgr
 
 ### Flux complet
 1. `POST /api/v1/auth/login` → retourne `access_token` (15min) + `refresh_token` (30j) + `must_change_pwd`
-2. Si `must_change_pwd=true` → redirect `/auth/new-password`
-3. Sinon → redirect vers `ROLE_HOME[user.role]`
+2. Redirection vers `ROLE_HOME[user.role]`
+   > ⚠️ **Écart connu, non corrigé** : la page de login redirige vers
+   > `ROLE_HOME` **sans regarder `must_change_pwd`** (vérifié dans l'historique :
+   > ça n'a jamais été implémenté, ce n'est pas une régression de l'i18n). Un
+   > compte à mot de passe temporaire atterrit donc sur son tableau de bord, où
+   > **tous** les appels renvoient 403 (`get_active_user`) : la page s'affiche
+   > avec des compteurs à zéro. Ce n'est pas une faille — le backend tient la
+   > règle — mais c'est une impasse à la première connexion, que l'utilisateur
+   > ne peut quitter qu'en allant à `/auth/new-password` de lui-même.
 4. `GET /api/v1/auth/me` → profil utilisateur (header `Authorization: Bearer <token>`)
 5. Refresh auto via intercepteur Axios sur erreur 401
 
@@ -2565,9 +2572,10 @@ visiteur croire à un bug.
 doit appeler une API payante pour avoir cloné le repo. La suite substitue un
 faux traducteur déterministe — aucun appel réseau.
 
-### Trois gardes de lint — aucune ne suffit seule
+### Trois gardes de lint i18n — aucune ne suffit seule
 
-`pnpm lint` enchaîne les trois. Chacune couvre un angle mort des deux autres,
+`pnpm lint` les enchaîne toutes trois (plus `check-password-policy`, qui ne
+relève pas de l'i18n). Chacune couvre un angle mort des deux autres,
 et **toutes trois portent sur des défauts silencieux** : rien ne casse, le
 type-check passe, la page s'affiche — en français au milieu d'une interface
 anglaise.
@@ -2733,6 +2741,7 @@ pnpm dev
 # Vérifications avant commit
 pnpm type-check
 pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
+               #   + check-password-policy
 pnpm build
 
 # Ajouter un composant shadcn
@@ -2743,6 +2752,8 @@ pnpm dlx shadcn@latest add <composant>
 
 Aucune ne suffit seule : elles couvrent trois angles disjoints, et une chaîne
 non traduite ne casse jamais rien — ni au type-check, ni à l'exécution.
+(`pnpm lint` enchaîne une quatrième garde, `check-password-policy`, qui porte
+sur la politique de mot de passe et non sur la traduction.)
 
 | Script | Vérifie | Sans lui |
 |---|---|---|
@@ -3028,9 +3039,12 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
   `makeSchema(t, tAuth)`. Ne pas recréer de `password*` dans un autre domaine.
   Des champs en plus s'ajoutent par `.extend()` — ce que Zod 4 autorise après un
   `.refine()` **en conservant** le raffinement (Zod 3 le perdait sans erreur) ;
-  `pnpm check-password-policy` le vérifie, à lancer à toute montée de Zod. Ce
-  script n'est **pas** dans `pnpm lint` : il dépend du retrait de types natif de
-  Node, et le dépôt ne fixe aucun `engines`
+  `scripts/check-password-policy.mjs` le vérifie, et **fait partie de
+  `pnpm lint`**. Il importe un module TypeScript, donc exige le retrait de types
+  natif de Node (22.18+) : sur un Node plus ancien il l'annonce et sort en
+  succès plutôt que de casser le contrôle. Une garde correcte que personne ne
+  lance ne protège rien — cf. les trois faux « zéro » de
+  `check-hardcoded-text.mjs`
 - **Imports** : toujours via alias `@/` (ex: `@/components/ui/button`)
 - **🌍 Jamais de texte visible écrit en dur** — ni dans le JSX, ni dans un
   message Zod, ni dans un `placeholder`/`title`/`alt`/`aria-label`. Toute

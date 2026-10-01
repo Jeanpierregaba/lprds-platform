@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from app.core.i18n import t
 
-from app.modules.auth.dependencies import get_active_user
+from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User, UserRole
 from app.modules.rbac.dependencies import require_permission
 from app.modules.rbac.models import PermissionCode
@@ -15,7 +15,7 @@ require_library_lend = require_permission(PermissionCode.LIBRARY_LEND)
 
 
 async def get_educator(
-    current_user: User = Depends(get_active_user),
+    current_user: User = Depends(get_current_user),
 ) -> User:
     """Consultation livres de la section : staff rattaché à un groupe actif en
     tant qu'éducatrice (hors-RBAC, comme le scope « my-group » du module

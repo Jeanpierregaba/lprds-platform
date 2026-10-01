@@ -219,7 +219,6 @@ def _build_admin(payload: EstablishmentAdminCreate, establishment_id: uuid.UUID)
         establishment_id=establishment_id,
         # Le superadmin transmet le mot de passe hors plateforme :
         # on force son changement à la première connexion.
-        must_change_pwd=True,
     )
 
 

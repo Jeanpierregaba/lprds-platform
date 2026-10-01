@@ -28,7 +28,6 @@ async def seed() -> None:
             role=UserRole.SUPERADMIN,
             first_name="Super",
             last_name="Admin",
-            must_change_pwd=False,
         )
         db.add(superadmin)
         await db.commit()

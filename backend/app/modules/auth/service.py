@@ -73,7 +73,6 @@ async def login(
     return TokenResponse(
         access_token=create_token(user_id, user.role, "access"),
         refresh_token=create_token(user_id, user.role, "refresh"),
-        must_change_pwd=user.must_change_pwd,
     )
 
 # ── Refresh token ────────────────────────────────────────────────
@@ -115,7 +114,6 @@ async def refresh_tokens(
     return TokenResponse(
         access_token=create_token(user_id, user.role, "access"),
         refresh_token=create_token(user_id, user.role, "refresh"),
-        must_change_pwd=user.must_change_pwd,
     )
 
 # ── Logout ──────────────────────────────────────────────────────
@@ -184,7 +182,6 @@ async def create_user(
         last_name=payload.last_name,
         phone=payload.phone,
         establishment_id=establishment_id,
-        must_change_pwd=True,
     )
     db.add(user)
     await db.flush()  # génère l'ID sans commit
@@ -252,7 +249,6 @@ async def confirm_password_reset(
         raise HTTPException(status_code=404, detail=t("errors.auth.user_not_found"))
 
     user.hashed_password = hash_password(payload.new_password)
-    user.must_change_pwd = False
     await db.flush()
 
 
@@ -268,7 +264,6 @@ async def change_password(
             detail=t("errors.auth.wrong_current_password"),
         )
     current_user.hashed_password = hash_password(payload.new_password)
-    current_user.must_change_pwd = False
     await db.flush()
 
 

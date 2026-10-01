@@ -10,7 +10,6 @@ export interface User {
   role:             UserRole
   establishment_id: string | null
   is_active:        boolean
-  must_change_pwd:  boolean
   /** Langue d'interface du compte ("fr" | "en") — pilote aussi les emails,
    *  PDF et notifications push envoyés hors session. */
   locale:           string
@@ -22,7 +21,6 @@ export interface TokenResponse {
     access_token:    string
     refresh_token:   string
     token_type:      string
-    must_change_pwd: boolean
 }
   
 export interface LoginPayload {

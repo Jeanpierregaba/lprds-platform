@@ -54,7 +54,6 @@ class ParentResponse(BaseModel):
     phone:            str | None
     establishment_id: uuid.UUID | None
     is_active:        bool
-    must_change_pwd:  bool
     created_at:       datetime
     last_login_at:    datetime | None
     assigned_children: list[ChildBrief] = Field(

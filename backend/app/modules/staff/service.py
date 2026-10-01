@@ -58,7 +58,6 @@ async def create_staff(
         matricule=await generate_unique_staff_matricule(establishment.code, db),
         establishment_id=establishment_id,
         # Mot de passe temporaire → changement imposé à la 1re connexion
-        must_change_pwd=True,
     )
     db.add(member)
     await db.flush()
@@ -218,12 +217,11 @@ async def reset_staff_password(
 ) -> None:
     """
     Reset administré : le nouveau mot de passe est fourni par l'admin/staff
-    habilité et communiqué au personnel par email. must_change_pwd reste False —
-    on ne force PAS de redéfinition.
+    habilité et communiqué au personnel par email. Le membre s'en sert tel
+    quel — la plateforme n'impose aucune redéfinition à la connexion suivante.
     """
     member = await _get_or_404(staff_id, establishment_id, db)
     member.hashed_password = hash_password(new_password)
-    member.must_change_pwd = False
     await db.flush()
 
     try:

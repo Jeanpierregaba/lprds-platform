@@ -47,21 +47,9 @@ async def get_current_user(
     return user
 
 
-async def get_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """
-    Utilisateur actif et authentifié. Le changement de mot de passe temporaire
-    (`must_change_pwd`) n'est plus imposé — décision explicite de l'utilisateur
-    (le flux forcé était de toute façon cassé côté frontend, cf. historique).
-    Le champ reste en base à titre informatif mais ne bloque plus rien ici.
-    """
-    return current_user
-
-
 def require_roles(*roles: UserRole):
     async def _check(
-        current_user: User = Depends(get_active_user),
+        current_user: User = Depends(get_current_user),
     ) -> User:
         if current_user.role not in roles:
             raise HTTPException(

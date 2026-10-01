@@ -34,7 +34,6 @@ class TokenResponse(BaseModel):
     access_token:  str
     refresh_token: str
     token_type:    str = "bearer"
-    must_change_pwd: bool
 
 
 class RefreshRequest(BaseModel):
@@ -68,7 +67,6 @@ class UserResponse(BaseModel):
     role:             UserRole
     establishment_id: uuid.UUID | None
     is_active:        bool
-    must_change_pwd:  bool
     locale:           str
     created_at:       datetime
     last_login_at:    datetime | None

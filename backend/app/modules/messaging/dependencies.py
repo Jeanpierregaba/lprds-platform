@@ -11,7 +11,7 @@ exclus.
 from fastapi import Depends, HTTPException, status
 from app.core.i18n import t
 
-from app.modules.auth.dependencies import get_active_user, require_roles
+from app.modules.auth.dependencies import get_current_user, require_roles
 from app.modules.auth.models import User, UserRole
 
 
@@ -37,7 +37,7 @@ async def get_parent(
 
 
 async def get_admin_or_parent(
-    current_user: User = Depends(get_active_user),
+    current_user: User = Depends(get_current_user),
 ) -> User:
     if current_user.role not in (UserRole.ADMIN, UserRole.PARENT):
         raise HTTPException(

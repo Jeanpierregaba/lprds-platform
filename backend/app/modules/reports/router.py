@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.i18n import coerce_locale, t
-from app.modules.auth.dependencies import get_active_user, require_roles
+from app.modules.auth.dependencies import get_current_user, require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.reports import service
 from app.modules.reports.dependencies import get_parent
@@ -46,7 +46,7 @@ def _sees_reports(user: User) -> bool:
     )
 
 
-async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
+async def _can_see_reports(user: User = Depends(get_current_user)) -> User:
     """Garde des endpoints de LECTURE (liste, détail, manquants) : admin, ou
     staff porteur d'au moins une permission du module. La sidebar affiche le
     module dès une permission détenue ; refuser ici donnerait « page visible,
@@ -59,7 +59,7 @@ async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
-async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
+async def _vocabulary_access(user: User = Depends(get_current_user)) -> User:
     """
     GET /vocabulary n'expose que des libellés statiques (aucune donnée
     d'enfant) — ouvert au staff qui voit les rapports (read/write/validate)
@@ -83,7 +83,7 @@ _admin_only = require_roles(UserRole.ADMIN)
 
 # ── Paramètres : types de rapport activés par département ────────
 async def _read_types(
-    user: User = Depends(get_active_user),
+    user: User = Depends(get_current_user),
 ) -> User:
     """Lecture des types actifs : admin, ou staff porteur de reports:read OU
     reports:write — l'éducatrice en a besoin dans le formulaire de création

@@ -93,7 +93,7 @@ app/
 │   │   ├── email.py               # Envoi emails via fastapi-mail + Jinja2
 │   │   ├── service.py             # Logique métier auth
 │   │   ├── router.py              # Endpoints HTTP /auth/*
-│   │   ├── dependencies.py        # get_current_user, get_active_user, require_roles()
+│   │   ├── dependencies.py        # get_current_user, require_roles()
 │   │   └── templates/{fr,en}/     # HTML emails (welcome_*, reset_password) — un dossier par langue
 │   ├── establishments/
 │   │   ├── models.py              # Establishment, MAX_ADMINS_PER_ESTABLISHMENT
@@ -395,18 +395,20 @@ par diverger. Après un `git pull` ou un changement de modèle → `alembic upgr
 ## Authentification
 
 ### Flux complet
-1. `POST /api/v1/auth/login` → retourne `access_token` (15min) + `refresh_token` (30j) + `must_change_pwd`
+1. `POST /api/v1/auth/login` → retourne `access_token` (15min) + `refresh_token` (30j)
 2. Redirection vers `ROLE_HOME[user.role]`
-   > ⚠️ **Écart connu, non corrigé** : la page de login redirige vers
-   > `ROLE_HOME` **sans regarder `must_change_pwd`** (vérifié dans l'historique :
-   > ça n'a jamais été implémenté, ce n'est pas une régression de l'i18n). Un
-   > compte à mot de passe temporaire atterrit donc sur son tableau de bord, où
-   > **tous** les appels renvoient 403 (`get_active_user`) : la page s'affiche
-   > avec des compteurs à zéro. Ce n'est pas une faille — le backend tient la
-   > règle — mais c'est une impasse à la première connexion, que l'utilisateur
-   > ne peut quitter qu'en allant à `/auth/new-password` de lui-même.
-4. `GET /api/v1/auth/me` → profil utilisateur (header `Authorization: Bearer <token>`)
-5. Refresh auto via intercepteur Axios sur erreur 401
+3. `GET /api/v1/auth/me` → profil utilisateur (header `Authorization: Bearer <token>`)
+4. Refresh auto via intercepteur Axios sur erreur 401
+
+> **Plus de changement de mot de passe imposé au premier login** (décision
+> produit, colonne `must_change_pwd` supprimée — migration `1455017b2af8`). Un
+> compte créé avec un mot de passe temporaire s'en sert tel quel ; les emails
+> de bienvenue invitent à le changer depuis les paramètres, sans l'exiger.
+>
+> La fonctionnalité n'avait de toute façon jamais tenu en entier : l'API REST
+> ne l'imposait pas, la page de login ne redirigeait pas, mais le handshake
+> WebSocket de la messagerie refusait les comptes concernés — un compte neuf
+> n'avait donc pas de temps réel, sans la moindre explication.
 
 ### Endpoints auth disponibles
 ```
@@ -476,24 +478,19 @@ Configurable via `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` (défaut 5) et
 # Route publique — aucune dépendance
 @router.post("/login")
 
-# Route authentifiée, accessible même si must_change_pwd=True
-# (réservé à /auth/me et /auth/password-change)
+# Route authentifiée (jeton valide, non révoqué, compte actif)
 current_user: User = Depends(get_current_user)
 
-# Route authentifiée exigeant un mot de passe déjà changé
-current_user: User = Depends(get_active_user)
-
-# Route par rôle (implique get_active_user)
+# Route par rôle (implique get_current_user)
 creator: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN))
 
 # Dépendance sur tout un router (cf. module establishments)
 router = APIRouter(dependencies=[Depends(require_roles(UserRole.SUPERADMIN))])
 ```
 
-**`must_change_pwd` est imposé côté API**, pas seulement par le frontend : tant
-qu'il est vrai, `get_active_user` renvoie **403** et seuls `/auth/me` et
-`/auth/password-change` restent accessibles. Le détenteur d'un mot de passe
-temporaire ne peut donc pas contourner l'étape via l'API directe.
+> `get_active_user` a été **supprimé** avec `must_change_pwd` : il ne faisait
+> plus que déléguer à `get_current_user`, qui vérifie déjà `is_active`. Deux
+> noms pour la même garde invitaient à croire qu'ils différaient.
 
 ### Protection des routes (frontend)
 Le `middleware.ts` lit le cookie `lprds-auth` (Zustand persist) et redirige les non-authentifiés vers `/auth/login`.
@@ -560,8 +557,8 @@ produirait des matricules bancals. `"lprds"` est accepté et stocké `"LPRDS"`.
   Seul un superadmin choisit librement l'établissement.
 - **Retirer un admin** = désactiver son compte (`is_active=False`), jamais de
   suppression.
-- **Le mot de passe de l'admin est saisi par le superadmin** à la création, avec
-  `must_change_pwd=True`. **Aucun email n'est envoyé sur ce chemin** : il
+- **Le mot de passe de l'admin est saisi par le superadmin** à la création.
+  **Aucun email n'est envoyé sur ce chemin** : il
   contiendrait un mot de passe en clair. Le superadmin transmet les identifiants
   hors plateforme. (`welcome_admin.html` ne sert qu'à `POST /auth/users`.)
 - **Le `code` est figé dès qu'un matricule enfant a été émis** (409). Les
@@ -913,15 +910,17 @@ comme pour les enfants.
 Champs saisis par le créateur : `first_name`, `last_name`, `nickname`, `phone`,
 `email`, `password` (temporaire), `child_ids` (≥ 1). Le parent reçoit
 **automatiquement** un email de bienvenue avec ses identifiants
-(`welcome_parent.html`), et `must_change_pwd=True` (changement imposé au 1er login).
+(`welcome_parent.html`). Il s'en sert tel quel : plus aucun changement n'est
+imposé au premier login (cf. § Authentification), l'email l'y invite seulement.
 Les enfants assignés **doivent appartenir au même établissement** (404 sinon).
 
 ### Reset de mot de passe — « administré », spécifique aux parents
 `POST /parents/{id}/reset-password` avec `{new_password}` :
 - l'admin/staff **saisit** le nouveau mot de passe
 - il est envoyé au parent par email (`parent_password_reset.html`)
-- **`must_change_pwd` reste False** : le parent n'a PAS à le redéfinir, contrairement
-  au flux `/auth/password-reset` (lien + saisie). C'est un choix produit assumé.
+- le parent s'en sert tel quel — aucune redéfinition n'est imposée, à la
+  différence du flux `/auth/password-reset` qui, lui, fait saisir le nouveau
+  mot de passe derrière un lien.
 
 > C'est distinct du reset self-service `/auth/password-reset` (lien de reset) :
 > ici c'est l'établissement qui pilote et communique le mot de passe.
@@ -991,8 +990,8 @@ enfants → 20 tentatives de retry). Cf. `staff/matricule.py`.
 
 ### Création / reset / statut
 Mêmes règles que le module Parents : mot de passe temporaire saisi par le
-créateur + email de bienvenue (`welcome_staff.html`) + `must_change_pwd=True` ;
-reset administré (mot de passe fourni, envoyé, sans redéfinition imposée) ;
+créateur + email de bienvenue (`welcome_staff.html`) ; reset administré
+(mot de passe fourni, envoyé, sans redéfinition imposée) ;
 isolation en 404 ; envoi d'email obligatoire (503 + rollback sinon).
 
 > ⚠️ Un staff créé via l'ancien `POST /auth/users` n'a **ni matricule ni
@@ -1338,8 +1337,12 @@ Client ← WS (relais transparent) ←──────────── tous 
 
 - **Jeton en query string**, pas en header `Authorization` : un navigateur ne
   peut pas poser de header custom sur un handshake WS. Authentification
-  manuelle (`ws_auth.py`), réplique de `get_current_user`/`get_active_user`
-  (jeton `access`, non révoqué, compte actif, mdp déjà changé).
+  manuelle (`ws_auth.py`), réplique de `get_current_user` (jeton `access`,
+  non révoqué, compte actif).
+  ⚠️ Ce contrôle a longtemps refusé en plus les comptes à `must_change_pwd`,
+  alors que l'API REST ne l'imposait plus : un compte neuf n'avait donc pas de
+  temps réel, sans erreur visible. Garder cette réplique alignée sur
+  `get_current_user` fait partie de son entretien.
 - **Défense en profondeur** : l'`Origin` du handshake, quand le navigateur en
   envoie un, est vérifié contre `settings.cors_origins` (CORSMiddleware ne
   s'applique PAS aux WebSocket — Starlette ne le fait qu'sur le scope `http` —
@@ -2342,9 +2345,8 @@ c'est vérifié par test en envoyant délibérément l'en-tête contraire
 (`test_i18n.py::test_account_locale_wins_over_accept_language`). Un compte
 basculé en anglais reçoit de l'anglais même avec `Accept-Language: fr`.
 
-`PATCH /auth/me/locale` est sous `get_current_user` et **non** `get_active_user` :
-l'écran de changement de mot de passe imposé au premier login doit lui aussi
-pouvoir basculer en anglais.
+`PATCH /auth/me/locale` est sous `get_current_user`, comme toutes les routes
+authentifiées.
 
 ### Frontend — `next-intl`, préfixe EN seulement
 
@@ -3071,8 +3073,6 @@ Types    : PascalCase interfaces, SCREAMING_SNAKE pour les constantes
 - **Données d'enfants = données sensibles** soumises au RGPD
 - **Row-Level Security** à activer sur PostgreSQL en production
 - **Audit log** à implémenter sur toutes les actions sur les profils enfants
-- **`must_change_pwd=True`** par défaut à la création de compte, **imposé côté
-  API** via `get_active_user` (403) — pas seulement par le frontend
 - **Révocation de tokens** active (blacklist `jti` dans Redis, fail-closed en 503)
 - **Jamais de mot de passe en clair dans un email** — c'est pourquoi la création
   d'admin via établissement n'envoie pas d'email

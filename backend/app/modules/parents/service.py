@@ -44,7 +44,6 @@ async def create_parent(
         phone=payload.phone,
         establishment_id=establishment_id,
         # Mot de passe temporaire → changement imposé à la 1re connexion
-        must_change_pwd=True,
     )
     parent.assigned_children = children
     db.add(parent)
@@ -174,12 +173,11 @@ async def reset_parent_password(
 ) -> None:
     """
     Reset administré : le nouveau mot de passe est fourni par l'admin/staff et
-    communiqué au parent par email. must_change_pwd reste False — on ne force
-    PAS le parent à le redéfinir.
+    communiqué au parent par email. Le parent s'en sert tel quel — la
+    plateforme n'impose aucune redéfinition à la connexion suivante.
     """
     parent = await _get_or_404(parent_id, establishment_id, db)
     parent.hashed_password = hash_password(new_password)
-    parent.must_change_pwd = False
     await db.flush()
 
     try:

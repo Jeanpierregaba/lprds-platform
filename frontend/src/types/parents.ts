@@ -30,7 +30,6 @@ export interface Parent {
   phone: string | null
   establishment_id: string | null
   is_active: boolean
-  must_change_pwd: boolean
   created_at: string
   last_login_at: string | null
   assigned_children: ParentChildBrief[]

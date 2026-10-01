@@ -59,11 +59,6 @@ async def update_my_locale(
 ) -> UserResponse:
     """Change la langue d'interface du compte connecté.
 
-    Volontairement sous `get_current_user` et non `get_active_user` : l'écran
-    de changement de mot de passe imposé au premier login doit lui aussi
-    pouvoir basculer en anglais. Tant que `must_change_pwd` est vrai, seuls
-    /auth/me, /auth/password-change et cette route restent accessibles.
-
     Self-service intégral, hors RBAC : un utilisateur ne modifie que sa propre
     langue, aucune permission n'entre en jeu (même principe que les abonnements
     aux notifications push).

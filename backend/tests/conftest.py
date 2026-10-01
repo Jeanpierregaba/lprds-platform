@@ -128,9 +128,9 @@ async def _reset_data() -> None:
                 text(
                     f'INSERT INTO "{TEST_SCHEMA}".users '
                     "(id, email, hashed_password, role, first_name, last_name, "
-                    " is_active, must_change_pwd) "
+                    " is_active) "
                     "VALUES (:id, :email, :hashed, 'superadmin', "
-                    " 'Super', 'Admin', true, false) "
+                    " 'Super', 'Admin', true) "
                     "ON CONFLICT (email) DO NOTHING"
                 ),
                 {

@@ -7,14 +7,15 @@
     "prebuild": "node scripts/stamp-version.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict && node scripts/check-zod-messages.mjs --strict && node scripts/check-password-policy.mjs",
+    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict && node scripts/check-zod-messages.mjs --strict && node scripts/check-locale-resolution.mjs && node scripts/check-password-policy.mjs",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "check-messages": "node scripts/check-messages.mjs",
     "check-hardcoded-text": "node scripts/check-hardcoded-text.mjs",
     "check-zod-messages": "node scripts/check-zod-messages.mjs",
-    "check-password-policy": "node scripts/check-password-policy.mjs"
+    "check-password-policy": "node scripts/check-password-policy.mjs",
+    "check-locale-resolution": "node scripts/check-locale-resolution.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

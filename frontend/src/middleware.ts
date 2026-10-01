@@ -14,7 +14,8 @@ import { ROLE_HOME, type UserRole } from '@/types/auth'
 /**
  * Middleware unique — il cumule trois responsabilités qui doivent s'exécuter
  * dans cet ordre précis :
- *   1. résoudre la langue (préfixe d'URL, cookie, puis `Accept-Language`) ;
+ *   1. résoudre la langue (préfixe d'URL, cookie, langue du compte, puis
+ *      `Accept-Language`) ;
  *   2. rediriger un visiteur non francophone arrivé sur une URL sans préfixe ;
  *   3. appliquer la garde d'authentification et de rôle, sur le chemin
  *      DÉBARRASSÉ de son préfixe de langue.
@@ -75,9 +76,39 @@ function splitLocale(pathname: string): { prefixed: boolean; bare: string } {
   return { prefixed: true, bare: rest ? `/${rest}` : '/' }
 }
 
+/**
+ * Session telle que le navigateur la persiste (store Zustand, cookie
+ * `lprds-auth`). Tolérant par construction : un cookie absent, tronqué ou
+ * d'une version antérieure du store ne doit jamais faire échouer le
+ * middleware, qui garde alors l'utilisateur pour un visiteur anonyme.
+ */
+function readSession(request: NextRequest): {
+  accessToken: string | null
+  role: UserRole | null
+  locale: string | null
+} {
+  const raw = request.cookies.get('lprds-auth')?.value
+  if (!raw) return { accessToken: null, role: null, locale: null }
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw))
+    return {
+      accessToken: parsed?.state?.accessToken ?? null,
+      role: parsed?.state?.user?.role ?? null,
+      locale: parsed?.state?.user?.locale ?? null,
+    }
+  } catch {
+    return { accessToken: null, role: null, locale: null }
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const { prefixed, bare } = splitLocale(pathname)
+
+  // La session est lue AVANT la résolution de langue : le cookie `lprds-auth`
+  // porte `user.locale`, qui doit pouvoir départager une URL sans préfixe.
+  const session = readSession(request)
 
   // Une langue explicite dans l'URL fait toujours foi : elle exprime une
   // intention (lien partagé, favori, choix du sélecteur) et ne doit jamais
@@ -87,6 +118,7 @@ export function middleware(request: NextRequest) {
     : resolveLocale(
         request.cookies.get(LOCALE_COOKIE)?.value,
         request.headers.get('accept-language'),
+        session.locale,
       )
 
   // Détection automatique — un visiteur dont l'appareil n'est pas en français
@@ -102,22 +134,7 @@ export function middleware(request: NextRequest) {
   const isMarketing = bare === '/' || MARKETING_ROUTES.some((r) => bare.startsWith(r))
   const isPublic = isMarketing || PUBLIC_ROUTES.some((r) => bare.startsWith(r))
 
-  // Lire le token + rôle depuis le cookie
-  const storageRaw = request.cookies.get('lprds-auth')?.value
-  let accessToken: string | null = null
-  let role: UserRole | null = null
-
-  if (storageRaw) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(storageRaw))
-      accessToken = parsed?.state?.accessToken ?? null
-      role = parsed?.state?.user?.role ?? null
-    } catch {
-      accessToken = null
-      role = null
-    }
-  }
-
+  const { accessToken, role } = session
   const isAuth = !!accessToken
 
   // Non-authentifié sur route privée → login

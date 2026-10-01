@@ -7,9 +7,9 @@
  * langue demandée — un visiteur dont le navigateur est en espagnol verrait
  * alors du français. D'où cette résolution maison, appelée par le middleware.
  *
- * Priorité : cookie explicite > en-tête `Accept-Language` > anglais.
- * (Pour un utilisateur connecté, `users.locale` prime encore au-dessus — la
- * synchronisation se fait côté client via le sélecteur de langue.)
+ * Priorité : cookie explicite > langue du COMPTE > en-tête `Accept-Language`
+ * > anglais. (Un préfixe d'URL, lui, l'emporte sur tout : il est traité en
+ * amont par le middleware.)
  */
 import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from './routing'
 
@@ -44,12 +44,34 @@ export function prefersFrench(acceptLanguage: string | null | undefined): boolea
 
 /**
  * Locale à servir à une requête qui ne porte pas encore de préfixe d'URL.
- * `cookieValue` l'emporte : c'est un choix explicite du visiteur.
+ *
+ * Trois sources, dans cet ordre :
+ *
+ * 1. **le cookie** — choix explicite fait DANS CE NAVIGATEUR, par le sélecteur
+ *    de langue ;
+ * 2. **`accountLocale`** (`users.locale`, lu dans le cookie de session) —
+ *    choix explicite fait sur le COMPTE, qui vaut sur tous les appareils ;
+ * 3. **`Accept-Language`** — une déduction, jamais un choix.
+ *
+ * ⚠️ Le compte passe après le cookie, et non avant, bien que ce soit la source
+ * de vérité côté backend. Le sélecteur enregistre le compte par un appel
+ * réseau asynchrone *pendant* qu'il navigue déjà vers la nouvelle langue :
+ * faire primer le compte renverrait l'utilisateur d'où il vient à chaque
+ * bascule, le temps que l'appel aboutisse — et définitivement s'il échoue (il
+ * est best-effort par choix). Le cookie, lui, est écrit immédiatement.
+ *
+ * Ce que le compte corrige, c'est l'absence de cookie : cookies effacés,
+ * nouvel appareil, navigation privée. Jusqu'ici on retombait alors sur
+ * `Accept-Language`, c'est-à-dire qu'une préférence explicitement enregistrée
+ * cédait devant un réglage de navigateur — et l'interface pouvait s'afficher
+ * en français pendant que l'API, qui obéit au compte, répondait en anglais.
  */
 export function resolveLocale(
   cookieValue: string | null | undefined,
   acceptLanguage: string | null | undefined,
+  accountLocale?: string | null,
 ): AppLocale {
   if (isAppLocale(cookieValue)) return cookieValue
+  if (isAppLocale(accountLocale)) return accountLocale
   return prefersFrench(acceptLanguage) ? DEFAULT_LOCALE : 'en'
 }

@@ -2346,21 +2346,27 @@ c'est vérifié par test en envoyant délibérément l'en-tête contraire
 basculé en anglais reçoit de l'anglais même avec `Accept-Language: fr`.
 
 
-⚠️ **Écart connu — cette précédence ne vaut QUE pour le backend.** Le
-`middleware.ts` résout la langue à partir du cookie puis de `Accept-Language`,
-et ne lit jamais `user.locale` — alors qu'il déballe déjà le cookie
-`lprds-auth`, qui le contient, pour en tirer le jeton et le rôle.
+**Côté frontend, la résolution suit trois sources, dans cet ordre**
+(`resolveLocale`, `src/i18n/detect.ts`) — un préfixe d'URL l'emportant sur tout,
+puisqu'il exprime une intention explicite :
 
-Conséquence constatée en recette : compte basculé en anglais
-(`users.locale = "en"`), cookie resté à `fr` → **interface en français, mais
-messages d'erreur d'API en anglais**, puisque le backend, lui, obéit au compte.
-Le cas se produit dès qu'on efface ses cookies, qu'on change d'appareil, ou
-qu'on bascule la langue ailleurs que par le sélecteur.
+1. **le cookie `NEXT_LOCALE`** — choix fait DANS CE NAVIGATEUR, par le sélecteur ;
+2. **`users.locale`**, lu dans le cookie de session `lprds-auth` — choix fait
+   sur le COMPTE, valable sur tous les appareils ;
+3. **`Accept-Language`** — une déduction, jamais un choix.
 
-Correctif pressenti (non fait) : dans le middleware, pour une URL **sans
-préfixe** et un utilisateur authentifié, faire primer `user.locale` sur le
-cookie. Une URL préfixée doit continuer de l'emporter sur tout — elle exprime
-une intention explicite.
+⚠️ **Le compte passe après le cookie, et c'est délibéré.** Le sélecteur de
+langue enregistre le compte par un appel réseau asynchrone *pendant* qu'il
+navigue déjà vers la nouvelle langue : faire primer le compte renverrait
+l'utilisateur d'où il vient à chaque bascule — et définitivement si l'appel
+échoue, puisqu'il est best-effort. C'est contre-intuitif, donc explicitement
+sous garde (`check-locale-resolution.mjs`, qui échoue si l'ordre s'inverse).
+
+Ce que le compte corrige, c'est **l'absence de cookie** : cookies effacés,
+nouvel appareil, navigation privée. On retombait alors sur `Accept-Language`,
+donc une préférence explicitement enregistrée cédait devant un réglage de
+navigateur — et l'interface pouvait s'afficher en français pendant que l'API,
+qui obéit au compte, répondait en anglais.
 
 `PATCH /auth/me/locale` est sous `get_current_user`, comme toutes les routes
 authentifiées.
@@ -2770,7 +2776,7 @@ pnpm dev
 # Vérifications avant commit
 pnpm type-check
 pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
-               #   + check-password-policy
+               #   + check-locale-resolution + check-password-policy
 pnpm build
 
 # Ajouter un composant shadcn

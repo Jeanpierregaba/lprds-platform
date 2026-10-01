@@ -30,7 +30,7 @@ import { DEFAULT_LOCALE, type AppLocale } from './routing'
  */
 export const MARKETING_SLUGS: Record<string, Partial<Record<AppLocale, string>>> = {
   '/a-propos':         { en: '/about' },
-  '/nos-sections':     { en: '/our-sections' },
+  '/nos-sections':     { en: '/our-groups' },
   '/galerie':          { en: '/gallery' },
   '/actualites':       { en: '/news' },
   '/contact':          { en: '/contact' },

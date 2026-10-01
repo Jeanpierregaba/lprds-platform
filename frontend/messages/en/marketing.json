@@ -49,7 +49,7 @@
       "ratio": "1 adult for every 5 babies",
       "description": "A gentle, cosy start for the very first months of discovery.",
       "activities": [
-        "Sensory awakening and gentle movement",
+        "Sensory play and gentle movement",
         "Exploring textures and sounds",
         "First steps in music, and time to unwind",
         "Hands-on play and free exploration",
@@ -76,7 +76,7 @@
         "Watching and exploring outdoors"
       ],
       "schedule": {
-        "morning": "Warm welcome, physical activity, morning circle, snack, awakening and movement",
+        "morning": "Warm welcome, physical activity, morning circle, snack, discovery and movement",
         "midday": "Meal together, nap-time routine",
         "afternoon": "Crafts, outdoor activities, free play, stories and rhymes"
       }
@@ -267,7 +267,7 @@
     },
     "orthophoniste": {
       "name": "Speech and language therapist",
-      "role": "Watches over the development of language and communication."
+      "role": "Keeps a close eye on language and communication development."
     },
     "maitre-nageur": {
       "name": "Swimming instructor",
@@ -345,7 +345,7 @@
       "title": "Our story",
       "imageAlt": "Children and educators in a caring environment",
       "p1": "Les Petits Rayons de Soleil grew out of a love of early childhood and one simple wish: to give children a place where they could grow up in joy, safety and confidence.",
-      "p2": "Our school grows a little more each day, just like the smiles of the children who took their first steps here. Today, {name} has become a byword for quality care, combining modern teaching, kindness and real educational commitment — while keeping the family spirit it started with.",
+      "p2": "Our school grows a little more each day, just like the smiles of the children who took their first steps here. Today, {name} has become known for the quality of its care, combining modern teaching, kindness and real educational commitment — while keeping the family spirit it started with.",
       "p3": "Opening the preschool was the natural next step, so that we could stay alongside children throughout their development, right up to primary school.",
       "p4": "Every day, our team puts its whole heart into building a place where children learn, explore and flourish — because here, growing up is a bright adventure."
     },
@@ -354,7 +354,7 @@
       "missionTitle": "Our Mission",
       "missionBody": "To give children a setting that feeds their curiosity and creativity, while building their ability to get along with others and explore the world. We walk beside each child on their own path, placing the emphasis on confidence, responsibility and personal discovery.",
       "visionTitle": "Our Vision",
-      "visionBody": "To be a school where education reaches beyond academic learning, preparing children to become fulfilled, independent and open-minded people. An inspiring educational community, where parents and educators build a richer future for every child together."
+      "visionBody": "To be a school where education reaches beyond academic learning, preparing children to become fulfilled, independent and open-minded people. An inspiring educational community, where parents and educators together build a richer future for every child."
     },
     "partners": {
       "title": "Our partners",
@@ -380,7 +380,7 @@
     },
     "form": {
       "title": "Send us a message",
-      "subtitle": "We normally reply within 24 to 48 working hours."
+      "subtitle": "We normally reply within one to two working days."
     },
     "visit": {
       "title": "Come and see us",
@@ -412,7 +412,7 @@
     "dataTitle": "What we collect",
     "dataBody": "The contact form on this site sends nothing to a server: it simply opens your own email program with a message ready to send to {email}. The public site itself stores no information at all.",
     "parentTitle": "Parent Area",
-    "parentBody": "Enrolled families have their own secure area, governed by the terms provided at registration. The data handled there (reports, attendance, messages) is used strictly to follow your child's time with us.",
+    "parentBody": "Enrolled families have their own secure area, governed by the terms provided at registration. The data handled there (reports, attendance, messages) is used strictly to follow your child's progress at the school.",
     "contactTitle": "Contact",
     "contactBody": "For any question about your personal data, write to us at {email} or call {phone}."
   },

@@ -2396,6 +2396,17 @@ messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
   résolution de langue → redirection de détection → garde auth/rôle **sur le
   chemin débarrassé de son préfixe**. Sans ce débarras, `/en/dashboard/admin`
   ne correspondrait à aucune règle et serait accessible sans session.
+- **Vocabulaire anglais du site vitrine** : `section` se dit **`group`** en
+  anglais (« Our Groups », « All groups », « Explore our groups ») — d'où le
+  slug `/en/our-groups`. Les noms de sections restent en français (Étoile,
+  Nuage, Soleil, Petite/Moyenne/Grande Section) : ce sont des noms propres.
+  `crèche` → `nursery`, `garderie` → `after-school care`, `maternelle` →
+  `preschool`.
+  ⚠️ **Incohérence dans la source FRANÇAISE, non corrigée** : le pied de page
+  annonce « de 3 mois à 6 ans » tandis que la page des sections et le
+  formulaire de contact disent « 3 mois à 8 ans ». L'anglais la reproduit
+  fidèlement. C'est une donnée d'établissement, pas une question de traduction.
+
 - **Slugs traduits pour les pages PUBLIQUES** (`src/i18n/slugs.ts`) :
   `/a-propos` ↔ `/en/about`, `/galerie` ↔ `/en/gallery`, etc. L'espace connecté
   garde ses chemins (`/en/dashboard/admin`) : ces URL ne se partagent pas et ne

@@ -37,6 +37,29 @@ const PUBLIC_ROUTES = [
   '/offline',
 ]
 
+/**
+ * Le seul espace réellement privé de l'application.
+ *
+ * ⚠️ La garde a longtemps raisonné à l'envers — « tout ce qui n'est pas listé
+ * comme public est privé ». C'était juste pour les routes qui EXISTENT, et faux
+ * pour toutes les autres : une URL inconnue n'étant dans aucune liste,
+ * `/une-page-inconnue` redirigeait un visiteur anonyme vers l'écran de
+ * connexion. Un moteur d'indexation y voyait une redirection, pas une page
+ * disparue ; un visiteur suivant un vieux lien croyait avoir été déconnecté ;
+ * et personne ne pouvait distinguer « cette adresse n'existe pas » de « cette
+ * page est protégée », ce qui est exactement ce qu'une 404 doit dire.
+ *
+ * Nommer l'espace privé plutôt que d'énumérer le public remet le défaut du bon
+ * côté : une URL inconnue traverse le middleware et Next.js rend sa 404.
+ *
+ * La contrepartie est qu'une future route privée posée AILLEURS que sous
+ * `/dashboard` serait publique sans que rien ne le signale. C'est précisément
+ * la classe de défaut silencieux que le projet refuse de laisser à la
+ * vigilance : `scripts/check-private-routes.mjs` échoue si une route échappe à
+ * la fois à ce préfixe et aux deux listes ci-dessus.
+ */
+const PRIVATE_PREFIX = '/dashboard'
+
 // Site vitrine — accessible sans compte. La racine "/" est gérée séparément
 // (cf. plus bas : un visiteur authentifié y est redirigé vers son espace,
 // mais un visiteur anonyme doit pouvoir la consulter comme les autres pages
@@ -149,13 +172,18 @@ export function middleware(request: NextRequest) {
   }
 
   const isMarketing = bare === '/' || MARKETING_ROUTES.some((r) => bare.startsWith(r))
+  // Pages publiques CONNUES — à distinguer d'« inconnue ». Les deux étaient
+  // confondues, d'où la redirection vers le login sur une URL qui n'existe pas.
   const isPublic = isMarketing || PUBLIC_ROUTES.some((r) => bare.startsWith(r))
+  const isPrivate = bare === PRIVATE_PREFIX || bare.startsWith(`${PRIVATE_PREFIX}/`)
 
   const { accessToken, role } = session
   const isAuth = !!accessToken
 
-  // Non-authentifié sur route privée → login
-  if (!isAuth && !isPublic) {
+  // Non-authentifié sur route privée → login.
+  // Le test porte sur l'espace privé, jamais sur « absent des listes
+  // publiques » : une URL inconnue doit tomber en 404, pas sur le login.
+  if (!isAuth && isPrivate) {
     const url = request.nextUrl.clone()
     url.pathname = localized('/auth/login', locale)
     return NextResponse.redirect(url)
@@ -164,6 +192,10 @@ export function middleware(request: NextRequest) {
   // Authentifié sur page auth ou marketing → accueil de son rôle.
   // Repli sur /auth/login (jamais '/', désormais public : un rôle absent
   // renverrait sinon en boucle vers cette même règle).
+  //
+  // Ici le test reste `isPublic`, et c'est voulu : une URL inconnue ne doit pas
+  // davantage renvoyer un utilisateur connecté vers son tableau de bord — elle
+  // n'existe pour personne.
   if (isAuth && isPublic && bare !== '/auth/new-password') {
     const url = request.nextUrl.clone()
     url.pathname = localized(role ? ROLE_HOME[role] : '/auth/login', locale)

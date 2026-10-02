@@ -218,6 +218,7 @@ scripts/
 ├── check-messages.mjs             # Clé appelée absente du catalogue
 ├── check-hardcoded-text.mjs       # Texte visible en dur dans le JSX (analyse AST)
 ├── check-zod-messages.mjs         # Messages de validation Zod en français
+├── check-private-routes.mjs       # Route échappant à la garde d'authentification
 └── stamp-version.mjs              # public/version.json au build (PWA auto-update)
 
 src/
@@ -495,7 +496,27 @@ router = APIRouter(dependencies=[Depends(require_roles(UserRole.SUPERADMIN))])
 > noms pour la même garde invitaient à croire qu'ils différaient.
 
 ### Protection des routes (frontend)
-Le `middleware.ts` lit le cookie `lprds-auth` (Zustand persist) et redirige les non-authentifiés vers `/auth/login`.
+Le `middleware.ts` lit le cookie `lprds-auth` (Zustand persist) et redirige les
+non-authentifiés vers `/auth/login` — **mais seulement depuis l'espace privé**,
+qu'il NOMME (`PRIVATE_PREFIX = '/dashboard'`).
+
+⚠️ La garde raisonnait d'abord par la négative : « tout ce qui n'est pas listé
+comme public exige une session ». Juste pour les routes qui existent, faux pour
+toutes les autres — une URL inconnue n'étant dans aucune liste,
+`/une-page-inconnue` renvoyait un visiteur anonyme vers l'écran de connexion au
+lieu d'une 404. Un moteur y voyait une redirection et non une page disparue, un
+visiteur suivant un vieux lien se croyait déconnecté, et rien ne distinguait
+« cette adresse n'existe pas » de « cette page est protégée ».
+
+Nommer le privé remet le défaut du bon côté, mais déplace le risque : une route
+privée posée **ailleurs** que sous `/dashboard` serait servie à n'importe qui,
+sans la moindre erreur. D'où `scripts/check-private-routes.mjs`, dans
+`pnpm lint` : chaque route du disque doit être soit sous le préfixe privé, soit
+déclarée dans `PUBLIC_ROUTES` / `MARKETING_ROUTES`.
+
+La règle « authentifié sur une page publique → son tableau de bord » continue,
+elle, de tester l'appartenance aux listes : une URL inconnue ne doit pas
+davantage rediriger un utilisateur connecté — elle n'existe pour personne.
 
 ### Redirection par rôle après login
 ```typescript
@@ -2956,7 +2977,7 @@ pnpm dev
 pnpm type-check
 pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
                #   + check-locale-resolution + check-marketing-slugs
-               #   + check-password-policy
+               #   + check-private-routes + check-password-policy
 pnpm build
 
 # Ajouter un composant shadcn

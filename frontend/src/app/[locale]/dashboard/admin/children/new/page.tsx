@@ -150,11 +150,11 @@ export default function NewChildPage() {
     const accepted: File[] = []
     for (const file of Array.from(e.target.files)) {
       if (file.size > DOCUMENT_MAX_MB * 1024 * 1024) {
-        toast.error(`« ${file.name} » dépasse ${DOCUMENT_MAX_MB} Mo.`)
+        toast.error(t('documents.tooLarge', { name: file.name, max: DOCUMENT_MAX_MB }))
         continue
       }
       if (!DOCUMENT_ALLOWED_TYPES.includes(file.type)) {
-        toast.error(`« ${file.name} » : seuls les images et PDF sont acceptés.`)
+        toast.error(t('documents.badType', { name: file.name }))
         continue
       }
       accepted.push(file)

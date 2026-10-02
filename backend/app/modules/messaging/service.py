@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
@@ -1041,44 +1041,6 @@ async def _attachments_for_announcements(
     return by_announcement
 
 
-def _validate_upload(file: UploadFile, content: bytes, *, allow_video: bool = False) -> None:
-    """Plafond : vidéo → `messaging_max_video_mb`, sinon
-    `messaging_max_attachment_mb`. Types : liste blanche + tout `image/*`
-    (hors SVG) ; `video/*` uniquement si `allow_video` (messages privés ET
-    diffusions — jusqu'à `MAX_ANNOUNCEMENT_ATTACHMENTS` médias par diffusion)."""
-    is_video = (file.content_type or "").startswith("video/")
-    max_mb = settings.messaging_max_video_mb if is_video else settings.messaging_max_attachment_mb
-    max_bytes = max_mb * 1024 * 1024
-    if len(content) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=t("errors.blog.file_too_large", max_mb=max_mb),
-        )
-    if not content:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.common.empty_file"),
-        )
-    content_type = file.content_type or ""
-    image_ok = (
-        content_type.startswith("image/") and content_type != "image/svg+xml"
-    )
-    video_ok = allow_video and is_video
-    if content_type not in settings.messaging_allowed_attachment_types_set and not (
-        image_ok or video_ok
-    ):
-        allowed = ", ".join(sorted(settings.messaging_allowed_attachment_types_set))
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t(
-                "errors.messaging.bad_file_type_video" if allow_video
-                else "errors.messaging.bad_file_type",
-                content_type=content_type or t("errors.common.unknown_type"),
-                allowed=allowed,
-            ),
-        )
-
-
 async def add_message_attachment(
     conversation: Conversation,
     message_id: uuid.UUID,
@@ -1093,27 +1055,35 @@ async def add_message_attachment(
 
 
 async def _save_attachment_batch(
-    payloads: list[tuple[UploadFile, bytes]],
+    payloads: list[media.AcceptedMedia],
     uploader: User,
     db: AsyncSession,
     *,
     message_id: uuid.UUID | None = None,
     announcement_id: uuid.UUID | None = None,
 ) -> list[AttachmentResponse]:
+    """⚠️ Le lot porte des médias déjà IDENTIFIÉS et normalisés.
+
+    Il stockait auparavant `file.content_type or "application/octet-stream"` —
+    donc le type que le navigateur avait annoncé, et à défaut un type générique.
+    Une photo parfaitement valide envoyée sans MIME était ainsi enregistrée
+    comme un flux d'octets, puis servie telle quelle : le navigateur du
+    destinataire proposait de la télécharger au lieu de l'afficher.
+    """
     keys: list[str] = []
     responses: list[AttachmentResponse] = []
     try:
         async with db.begin_nested():
-            for file, content in payloads:
-                key = await storage.save_file("messaging", file.filename or "fichier", content)
+            for item in payloads:
+                key = await storage.save_file("messaging", item.filename, item.content)
                 keys.append(key)
                 attachment = Attachment(
                     message_id=message_id,
                     announcement_id=announcement_id,
                     uploaded_by_id=uploader.id,
-                    filename=file.filename or "fichier",
-                    content_type=file.content_type or "application/octet-stream",
-                    size_bytes=len(content),
+                    filename=item.filename,
+                    content_type=item.content_type,
+                    size_bytes=len(item.content),
                     storage_key=key,
                 )
                 db.add(attachment)
@@ -1222,11 +1192,16 @@ async def add_announcement_attachments_batch(
         await _announcement_attachment_count(announcement.id, db), len(files)
     )
 
-    payloads: list[tuple[UploadFile, bytes]] = []
+    payloads: list[media.AcceptedMedia] = []
     for file in files:
-        content = await file.read()
-        _validate_upload(file, content, allow_video=True)
-        payloads.append((file, content))
+        payloads.append(await media.accept_upload(
+            file,
+            await file.read(),
+            max_image_mb=settings.messaging_max_attachment_mb,
+            max_video_mb=settings.messaging_max_video_mb,
+            allow_video=True,
+            allow_pdf=True,
+        ))
 
     responses = await _save_attachment_batch(
         payloads, uploader, db, announcement_id=announcement.id
@@ -1261,11 +1236,16 @@ async def add_message_attachments_batch(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     _ensure_message_quota(await _message_attachment_count(message.id, db), len(files))
 
-    payloads: list[tuple[UploadFile, bytes]] = []
+    payloads: list[media.AcceptedMedia] = []
     for file in files:
-        content = await file.read()
-        _validate_upload(file, content, allow_video=True)
-        payloads.append((file, content))
+        payloads.append(await media.accept_upload(
+            file,
+            await file.read(),
+            max_image_mb=settings.messaging_max_attachment_mb,
+            max_video_mb=settings.messaging_max_video_mb,
+            allow_video=True,
+            allow_pdf=True,
+        ))
 
     responses = await _save_attachment_batch(
         payloads, uploader, db, message_id=message.id

@@ -17,6 +17,29 @@ MESSAGES: dict[str, str] = {
     "errors.common.not_found": "Introuvable",
     "errors.common.unauthorized": "Non autorisé",
     "errors.common.empty_file": "Fichier vide",
+    # ── médias téléversés (rapports, messagerie, blog) ───
+    "errors.media.not_media": (
+        "Ce fichier n'est ni une image ni une vidéo. Vérifiez qu'il n'est pas "
+        "endommagé, puis réessayez"
+    ),
+    "errors.media.video_not_allowed": "Les vidéos ne sont pas acceptées ici",
+    "errors.media.video_too_large": (
+        "Cette vidéo dépasse {max_mb} Mo. Les images sont allégées "
+        "automatiquement, pas les vidéos : raccourcissez-la ou réduisez sa "
+        "définition avant de l'envoyer"
+    ),
+    "errors.media.pdf_too_large": "Ce PDF dépasse {max_mb} Mo",
+    "errors.media.animated_too_large": (
+        "Cette animation dépasse {max_mb} Mo. L'alléger lui ferait perdre son "
+        "mouvement : envoyez-en une plus légère, ou une image fixe"
+    ),
+    "errors.media.heic_unsupported": (
+        "Les photos au format HEIC ne peuvent pas être converties sur ce "
+        "serveur. Enregistrez-la en JPEG depuis votre téléphone, puis réessayez"
+    ),
+    "errors.media.unreadable_image": (
+        "Cette image n'a pas pu être lue — elle est probablement endommagée"
+    ),
     "errors.common.email_exists": "Un compte existe déjà avec cet email",
     "errors.common.child_not_found": "Enfant introuvable",
     "errors.common.staff_not_found": "Membre du personnel introuvable",

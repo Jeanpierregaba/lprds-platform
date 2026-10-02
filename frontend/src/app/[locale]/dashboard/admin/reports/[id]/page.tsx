@@ -435,14 +435,21 @@ export default function ReportDetailPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,video/*"
+            accept="image/*,video/*,.heic,.heif,.avif,.mov,.3gp,.mkv"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) {
-                const isMedia = (file.type.startsWith('image/') || file.type.startsWith('video/'))
-                  && file.type !== 'image/svg+xml'
-                if (!isMedia) {
+                // ⚠️ On ne refuse que ce dont on est SÛR. Ce test exigeait un
+                // MIME commençant par image/ ou video/ — or un `.heic`
+                // d'iPhone, ou un fichier venu d'un gestionnaire de fichiers,
+                // arrive souvent avec un type VIDE : la photo était refusée
+                // ici, sans jamais atteindre le serveur, et la même photo
+                // passait depuis un autre appareil. Le serveur lit désormais
+                // les octets ; en cas de doute on le laisse trancher.
+                const surelyWrong = file.type === 'image/svg+xml'
+                  || (!!file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/'))
+                if (surelyWrong) {
                   toast.error(t('detail.badFileType'))
                 } else {
                   uploadMutation.mutate(file)

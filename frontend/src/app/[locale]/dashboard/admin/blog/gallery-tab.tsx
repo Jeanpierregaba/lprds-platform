@@ -2,6 +2,8 @@
 
 import { useTranslations } from 'next-intl'
 
+import { formatBytes } from '@/lib/utils/locale-format'
+
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -23,12 +25,6 @@ import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { GalleryPhotoCategory } from '@/types/blog'
 
 const ALL = '__all__'
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} o`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
-}
 
 function useGalleryCategories() {
   return useQuery({
@@ -156,7 +152,7 @@ export function GalleryTab() {
                   <Input
                     id="gallery-file"
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.heic,.heif,.avif"
                     ref={fileInputRef}
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   />
@@ -206,7 +202,7 @@ export function GalleryTab() {
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-2 pt-6 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
                     <p className="truncate text-xs font-medium text-white">{photo.filename}</p>
                     <p className="truncate text-xs text-white/75">
-                      {photo.category?.name ?? t('gallery.noCategory')} · {formatSize(photo.size_bytes)}
+                      {photo.category?.name ?? t('gallery.noCategory')} · {formatBytes(photo.size_bytes)}
                     </p>
                   </div>
                   <Button

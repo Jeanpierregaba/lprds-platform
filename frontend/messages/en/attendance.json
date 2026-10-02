@@ -95,7 +95,8 @@
     "badRange": "The end date must be on or after the start date.",
     "tooLong": "The period cannot exceed 366 days.",
     "noPerson": "No one found.",
-    "contentTitle": "Content & format"
+    "contentTitle": "Content & format",
+    "downloaded": "Export downloaded ({filename})."
   },
   "scan": {
     "title": "Scan a badge",

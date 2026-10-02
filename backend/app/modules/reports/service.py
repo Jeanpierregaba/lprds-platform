@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
@@ -1232,17 +1232,6 @@ async def _prefill_attendance_times(
 
 
 # ── Pièces jointes (photos / vidéos) ─────────────────────────────
-def _is_allowed_media_type(content_type: str) -> bool:
-    """Tout MIME image/* ou video/* est accepté (sauf image/svg+xml, risque
-    XSS), en plus de la liste explicite configurée (reports_allowed_attachment_types)."""
-    if content_type in settings.reports_allowed_attachment_types_set:
-        return True
-    return (
-        (content_type.startswith("image/") or content_type.startswith("video/"))
-        and content_type != "image/svg+xml"
-    )
-
-
 async def add_report_attachment(
     report_id: uuid.UUID,
     establishment_id: uuid.UUID,
@@ -1254,31 +1243,23 @@ async def add_report_attachment(
     await _authorize_write(report, current_user, db)
     _ensure_mutable(report, current_user)
 
-    content_bytes = await file.read()
-    max_bytes = settings.reports_max_attachment_mb * 1024 * 1024
-    if len(content_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=t("errors.blog.file_too_large", max_mb=settings.reports_max_attachment_mb),
-        )
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=t("errors.common.empty_file")
-        )
-    content_type = file.content_type or ""
-    if not _is_allowed_media_type(content_type):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.blog.bad_file_type", content_type=content_type or 'inconnu'),
-        )
+    # Le type réel est lu dans les octets, et une image trop lourde est
+    # recompressée au lieu d'être refusée — cf. `app/core/media.py`.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.reports_max_attachment_mb,
+        max_video_mb=settings.reports_max_attachment_mb,
+        allow_video=True,
+    )
 
-    storage_key = await storage.save_file("reports", file.filename or "fichier", content_bytes)
+    storage_key = await storage.save_file("reports", accepted.filename, accepted.content)
     attachment = ReportAttachment(
         report_id=report.id,
         uploaded_by_id=current_user.id,
-        filename=file.filename or "fichier",
-        content_type=content_type,
-        size_bytes=len(content_bytes),
+        filename=accepted.filename,
+        content_type=accepted.content_type,
+        size_bytes=len(accepted.content),
         storage_key=storage_key,
     )
     db.add(attachment)

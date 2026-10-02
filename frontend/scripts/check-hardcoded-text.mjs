@@ -146,6 +146,33 @@ for (const file of files) {
       }
     }
 
+    // Notifications : `toast.error('…')`, `toast.success(\`…\`)`.
+    //
+    // ⚠️ Troisième angle mort refermé. Un message de toast ne vit ni dans le
+    // JSX ni dans une position Zod : les deux autres gardes ne pouvaient pas
+    // le voir, et c'est pourtant la phrase que l'utilisateur lit quand quelque
+    // chose se passe mal. Trois d'entre eux annonçaient en français, dans une
+    // interface anglaise, qu'un fichier était trop volumineux.
+    //
+    // Le critère est le même que pour les attributs : la POSITION qualifie le
+    // défaut — premier argument de `toast.*`, c'est du texte affiché.
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.expression.getText(source) === 'toast' &&
+      node.arguments.length > 0
+    ) {
+      const first = node.arguments[0]
+      if (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first)) {
+        record(node, first.text)
+      } else if (ts.isTemplateExpression(first)) {
+        const literal = [first.head, ...first.templateSpans.map((span) => span.literal)]
+          .map((part) => part.text)
+          .join(' ')
+        record(node, literal)
+      }
+    }
+
     ts.forEachChild(node, visit)
   }
 

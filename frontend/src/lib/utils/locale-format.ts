@@ -37,3 +37,27 @@ export function intlLocale(): string {
 export function intlLocaleFor(locale: string): string {
   return isAppLocale(locale) ? INTL_TAGS[locale] : INTL_TAGS[DEFAULT_LOCALE]
 }
+
+/**
+ * Taille de fichier dans la langue de l'interface.
+ *
+ * ⚠️ Deux copies locales écrivaient « o / Ko / Mo » en dur — des abréviations
+ * FRANÇAISES, affichées telles quelles à un lecteur anglophone, qui attend
+ * « B / KB / MB ». Aucune garde ne pouvait les voir : elles vivaient dans un
+ * gabarit, au retour d'une fonction utilitaire.
+ *
+ * `Intl.NumberFormat` connaît les deux conventions ; on lui passe l'unité
+ * plutôt que de la recopier.
+ */
+export function formatBytes(bytes: number): string {
+  const [value, unit] =
+    bytes < 1024 ? [bytes, 'byte']
+    : bytes < 1024 * 1024 ? [bytes / 1024, 'kilobyte']
+    : [bytes / (1024 * 1024), 'megabyte']
+  return new Intl.NumberFormat(intlLocale(), {
+    style: 'unit',
+    unit,
+    unitDisplay: 'short',
+    maximumFractionDigits: unit === 'megabyte' ? 1 : 0,
+  }).format(value)
+}

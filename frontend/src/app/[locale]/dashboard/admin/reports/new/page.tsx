@@ -353,7 +353,7 @@ export default function NewReportPage() {
                       id="attachments"
                       type="file"
                       multiple
-                      accept="image/*,video/*"
+                      accept="image/*,video/*,.heic,.heif,.avif,.mov,.3gp,.mkv"
                       className="hidden"
                       onChange={onFilesSelected}
                     />

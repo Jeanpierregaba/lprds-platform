@@ -176,7 +176,7 @@ export function ExportTab() {
         URL.revokeObjectURL(url)
         a.remove()
       }, 5000)
-      toast.success(`Export téléchargé (${filename}).`)
+      toast.success(t('export.downloaded', { filename }))
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     } finally {

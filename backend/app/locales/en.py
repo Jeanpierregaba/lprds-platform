@@ -14,6 +14,28 @@ MESSAGES: dict[str, str] = {
     "errors.common.not_found": "Not found",
     "errors.common.unauthorized": "Not authorised",
     "errors.common.empty_file": "Empty file",
+    # ── uploaded media (reports, messaging, blog) ────────
+    "errors.media.not_media": (
+        "This file is neither an image nor a video. Check that it is not "
+        "damaged, then try again"
+    ),
+    "errors.media.video_not_allowed": "Videos are not accepted here",
+    "errors.media.video_too_large": (
+        "This video is over {max_mb} MB. Images are compressed automatically, "
+        "videos are not: shorten it or lower its resolution before sending it"
+    ),
+    "errors.media.pdf_too_large": "This PDF is over {max_mb} MB",
+    "errors.media.animated_too_large": (
+        "This animation is over {max_mb} MB. Compressing it would lose the "
+        "movement: send a lighter one, or a still image"
+    ),
+    "errors.media.heic_unsupported": (
+        "HEIC photos cannot be converted on this server. Save it as JPEG from "
+        "your phone, then try again"
+    ),
+    "errors.media.unreadable_image": (
+        "This image could not be read — it is probably damaged"
+    ),
     "errors.common.email_exists": "An account already exists with this email",
     "errors.common.child_not_found": "Child not found",
     "errors.common.staff_not_found": "Staff member not found",

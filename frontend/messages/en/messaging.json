@@ -101,7 +101,9 @@
     "slotsLeft": "{count, plural, one {Photos, videos or PDFs — # slot left out of {max}.} other {Photos, videos or PDFs — # slots left out of {max}.}}",
     "viewerTitle": "Item {index} of {total}",
     "loadingPreview": "Loading preview…",
-    "viewNamed": "View item {name}"
+    "viewNamed": "View item {name}",
+    "videoTooBig": "Video(s) too large — max {max} MB: {names}. Photos are compressed automatically, videos are not.",
+    "tooMany": "Limit of {max} media per send — {ignored} file(s) skipped."
   },
   "notifier": {
     "school": "The school",

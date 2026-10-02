@@ -76,6 +76,8 @@ app/
 │   ├── models.py                  # ⚠️ Registre central des modèles (cf. ci-dessous)
 │   ├── redis.py                   # Client Redis async partagé
 │   ├── storage.py                 # Stockage fichiers (backend local uniquement)
+│   ├── media.py                   # ⚠️ Porte UNIQUE des téléversements — type lu
+│   │                              #   dans les octets, images recompressées
 │   ├── rate_limit.py              # Anti brute-force générique (INCR+EXPIRE Redis)
 │   ├── i18n.py                    # Locale, t(), ContextVar de requête, format_long_date()
 │   ├── translation.py             # Traduction auto du contenu saisi (SDK Anthropic)
@@ -2884,6 +2886,12 @@ anglaise.
 | `check-hardcoded-text.mjs` | Texte visible en dur dans le JSX (`JsxText` + `placeholder`/`title`/`alt`/`aria-label`) | Un message Zod vit dans un argument de fonction, pas dans le JSX |
 | `check-zod-messages.mjs` | Messages de validation Zod écrits en français | Invisible pour les deux autres, mais s'affiche sous le champ fautif |
 
+⚠️ `check-hardcoded-text` couvre aussi le premier argument de `toast.*` —
+troisième angle mort refermé. Un message de toast ne vit ni dans le JSX ni dans
+une position Zod : aucune garde ne le voyait, et c'est pourtant la phrase que
+l'utilisateur lit quand quelque chose se passe mal. Trois annonçaient en
+français, dans une interface anglaise, qu'un fichier était trop volumineux.
+
 Les noms propres (« Les Petits Rayons de Soleil », « LPRDS ») sont en
 ALLOWLIST : ajouter tout nouveau nom propre plutôt que le traduire.
 
@@ -3225,6 +3233,9 @@ tests/
     ├── test_reports_annuel_content.py   # + génération PDF
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
+    ├── test_media_uploads.py            # même photo acceptée quel que soit le MIME
+    │                                    #   annoncé, image recompressée, fichier
+    │                                    #   déguisé refusé — rapports/messagerie/blog
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
@@ -3316,6 +3327,70 @@ Réglages du worker, et ce qu'ils supposent :
 - `worker` et `beat` attendent `backend: service_healthy` (healthcheck sur
   `/health/ready`), pas `service_started` : l'entrypoint du backend est le seul à
   migrer, et une tâche partie avant aurait un schéma d'avance sur elle.
+
+## Téléversement de médias — une seule porte, `app/core/media.py`
+
+Trois modules acceptent des photos et des vidéos (rapports, messagerie, blog +
+galerie du site vitrine). Ils appliquaient chacun leur variante de la même
+règle, et tous sur **le MIME déclaré par le navigateur**.
+
+⚠️ **Le type d'un fichier se lit dans son CONTENU.** Une photo parfaitement
+valide arrivant en `application/octet-stream` ou sans type du tout était
+refusée, alors que la même photo passait depuis un autre appareil : c'est le
+« certains formats passent, d'autres non » remonté par l'établissement, et ça
+ne dépendait pas du format mais du chemin par lequel le fichier arrivait
+(gestionnaire de fichiers, re-partage depuis une messagerie, `.heic` d'iPhone).
+`media.sniff()` lit les octets ; `media.accept_upload()` est le seul point
+d'entrée des trois modules.
+
+Deux effets, et le second compte autant :
+- on cesse de refuser ce qui est valide ;
+- on cesse d'accepter ce qui ment. Un **SVG annoncé `image/png` passait** —
+  or le SVG est refusé partout précisément parce qu'il peut porter du script.
+
+| Cas | Avant | Maintenant |
+|---|---|---|
+| JPEG sans MIME / `octet-stream` | refusé | accepté, stocké `image/jpeg` |
+| HEIC d'iPhone | accepté puis **illisible hors Safari** | converti en JPEG |
+| Image au-dessus du plafond | refusée | recompressée |
+| Vidéo au-dessus du plafond | refusée (message vague) | refusée, message qui dit pourquoi |
+| SVG déguisé en PNG | **accepté** | refusé |
+| PDF (messagerie) | accepté | accepté, inchangé |
+
+**La compression joue la QUALITÉ avant la DÉFINITION.** Ré-encoder en JPEG à
+qualité 85 suffit presque toujours (une photo de téléphone pèse ~8 Mo en HEIC
+et ~2 Mo en JPEG 85 à définition identique) ; la définition ne baisse que si la
+qualité n'a pas suffi, et par paliers de 20 % — diviser par deux faisait passer
+d'« un peu trop lourd » à huit fois plus léger que nécessaire, donc du flou
+gratuit. L'orientation EXIF est **appliquée** avant ré-encodage, sinon une
+photo prise à la verticale ressortirait couchée. Une **animation** n'est jamais
+aplatie en silence : elle est refusée si elle dépasse, avec son motif.
+
+⚠️ **La vidéo n'est pas transcodée.** Il faudrait ffmpeg sur le serveur
+(dépendance système lourde, travail CPU long — à faire passer par le worker
+Celery si le besoin se confirme). Le refus reste donc, mais le message
+distingue explicitement photo et vidéo, pour que personne n'en reconclue que
+« ça ne marche que pour certains fichiers ».
+
+⚠️ **`pillow-heif`** apporte la lecture du HEIC. Absent, le module le dit au
+démarrage et les HEIC sont refusés avec un message qui propose le repli
+(enregistrer en JPEG depuis le téléphone) — jamais un échec muet.
+
+⚠️ **Les listes blanches `*_ALLOWED_ATTACHMENT_TYPES` ne gouvernent plus
+rien.** Elles filtraient le MIME déclaré, c'est-à-dire la cause du bug. Les
+trois champs restent déclarés dans `Settings` mais vides et sans lecteur :
+les supprimer empêcherait l'application de démarrer sur toute installation dont
+le `.env` les porte encore (Pydantic refuse les clés inconnues). Ils ont
+disparu de `.env.example`.
+
+**Côté navigateur, on ne refuse que ce dont on est sûr.** Les pré-filtres
+testaient `file.type.startsWith('image/')` et rejetaient donc un fichier sans
+type **avant tout envoi**. Ils ne rejettent plus que l'explicitement mauvais ;
+le doute part au serveur, qui seul lit les octets. Les attributs `accept`
+listent en plus des EXTENSIONS (`.heic`, `.mov`…) : sans elles, le sélecteur de
+fichiers grise des photos parfaitement valides. Seule la taille des **vidéos**
+est encore vérifiée côté client — inutile de téléverser 200 Mo sur une
+connexion mobile pour un refus annoncé.
 
 ## ⚠️ Tâches Celery : jamais le moteur global
 

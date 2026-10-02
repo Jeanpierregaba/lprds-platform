@@ -187,5 +187,9 @@
     "years": "{count, plural, one {# an} other {# ans}}",
     "yearsMonths": "{years, plural, one {# an} other {# ans}} {months} mois",
     "months": "{count} mois"
+  },
+  "documents": {
+    "tooLarge": "« {name} » dépasse {max} Mo.",
+    "badType": "« {name} » : seuls les images et PDF sont acceptés."
   }
 }

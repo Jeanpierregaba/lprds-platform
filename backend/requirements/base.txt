@@ -66,6 +66,9 @@ parso==0.8.7
 passlib==1.7.4
 pexpect==4.9.0
 pillow==12.3.0
+# Lecture du HEIC/HEIF des iPhone, pour les CONVERTIR en JPEG plutôt que de les
+# refuser (cf. app/core/media.py). Roue précompilée : aucune dépendance système.
+pillow-heif==1.8.0
 platformdirs==4.10.0
 pluggy==1.6.0
 pre-commit==3.8.0

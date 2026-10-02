@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, t
 from app.core.translation import (
@@ -387,21 +387,25 @@ async def set_article_cover(
             detail=t("errors.blog.article_deleted"),
         )
 
-    content_bytes = await file.read()
-    content_type = file.content_type or ""
-    if not content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.blog.cover_must_be_image"),
-        )
-    _validate_attachment(content_bytes, content_type)
+    # L'image à la une est l'illustration du site vitrine : images seules
+    # (`images_only`), et une photo trop lourde est allégée plutôt que refusée —
+    # c'est la page publique qui gagne à ne pas servir 40 Mo.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.blog_max_attachment_mb,
+        max_video_mb=settings.blog_max_attachment_mb,
+        allow_video=False,
+        images_only=True,
+    )
+    content_bytes, content_type = accepted.content, accepted.content_type
 
     old_key = article.cover_storage_key
-    new_key = await storage.save_file(_COVER_SUBFOLDER, file.filename or "cover", content_bytes)
+    new_key = await storage.save_file(_COVER_SUBFOLDER, accepted.filename, content_bytes)
     if old_key:
         await storage.delete_file(old_key)
 
-    article.cover_filename = file.filename or "cover"
+    article.cover_filename = accepted.filename
     article.cover_content_type = content_type
     article.cover_size_bytes = len(content_bytes)
     article.cover_storage_key = new_key
@@ -437,17 +441,21 @@ async def add_article_attachment(
             detail=t("errors.blog.article_deleted"),
         )
 
-    content_bytes = await file.read()
-    content_type = file.content_type or ""
-    _validate_attachment(content_bytes, content_type)
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.blog_max_attachment_mb,
+        max_video_mb=settings.blog_max_attachment_mb,
+        allow_video=True,
+    )
 
-    storage_key = await storage.save_file(_MEDIA_SUBFOLDER, file.filename or "media", content_bytes)
+    storage_key = await storage.save_file(_MEDIA_SUBFOLDER, accepted.filename, accepted.content)
     attachment = ArticleAttachment(
         article_id=article.id,
         uploaded_by_id=editor.id,
-        filename=file.filename or "media",
-        content_type=content_type,
-        size_bytes=len(content_bytes),
+        filename=accepted.filename,
+        content_type=accepted.content_type,
+        size_bytes=len(accepted.content),
         storage_key=storage_key,
     )
     db.add(attachment)
@@ -612,17 +620,22 @@ async def create_gallery_photo(
     """Upload = publication immédiate (pas de workflow). La catégorie doit
     appartenir à l'établissement (404 sinon)."""
     category = await _get_gallery_category_or_404(category_id, establishment_id, db)
-    content_bytes = await file.read()
-    content_type = file.content_type or ""
-    _validate_gallery_photo(content_bytes, content_type)
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.blog_max_attachment_mb,
+        max_video_mb=settings.blog_max_attachment_mb,
+        allow_video=False,
+        images_only=True,
+    )
 
-    storage_key = await storage.save_file(_GALLERY_SUBFOLDER, file.filename or "photo", content_bytes)
+    storage_key = await storage.save_file(_GALLERY_SUBFOLDER, accepted.filename, accepted.content)
     photo = BlogGalleryPhoto(
         establishment_id=establishment_id,
         category_id=category.id,
-        filename=file.filename or "photo",
-        content_type=content_type,
-        size_bytes=len(content_bytes),
+        filename=accepted.filename,
+        content_type=accepted.content_type,
+        size_bytes=len(accepted.content),
         storage_key=storage_key,
         uploaded_by_id=editor.id,
     )
@@ -887,52 +900,6 @@ async def get_public_attachment(
 
 
 # ── Helpers privés ──────────────────────────────────────────────
-def _validate_attachment(content_bytes: bytes, content_type: str) -> None:
-    max_bytes = settings.blog_max_attachment_mb * 1024 * 1024
-    if len(content_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=t("errors.blog.file_too_large", max_mb=settings.blog_max_attachment_mb),
-        )
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=t("errors.common.empty_file")
-        )
-    if content_type not in settings.blog_allowed_attachment_types_set and not (
-        (content_type.startswith("image/") or content_type.startswith("video/"))
-        and content_type != "image/svg+xml"
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.blog.bad_file_type", content_type=content_type or 'inconnu'),
-        )
-
-
-def _validate_gallery_photo(content_bytes: bytes, content_type: str) -> None:
-    """La galerie n'accepte que des images (pas de vidéo, contrairement aux
-    médias d'article) — plafond de taille = blog_max_attachment_mb, réutilisé."""
-    max_bytes = settings.blog_max_attachment_mb * 1024 * 1024
-    if len(content_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=t("errors.blog.file_too_large", max_mb=settings.blog_max_attachment_mb),
-        )
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=t("errors.common.empty_file")
-        )
-    if not content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.blog.gallery_images_only", content_type=content_type or 'inconnu'),
-        )
-    if content_type == "image/svg+xml":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.blog.no_svg"),
-        )
-
-
 async def _get_tag_or_404(tag_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession) -> BlogTag:
     tag = await db.scalar(
         select(BlogTag).where(BlogTag.id == tag_id, BlogTag.establishment_id == establishment_id)

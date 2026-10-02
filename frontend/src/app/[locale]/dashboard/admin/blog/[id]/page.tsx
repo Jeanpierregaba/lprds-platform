@@ -228,7 +228,7 @@ export default function ArticleDetailPage() {
               <input
                 ref={coverInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif,.avif"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
@@ -456,7 +456,7 @@ export default function ArticleDetailPage() {
               <input
                 ref={mediaInputRef}
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*,video/*,.heic,.heif,.avif,.mov,.3gp,.mkv"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0]

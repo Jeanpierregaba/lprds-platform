@@ -95,7 +95,8 @@
     "badRange": "La date de fin doit être postérieure ou égale à la date de début.",
     "tooLong": "La période ne peut pas dépasser 366 jours.",
     "noPerson": "Aucune personne trouvée.",
-    "contentTitle": "Contenu & format"
+    "contentTitle": "Contenu & format",
+    "downloaded": "Export téléchargé ({filename})."
   },
   "scan": {
     "title": "Scanner un badge",

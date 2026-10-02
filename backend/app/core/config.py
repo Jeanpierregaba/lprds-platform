@@ -120,52 +120,33 @@ class Settings(BaseSettings):
     # images ET les vidéos ; les diffusions restent images + PDF. La vidéo a
     # son propre plafond (10 Mo par défaut = inutilisable pour une vidéo de
     # téléphone, d'où 50 Mo comme les rapports).
+    # ⚠️ Il n'y a plus de LISTE BLANCHE de types pour ces trois modules.
+    # Elles filtraient le MIME DÉCLARÉ par le navigateur — précisément ce qui
+    # refusait une photo valide selon l'appareil qui l'envoyait. Le type est
+    # désormais lu dans les octets (`app/core/media.py`), et la règle est
+    # « une vraie image, une vraie vidéo, un vrai PDF là où il est admis ».
+    #
+    # Les trois champs sont CONSERVÉS mais ignorés, et sans leur propriété
+    # `_set` : plus rien ne peut les lire par mégarde. Les supprimer aurait
+    # empêché l'application de démarrer sur toute installation dont le `.env`
+    # les porte encore (Pydantic refuse les clés inconnues) — casser un
+    # déploiement pour retirer trois lignes mortes serait un mauvais échange.
+    # Ils ont disparu de `.env.example` : une nouvelle installation n'en verra
+    # jamais la trace, une ancienne peut les effacer quand elle veut.
+    messaging_allowed_attachment_types: str = ""
+    reports_allowed_attachment_types: str = ""
+    blog_allowed_attachment_types: str = ""
     messaging_max_attachment_mb: int = 10
     messaging_max_video_mb: int = 50
-    messaging_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,application/pdf"
-    )
-
-    @property
-    def messaging_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.messaging_allowed_attachment_types.split(",")
-            if t.strip()
-        }
 
     # Pièces jointes (module rapports) — plafond plus élevé que la messagerie
     # car les rapports acceptent aussi la vidéo.
     reports_max_attachment_mb: int = 50
-    reports_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,"
-        "video/mp4,video/quicktime,video/webm"
-    )
-
-    @property
-    def reports_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.reports_allowed_attachment_types.split(",")
-            if t.strip()
-        }
 
     # Pièces jointes (module blog) — médias de la galerie d'un article
     # (image/vidéo, même plafond que les rapports). L'image à la une utilise
     # ce même ensemble filtré aux seuls types "image/*" (cf. blog/service.py).
     blog_max_attachment_mb: int = 50
-    blog_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,"
-        "video/mp4,video/quicktime,video/webm"
-    )
-
-    @property
-    def blog_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.blog_allowed_attachment_types.split(",")
-            if t.strip()
-        }
 
     # Pièces jointes (module enfants) — documents du dossier d'inscription
     # (pièce d'identité, certificat médical, autorisations...). Implique la

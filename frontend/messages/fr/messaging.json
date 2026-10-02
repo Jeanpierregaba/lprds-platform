@@ -101,7 +101,9 @@
     "slotsLeft": "{count, plural, one {Photos, vidéos ou PDF — # emplacement restant sur {max}.} other {Photos, vidéos ou PDF — # emplacements restants sur {max}.}}",
     "viewerTitle": "Média {index} / {total}",
     "loadingPreview": "Chargement de l’aperçu…",
-    "viewNamed": "Voir le média {name}"
+    "viewNamed": "Voir le média {name}",
+    "videoTooBig": "Vidéo(s) trop lourde(s) — max {max} Mo : {names}. Les photos sont allégées automatiquement, pas les vidéos.",
+    "tooMany": "Limite de {max} médias par envoi — {ignored} fichier(s) ignoré(s)."
   },
   "notifier": {
     "school": "L’établissement",

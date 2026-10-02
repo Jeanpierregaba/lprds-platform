@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
-from app.core.i18n import t
+from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
+from app.core.translation import TranslationUnavailable, translate_texts
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.messaging.models import (
@@ -39,6 +41,8 @@ from app.modules.notifications.service import (
     send_push_to_establishment_parents,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def _announcements_channel(establishment_id: uuid.UUID) -> str:
     return f"messaging:estab:{establishment_id}:announcements"
@@ -59,6 +63,46 @@ def _conversation_channel(conversation_id: uuid.UUID) -> str:
 
 
 # ── Diffusions ──────────────────────────────────────────────────
+# ── Traduction des diffusions ────────────────────────────────────
+async def _translate_announcement(announcement: Announcement, db: AsyncSession) -> None:
+    """Remplit la version anglaise — best-effort, jamais bloquant.
+
+    Une diffusion part à TOUS les parents de l'établissement, anglophones
+    compris : la laisser en français revenait à ne pas les informer. Même
+    politique que le blog et les menus — un échec n'empêche jamais l'envoi, il
+    laisse simplement le parent anglophone lire le français.
+
+    Pas de colonne de statut, à la différence des articles : la règle est celle
+    des créneaux de menu. Une version anglaise fournie à la main est conservée
+    tant que le texte FRANÇAIS ne bouge pas ; dès qu'il change, elle est
+    refaite — garder la traduction d'un texte remplacé serait pire qu'un repli.
+    """
+    try:
+        title_en, body_en = await translate_texts(
+            [announcement.title, announcement.body], db
+        )
+    except TranslationUnavailable as exc:
+        logger.info("Traduction de la diffusion %s non aboutie : %s", announcement.id, exc)
+        return
+    announcement.title_en = title_en[:200]
+    announcement.body_en = body_en
+
+
+def _localized_announcement(announcement: Announcement, locale: Locale) -> tuple[str, str]:
+    """Titre et corps dans la langue du LECTEUR, repli champ par champ.
+
+    Par champ et non par diffusion : si le titre est traduit mais pas le corps
+    (ou l'inverse, après un échec partiel), on sert ce qui existe plutôt que de
+    tout ramener au français.
+    """
+    if locale is DEFAULT_LOCALE:
+        return announcement.title, announcement.body
+    return (
+        announcement.title_en or announcement.title,
+        announcement.body_en or announcement.body,
+    )
+
+
 async def create_announcement(
     payload: AnnouncementCreateRequest,
     establishment_id: uuid.UUID,
@@ -71,6 +115,7 @@ async def create_announcement(
         title=payload.title,
         body=payload.body,
     )
+    await _translate_announcement(announcement, db)
     db.add(announcement)
     await db.flush()
 
@@ -104,11 +149,18 @@ async def create_announcement(
     await send_push_to_establishment_parents(
         establishment_id,
         "push.announcement.title",
-        announcement.title,
+        None,
         db,
         {"type": "announcement", "announcement_id": str(announcement.id),
          "department_ids": [str(d) for d in department_ids]},
         parent_ids=audience,
+        # Le titre part dans la langue de CHAQUE parent : une diffusion touche
+        # tout l'établissement, et la notification est souvent la seule chose
+        # qu'on lit d'elle.
+        body_by_locale={
+            str(DEFAULT_LOCALE): announcement.title,
+            str(Locale.EN): announcement.title_en or announcement.title,
+        },
     )
     return response
 
@@ -160,6 +212,7 @@ async def list_announcements(
         items = [
             _announcement_response(
                 a, is_read=a.id in read_ids, attachments=attachments_map.get(a.id),
+                localized=True,
                 department_ids=departments_map.get(a.id, []),
             )
             for a in announcements
@@ -205,6 +258,7 @@ async def get_announcement(
         read_ids = await _read_announcement_ids(current_user.id, db)
         return _announcement_response(
             announcement, is_read=announcement.id in read_ids, attachments=attachments,
+            localized=True,
             department_ids=scope,
         )
 
@@ -224,6 +278,14 @@ async def update_announcement(
 ) -> AnnouncementResponse:
     announcement = await _get_announcement_or_404(announcement_id, establishment_id, db)
     changes = payload.model_dump(exclude_unset=True)
+    # La traduction suit le texte FRANÇAIS. Une version anglaise fournie dans
+    # le même appel fait foi (correction) ; sinon, un français modifié est
+    # retraduit, et un français inchangé garde sa traduction.
+    text_changed = any(
+        field in changes and changes[field] != getattr(announcement, field)
+        for field in ("title", "body")
+    )
+    manual_en = changes.get("title_en") is not None or changes.get("body_en") is not None
     # Le périmètre ne se pose pas par setattr (relation M2M) : il REMPLACE le
     # ciblage (liste vide = retour au broadcast).
     scope_change = changes.pop("department_ids", None)
@@ -259,6 +321,8 @@ async def update_announcement(
             if audience:
                 prune = prune.where(AnnouncementRead.parent_id.not_in(audience))
             await db.execute(prune)
+    if text_changed and not manual_en:
+        await _translate_announcement(announcement, db)
     await db.flush()
     await db.refresh(announcement)
 
@@ -838,12 +902,28 @@ def _announcement_response(
     is_read: bool | None = None,
     attachments: list[AttachmentResponse] | None = None,
     department_ids: list[uuid.UUID] | None = None,
+    localized: bool = False,
 ) -> AnnouncementResponse:
+    """`localized=True` sert le texte dans la langue du LECTEUR (vue parent).
+
+    La vue de GESTION garde le français, à dessein : c'est ce que l'admin a
+    écrit et ce que son formulaire d'édition réaffiche. Lui renvoyer l'anglais
+    parce que son compte est en anglais lui ferait écraser le français au
+    premier enregistrement. `title_en` / `body_en` restent exposés à côté, pour
+    qu'il puisse corriger la traduction sans jamais la confondre avec la source.
+    """
+    title, body = (
+        _localized_announcement(announcement, current_locale())
+        if localized
+        else (announcement.title, announcement.body)
+    )
     return AnnouncementResponse(
         id=announcement.id,
         establishment_id=announcement.establishment_id,
-        title=announcement.title,
-        body=announcement.body,
+        title=title,
+        body=body,
+        title_en=announcement.title_en,
+        body_en=announcement.body_en,
         is_active=announcement.is_active,
         department_ids=department_ids or [],
         created_by=UserBrief(

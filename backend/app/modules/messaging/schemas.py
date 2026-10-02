@@ -38,6 +38,11 @@ class AnnouncementCreateRequest(BaseModel):
 class AnnouncementUpdateRequest(BaseModel):
     title:     str | None = Field(default=None, min_length=1, max_length=200)
     body:      str | None = Field(default=None, min_length=1)
+    # Version anglaise imposée par l'admin. Absente, elle est retraduite dès
+    # que le texte FRANÇAIS change — et conservée tant qu'il ne bouge pas :
+    # même règle que les créneaux de menu, sans colonne de statut à tenir.
+    title_en:  str | None = Field(default=None, min_length=1, max_length=200)
+    body_en:   str | None = Field(default=None, min_length=1)
     is_active: bool | None = None
     # None = périmètre inchangé ; liste fournie (éventuellement vide) =
     # REMPLACE le ciblage (vide = retour au broadcast).
@@ -47,8 +52,13 @@ class AnnouncementUpdateRequest(BaseModel):
 class AnnouncementResponse(BaseModel):
     id:               uuid.UUID
     establishment_id: uuid.UUID
+    # Vue de GESTION : le français, que l'admin a écrit et édite.
+    # Vue PARENT : la langue du lecteur, repli français champ par champ.
     title:            str
     body:             str
+    # Exposé pour la gestion uniquement — jamais ce que le parent affiche.
+    title_en:         str | None = None
+    body_en:          str | None = None
     is_active:        bool
     # [] = broadcast (tous les parents), sinon départements ciblés.
     department_ids:   list[uuid.UUID] = []

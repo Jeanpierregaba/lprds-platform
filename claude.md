@@ -147,6 +147,7 @@ app/
 │   │   ├── models.py              # ReportType/Status, DepartmentReportType, Report, ReportRead
 │   │   ├── schemas.py             # Pydantic v2 I/O schemas — contenu structuré par type
 │   │   ├── service.py             # Cycle de vie, calcul de période, publication
+│   │   ├── tasks.py               # Reprise planifiée des traductions manquantes
 │   │   ├── pdf.py                 # Génération PDF du bulletin annuel (reportlab)
 │   │   ├── dependencies.py        # get_parent (portail)
 │   │   ├── email.py + templates/  # Notification de publication (best-effort)
@@ -2622,6 +2623,49 @@ semaine à l'autre prime sur l'homogénéité de style entre moteurs.
    existe pour qu'un futur rejeu de la mémoire (changement de prompt) puisse
    régénérer l'automatique **sans effacer** le travail de relecture.
 
+**Rapports** : `content_en` (JSONB) porte la version anglaise des seuls champs
+de **texte libre**, dans la même arborescence que `content` — notes de santé,
+fait marquant, activités, observations par domaine, et la colonne `summary`
+via `summary_en`. Les énumérations gardent leurs codes stables, déjà rendus
+dans la langue du lecteur par les catalogues et `GET /reports/vocabulary`.
+
+C'est le texte le plus personnel de la plateforme : le laisser en français
+revenait à refuser au parent anglophone ce que l'établissement écrit sur son
+propre enfant. Le **PDF du bulletin annuel** suit la même règle — il part déjà
+dans la langue du parent, son contenu aussi.
+
+- Repli **par CHAMP**, jamais par rapport : un bulletin dont une observation
+  manque en anglais affiche les cinq autres traduites.
+- En cas d'échec, les champs dont le français n'a pas bougé gardent leur
+  traduction ; ceux dont le français a changé la perdent — afficher
+  l'observation d'une période révolue sur un enfant serait pire qu'un repli.
+- ⚠️ **`translation_pending`**, drapeau DÉRIVÉ recalculé à chaque tentative,
+  existe pour que le balayage de reprise reste exact ET bon marché. Les menus
+  s'en passent (fenêtre de quelques lignes) ; ici le volume grandit d'un
+  rapport par enfant et par jour. Un `content_en IS NULL` n'aurait pas été
+  exact : il rate les rapports **partiellement** traduits, ceux qu'une panne en
+  cours de modification laisse derrière elle. Sous test, prouvé par sabotage.
+- ⚠️ **Piège JSONB** : sans `none_as_null=True`, SQLAlchemy écrit un `null`
+  JSON (la valeur) et non un NULL SQL — `WHERE content_en IS NULL` ne ramène
+  alors rien alors que la colonne paraît vide côté Python. Piège vécu.
+
+**Diffusions** : `title_en` / `body_en`. Une diffusion part à TOUS les parents
+de l'établissement, anglophones compris ; la notification push elle-même part
+dans la langue de chaque destinataire (`body_by_locale`), car elle est souvent
+la seule chose qu'on lit d'une diffusion.
+
+⚠️ La **vue de gestion garde le français**, même pour un admin dont le compte
+est en anglais : c'est ce qu'il a écrit et ce que son formulaire réaffiche. Lui
+renvoyer l'anglais lui ferait écraser la source au premier enregistrement.
+`title_en` / `body_en` sont exposés à côté, pour corriger sans confondre.
+Pas de colonne de statut : la règle est celle des créneaux de menu — une
+correction vaut tant que le texte français ne bouge pas.
+
+⚠️ **Les conversations privées ne sont PAS traduites** — décision explicite.
+Traduire un échange en direct changerait la nature de la fonctionnalité :
+l'admin verrait-il en français le message anglais du parent ? C'est le seul
+contenu rédigé que la plateforme laisse tel quel.
+
 **Menus** : le JSONB `content` est un arbre `{langue: {jour: {créneau: plat}}}`
 (migration `5e16d04b9050`, l'existant remonté sous `fr`). `_localized()` sait
 encore lire l'ancienne forme à plat — une donnée JSONB n'a pas de schéma imposé
@@ -3035,7 +3079,8 @@ tests/
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
     ├── test_i18n.py                     # catalogues symétriques, précédence users.locale,
     │                                    #   vocabulaire traduit, libellé de période, exports bilingues
-    ├── test_translation.py              # blog/menus traduits, correction `manual` jamais écrasée,
+    ├── test_translation.py              # blog/menus/rapports/diffusions traduits,
+    │                                    #   correction `manual` jamais écrasée,
     │                                    #   contrat du moteur LibreTranslate (sans réseau),
     │                                    #   repli sur échec, mémoire de traduction (faux traducteur),
     │                                    #   correction de menu propagée à la semaine suivante,

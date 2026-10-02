@@ -863,3 +863,368 @@ def test_translation_active_depends_on_the_chosen_engine(monkeypatch):
 
     monkeypatch.setattr(settings, "translation_enabled", False)
     ck("drapeau éteint → inactif quel que soit le moteur", settings.translation_active, False)
+
+
+# ── Diffusions ──────────────────────────────────────────────────
+def _parent_with_child(c, adm, email="parent@a.fr", password="Parent2026"):
+    """Parent rattaché à un enfant — destinataire d'une diffusion."""
+    dep = c.post("/departments", json={"name": "Crèche"}, headers=adm).json()
+    sec = c.post("/sections", json={"department_id": dep["id"], "name": "Étoile"},
+                 headers=adm).json()
+    child = c.post("/children", json={
+        "last_name": "Dossou", "first_names": "Ama", "birth_date": "2023-04-12",
+        "admission_date": "2026-09-01", "residence_address": "Cotonou",
+        "department_id": dep["id"], "section_id": sec["id"], "guardians": [],
+    }, headers=adm).json()
+    c.post("/parents", json={
+        "first_name": "Afi", "last_name": "Dossou", "nickname": "Maman Ama",
+        "phone": "+229", "email": email, "password": password,
+        "child_ids": [child["id"]],
+    }, headers=adm)
+    h = login(c, email, password)
+    c.post("/auth/password-change", json={
+        "current_password": password, "new_password": password + "New",
+    }, headers=h)
+    return login(c, email, password + "New")
+
+
+def test_announcements_are_translated_for_the_parents(client, fake_translator):
+    """Une diffusion part à TOUS les parents, anglophones compris.
+
+    La laisser en français revenait à ne pas les informer — c'est le même
+    besoin que le blog, sur une surface moins visible mais plus quotidienne.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    parent = _parent_with_child(c, adm)
+
+    created = c.post("/messaging/announcements", json={
+        "title": "Sortie au parc", "body": "Rendez-vous lundi à 8 h.",
+    }, headers=adm).json()
+    ck("titre anglais produit", created["title_en"], "[EN] Sortie au parc")
+    ck("corps anglais produit", created["body_en"], "[EN] Rendez-vous lundi à 8 h.")
+    ck("vue de gestion : le français", created["title"], "Sortie au parc")
+
+    # Le parent lit dans SA langue — `users.locale` prime (cf. test_i18n.py).
+    fr = c.get("/messaging/announcements", headers=parent).json()["items"][0]
+    ck("[FR] parent francophone", fr["title"], "Sortie au parc")
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get("/messaging/announcements", headers=parent).json()["items"][0]
+    ck("[EN] titre", en["title"], "[EN] Sortie au parc")
+    ck("[EN] corps", en["body"], "[EN] Rendez-vous lundi à 8 h.")
+
+    detail = c.get(f"/messaging/announcements/{created['id']}", headers=parent).json()
+    ck("[EN] au détail aussi", detail["title"], "[EN] Sortie au parc")
+
+
+def test_announcement_management_view_never_serves_english(client, fake_translator):
+    """⚠️ La vue de gestion garde le français même pour un admin anglophone.
+
+    Lui renvoyer l'anglais parce que son compte est en anglais lui ferait
+    écraser le texte source au premier enregistrement — le formulaire d'édition
+    réaffiche ce que l'API renvoie.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    c.post("/messaging/announcements", json={
+        "title": "Sortie au parc", "body": "Rendez-vous lundi à 8 h.",
+    }, headers=adm)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=adm)
+    listed = c.get("/messaging/announcements", headers=adm).json()["items"][0]
+    ck("admin anglophone : titre source", listed["title"], "Sortie au parc")
+    ck("admin anglophone : corps source", listed["body"], "Rendez-vous lundi à 8 h.")
+    ck("anglais exposé à côté", listed["title_en"], "[EN] Sortie au parc")
+
+
+def test_announcement_translation_follows_the_french_text(client, fake_translator):
+    """Même règle que les créneaux de menu : la correction vaut tant que sa
+    source ne bouge pas, et pas une colonne de statut à tenir."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    created = c.post("/messaging/announcements", json={
+        "title": "Sortie au parc", "body": "Rendez-vous lundi.",
+    }, headers=adm).json()
+
+    corrected = c.patch(f"/messaging/announcements/{created['id']}", json={
+        "title_en": "Trip to the park",
+    }, headers=adm).json()
+    ck("correction enregistrée", corrected["title_en"], "Trip to the park")
+
+    # Français inchangé (seul le périmètre bouge) → la correction survit.
+    kept = c.patch(f"/messaging/announcements/{created['id']}", json={
+        "department_ids": [],
+    }, headers=adm).json()
+    ck("correction conservée", kept["title_en"], "Trip to the park")
+
+    # Le français change → retraduction : garder la traduction d'un texte
+    # remplacé serait pire qu'un repli.
+    changed = c.patch(f"/messaging/announcements/{created['id']}", json={
+        "title": "Sortie au zoo",
+    }, headers=adm).json()
+    ck("retraduit quand la source change", changed["title_en"], "[EN] Sortie au zoo")
+
+
+def test_announcement_translation_failure_never_blocks(client, fake_translator):
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    parent = _parent_with_child(c, adm)
+
+    fake_translator.fail = True
+    created = c.post("/messaging/announcements", json={
+        "title": "Sortie au parc", "body": "Rendez-vous lundi.",
+    }, headers=adm)
+    ck("diffusion envoyée malgré la panne", created.status_code, 201)
+    ck("pas de version anglaise", created.json()["title_en"], None)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get("/messaging/announcements", headers=parent).json()["items"][0]
+    ck("repli français pour le parent", en["title"], "Sortie au parc")
+
+
+# ── Rapports ────────────────────────────────────────────────────
+_DAILY = {
+    "health_status": "bien",
+    "health_notes": "Rien à signaler",
+    "breakfast": "bien_mange", "lunch": "peu_mange", "snack": "bien_mange",
+    "nap": True, "nap_duration_minutes": 90, "bath": True, "poop": True,
+    "moods": ["joyeux"],
+    "activities": ["Peinture", "Jeux de construction"],
+    "behaviors": ["pleasant_day"],
+    "highlight": "A dit ses premiers mots en chanson !",
+}
+
+
+def _report_setup(c, adm):
+    """Département + section + enfant + éducatrice + parent, prêts à rapporter."""
+    dep = c.post("/departments", json={"name": "Maternelle"}, headers=adm).json()
+    did = dep["id"]
+    sec = c.post("/sections", json={"department_id": did, "name": "PS"}, headers=adm).json()
+    c.post(f"/reports/settings/departments/{did}/types/quotidien", headers=adm)
+
+    child = c.post("/children", json={
+        "last_name": "Alpha", "first_names": "Ema", "birth_date": "2023-01-01",
+        "admission_date": "2025-01-01", "residence_address": "x",
+        "department_id": did, "section_id": sec["id"], "guardians": [],
+    }, headers=adm).json()
+
+    c.post("/parents", json={
+        "first_name": "Anaïs", "last_name": "Kossou", "nickname": "Maman Anaïs",
+        "phone": "+229", "email": "parent@a.fr", "password": "Parent2026",
+        "child_ids": [child["id"]],
+    }, headers=adm)
+    h = login(c, "parent@a.fr", "Parent2026")
+    c.post("/auth/password-change", json={
+        "current_password": "Parent2026", "new_password": "ParentNew2026"}, headers=h)
+    return child["id"], login(c, "parent@a.fr", "ParentNew2026")
+
+
+def test_report_content_is_translated_for_the_parent(client, fake_translator):
+    """Le rapport est le texte le plus personnel de la plateforme.
+
+    Le laisser en français revenait à refuser au parent anglophone ce que
+    l'établissement écrit sur son propre enfant.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, parent = _report_setup(c, adm)
+
+    report = c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien",
+        "summary": "Belle journée", "content": _DAILY,
+    }, headers=adm).json()
+    # Admin → publication immédiate (cf. claude.md).
+    c.post(f"/reports/{report['id']}/submit", headers=adm)
+
+    fr = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("[FR] note de santé", fr["content"]["health_notes"], "Rien à signaler")
+    ck("[FR] résumé", fr["summary"], "Belle journée")
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("[EN] note de santé", en["content"]["health_notes"], "[EN] Rien à signaler")
+    ck("[EN] fait marquant", en["content"]["highlight"],
+       "[EN] A dit ses premiers mots en chanson !")
+    ck("[EN] activités, dans l'ordre", en["content"]["activities"],
+       ["[EN] Peinture", "[EN] Jeux de construction"])
+    ck("[EN] résumé", en["summary"], "[EN] Belle journée")
+
+    # Les énumérations ne sont PAS traduites en base : ce sont des codes
+    # stables, que le frontend et le PDF rendent par catalogue.
+    ck("code d'humeur intact", en["content"]["moods"], ["joyeux"])
+    ck("code de repas intact", en["content"]["lunch"], "peu_mange")
+    ck("valeur non textuelle intacte", en["content"]["nap_duration_minutes"], 90)
+
+
+def test_report_translation_falls_back_field_by_field(client, fake_translator):
+    """Repli par CHAMP, pas par rapport.
+
+    Un bulletin dont une seule observation manque en anglais doit afficher les
+    autres traduites, pas revenir entièrement au français.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, parent = _report_setup(c, adm)
+
+    report = c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien", "content": _DAILY,
+    }, headers=adm).json()
+    c.post(f"/reports/{report['id']}/submit", headers=adm)
+
+    # Panne, puis ajout d'une activité : le reste garde sa traduction.
+    fake_translator.fail = True
+    patched = c.patch(f"/reports/{report['id']}", json={
+        "content": {**_DAILY, "activities": ["Peinture", "Jeux de construction", "Chant"]},
+    }, headers=adm)
+    ck("modification acceptée malgré la panne", patched.status_code, 200)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("activités inchangées : traduction gardée",
+       en["content"]["activities"][:2], ["[EN] Peinture", "[EN] Jeux de construction"])
+    ck("activité ajoutée : repli français", en["content"]["activities"][2], "Chant")
+    ck("champ intact ailleurs", en["content"]["health_notes"], "[EN] Rien à signaler")
+
+
+def test_report_translation_is_dropped_when_its_own_text_changes(client, fake_translator):
+    """Afficher l'observation d'une période révolue sur un enfant serait pire
+    qu'un repli en français."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, parent = _report_setup(c, adm)
+
+    report = c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien", "content": _DAILY,
+    }, headers=adm).json()
+    c.post(f"/reports/{report['id']}/submit", headers=adm)
+
+    fake_translator.fail = True
+    c.patch(f"/reports/{report['id']}", json={
+        "content": {**_DAILY, "health_notes": "Légère toux en fin de journée"},
+    }, headers=adm)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("texte remplacé : repli, jamais l'ancienne traduction",
+       en["content"]["health_notes"], "Légère toux en fin de journée")
+    ck("les autres champs gardent la leur", en["content"]["highlight"],
+       "[EN] A dit ses premiers mots en chanson !")
+
+
+def test_report_translation_never_blocks_publication(client, fake_translator):
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, parent = _report_setup(c, adm)
+
+    fake_translator.fail = True
+    created = c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien", "content": _DAILY,
+    }, headers=adm)
+    ck("rapport créé malgré la panne", created.status_code, 201)
+    c.post(f"/reports/{created.json()['id']}/submit", headers=adm)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get(f"/reports/mine/{created.json()['id']}", headers=parent).json()
+    ck("repli français intégral", en["content"]["health_notes"], "Rien à signaler")
+
+
+def test_retry_task_backfills_reports_never_translated(client, fake_translator):
+    """Le rattrapage de l'existant — et le plus important des trois.
+
+    Les rapports antérieurs à la colonne `content_en` partent tous de NULL, et
+    un rapport ne se réécrit pas : sans ce balayage, ils resteraient en
+    français indéfiniment pour les familles anglophones.
+    """
+    from app.modules.reports import tasks as report_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, parent = _report_setup(c, adm)
+
+    # Panne à la création : c'est l'état d'un rapport antérieur à la colonne.
+    fake_translator.fail = True
+    report = c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien", "content": _DAILY,
+    }, headers=adm).json()
+    c.post(f"/reports/{report['id']}/submit", headers=adm)
+
+    fake_translator.fail = False
+    ck("un rapport repris", report_tasks.retry_missing_translations()["translated"], 1)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("traduction rattrapée sans geste humain",
+       en["content"]["health_notes"], "[EN] Rien à signaler")
+    ck("rien à reprendre ensuite",
+       report_tasks.retry_missing_translations()["translated"], 0)
+
+
+def test_retry_task_ignores_unvalidated_reports(client, fake_translator):
+    """Un brouillon n'est visible d'aucun parent et bouge encore : le traduire
+    serait payer pour un texte qui changera."""
+    from app.modules.reports import tasks as report_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, _parent = _report_setup(c, adm)
+
+    fake_translator.fail = True
+    c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien", "content": _DAILY,
+    }, headers=adm)
+    fake_translator.fail = False
+
+    ck("brouillon ignoré par la tâche",
+       report_tasks.retry_missing_translations()["translated"], 0)
+
+
+def test_retry_task_catches_partially_translated_reports(client, fake_translator):
+    """La raison d'être du drapeau `translation_pending`.
+
+    Une panne survenue PENDANT une modification laisse un rapport à moitié
+    traduit : `content_en` n'est pas vide, mais il manque le champ modifié. Un
+    balayage sur `content_en IS NULL` ne l'aurait jamais repris — le parent
+    anglophone aurait gardé ce champ en français indéfiniment.
+    """
+    from app.modules.reports import tasks as report_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    child_id, parent = _report_setup(c, adm)
+
+    report = c.post("/reports", json={
+        "child_id": child_id, "report_type": "quotidien", "content": _DAILY,
+    }, headers=adm).json()
+    c.post(f"/reports/{report['id']}/submit", headers=adm)
+    ck("traduit d'emblée", report_tasks.retry_missing_translations()["translated"], 0)
+
+    # Panne pendant une modification : un seul champ reste sans anglais.
+    fake_translator.fail = True
+    c.patch(f"/reports/{report['id']}", json={
+        "content": {**_DAILY, "health_notes": "Légère toux"},
+    }, headers=adm)
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    half = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("champ modifié en français", half["content"]["health_notes"], "Légère toux")
+    ck("les autres restent traduits", half["content"]["highlight"],
+       "[EN] A dit ses premiers mots en chanson !")
+
+    fake_translator.fail = False
+    ck("rapport à moitié traduit repris",
+       report_tasks.retry_missing_translations()["translated"], 1)
+
+    healed = c.get(f"/reports/mine/{report['id']}", headers=parent).json()
+    ck("trou comblé", healed["content"]["health_notes"], "[EN] Légère toux")

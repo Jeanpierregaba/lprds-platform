@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import calendar
 import logging
 import uuid
@@ -14,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
 from app.core.config import settings
-from app.core.i18n import Locale, coerce_locale, t
+from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
+from app.core.translation import TranslationUnavailable, translate_texts
 from app.modules.attendance.models import AttendanceEvent, AttendanceSettings, EventType, PersonType
 from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
@@ -229,6 +231,8 @@ async def create_report(
     )
     db.add(report)
     await db.flush()
+    await _translate_report(report, db)
+    await db.flush()
     await db.refresh(report)
     return await _to_response(report, db)
 
@@ -347,10 +351,16 @@ async def update_report(
             ReportType(report.report_type), new_summary, new_content
         )
 
+    previous_content, previous_summary = report.content, report.summary
     for field, value in changes.items():
         setattr(report, field, value)
     report.summary = new_summary
     report.content = new_content
+    if previous_content != report.content or previous_summary != report.summary:
+        await _translate_report(
+            report, db,
+            previous_content=previous_content, previous_summary=previous_summary,
+        )
     await db.flush()
     await db.refresh(report)
     return await _to_response(report, db)
@@ -507,7 +517,8 @@ async def get_my_report_pdf(
         establishment_name=report.establishment.name,
         child_full_name=f"{child.first_names} {child.last_name}",
         period_label=_label_of(report, locale),
-        content=report.content,
+        # Le bulletin part dans la langue du PARENT : son contenu aussi.
+        content=_localized_content(report, locale)[0],
         locale=locale,
     )
     filename = t(
@@ -881,6 +892,217 @@ async def _to_response(report: Report, db: AsyncSession) -> ReportResponse:
     )
 
 
+# ── Traduction du contenu rédigé par l'éducatrice ────────────────
+# Seuls les champs de TEXTE LIBRE sont traduits. Les énumérations (humeurs,
+# comportements, niveaux d'acquisition) portent des codes stables, déjà rendus
+# dans la langue du lecteur par les catalogues et par `GET /reports/vocabulary`.
+_TRANSLATABLE_PATHS: dict[str, tuple[str, ...]] = {
+    str(ReportType.QUOTIDIEN): ("health_notes", "highlight", "activities"),
+    str(ReportType.BI_MENSUEL): (
+        "oral_written_language", "physical_activities", "artistic_activities",
+        "math_foundations", "world_exploration", "english", "teacher_observations",
+    ),
+    str(ReportType.ANNUEL): (
+        "oral_written_language.observation", "physical_activities.observation",
+        "artistic_activities.observation", "math_foundations.observation",
+        "world_exploration.observation", "english.observation",
+    ),
+}
+
+
+def _dig(tree: dict | None, path: str):
+    node = tree or {}
+    for part in path.split("."):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+    return node
+
+
+def _plant(tree: dict, path: str, value) -> None:
+    parts = path.split(".")
+    node = tree
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
+
+
+def _translatable_slots(report_type: str, content: dict, summary: str | None):
+    """Emplacements traduisibles : (chemin, index de liste ou None, texte).
+
+    Les activités du rapport quotidien sont une LISTE de chaînes : chaque
+    entrée est un emplacement à part, pour que l'ajout d'une activité ne
+    rejette pas la traduction des précédentes.
+    """
+    slots = []
+    for path in _TRANSLATABLE_PATHS.get(report_type, ()):
+        value = _dig(content, path)
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, str) and item.strip():
+                    slots.append((path, index, item))
+        elif isinstance(value, str) and value.strip():
+            slots.append((path, None, value))
+    if summary and summary.strip():
+        slots.append((_SUMMARY_PATH, None, summary))
+    return slots
+
+
+# Le résumé est une colonne à part, pas un champ de `content` ; on le fait
+# voyager dans le même lot pour n'émettre qu'un seul appel par rapport.
+_SUMMARY_PATH = "__summary__"
+
+
+async def _translate_report(
+    report: Report,
+    db: AsyncSession,
+    *,
+    previous_content: dict | None = None,
+    previous_summary: str | None = None,
+) -> None:
+    """Remplit la version anglaise — best-effort, jamais bloquant.
+
+    Tout le rapport part en UN appel : un bulletin annuel compte six
+    observations, un quotidien jusqu'à une dizaine d'entrées. La mémoire de
+    traduction ne renvoie au modèle que ce qui est réellement inédit.
+
+    En cas d'échec, on ne jette pas toute la version anglaise : les champs dont
+    le texte FRANÇAIS n'a pas changé gardent la leur — elle reste exacte. Ceux
+    dont le français a bougé sont écartés : afficher l'observation de la
+    période précédente sur un enfant serait pire qu'un repli en français.
+    C'est la règle des créneaux de menu, appliquée aux champs d'un rapport.
+    """
+    slots = _translatable_slots(report.report_type, report.content, report.summary)
+    if not slots:
+        report.content_en, report.summary_en = None, None
+        report.translation_pending = False
+        return
+
+    try:
+        translated = await translate_texts([text for _p, _i, text in slots], db)
+    except TranslationUnavailable as exc:
+        logger.info("Traduction du rapport %s non aboutie : %s", report.id, exc)
+        kept_content, kept_summary = _salvage_report_english(
+            report, previous_content, previous_summary
+        )
+        report.content_en, report.summary_en = kept_content, kept_summary
+        report.translation_pending = needs_translation(report)
+        return
+
+    content_en: dict = {}
+    summary_en: str | None = None
+    for (path, index, _source), value in zip(slots, translated):
+        if not value or not value.strip():
+            continue
+        if path == _SUMMARY_PATH:
+            summary_en = value
+        elif index is None:
+            _plant(content_en, path, value)
+        else:
+            existing = _dig(content_en, path)
+            if not isinstance(existing, list):
+                existing = [None] * (index + 1)
+            while len(existing) <= index:
+                existing.append(None)
+            existing[index] = value
+            _plant(content_en, path, existing)
+    report.content_en = content_en or None
+    report.summary_en = summary_en
+    report.translation_pending = needs_translation(report)
+
+
+def _salvage_report_english(
+    report: Report, previous_content: dict | None, previous_summary: str | None
+) -> tuple[dict | None, str | None]:
+    """Traductions encore valables après un échec : celles dont le français est
+    inchangé. Sans contenu précédent (création), il n'y a rien à récupérer."""
+    if previous_content is None:
+        return None, None
+    old_en = report.content_en or {}
+    kept: dict = {}
+    for path in _TRANSLATABLE_PATHS.get(report.report_type, ()):
+        old_fr, new_fr = _dig(previous_content, path), _dig(report.content, path)
+        old_tr = _dig(old_en, path)
+        if old_tr is None:
+            continue
+        if isinstance(new_fr, list) and isinstance(old_fr, list) and isinstance(old_tr, list):
+            survivors = [
+                old_tr[i] if i < len(old_tr) and i < len(old_fr) and old_fr[i] == item else None
+                for i, item in enumerate(new_fr)
+            ]
+            if any(survivors):
+                _plant(kept, path, survivors)
+        elif old_fr == new_fr:
+            _plant(kept, path, old_tr)
+    summary_kept = (
+        report.summary_en if previous_summary == report.summary else None
+    )
+    return kept or None, summary_kept
+
+
+def needs_translation(report: Report) -> bool:
+    """Un champ de texte libre au moins est rempli en français sans anglais.
+
+    Un rapport ne porte aucun statut de traduction : l'état se lit dans les
+    données. C'est plus juste pour un contenu qu'un admin peut retoucher champ
+    par champ à tout moment, y compris après validation.
+    """
+    slots = _translatable_slots(report.report_type, report.content, report.summary)
+    if not slots:
+        return False
+    content_en = report.content_en or {}
+    for path, index, _text in slots:
+        if path == _SUMMARY_PATH:
+            if not report.summary_en:
+                return True
+            continue
+        value = _dig(content_en, path)
+        if index is None:
+            if not (isinstance(value, str) and value.strip()):
+                return True
+        elif not (isinstance(value, list) and index < len(value) and value[index]):
+            return True
+    return False
+
+
+async def retranslate_report(report: Report, db: AsyncSession) -> None:
+    """Relance la traduction d'un rapport déjà stocké — tâche de reprise.
+
+    Le contenu sert aussi de `previous` : le français n'ayant pas changé, les
+    traductions déjà obtenues sont toutes conservées en cas de nouvel échec, et
+    la mémoire sert les champs inchangés sans appel au modèle.
+    """
+    await _translate_report(
+        report, db,
+        previous_content=report.content, previous_summary=report.summary,
+    )
+
+
+def _localized_content(report: Report, locale: Locale) -> tuple[dict, str | None]:
+    """Contenu dans la langue du LECTEUR, repli CHAMP PAR CHAMP.
+
+    Par champ et non par rapport : un bulletin dont une seule observation
+    manque en anglais doit afficher les cinq autres traduites, pas revenir
+    entièrement au français.
+    """
+    if locale is DEFAULT_LOCALE or not report.content_en:
+        return report.content, report.summary
+
+    merged = copy.deepcopy(report.content)
+    for path in _TRANSLATABLE_PATHS.get(report.report_type, ()):
+        value = _dig(report.content_en, path)
+        if isinstance(value, list):
+            source = _dig(merged, path)
+            if isinstance(source, list):
+                _plant(merged, path, [
+                    value[i] if i < len(value) and value[i] else item
+                    for i, item in enumerate(source)
+                ])
+        elif isinstance(value, str) and value.strip():
+            _plant(merged, path, value)
+    return merged, (report.summary_en or report.summary)
+
+
 def _to_parent_list_item(report: Report, *, is_read: bool) -> ParentReportListItem:
     return ParentReportListItem(
         id=report.id,
@@ -896,6 +1118,8 @@ async def _to_parent_detail(
     report: Report, db: AsyncSession, *, is_read: bool
 ) -> ParentReportDetailResponse:
     attachments = await _attachments_for_report(report.id, db)
+    # Le parent lit dans SA langue, champ par champ (cf. `_localized_content`).
+    content, summary = _localized_content(report, current_locale())
     return ParentReportDetailResponse(
         id=report.id,
         child=_child_brief(report.child),
@@ -903,8 +1127,8 @@ async def _to_parent_detail(
         period_start=report.period_start,
         period_end=report.period_end,
         period_label=_label_of(report),
-        summary=report.summary,
-        content=report.content,
+        summary=summary,
+        content=content,
         validated_at=report.validated_at,
         is_read=is_read,
         attachments=attachments,

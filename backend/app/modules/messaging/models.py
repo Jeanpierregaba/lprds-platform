@@ -87,6 +87,16 @@ class Announcement(Base):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Version anglaise, traduite automatiquement à la création et à chaque
+    # modification du texte français. NULL = pas (encore) traduite : le parent
+    # anglophone lit alors le français, comme partout ailleurs.
+    #
+    # Une diffusion part à TOUS les parents de l'établissement, dont les
+    # anglophones : la laisser en français revenait à ne pas les informer.
+    title_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    body_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Désactivation (soft) : jamais de suppression d'une diffusion déjà envoyée.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

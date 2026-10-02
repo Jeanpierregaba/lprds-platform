@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -224,6 +225,38 @@ class Report(Base):
     # tant que leur contenu structuré n'est pas spécifié ; absent pour quotidien.
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    # Version anglaise des seuls champs de TEXTE LIBRE, même arborescence que
+    # `content` (les énumérations n'ont rien à y faire : elles portent des
+    # codes stables, que le frontend et le PDF traduisent déjà par catalogue).
+    #
+    # Un rapport est le texte le plus personnel de la plateforme, et il est lu
+    # par les parents — dont les anglophones. Le laisser en français revenait à
+    # leur refuser ce que l'établissement écrit sur leur propre enfant.
+    #
+    # NULL ou champ absent = pas traduit : la lecture retombe sur le français
+    # CHAMP PAR CHAMP, jamais rapport entier. Une observation ajoutée après une
+    # panne s'affiche en français sans faire basculer tout le bulletin.
+    # ⚠️ `none_as_null` : sans lui, SQLAlchemy écrit un `null` JSON (la VALEUR
+    # null) et non un NULL SQL — si bien qu'un `WHERE content_en IS NULL` ne
+    # ramène rien alors que la colonne paraît vide côté Python. Piège vécu.
+    content_en: Mapped[dict | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
+    summary_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Reste-t-il du texte à traduire ? Dérivé, recalculé à chaque tentative,
+    # jamais saisi.
+    #
+    # Les menus s'en passent (leur fenêtre utile tient en quelques lignes, un
+    # filtre Python suffit). Pour les rapports, le volume est tout autre — un
+    # quotidien par enfant et par jour — et le balayage doit rester exact ET
+    # bon marché. Un `content_en IS NULL` ne l'aurait pas été : il rate les
+    # rapports PARTIELLEMENT traduits, ceux qu'une panne en cours de
+    # modification laisse derrière elle.
+    translation_pending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true", default=True, index=True
+    )
 
     created_by_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False

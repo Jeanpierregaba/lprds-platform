@@ -18,6 +18,7 @@ celery_app = Celery(
         "app.modules.library.tasks",
         "app.modules.blog.tasks",
         "app.modules.menus.tasks",
+        "app.modules.reports.tasks",
     ],
 )
 
@@ -40,6 +41,10 @@ celery_app.conf.beat_schedule = {
     },
     "menus-retry-translations-hourly": {
         "task": "app.modules.menus.tasks.retry_missing_translations",
+        "schedule": 60.0 * 60,
+    },
+    "reports-retry-translations-hourly": {
+        "task": "app.modules.reports.tasks.retry_missing_translations",
         "schedule": 60.0 * 60,
     },
 }

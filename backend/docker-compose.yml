@@ -42,8 +42,72 @@ services:
       - "8000:8000"
     volumes:
       - lprds_media:/app/media
+    # Le worker et le beat attendent CE signal : l'entrypoint du backend est le
+    # seul à migrer la base, et une tâche qui partirait avant aurait un schéma
+    # d'avance sur elle. `service_started` ne dirait que « le process existe ».
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health/ready')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Tâches planifiées ──────────────────────────────────────────
+  #
+  # Deux services et non un seul (`worker --beat`) : le beat est un
+  # ORDONNANCEUR, il ne doit exister qu'en un exemplaire. Fusionné au worker, il
+  # repartirait avec chaque réplique — et passer les workers à deux doublerait
+  # chaque rappel reçu par un parent. La séparation permet de monter les workers
+  # sans jamais toucher au nombre d'ordonnanceurs.
+  #
+  # Les deux réutilisent l'image du backend mais PAS son entrypoint, qui migre,
+  # seede et lance uvicorn : trois conteneurs qui migrent en même temps, c'est
+  # la course garantie. `entrypoint: []` le neutralise explicitement.
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://adminlprds:lprds@db:5432/lprds_database
+      REDIS_URL: redis://redis:6379/0
+    entrypoint: []
+    # `--concurrency=2` plutôt que le défaut (un process par cœur) : ces tâches
+    # attendent du réseau — traduction, SMTP, base — elles ne calculent rien.
+    # Sur un hôte à 16 cœurs, le défaut ouvrirait seize fois le pool Postgres
+    # pour un travail qui dort.
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=2
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://adminlprds:lprds@db:5432/lprds_database
+      REDIS_URL: redis://redis:6379/0
+    entrypoint: []
+    # L'état du planificateur vit dans un volume : sans lui, chaque
+    # redémarrage repart d'une ardoise vierge et refait tomber les échéances
+    # déjà passées. Les tâches sont idempotentes, donc ça ne casse rien — mais
+    # un parent recevrait quand même un second rappel à chaque déploiement.
+    command: >
+      celery -A app.core.celery_app beat --loglevel=info
+      --schedule=/var/lib/celery/celerybeat-schedule
+    volumes:
+      - lprds_celery_beat:/var/lib/celery
+    depends_on:
+      backend:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -77,3 +141,4 @@ volumes:
   lprds_postgres_data:
   lprds_media:
   lprds_libretranslate:
+  lprds_celery_beat:

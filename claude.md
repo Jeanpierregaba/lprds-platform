@@ -3211,6 +3211,55 @@ calculée par rapport à `date.today()` au moment de l'exécution (cf.
 
 ---
 
+## Tâches planifiées — worker et beat
+
+Deux services du compose, `worker` et `beat`, démarrés avec le reste
+(`docker compose up`). Ils réutilisent l'image du backend mais **pas son
+entrypoint**, qui migre, seede et lance uvicorn : `entrypoint: []` le neutralise
+explicitement, sinon trois conteneurs migreraient la base en même temps.
+
+| Tâche | Quand |
+|---|---|
+| `library.send_due_reminders_all` | 07:00 UTC |
+| `blog.retry_missing_translations` | toutes les heures à :05 |
+| `menus.retry_missing_translations` | :20 |
+| `reports.retry_missing_translations` | :35 |
+| `library.retry_missing_translations` | :50 |
+
+⚠️ **`beat` est un service SÉPARÉ, jamais `worker --beat`.** Le beat est un
+ordonnanceur : il ne doit exister qu'en un exemplaire. Fusionné au worker, il
+repartirait avec chaque réplique, et passer les workers à deux doublerait chaque
+rappel reçu par un parent. La séparation permet de monter les workers sans
+jamais toucher au nombre d'ordonnanceurs.
+
+⚠️ **`crontab()` et non un intervalle en secondes.** Le planning disait
+`60*60*24` sous un commentaire annonçant « chaque matin à 07:00 » : un intervalle
+part du DÉMARRAGE du beat, donc les rappels seraient tombés à l'heure du dernier
+déploiement — 3 h du matin chez le parent si la mise en production avait eu lieu
+à 3 h. Personne ne pouvait le voir tant que rien ne tournait. Les quatre
+rattrapages sont décalés de quinze minutes : ils tapent le même fournisseur de
+traduction, et un lot simultané est le moyen le plus sûr de s'y faire limiter.
+
+Réglages du worker, et ce qu'ils supposent :
+- `task_acks_late` + `worker_prefetch_multiplier=1` — un worker tué en plein
+  envoi rend sa tâche à la file au lieu de la perdre. Tenable **parce que**
+  toutes les tâches sont idempotentes par construction (anti-doublon journalier
+  `last_reminded_on`, mémoire de traduction, balayages qui ne sélectionnent que
+  ce qui manque). Une future tâche non idempotente devra le reconsidérer.
+- `task_soft_time_limit` 10 min / `task_time_limit` 12 min — un balayage parti
+  en vrille ne doit pas occuper le worker ni retarder les rappels du matin.
+- `broker_connection_retry_on_startup` — en conteneur, le worker démarre souvent
+  avant que Redis accepte des connexions. Celery réessaie aujourd'hui par
+  défaut, plus en 6.0 ; sans ce réglage, `restart: unless-stopped` masquerait en
+  boucle un worker qui sort une seconde trop tôt.
+- L'état du beat vit dans le volume `lprds_celery_beat` : sans lui, chaque
+  redémarrage repart d'une ardoise vierge et refait tomber les échéances passées
+  — inoffensif grâce à l'idempotence, mais un parent recevrait un second rappel
+  à chaque déploiement.
+- `worker` et `beat` attendent `backend: service_healthy` (healthcheck sur
+  `/health/ready`), pas `service_started` : l'entrypoint du backend est le seul à
+  migrer, et une tâche partie avant aurait un schéma d'avance sur elle.
+
 ## ⚠️ Tâches Celery : jamais le moteur global
 
 Une tâche Celery s'exécute par `asyncio.run(...)`, qui ouvre une boucle neuve
@@ -3222,8 +3271,8 @@ panne qui soit, invisible en test comme au premier lancement.
 
 Toute tâche passe donc par **`task_sessions()`** (`app/core/database.py`) :
 moteur jetable, `NullPool`, refermé en sortie. Même raisonnement que le moteur
-jetable de `tests/conftest.py`. Les trois tâches (`library`, `blog`, `menus`)
-l'utilisent.
+jetable de `tests/conftest.py`. Les cinq tâches (`library` ×2, `blog`, `menus`,
+`reports`) l'utilisent.
 
 ---
 
@@ -3251,10 +3300,15 @@ les noms de service Docker (`db`, `redis`) quoi que dise le `.env` local (qui
 pointe vers `localhost` pour un usage hors conteneur) — évite le piège
 classique « ça marche en local mais pas en conteneur ».
 
-> ⚠️ Le build Docker n'a **pas** pu être testé dans l'environnement où ces
-> fichiers ont été écrits (`docker` indisponible). Fichiers relus attentivement
-> mais à valider avec un vrai `docker compose up --build` avant de s'y fier
-> en CI/déploiement.
+Deux services supplémentaires, `worker` et `beat`, portent les tâches
+planifiées — cf. § « Tâches planifiées ».
+
+> ⚠️ Le build de l'image n'a **pas** été exécuté dans l'environnement où ces
+> fichiers ont été écrits. `docker compose config` valide la syntaxe et le
+> graphe de services, et le worker comme le beat ont été lancés hors conteneur
+> (tâche mise en file, exécutée, et échéance `crontab` déclenchée à la seconde
+> attendue) — mais un vrai `docker compose up --build` reste à passer avant de
+> s'y fier en CI/déploiement.
 
 ---
 

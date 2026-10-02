@@ -5,9 +5,9 @@ Pour chaque établissement, reporte à `service.send_due_reminders`. Idempotente
 par construction : le service ne rappelle chaque prêt éligible qu'une fois par
 jour (`last_reminded_on`, anti-doublon).
 
-⚠️ Worker non déployé dans cette version — la tâche existe pour être branchée
-dès que Celery est lancé (`celery -A app.core.celery_app worker --beat`), en
-parallèle du déclenchement manuel depuis l'admin.
+Planifiée chaque matin à 07:00 UTC par le service `beat` du compose, en
+parallèle du déclenchement manuel depuis l'admin — le planificateur rattrape,
+il ne remplace pas.
 """
 
 import asyncio

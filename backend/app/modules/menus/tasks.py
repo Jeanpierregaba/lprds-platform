@@ -8,7 +8,7 @@ français sans équivalent anglais. C'est plus robuste qu'un statut : un menu
 complété jour après jour repasse naturellement par ici pour les seuls
 créneaux ajoutés depuis.
 
-⚠️ Worker non déployé dans cette version — cf. `library/tasks.py`.
+Planifiée toutes les heures par le service `beat` du compose.
 """
 
 import asyncio

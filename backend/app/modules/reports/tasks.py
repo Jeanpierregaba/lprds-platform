@@ -16,7 +16,7 @@ C'est aussi ce qui rattrape l'existant : les rapports antérieurs à la colonne
 `content_en` partent tous de NULL, et un rapport ne se réécrit pas — sans ce
 balayage, ils resteraient en français indéfiniment.
 
-⚠️ Worker non déployé dans cette version — cf. `library/tasks.py`.
+Planifiée toutes les heures par le service `beat` du compose.
 """
 
 import asyncio

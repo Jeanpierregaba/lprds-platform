@@ -8,8 +8,7 @@ l'éditeur suppose que quelqu'un revienne le voir — or un incident de quelques
 minutes chez le fournisseur laisse justement derrière lui des articles que
 personne ne pense à rouvrir. Cette tâche balaie ce qui est resté en arrière.
 
-⚠️ Worker non déployé dans cette version — comme `library/tasks.py`, la tâche
-est prête à être branchée (`celery -A app.core.celery_app worker --beat`).
+Planifiée toutes les heures par le service `beat` du compose.
 
 Compromis assumé : aucune limite au nombre de tentatives par article. Un
 article qui échouerait à chaque passage serait donc réessayé indéfiniment.

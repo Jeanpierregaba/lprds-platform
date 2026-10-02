@@ -57,7 +57,17 @@ const ALLOWLIST = [
   'OK',
 ]
 
-/** Attributs dont la valeur est lue ou annoncée à l'utilisateur. */
+/** Attributs dont la valeur est lue ou annoncée à l'utilisateur.
+ *
+ * ⚠️ La liste ne couvrait que les attributs HTML. Les composants du projet
+ * passent pourtant leur texte par des PROPS — `<ConfirmDialog description=…>`,
+ * `<PageHeader description=…>` — et un gabarit français y a vécu des semaines
+ * dans le dialogue de retrait d'une photo, à deux lignes d'un `title={t(…)}`
+ * correctement traduit. La garde regardait exactement au bon endroit, avec une
+ * liste trop courte d'un cran.
+ *
+ * Le critère reste le même : le NOM qualifie le défaut. Ces props-là ne
+ * portent que du texte affiché, dans ce projet comme ailleurs. */
 const VISIBLE_ATTRS = new Set([
   'placeholder',
   'title',
@@ -65,6 +75,12 @@ const VISIBLE_ATTRS = new Set([
   'label',
   'aria-label',
   'aria-description',
+  // Props de composants, pas attributs HTML.
+  'description',
+  'subtitle',
+  'confirmLabel',
+  'cancelLabel',
+  'emptyLabel',
 ])
 
 const files = execSync("find src -name '*.tsx' -not -path '*/ui/*'", {

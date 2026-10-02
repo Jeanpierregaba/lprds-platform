@@ -625,7 +625,7 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
         open={confirmNotify}
         onOpenChange={setConfirmNotify}
         title={t('dashboard.notifyTitle')}
-        description={`${counts.absent} enfant(s) sans arrivée ce jour. Un email et un message seront envoyés aux comptes parents assignés pour connaître le motif — les enfants déjà prévenus aujourd'hui sont ignorés.`}
+        description={t('dashboard.notifyBody', { count: counts.absent })}
         confirmLabel={notifyMutation.isPending ? t('dashboard.sending') : t('dashboard.send')}
         confirmDisabled={notifyMutation.isPending}
         onConfirm={() => {

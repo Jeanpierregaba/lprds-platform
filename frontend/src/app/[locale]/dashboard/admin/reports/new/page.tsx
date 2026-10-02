@@ -20,6 +20,7 @@ import { useReportForms } from '@/lib/reports/use-report-forms'
 import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
 import { toDailyContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { useUser } from '@/lib/stores/auth.store'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
@@ -70,6 +71,10 @@ export default function NewReportPage() {
   const [stagedFiles, setStagedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingAction, setPendingAction] = useState<'draft' | 'submit' | null>(null)
+  // Même piège que sur la page de détail : « Soumettre » publie au parent
+  // quand c'est un admin qui clique.
+  const [confirmPublish, setConfirmPublish] = useState(false)
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300)
@@ -390,12 +395,25 @@ export default function NewReportPage() {
                     type="button"
                     className="flex-1"
                     disabled={isSubmitting}
-                    onClick={() => runSubmit('submit')}
+                    onClick={() => (isAdmin ? setConfirmPublish(true) : runSubmit('submit'))}
                   >
                     {isSubmitting && pendingAction === 'submit'
                       ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.submitting')}</>
-                      : t('form.submit')}
+                      : isAdmin ? t('detail.validateAndPublish') : t('form.submit')}
                   </Button>
+                  {isAdmin && (
+                    <ConfirmDialog
+                      open={confirmPublish}
+                      onOpenChange={setConfirmPublish}
+                      title={t('detail.submitPublishesTitle')}
+                      description={t('detail.submitPublishesBody')}
+                      confirmLabel={t('detail.validateAndPublish')}
+                      onConfirm={() => {
+                        setConfirmPublish(false)
+                        runSubmit('submit')
+                      }}
+                    />
+                  )}
                 </div>
               </form>
             )

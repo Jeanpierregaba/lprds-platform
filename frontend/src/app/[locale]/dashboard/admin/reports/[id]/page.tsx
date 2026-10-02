@@ -63,6 +63,7 @@ export default function ReportDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [attachmentToRemove, setAttachmentToRemove] = useState<ReportAttachment | null>(null)
+  const [confirmPublish, setConfirmPublish] = useState(false)
   const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const canValidate = permissions.has('reports:validate')
@@ -124,7 +125,14 @@ export default function ReportDetailPage() {
       await reportsApi.update(id, { content })
       return reportsApi.submit(id)
     },
-    onSuccess: () => { toast.success(t('detail.submitted')); invalidate() },
+    // Soumettre en tant qu'admin VALIDE et publie au parent dans le même appel
+    // (décision produit assumée, cf. claude.md). L'écran annonçait pourtant
+    // « Rapport soumis » sur un rapport déjà parti chez le parent — on lit donc
+    // le statut que l'API renvoie au lieu de le supposer.
+    onSuccess: ({ data }) => {
+      toast.success(data.status === 'validated' ? t('detail.validated') : t('detail.submitted'))
+      invalidate()
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -248,10 +256,38 @@ export default function ReportDetailPage() {
                   {isSubmittable ? t('detail.saveDraft') : t('detail.saveChanges')}
                 </Button>
                 {isSubmittable && (
-                  <Button type="button" onClick={onSubmitReport} disabled={submitMutation.isPending}>
-                    {submitMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
-                    {t('detail.submit')}
-                  </Button>
+                  <>
+                    {/*
+                      Pour un ADMIN, ce bouton ne soumet pas : il valide et
+                      publie au parent, qui reçoit email et notification. Le
+                      libellé « Soumettre » laissait croire à un envoi pour
+                      approbation — un établissement a publié un rapport en
+                      croyant enregistrer ses modifications. Il dit donc ce
+                      qu'il fait, et demande confirmation : c'est irréversible
+                      du point de vue du parent, qui a déjà été prévenu.
+                    */}
+                    <Button
+                      type="button"
+                      onClick={() => (isAdmin ? setConfirmPublish(true) : onSubmitReport())}
+                      disabled={submitMutation.isPending}
+                    >
+                      {submitMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                      {isAdmin ? t('detail.validateAndPublish') : t('detail.submit')}
+                    </Button>
+                    {isAdmin && (
+                      <ConfirmDialog
+                        open={confirmPublish}
+                        onOpenChange={setConfirmPublish}
+                        title={t('detail.submitPublishesTitle')}
+                        description={t('detail.submitPublishesBody')}
+                        confirmLabel={t('detail.validateAndPublish')}
+                        onConfirm={() => {
+                          setConfirmPublish(false)
+                          onSubmitReport()
+                        }}
+                      />
+                    )}
+                  </>
                 )}
                 {isDeletable && (
                   <>
@@ -353,30 +389,47 @@ export default function ReportDetailPage() {
                   {att.content_type.startsWith('video/') && (
                     <FileVideo className="pointer-events-none absolute right-1.5 top-1.5 size-4 text-white drop-shadow" />
                   )}
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon-sm"
-                    className="absolute left-2 top-2 h-10 w-10 opacity-80 shadow transition hover:opacity-100"
-                    aria-label={t('detail.remove', { name: att.filename })}
-                    onClick={() => setAttachmentToRemove(att)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {isEditable && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-sm"
+                      className="absolute left-2 top-2 h-10 w-10 opacity-80 shadow transition hover:opacity-100"
+                      aria-label={t('detail.remove', { name: att.filename })}
+                      onClick={() => setAttachmentToRemove(att)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadMutation.isPending}
-          >
-            {uploadMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Paperclip className="mr-1.5 size-4" />}
-            {t('detail.addAttachment')}
-          </Button>
+          {/*
+            ⚠️ Cette carte ne portait AUCUNE garde de statut, alors que l'API en
+            applique une : une éducatrice voyait « Ajouter une photo » sur un
+            rapport qu'elle avait soumis, cliquait, et recevait un refus. Vu de
+            l'établissement, ça ressemblait à un problème de compte — d'autant
+            que l'admin, lui, réussit à tout statut. Le formulaire du contenu
+            juste au-dessus se cachait déjà, lui : seule la carte des médias
+            avait été oubliée.
+          */}
+          {isEditable ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+            >
+              {uploadMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Paperclip className="mr-1.5 size-4" />}
+              {t('detail.addAttachment')}
+            </Button>
+          ) : (
+            // Masquer sans expliquer laisserait la même question sans réponse :
+            // on dit pourquoi, et comment reprendre la main.
+            <p className="text-sm text-muted-foreground">{t('detail.attachmentsLocked')}</p>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -413,7 +466,7 @@ export default function ReportDetailPage() {
         open={!!attachmentToRemove}
         onOpenChange={(open) => !open && setAttachmentToRemove(null)}
         title={t('detail.removeAttachmentTitle')}
-        description={`${attachmentToRemove?.filename ?? ''} sera définitivement retirée de ce rapport.`}
+        description={t('detail.removeAttachmentBody', { name: attachmentToRemove?.filename ?? '' })}
         confirmLabel={t('detail.removeLabel')}
         onConfirm={() => {
           if (attachmentToRemove) deleteAttachmentMutation.mutate(attachmentToRemove.id)

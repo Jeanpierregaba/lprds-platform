@@ -742,7 +742,7 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
           open={!!docToDelete}
           onOpenChange={(open) => !open && setDocToDelete(null)}
           title={t('detail.deleteDocTitle')}
-          description={`« ${docToDelete?.filename ?? ''} » sera retiré du dossier de l\u2019enfant.`}
+          description={t('detail.deleteDocBody', { name: docToDelete?.filename ?? '' })}
           confirmLabel={t('detail.delete')}
           destructive
           onConfirm={() => {

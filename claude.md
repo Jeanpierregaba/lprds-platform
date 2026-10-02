@@ -1838,7 +1838,7 @@ draft ──submit──> submitted ──validate──> validated (publié au 
     rôle validateur serait inutilisable (la validation elle-même est sans
     restriction de groupe). Les brouillons/rejetés d'autrui restent invisibles.
 
-### ⚠️ Auto-publication quand l'auteur est admin
+### ⚠️ Auto-publication quand l'auteur est admin — et ce que l'écran doit en dire
 
 Quand `POST /reports/{id}/submit` est appelé par un **admin**, le rapport est
 **validé et publié immédiatement dans le même appel** — pas de détour par
@@ -1847,6 +1847,29 @@ l'admin pour approuver son propre rapport, l'aller-retour serait artificiel.
 Décision explicitement confirmée avec l'utilisateur avant implémentation
 (alternative envisagée : passer quand même par le circuit standard — écartée).
 Un rapport soumis par un **staff** suit le circuit complet normal.
+
+⚠️ **L'interface doit le DIRE, sinon la décision devient un piège.** Le bouton
+portait « Soumettre » pour tout le monde et le toast annonçait « Rapport
+soumis » — un établissement a publié le rapport d'un enfant en croyant
+enregistrer ses modifications, et l'a découvert au statut. Pour un admin, le
+bouton dit donc « Valider et publier », demande confirmation (les parents sont
+prévenus par email et notification, c'est irréversible de leur point de vue), et
+le toast lit le statut que l'API renvoie au lieu de le supposer. Même traitement
+sur l'écran de création. Sous test : `test_reports_attachment_rules.py`.
+
+### ⚠️ Les médias suivent la règle du contenu — l'écran aussi
+
+`POST/DELETE /reports/{id}/attachments` passent par `_ensure_mutable` : l'admin à
+tout statut, le staff en brouillon/rejeté seulement. La carte des médias de
+l'écran de détail, elle, n'avait **aucune garde** : une éducatrice voyait
+« Ajouter une photo » sur un rapport qu'elle avait soumis, cliquait, et recevait
+un 409. Vu de l'établissement, ça ressemblait à un problème sur son compte —
+d'autant que l'admin, lui, réussit toujours. Le formulaire du contenu juste
+au-dessus se cachait déjà ; seule cette carte avait été oubliée.
+
+Elle affiche désormais, à la place du bouton, la raison et le recours (faire
+rejeter le rapport pour le reprendre). Masquer sans expliquer laisserait la même
+question sans réponse.
 
 ### Publication — portail parent + email (best-effort)
 
@@ -3060,12 +3083,31 @@ Une `ALLOWLIST` en tête de script porte les noms propres, sigles et formats
 lettres une fois ces jetons retirés. Lancés sans `--strict`, les scripts
 listent sans échouer.
 
+⚠️ **`VISIBLE_ATTRS` ne couvrait que les attributs HTML** (`placeholder`,
+`title`, `alt`, `aria-label`). Or les composants du projet passent leur texte
+par des **props** — `<ConfirmDialog description=… confirmLabel=…>`,
+`<PageHeader description=…>` — et sept chaînes françaises y vivaient, dont six
+dans des dialogues de confirmation : désactiver un parent ou un membre du
+personnel, retirer une photo de galerie, un document d'enfant, prévenir les
+parents d'absents. Toutes s'affichaient en français dans une interface
+anglaise. La garde regardait exactement au bon endroit avec une liste trop
+courte d'un cran ; `description`, `subtitle`, `confirmLabel`, `cancelLabel` et
+`emptyLabel` l'ont rejointe, et le critère reste le même — le NOM qualifie le
+défaut, la forme de la valeur (littéral, gabarit) n'a pas à être devinée.
+
+Trois de ces sept chaînes avaient leur clé **déjà présente dans les deux
+catalogues**, simplement jamais appelée (`status.confirmBody` côté parents et
+personnel, `dashboard.notifyBody` côté présences) : la traduction existait, le
+code l'ignorait. Un catalogue complet ne prouve rien tant que personne ne
+vérifie qu'il est lu.
+
 ⚠️ **Angles morts restants, connus et non couverts** — dans les deux cas la
 frontière entre texte affiché et valeur technique (classes CSS, identifiants,
 paramètres d'API) n'est pas décidable par la position seule :
 
-1. les littéraux passés dans une expression JSX (`{cond ? 'Oui' : 'Non'}`,
-   gabarits) ;
+1. les littéraux passés dans une expression JSX (`{cond ? 'Oui' : 'Non'}`) —
+   les **gabarits**, eux, sont désormais couverts dès qu'ils sont en position
+   d'attribut visible ;
 2. les **valeurs par défaut de paramètres** — `StatusPill` affichait « Actif »
    dans tout l'espace admin anglophone à cause de
    `activeLabel = 'Actif'`, et douze de ses treize appels ne passaient rien.
@@ -3168,6 +3210,8 @@ tests/
     ├── test_reports_daily_content.py    # contenu structuré quotidien + pièces jointes
     ├── test_reports_bimensuel_content.py
     ├── test_reports_annuel_content.py   # + génération PDF
+    ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
+    │                                    #   par un admin renvoie bien « validated »
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC

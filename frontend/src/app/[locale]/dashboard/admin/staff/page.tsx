@@ -336,7 +336,7 @@ function StaffCard({
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
         title={t('status.confirmTitle')}
-        description={`${member.nickname ?? `${member.first_name} ${member.last_name}`} ne pourra plus se connecter (réversible depuis sa fiche).`}
+        description={t('status.confirmBody', { name: member.nickname ?? `${member.first_name} ${member.last_name}` })}
         confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)

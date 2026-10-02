@@ -39,6 +39,7 @@ function useGalleryCategories() {
 
 export function GalleryTab() {
   const t = useTranslations('blog')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [categoryId, setCategoryId] = useState<string>(ALL)
@@ -232,7 +233,7 @@ export function GalleryTab() {
         onOpenChange={(open) => !open && setPhotoToDelete(null)}
         title={t('gallery.deletePhotoTitle')}
         description={t('gallery.deletePhotoBody')}
-        confirmLabel="Supprimer"
+        confirmLabel={tCommon('actions.delete')}
         onConfirm={() => {
           if (photoToDelete) deleteMutation.mutate(photoToDelete.id)
           setPhotoToDelete(null)
@@ -244,6 +245,7 @@ export function GalleryTab() {
 
 function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useTranslations('blog')
+  const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<GalleryPhotoCategory | null>(null)
@@ -364,7 +366,7 @@ function CategoriesManager({ open, onOpenChange }: { open: boolean; onOpenChange
         onOpenChange={(o) => !o && setDeleting(null)}
         title={t('gallery.deleteCategoryTitleNamed', { name: deleting?.name ?? '' })}
         description={t('gallery.deleteCategoryBody')}
-        confirmLabel="Supprimer"
+        confirmLabel={tCommon('actions.delete')}
         confirmDisabled={deleteMutation.isPending}
         onConfirm={() => {
           if (deleting) deleteMutation.mutate(deleting.id)

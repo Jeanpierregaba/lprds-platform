@@ -178,7 +178,8 @@
     "notFound": "Fiche enfant introuvable.",
     "codeLabel": "Code :",
     "ageLabel": "Âge :",
-    "sectionLabel": "Section :"
+    "sectionLabel": "Section :",
+    "deleteDocBody": "« {name} » sera retiré du dossier de l’enfant."
   },
   "documentsHint": "Pièces d'identité, certificats, autorisations...",
   "age": {

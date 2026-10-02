@@ -219,7 +219,7 @@
     "noAbsentToday": "No absences today",
     "notifyHint": "Send an email and a message to the parents of absent children",
     "notifyTitle": "Notify the parents of absent children?",
-    "notifyBody": "{count} child(ren) with no arrival today. An email and a message will be sent to the assigned parent accounts to find out why.",
+    "notifyBody": "{count} child(ren) with no arrival today. An email and a message will be sent to the assigned parent accounts to find out why — children already notified today are skipped.",
     "sending": "Sending…",
     "send": "Send",
     "notifySent": "Absence enquiry sent — {details}.",

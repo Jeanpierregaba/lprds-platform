@@ -178,7 +178,8 @@
     "notFound": "Child record not found.",
     "codeLabel": "ID:",
     "ageLabel": "Age:",
-    "sectionLabel": "Section:"
+    "sectionLabel": "Section:",
+    "deleteDocBody": "“{name}” will be removed from the child’s record."
   },
   "documentsHint": "Identity documents, certificates, authorisations…",
   "age": {

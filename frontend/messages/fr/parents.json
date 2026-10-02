@@ -31,7 +31,8 @@
     "reactivateTitle": "Réactiver ce compte ?",
     "deactivateBody": "Le compte sera désactivé (réversible). Le parent ne pourra plus se connecter.",
     "reactivateBody": "Le compte redeviendra accessible.",
-    "confirm": "Confirmer"
+    "confirm": "Confirmer",
+    "confirmBody": "{name} ne pourra plus se connecter (réversible depuis sa fiche)."
   },
   "validation": {
     "firstName": "Prénom requis",

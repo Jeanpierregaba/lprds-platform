@@ -283,7 +283,7 @@ function ParentCard({
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
         title={t('status.confirmTitle')}
-        description={`${parent.nickname ?? `${parent.first_name} ${parent.last_name}`} ne pourra plus se connecter (réversible depuis sa fiche).`}
+        description={t('status.confirmBody', { name: parent.nickname ?? `${parent.first_name} ${parent.last_name}` })}
         confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)

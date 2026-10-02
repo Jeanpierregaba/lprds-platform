@@ -219,7 +219,7 @@
     "noAbsentToday": "Aucun absent ce jour",
     "notifyHint": "Envoyer un email + message aux parents des absents",
     "notifyTitle": "Prévenir les parents des absents ?",
-    "notifyBody": "{count} enfant(s) sans arrivée ce jour. Un email et un message seront envoyés aux comptes parents assignés pour connaître le motif.",
+    "notifyBody": "{count} enfant(s) sans arrivée ce jour. Un email et un message seront envoyés aux comptes parents assignés pour connaître le motif — les enfants déjà prévenus aujourd'hui sont ignorés.",
     "sending": "Envoi…",
     "send": "Envoyer",
     "notifySent": "Enquête d’absence envoyée — {details}.",

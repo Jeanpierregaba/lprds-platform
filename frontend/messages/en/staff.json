@@ -34,7 +34,8 @@
     "reactivateTitle": "Reactivate this account?",
     "deactivateBody": "The account will be deactivated (reversible). This person will no longer be able to sign in.",
     "reactivateBody": "The account will become usable again.",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "confirmBody": "{name} will no longer be able to sign in (reversible from their record)."
   },
   "validation": {
     "firstName": "First name required",

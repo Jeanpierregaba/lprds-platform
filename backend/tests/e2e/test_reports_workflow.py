@@ -140,8 +140,11 @@ def test_reports_workflow(client):
     ck("  statut = submitted", r.json()["status"], "submitted")
     ck("Resoumission impossible → 409", c.post(
         f"/reports/{rid}/submit", headers=educ1).status_code, 409)
-    ck("Modification pendant submitted → 409", c.patch(
-        f"/reports/{rid}", json={"summary": "x"}, headers=educ1).status_code, 409)
+    # Le soumis reste modifiable par son autrice — décision produit, le parent
+    # ne l'a pas encore reçu. La frontière est la VALIDATION, et c'est
+    # `test_reports_attachment_rules.py` qui la tient de bout en bout.
+    ck("Modification pendant submitted → autorisée", c.patch(
+        f"/reports/{rid}", json={"summary": "x"}, headers=educ1).status_code, 200)
 
     par_before = c.get("/reports/mine/list", headers=par).json()
     ck("Parent ne voit rien tant que non validé", par_before["total"], 0)

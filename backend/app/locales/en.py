@@ -222,7 +222,9 @@ MESSAGES: dict[str, str] = {
     "errors.reports.pdf_annual_only": "PDF download is available for the annual report only",
     "errors.reports.attachment_not_found": "Attachment not found",
     "errors.reports.not_found": "Report not found",
-    "errors.reports.only_draft_editable": "Only a draft or rejected report can be changed",
+    "errors.reports.only_draft_editable": (
+        "A report that has been approved can no longer be changed: the parent has already received it"
+    ),
     "errors.reports.only_draft_submittable": "Only a draft or rejected report can be submitted",
     "errors.reports.only_draft_deletable": (
         "Only a report still in draft (never submitted) can be deleted"

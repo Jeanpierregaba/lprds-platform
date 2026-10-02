@@ -1804,12 +1804,22 @@ draft ──submit──> submitted ──validate──> validated (publié au 
   └──────reject────────┘  (avec motif, conservé dans rejected_reason)
 ```
 
-- **Modifiable** : l'**admin à tout moment** — même `submitted`/`validated`,
-  même déjà lu par le parent (le statut ne change pas, aucune re-notification ;
-  le parent voit le contenu corrigé à sa prochaine visite). Le **staff** reste
-  limité à `draft` / `rejected`. Les médias suivent la même règle : ajout
-  (`POST .../attachments`) et retrait (`DELETE .../attachments/{id}`) possibles
-  pour l'admin quel que soit le statut.
+- **Modifiable** : l'**admin à tout moment** — même `validated`, même déjà lu
+  par le parent (le statut ne change pas, aucune re-notification ; le parent voit
+  le contenu corrigé à sa prochaine visite). Le **staff** le peut tant que le
+  rapport n'est pas `validated` : `draft`, `rejected` **et `submitted`**. Les
+  médias suivent exactement la même règle (`POST`/`DELETE .../attachments`), via
+  l'unique garde `_ensure_mutable`.
+  ⚠️ **Le `submitted` a été ouvert au staff sur décision explicite de
+  l'utilisateur**, après un signalement de l'établissement : les photos d'une
+  journée arrivent souvent après la rédaction, et s'arrêter à la soumission
+  obligeait à faire REJETER le rapport pour chaque photo oubliée. La frontière
+  est donc la **validation**, qui est le moment où le parent découvre le
+  rapport : avant, rien ne lui a échappé ; après, modifier reviendrait à changer
+  sous ses yeux ce qu'il a déjà lu, sans qu'il en soit prévenu.
+  Contrepartie assumée : un validateur peut voir le contenu bouger pendant sa
+  relecture. Le staff ne peut toujours pas **resoumettre** un rapport déjà
+  soumis — la décision reste au validateur.
 - **Soumissible** depuis `draft` ou `rejected` (`rejected_reason` est effacé au
   moment de la resoumission — la prochaine décision de l'admin repart neuve).
 - **Supprimable** (hard delete) **seulement en `draft` jamais soumis** — dès
@@ -1859,17 +1869,20 @@ sur l'écran de création. Sous test : `test_reports_attachment_rules.py`.
 
 ### ⚠️ Les médias suivent la règle du contenu — l'écran aussi
 
-`POST/DELETE /reports/{id}/attachments` passent par `_ensure_mutable` : l'admin à
-tout statut, le staff en brouillon/rejeté seulement. La carte des médias de
-l'écran de détail, elle, n'avait **aucune garde** : une éducatrice voyait
-« Ajouter une photo » sur un rapport qu'elle avait soumis, cliquait, et recevait
-un 409. Vu de l'établissement, ça ressemblait à un problème sur son compte —
-d'autant que l'admin, lui, réussit toujours. Le formulaire du contenu juste
-au-dessus se cachait déjà ; seule cette carte avait été oubliée.
+`POST/DELETE /reports/{id}/attachments` passent par `_ensure_mutable`, comme le
+contenu : une seule garde, donc aucun moyen que les deux divergent.
 
-Elle affiche désormais, à la place du bouton, la raison et le recours (faire
-rejeter le rapport pour le reprendre). Masquer sans expliquer laisserait la même
-question sans réponse.
+La carte des médias de l'écran de détail, elle, n'avait **aucune garde de
+statut** : une éducatrice voyait « Ajouter une photo » sur un rapport qu'elle ne
+pouvait plus toucher, cliquait, et recevait un 409. Vu de l'établissement, ça
+ressemblait à un problème sur son compte — d'autant que l'admin, lui, réussit
+toujours. Le formulaire du contenu juste au-dessus se cachait déjà ; seule cette
+carte avait été oubliée.
+
+Elle affiche désormais, à la place du bouton, la raison (le parent a déjà reçu le
+rapport). Masquer sans expliquer laisserait la même question sans réponse.
+⚠️ `isEditable` côté écran doit rester aligné sur `_ensure_mutable` côté API,
+sinon on retombe exactement sur ce défaut : un bouton visible qui échoue.
 
 ### Publication — portail parent + email (best-effort)
 

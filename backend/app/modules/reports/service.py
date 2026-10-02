@@ -609,13 +609,30 @@ async def _authorize_write(report: Report, current_user: User, db: AsyncSession)
 def _ensure_mutable(report: Report, current_user: User) -> None:
     """Garde-fou de statut pour toute modification (contenu ou médias).
 
-    L'admin peut modifier un rapport à tout moment — même soumis, validé et
-    déjà lu par le parent. Le staff (éducatrice de son groupe) reste limité
-    au brouillon et au rejeté, comme avant.
+    L'admin peut modifier un rapport à tout moment — même validé et déjà lu par
+    le parent. Le staff (éducatrice de son groupe) le peut tant que le rapport
+    n'est pas VALIDÉ : brouillon, rejeté, et soumis.
+
+    ⚠️ Le soumis a été ouvert sur décision explicite de l'utilisateur. La règle
+    d'origine s'arrêtait au rejeté, et une éducatrice qui avait soumis son
+    rapport ne pouvait plus y joindre les photos de la journée — remonté depuis
+    l'établissement. La limite se place donc à la VALIDATION, qui est le moment
+    où le parent découvre le rapport : avant, rien ne lui a échappé ; après,
+    modifier reviendrait à changer sous ses yeux ce qu'il a déjà lu, sans qu'il
+    en soit prévenu.
+
+    Contrepartie assumée : un validateur peut voir le contenu bouger pendant sa
+    relecture. C'est le prix du besoin réel (les photos arrivent après la
+    rédaction), et l'alternative — faire rejeter le rapport pour le reprendre —
+    coûtait un aller-retour à chaque photo oubliée.
     """
     if current_user.role == UserRole.ADMIN:
         return
-    if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
+    if report.status not in (
+        str(ReportStatus.DRAFT),
+        str(ReportStatus.REJECTED),
+        str(ReportStatus.SUBMITTED),
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=t("errors.reports.only_draft_editable"),

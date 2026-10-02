@@ -3,9 +3,11 @@
 Deux bugs rapportés par l'établissement sont verrouillés ici :
 
   1. « Maîtresse Juli n'arrive pas à ajouter les photos à ses rapports, moi
-     (admin) j'y arrive. » — ce n'est pas son compte : une éducatrice ne peut
-     plus toucher un rapport qu'elle a SOUMIS, l'admin si. L'interface lui
-     montrait pourtant le bouton, d'où un refus incompréhensible.
+     (admin) j'y arrive. » — ce n'était pas son compte : la règle d'origine
+     arrêtait le staff au brouillon et au rejeté, et l'interface lui montrait
+     quand même le bouton. Sur décision de l'utilisateur, le SOUMIS lui est
+     désormais ouvert (photos et texte) ; la limite se place à la VALIDATION,
+     le moment où le parent reçoit le rapport.
   2. « J'ai voulu enregistrer les modifications et ça a validé le rapport. » —
      côté API, `submit` appelé par un admin publie au parent dans la foulée
      (décision assumée). Ce qui manquait, c'est que la réponse le DISE, pour
@@ -52,32 +54,58 @@ def _photo(c, report_id, headers):
                   files={"file": ("photo.png", PNG, "image/png")}, headers=headers)
 
 
-def test_educatrice_loses_her_photos_once_submitted(client):
-    """Le périmètre réel derrière « Juli n'y arrive pas ».
+def test_educatrice_keeps_her_report_until_it_is_validated(client):
+    """La frontière est la VALIDATION, pas la soumission.
 
-    Son compte n'a rien d'anormal : en BROUILLON elle pose ses photos sans
-    difficulté. C'est la SOUMISSION qui lui retire la main — et l'admin, lui,
-    passe à tout statut. D'où l'asymétrie observée depuis l'établissement.
+    Les photos d'une journée arrivent souvent après la rédaction : s'arrêter à
+    la soumission obligeait à faire rejeter le rapport pour chaque photo
+    oubliée. Tant que le rapport n'est pas validé, le parent ne l'a pas vu —
+    rien ne lui échappe. Une fois validé, modifier reviendrait à changer sous
+    ses yeux ce qu'il a déjà lu, sans qu'il en soit prévenu : c'est là que la
+    main lui est retirée, et l'admin seul passe encore.
     """
     c = client
     su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
     adm = onboard(c, su, "LPRDS", "admin@a.fr")
     educ, child_id = _setup(c, adm)
 
-    report = c.post("/reports", json={"child_id": child_id, "report_type": "quotidien",
-                    "reference_date": "2026-07-20", "content": CONTENT}, headers=educ).json()
-    rid = report["id"]
+    rid = c.post("/reports", json={"child_id": child_id, "report_type": "quotidien",
+                 "reference_date": "2026-07-20", "content": CONTENT}, headers=educ).json()["id"]
 
-    ck("brouillon : l'éducatrice pose sa photo", _photo(c, rid, educ).status_code, 201)
+    ck("brouillon : elle pose sa photo", _photo(c, rid, educ).status_code, 201)
 
     c.post(f"/reports/{rid}/submit", headers=educ)
-    refused = _photo(c, rid, educ)
-    ck("soumis : elle est refusée", refused.status_code, 409)
-    ck("  et l'admin, lui, passe", _photo(c, rid, adm).status_code, 201)
+    ck("SOUMIS : elle pose encore sa photo", _photo(c, rid, educ).status_code, 201)
+    edited = c.patch(f"/reports/{rid}",
+                     json={"content": {**CONTENT, "highlight": "A chanté toute la matinée"}},
+                     headers=educ)
+    ck("  et corrige encore son texte", edited.status_code, 200)
+    ck("  texte bien enregistré", edited.json()["content"]["highlight"],
+       "A chanté toute la matinée")
 
-    # Le rejet lui rend la main : c'est le chemin de rattrapage existant.
+    # Elle ne resoumet pas pour autant : la décision reste au validateur.
+    ck("  resoumettre refusé", c.post(f"/reports/{rid}/submit", headers=educ).status_code, 409)
+
+    c.post(f"/reports/{rid}/validate", headers=adm)
+    ck("VALIDÉ : elle est refusée", _photo(c, rid, educ).status_code, 409)
+    ck("  son texte aussi", c.patch(f"/reports/{rid}", json={"content": CONTENT},
+                                    headers=educ).status_code, 409)
+    ck("  l'admin, lui, passe encore", _photo(c, rid, adm).status_code, 201)
+
+
+def test_rejected_report_stays_editable(client):
+    """Le rejet n'a pas été perdu en chemin : il rend la main comme avant."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    educ, child_id = _setup(c, adm)
+
+    rid = c.post("/reports", json={"child_id": child_id, "report_type": "quotidien",
+                 "reference_date": "2026-07-23", "content": CONTENT}, headers=educ).json()["id"]
+    c.post(f"/reports/{rid}/submit", headers=educ)
     c.post(f"/reports/{rid}/reject", json={"reason": "Ajoute les photos"}, headers=adm)
     ck("rejeté : elle repose une photo", _photo(c, rid, educ).status_code, 201)
+    ck("  et peut resoumettre", c.post(f"/reports/{rid}/submit", headers=educ).status_code, 200)
 
 
 def test_admin_submit_says_it_published(client):

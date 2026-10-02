@@ -99,7 +99,7 @@
     "submitPublishesTitle": "Valider et publier ce rapport ?",
     "submitPublishesBody": "En tant qu'administrateur, votre validation est immédiate : le rapport devient visible par les parents de l'enfant, qui reçoivent un email et une notification. Il n'y a pas d'étape d'approbation ensuite.",
     "submitPublishesHint": "Validation immédiate : les parents seront notifiés.",
-    "attachmentsLocked": "Ce rapport est soumis : seule l'administration peut encore y ajouter ou retirer des médias. Demandez-lui de le rejeter pour le reprendre.",
+    "attachmentsLocked": "Ce rapport est validé : le parent l'a déjà reçu. Seule l'administration peut encore y ajouter ou retirer des médias.",
     "removeAttachmentBody": "« {name} » sera définitivement retirée de ce rapport."
   },
   "content": {

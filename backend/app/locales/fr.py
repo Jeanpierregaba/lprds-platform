@@ -252,7 +252,7 @@ MESSAGES: dict[str, str] = {
     "errors.reports.attachment_not_found": "Pièce jointe introuvable",
     "errors.reports.not_found": "Rapport introuvable",
     "errors.reports.only_draft_editable": (
-        "Seul un rapport en brouillon ou rejeté peut être modifié"
+        "Un rapport validé ne peut plus être modifié : le parent l'a déjà reçu"
     ),
     "errors.reports.only_draft_submittable": (
         "Seul un rapport en brouillon ou rejeté peut être soumis"

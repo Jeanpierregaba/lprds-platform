@@ -204,9 +204,11 @@ export default function ReportDetailPage() {
     return <p className="text-muted-foreground">{t('detail.notFound')}</p>
   }
 
-  // L'admin peut modifier un rapport à tout moment (même soumis, validé et
-  // déjà lu par le parent) ; le staff reste limité au brouillon / rejeté.
-  const isEditable = isAdmin || report.status === 'draft' || report.status === 'rejected'
+  // L'admin peut modifier un rapport à tout moment (même validé et déjà lu par
+  // le parent) ; le staff le peut tant qu'il n'est pas VALIDÉ — c'est-à-dire
+  // tant que le parent ne l'a pas reçu. Doit rester aligné sur
+  // `_ensure_mutable` côté API, sinon on retombe sur un bouton qui échoue.
+  const isEditable = isAdmin || report.status !== 'validated'
   const isSubmittable = report.status === 'draft' || report.status === 'rejected'
   const isDeletable = report.status === 'draft' && !report.submitted_at
 

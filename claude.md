@@ -224,6 +224,7 @@ scripts/
 src/
 ├── i18n/
 │   ├── routing.ts                 # LOCALES, localePrefix 'as-needed', asAppLocale()
+│   ├── use-locale-switch.ts       # Le geste de bascule — cookie + compte + navigation
 │   ├── client-locale.ts           # clientLocale() — URL puis cookie, hors React
 │   ├── slugs.ts                   # Slugs publics traduits (/a-propos ↔ /en/about)
 │   ├── detect.ts                  # Règle de détection (FR seulement si préféré)
@@ -242,6 +243,9 @@ src/
 │       ├── auth/                  # login, reset-password, new-password
 │       └── dashboard/             # super, admin, staff, parent
 ├── components/
+│   ├── locale-switcher.tsx        # Menu de langue (en-tête vitrine + espaces)
+│   ├── dashboard/
+│   │   └── language-settings-card.tsx  # Même geste, en RÉGLAGE, dans les 4 espaces
 │   ├── menus/
 │   │   └── menu-translation-dialog.tsx  # Relecture FR/EN d'une semaine de menus
 │   ├── pwa/pwa-provider.tsx       # Enregistrement SW + prompt d'installation + voile hors-ligne
@@ -2393,6 +2397,36 @@ qui obéit au compte, répondait en anglais.
 
 `PATCH /auth/me/locale` est sous `get_current_user`, comme toutes les routes
 authentifiées.
+
+### Deux surfaces pour changer de langue, une seule mécanique
+
+`useLocaleSwitch()` (`src/i18n/use-locale-switch.ts`) porte le geste — cookie,
+appel au compte, navigation — et rien d'autre ne doit le réimplémenter : l'ordre
+des écritures est subtil (cf. ci-dessus) et deux copies finiraient par diverger.
+
+- **`LocaleSwitcher`** (en-tête de la vitrine et de tous les espaces) : un menu
+  déroulant globe + code, remplaçant le commutateur segmenté « FR | EN ». Les
+  noms de langue y sont écrits **dans leur propre langue** (« English », jamais
+  « Anglais ») : c'est la seule forme qu'un locuteur reconnaît depuis l'autre
+  interface, et c'est la convention de tous les sélecteurs du Web.
+- **`LanguageSettingsCard`** (`components/dashboard/`, montée dans
+  `ProfileSettingsTab`, donc présente dans les **quatre** espaces) : le même
+  geste, mais présenté comme un RÉGLAGE. Une bascule dans l'en-tête se lit
+  « montre-moi cette page en anglais » ; un réglage se lit « je suis
+  anglophone ». La carte dit explicitement ce que l'en-tête laissait supposer :
+  ce choix gouverne aussi les emails, les bulletins PDF et les notifications —
+  tout ce qui part du serveur quand personne n'est devant l'écran, et qui ne
+  peut donc pas lire un cookie.
+- Pas de bouton « Enregistrer » : l'enregistrement est l'effet du choix. Une
+  validation en deux temps créerait un état où la langue affichée diffère de la
+  langue cochée, ce qui n'a aucun sens pour un réglage dont l'effet est d'être
+  immédiatement visible.
+
+⚠️ **`DropdownMenuLabel` est le `Menu.GroupLabel` de Base UI : il exige un
+`DropdownMenuGroup` au-dessus de lui.** Sans ce parent, le menu lève à
+l'ouverture (« MenuGroupContext is missing »). Ni le nom — qui évoque un simple
+titre — ni les types ne le disent : le défaut passe `pnpm type-check` ET
+`pnpm build`, et ne se voit qu'en dépliant le menu pour de vrai. Piège vécu.
 
 ### Frontend — `next-intl`, préfixe EN seulement
 

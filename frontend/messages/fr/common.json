@@ -68,7 +68,9 @@
     "label": "Langue",
     "fr": "Français",
     "en": "English",
-    "switchTo": "Passer en {language}"
+    "settingsTitle": "Langue de l'application",
+    "settingsHint": "Choisissez la langue de votre espace. Le changement est immédiat et enregistré sur votre compte, donc valable sur tous vos appareils.",
+    "settingsScope": "Cette langue vaut aussi pour les emails, les bulletins PDF et les notifications que vous recevez."
   },
   "theme": {
     "toggle": "Changer de thème",

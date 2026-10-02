@@ -68,7 +68,9 @@
     "label": "Language",
     "fr": "Français",
     "en": "English",
-    "switchTo": "Switch to {language}"
+    "settingsTitle": "Application language",
+    "settingsHint": "Choose the language of your space. The change is immediate and saved to your account, so it applies on all your devices.",
+    "settingsScope": "This language also applies to the emails, PDF reports and notifications you receive."
   },
   "theme": {
     "toggle": "Toggle theme",

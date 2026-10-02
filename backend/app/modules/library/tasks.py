@@ -16,7 +16,9 @@ import logging
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
+from app.core.config import settings
 from app.core.database import task_sessions
+from app.modules.library.models import Book
 from app.modules.establishments.models import Establishment
 from app.modules.library import service as library_service
 
@@ -50,3 +52,65 @@ def send_due_reminders_all() -> dict:
     except Exception:  # noqa: BLE001 — la tâche ne peut pas crasher le beat
         logger.exception("Échec des rappels quotidiens de bibliothèque")
         return {"reminded_parents": 0, "reminded_lendings": 0, "error": "unexpected"}
+
+
+@celery_app.task(name="app.modules.library.tasks.retry_missing_translations")
+def retry_missing_translations(limit: int = 50) -> dict:
+    """Reprend les descriptions de livres dont l'anglais manque encore.
+
+    Les livres n'ont pas de colonne de statut : « il manque la version
+    anglaise » se lit directement (`description IS NOT NULL AND description_en
+    IS NULL`). C'est aussi ce qui rattrape l'existant — les lignes créées avant
+    la colonne partent toutes de NULL, et sans ce balayage un parent anglophone
+    lirait leur description en français jusqu'à ce qu'un admin pense à rouvrir
+    la fiche, c'est-à-dire en pratique jamais.
+
+    Les livres DÉSACTIVÉS sont exclus : ils ne s'affichent dans aucun portail.
+    """
+
+    async def _run() -> dict:
+        if not settings.translation_active:
+            # Cas nominal en dev et en test — on ne touche à rien.
+            return {"skipped": "translation_disabled"}
+
+        async with task_sessions() as Session:
+            async with Session() as db:
+                book_ids = (
+                    await db.execute(
+                        select(Book.id)
+                        .where(
+                            Book.is_active.is_(True),
+                            Book.description.is_not(None),
+                            Book.description_en.is_(None),
+                        )
+                        # Les plus anciens d'abord, comme pour le blog : avec
+                        # une limite par passage, servir les plus récents
+                        # ferait attendre indéfiniment une fiche coincée
+                        # derrière un flux de nouveautés.
+                        .order_by(Book.created_at.asc())
+                        .limit(limit)
+                    )
+                ).scalars().all()
+
+            translated = 0
+            for book_id in book_ids:
+                # Une transaction PAR livre : un échec ne doit pas annuler les
+                # traductions déjà obtenues ce passage-ci.
+                async with Session() as db:
+                    book = await db.get(Book, book_id)
+                    if book is None or not book.description:
+                        continue
+                    book.description_en = await library_service.translate_description(
+                        book.description, db
+                    )
+                    await db.commit()
+                    if book.description_en:
+                        translated += 1
+
+            return {"translated": translated, "pending": len(book_ids) - translated}
+
+    try:
+        return asyncio.run(_run())
+    except Exception:  # noqa: BLE001 — la tâche ne peut pas crasher le beat
+        logger.exception("Échec de la reprise des traductions de bibliothèque")
+        return {"translated": 0, "pending": 0, "error": "unexpected"}

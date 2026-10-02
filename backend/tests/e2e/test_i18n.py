@@ -10,6 +10,8 @@ milieu d'une interface anglaise — exactement ce que ce chantier cherche à
 rattrape.
 """
 
+import re
+
 import pytest
 
 from app.core.i18n import Locale, coerce_locale, resolve_accept_language, t
@@ -49,6 +51,36 @@ def test_placeholders_match_across_locales():
             sorted(fields.findall(en_value)),
             sorted(fields.findall(fr_value)),
         )
+
+
+def test_business_vocabulary_matches_one_to_one():
+    """« section » se dit section, « groupe » se dit group — des deux côtés.
+
+    Décision produit : correspondance 1:1 du vocabulaire métier. L'anglais a
+    longtemps fait un DOUBLE décalage (`section` rendu par « group », `groupe`
+    par « class ») ; la correction n'a d'abord porté que sur les catalogues du
+    frontend, et celui du backend est resté en arrière plusieurs jours. Rien ne
+    cassait : l'interface disait « section » et l'API répondait « group » pour
+    la même chose, visible seulement d'un lecteur anglophone attentif.
+
+    La parité des clés et des paramètres ne pouvait pas le voir — les deux
+    chaînes existaient et portaient les mêmes `{…}`. Seule la correspondance
+    terme à terme le révèle.
+    """
+    # « en classe » (le lieu) n'est pas l'entité « groupe » : seul le mot
+    # employé pour traduire `groupe`/`section` est contrôlé ici.
+    for key, fr_value in CATALOGS[Locale.FR].items():
+        en_value = CATALOGS[Locale.EN][key].lower()
+        fr_lower = fr_value.lower()
+
+        if re.search(r"\bgroupes?\b", fr_lower):
+            ck(f"'{key}' : groupe → group", "group" in en_value, True)
+            ck(f"'{key}' : jamais « class » pour groupe", "class" in en_value, False)
+
+        if re.search(r"\bsections?\b", fr_lower):
+            ck(f"'{key}' : section → section", "section" in en_value, True)
+            ck(f"'{key}' : jamais « group » pour section",
+               "group" in en_value and not re.search(r"\bgroupes?\b", fr_lower), False)
 
 
 # ── Résolution de la langue ─────────────────────────────────────

@@ -34,6 +34,7 @@ const makeFormSchema = (t: T) => z.object({
   title: z.string().trim().min(1, t('book.titleRequired')).max(200, t('book.max200')),
   author: z.string().trim().min(1, t('book.authorRequired')).max(200, t('book.max200')),
   description: z.string().max(1000, t('book.max1000')).optional(),
+  description_en: z.string().max(1000, t('book.max1000')).optional(),
   total_quantity: z
     .number({ error: t('book.number') })
     .int(t('book.integer'))
@@ -69,6 +70,7 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
         title: book?.title ?? '',
         author: book?.author ?? '',
         description: book?.description ?? '',
+        description_en: book?.description_en ?? '',
         total_quantity: book?.total_quantity ?? 1,
       })
       setSectionIds(book?.sections.map((s) => s.id) ?? [])
@@ -81,6 +83,9 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
         title: values.title,
         author: values.author,
         description: values.description || '',
+        // Vide = « régénère » : le backend retire la correction et repasse la
+        // description à la machine (même contrat que la relecture des menus).
+        description_en: values.description_en || '',
         total_quantity: values.total_quantity,
         section_ids: sectionIds,
       }
@@ -140,6 +145,21 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
               {...register('description')}
             />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
+          </div>
+
+          {/* La description est le seul texte du module qu'un parent lit : elle
+              est traduite automatiquement, et corrigeable ici à côté de sa
+              source — jamais à sa place (l'admin écrirait alors dans le vide). */}
+          <div className="space-y-1.5">
+            <Label htmlFor="book-description-en">{t('book.descriptionEn')}</Label>
+            <Textarea
+              id="book-description-en"
+              placeholder={t('book.descriptionEnPlaceholder')}
+              rows={3}
+              {...register('description_en')}
+            />
+            <p className="text-xs text-muted-foreground">{t('book.descriptionEnHint')}</p>
+            {errors.description_en && <p className="text-xs text-destructive">{errors.description_en.message}</p>}
           </div>
 
           <div className="space-y-1.5">

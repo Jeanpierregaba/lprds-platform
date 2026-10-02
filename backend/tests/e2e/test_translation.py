@@ -865,6 +865,134 @@ def test_translation_active_depends_on_the_chosen_engine(monkeypatch):
     ck("drapeau éteint → inactif quel que soit le moteur", settings.translation_active, False)
 
 
+# ── Bibliothèque ────────────────────────────────────────────────
+def _library_setup(c, adm, email="biblio-parent@a.fr", password="Parent2026"):
+    """Un parent, son enfant, et la section où le livre sera accessible."""
+    dep = c.post("/departments", json={"name": "Maternelle"}, headers=adm).json()
+    sec = c.post("/sections", json={"department_id": dep["id"], "name": "Soleil"},
+                 headers=adm).json()
+    child = c.post("/children", json={
+        "last_name": "Kponou", "first_names": "Eli", "birth_date": "2021-02-02",
+        "admission_date": "2026-09-01", "residence_address": "Cotonou",
+        "department_id": dep["id"], "section_id": sec["id"], "guardians": [],
+    }, headers=adm).json()
+    c.post("/parents", json={
+        "first_name": "Sika", "last_name": "Kponou", "nickname": "Maman Eli",
+        "phone": "+229", "email": email, "password": password,
+        "child_ids": [child["id"]],
+    }, headers=adm)
+    return sec["id"], login(c, email, password)
+
+
+def test_book_description_is_translated_for_the_parent(client, fake_translator):
+    """La description d'un livre est le dernier contenu saisi qu'un parent lisait
+    en français.
+
+    Titre et auteur restent intacts : ce sont des noms propres — traduire
+    « Le Petit Prince » serait une faute, pas un service.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    section_id, parent = _library_setup(c, adm)
+
+    book = c.post("/library/books", json={
+        "title": "Le Petit Prince",
+        "author": "Antoine de Saint-Exupéry",
+        "description": "Un conte sur l'amitié, lu dès 4 ans.",
+        "section_ids": [section_id],
+    }, headers=adm).json()
+    ck("anglais produit", book["description_en"],
+       "[EN] Un conte sur l'amitié, lu dès 4 ans.")
+    ck("vue de gestion : le français", book["description"],
+       "Un conte sur l'amitié, lu dès 4 ans.")
+
+    fr = c.get("/library/mine/books", headers=parent).json()["items"][0]
+    ck("[FR] parent francophone", fr["description"],
+       "Un conte sur l'amitié, lu dès 4 ans.")
+
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+    en = c.get("/library/mine/books", headers=parent).json()["items"][0]
+    ck("[EN] description", en["description"],
+       "[EN] Un conte sur l'amitié, lu dès 4 ans.")
+    ck("titre jamais traduit", en["title"], "Le Petit Prince")
+    ck("auteur jamais traduit", en["author"], "Antoine de Saint-Exupéry")
+    # Le portail sert la langue du lecteur ; exposer en plus la source
+    # anglaise n'y aurait aucun sens et inviterait à l'afficher deux fois.
+    ck("pas de doublon côté portail", en["description_en"], None)
+
+
+def test_book_correction_survives_until_the_french_changes(client, fake_translator):
+    """Même règle que les créneaux de menu : une correction vaut tant que sa
+    source ne bouge pas.
+
+    Il n'y a pas de statut `manual` ici — pour une description, la mémoire de
+    traduction et la comparaison du français suffisent.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    section_id, parent = _library_setup(c, adm)
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+
+    book = c.post("/library/books", json={
+        "title": "Contes du baobab", "author": "Collectif",
+        "description": "Trois contes du soir.",
+        "section_ids": [section_id],
+    }, headers=adm).json()
+
+    c.patch(f"/library/books/{book['id']}",
+            json={"description_en": "Three bedtime tales."}, headers=adm)
+    before = fake_translator.translated_count
+
+    # Un enregistrement qui ne touche PAS au français ne doit rien relancer.
+    c.patch(f"/library/books/{book['id']}",
+            json={"total_quantity": 4}, headers=adm)
+    ck("aucun appel au modèle", fake_translator.translated_count, before)
+    served = c.get("/library/mine/books", headers=parent).json()["items"][0]
+    ck("correction servie", served["description"], "Three bedtime tales.")
+
+    # Le français change : la correction portait sur l'ancien texte, l'afficher
+    # serait un contresens.
+    c.patch(f"/library/books/{book['id']}",
+            json={"description": "Cinq contes du soir."}, headers=adm)
+    served = c.get("/library/mine/books", headers=parent).json()["items"][0]
+    ck("retraduit sur le nouveau texte", served["description"],
+       "[EN] Cinq contes du soir.")
+
+
+def test_book_translation_failure_never_blocks_the_catalogue(client, fake_translator):
+    """Enregistrer un livre ne dépend pas d'un service de traduction."""
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    section_id, parent = _library_setup(c, adm)
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=parent)
+
+    fake_translator.fail = True
+    created = c.post("/library/books", json={
+        "title": "Imagier des animaux", "author": "Collectif",
+        "description": "Cinquante animaux à nommer.",
+        "section_ids": [section_id],
+    }, headers=adm)
+    ck("livre créé quand même", created.status_code, 201)
+    ck("pas d'anglais", created.json()["description_en"], None)
+
+    served = c.get("/library/mine/books", headers=parent).json()["items"][0]
+    ck("repli français", served["description"], "Cinquante animaux à nommer.")
+
+    # La reprise planifiée rattrape la fiche — y compris, en production, celles
+    # créées avant l'existence de la colonne.
+    fake_translator.fail = False
+    from app.modules.library import tasks as library_tasks
+
+    result = library_tasks.retry_missing_translations()
+    ck("une fiche reprise", result["translated"], 1)
+    served = c.get("/library/mine/books", headers=parent).json()["items"][0]
+    ck("anglais servi après reprise", served["description"],
+       "[EN] Cinquante animaux à nommer.")
+
+
 # ── Diffusions ──────────────────────────────────────────────────
 def _parent_with_child(c, adm, email="parent@a.fr", password="Parent2026"):
     """Parent rattaché à un enfant — destinataire d'une diffusion."""

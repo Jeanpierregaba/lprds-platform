@@ -301,8 +301,16 @@ async def get_or_404(
     )
     unit = result.scalar_one_or_none()
     if not unit:
-        label = {"departments": "Département", "sections": "Section",
-                 "groups": "Groupe"}.get(model.__tablename__, "Élément")
+        # Le nom de l'entité fait partie de la PHRASE affichée : le poser en
+        # français ici rendrait « Département not found… » à un parent anglophone.
+        # D'où un passage par le catalogue, et un repli explicite plutôt qu'une
+        # clé devinée depuis `__tablename__` (que `t()` renverrait telle quelle).
+        unit_keys = {
+            "departments": "organization.unit.departments",
+            "sections": "organization.unit.sections",
+            "groups": "organization.unit.groups",
+        }
+        label = t(unit_keys.get(model.__tablename__, "organization.unit.other"))
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=t("errors.organization.label_not_found", label=label),

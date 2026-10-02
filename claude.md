@@ -174,7 +174,7 @@ app/
 │   ├── library/
 │   │   ├── models.py              # Livres, prêts, paramètres bibliothèque
 │   │   ├── schemas.py / service.py / router.py / dependencies.py
-│   │   ├── tasks.py               # Relances des prêts en retard
+│   │   ├── tasks.py               # Relances des prêts en retard + reprise des traductions
 │   │   └── email.py + templates/  # Emails de rappel (best-effort)
 │   └── notifications/             # Push Web (PWA Phase 2) — cf. section dédiée
 │       ├── models.py              # PushSubscription
@@ -2409,6 +2409,23 @@ messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
   « groups and classes »). Les 71 entrées ont été réécrites à la main, puis
   l'absence de décalage résiduel vérifiée dans les deux sens, par comparaison
   automatique du français et de l'anglais clé par clé.
+  ⚠️ **Cette correction n'avait d'abord porté que sur les catalogues du
+  frontend** : `app/locales/en.py` est resté en arrière, si bien que
+  l'interface disait « section » là où l'API répondait « group » pour la même
+  chose (9 entrées). La parité des clés et des paramètres ne pouvait pas le
+  voir — les deux chaînes existaient et portaient les mêmes `{…}`. D'où
+  `test_i18n.py::test_business_vocabulary_matches_one_to_one`, qui contrôle la
+  correspondance TERME à terme : une entrée française parlant de « groupe »
+  doit dire « group » et jamais « class », et inversement pour « section ».
+  (« en classe », le lieu, n'est pas l'entité « groupe » : seul le mot employé
+  pour TRADUIRE `groupe`/`section` est contrôlé.)
+  ⚠️ **Ne jamais interpoler un nom d'entité écrit en dur dans un message
+  traduit.** `organization/service.py` composait son 404 avec
+  `{"departments": "Département", …}`, donc « Département not found in this
+  establishment » pour un lecteur anglophone. Les quatre libellés
+  (`organization.unit.*`) sont au catalogue, avec un repli explicite plutôt
+  qu'une clé devinée depuis `__tablename__` — `t()` renverrait la clé telle
+  quelle.
   Les noms de sections restent en français (Étoile, Nuage, Soleil,
   Petite/Moyenne/Grande Section) : ce sont des noms propres. `crèche` →
   `nursery`, `garderie` → `after-school care`, `maternelle` → `preschool`.
@@ -2661,6 +2678,27 @@ renvoyer l'anglais lui ferait écraser la source au premier enregistrement.
 Pas de colonne de statut : la règle est celle des créneaux de menu — une
 correction vaut tant que le texte français ne bouge pas.
 
+**Bibliothèque** : `books.description_en` (migration `c4a1f0d93e77`). C'était
+le dernier contenu saisi qu'un parent anglophone recevait en français — la
+description s'affiche telle quelle dans son portail.
+
+- **Titre et auteur ne sont jamais traduits** : ce sont des noms propres.
+  Rendre « Le Petit Prince » par « The Little Prince » renverrait le parent
+  vers un livre que l'établissement n'a pas en rayon.
+- **Pas de colonne de statut**, comme pour les diffusions : une correction vaut
+  tant que le texte français ne bouge pas. Une `description_en` **vidée**
+  explicitement signifie « régénère » — même contrat que l'écran de relecture
+  des menus, et c'est ce qui évite qu'un formulaire postant toujours son champ
+  ne grave une chaîne vide dans la mémoire de traduction.
+- La vue de **gestion** garde le français et expose `description_en` à côté ;
+  les portails **parent et éducateur** reçoivent `description` déjà dans la
+  langue du lecteur, et `description_en` à `null` (l'afficher deux fois n'aurait
+  aucun sens).
+- `library/tasks.py` balaie les fiches actives à description française sans
+  anglais — ce qui rattrape aussi **l'existant**, les lignes antérieures à la
+  colonne. Sans ce balayage, un parent anglophone les lirait en français jusqu'à
+  ce qu'un admin rouvre la fiche, c'est-à-dire en pratique jamais.
+
 ⚠️ **Les conversations privées ne sont PAS traduites** — décision explicite.
 Traduire un échange en direct changerait la nature de la fonctionnalité :
 l'admin verrait-il en français le message anglais du parent ? C'est le seul
@@ -2688,7 +2726,8 @@ n'a pas bougé sont **conservées** ; celles dont le français a changé sont
   ce qui a été SERVI ; une traduction ne dit rien de plus sur le repas. L'interdire
   rendrait incorrigible une erreur repérée le vendredi.
 
-**Reprise planifiée** (`blog/tasks.py`, `menus/tasks.py`, beat horaire) : la
+**Reprise planifiée** (`blog/tasks.py`, `menus/tasks.py`, `reports/tasks.py`,
+`library/tasks.py`, beat horaire) : la
 traduction étant best-effort, un incident passager laissait derrière lui du
 contenu que plus personne ne reprenait — le bouton « Retraduire » suppose que
 quelqu'un revienne voir l'article. Les deux tâches balaient ce qui est resté
@@ -3078,8 +3117,9 @@ tests/
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
     ├── test_i18n.py                     # catalogues symétriques, précédence users.locale,
-    │                                    #   vocabulaire traduit, libellé de période, exports bilingues
-    ├── test_translation.py              # blog/menus/rapports/diffusions traduits,
+    │                                    #   vocabulaire traduit, correspondance 1:1 section/groupe,
+    │                                    #   libellé de période, exports bilingues
+    ├── test_translation.py              # blog/menus/rapports/diffusions/descriptions de livres traduits,
     │                                    #   correction `manual` jamais écrasée,
     │                                    #   contrat du moteur LibreTranslate (sans réseau),
     │                                    #   repli sur échec, mémoire de traduction (faux traducteur),

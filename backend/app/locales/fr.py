@@ -215,6 +215,10 @@ MESSAGES: dict[str, str] = {
         "Seul un membre du personnel de type « educateur » peut mener un groupe"
     ),
     "errors.organization.label_not_found": "{label} introuvable dans cet établissement",
+    "organization.unit.departments": "Département",
+    "organization.unit.sections": "Section",
+    "organization.unit.groups": "Groupe",
+    "organization.unit.other": "Élément",
     "errors.organization.educatrice_not_found": "Éducatrice introuvable dans cet établissement",
     # ── parents ───────────────────────────────────────────
     "errors.parents.children_not_found": (

@@ -47,4 +47,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.modules.reports.tasks.retry_missing_translations",
         "schedule": 60.0 * 60,
     },
+    "library-retry-translations-hourly": {
+        "task": "app.modules.library.tasks.retry_missing_translations",
+        "schedule": 60.0 * 60,
+    },
 }

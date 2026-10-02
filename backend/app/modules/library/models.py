@@ -82,6 +82,10 @@ class Book(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     author: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # Le seul texte libre du module qu'un PARENT lit. Titre et auteur sont des
+    # noms propres (on ne traduit pas « Le Petit Prince ») ; la description,
+    # elle, est rédigée par l'établissement — même famille que les diffusions.
+    description_en: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     total_quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

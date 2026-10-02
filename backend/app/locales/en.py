@@ -127,7 +127,7 @@ MESSAGES: dict[str, str] = {
     "errors.library.already_deactivated": "This book is already deactivated",
     "errors.library.book_deactivated": "This book is deactivated: a loan cannot be recorded",
     "errors.library.already_returned": "This loan has already been returned",
-    "errors.library.unknown_sections": "Some groups do not exist in this establishment",
+    "errors.library.unknown_sections": "Some sections do not exist in this establishment",
     "errors.library.active_lendings": "A book with active loans cannot be deactivated",
     "errors.library.borrow_date_future": "The loan date cannot be in the future",
     "errors.library.due_before_borrow": "The due date is before the loan date",
@@ -174,26 +174,30 @@ MESSAGES: dict[str, str] = {
     "errors.notifications.no_vapid_key": "VAPID key not configured",
     "errors.notifications.no_vapid_keys": "VAPID keys not configured — push cannot be sent",
     # ── organization ──────────────────────────────────────
-    "errors.organization.child_not_in_group": "This child does not belong to this class",
+    "errors.organization.child_not_in_group": "This child does not belong to this group",
     "errors.organization.educatrice_busy": (
-        "This educator already leads a class in this group. An educator can lead only one class per group"
+        "This educator already leads a group in this section. An educator can lead only one group per section"
     ),
     "errors.organization.child_not_found": "Child not found in this establishment",
     "errors.organization.children_not_found": "Child(ren) not found: {ids}",
     "errors.organization.child_wrong_section": (
-        "The child must belong to the same group as the class. Only children from that group can be assigned to it"
+        "The child must belong to the same section as the group. Only children from that section can be assigned to it"
     ),
     "errors.organization.section_exists": (
-        "The group “{name}” already exists in this department"
+        "The section “{name}” already exists in this department"
     ),
     "errors.organization.department_exists": (
         "The department “{name}” already exists in this establishment"
     ),
-    "errors.organization.group_exists": "The class “{name}” already exists in this group",
+    "errors.organization.group_exists": "The group “{name}” already exists in this section",
     "errors.organization.educator_type_required": (
-        "Only a staff member of type “educateur” can lead a class"
+        "Only a staff member of type “educateur” can lead a group"
     ),
     "errors.organization.label_not_found": "{label} not found in this establishment",
+    "organization.unit.departments": "Department",
+    "organization.unit.sections": "Section",
+    "organization.unit.groups": "Group",
+    "organization.unit.other": "Item",
     "errors.organization.educatrice_not_found": "Educator not found in this establishment",
     # ── parents ───────────────────────────────────────────
     "errors.parents.children_not_found": "Child(ren) not found in this establishment: {ids}",
@@ -205,7 +209,7 @@ MESSAGES: dict[str, str] = {
     "errors.rbac.role_not_found": "Role not found",
     "errors.rbac.role_exists": "A role “{name}” already exists in this establishment",
     # ── reports ───────────────────────────────────────────
-    "errors.reports.child_no_group": "This child is not assigned to any class",
+    "errors.reports.child_no_group": "This child is not assigned to any group",
     "errors.reports.invalid_content": "Invalid content for a {report_type} report: {messages}",
     "errors.reports.file_too_large": "File too large (max {max_mb} MB)",
     "errors.reports.child_no_department": (
@@ -231,7 +235,7 @@ MESSAGES: dict[str, str] = {
     "errors.reports.period_exists": "A {report_type} report already exists for this period",
     "errors.reports.cannot_edit": "You are not allowed to change this report",
     "errors.reports.own_group_only": (
-        "You can only fill in reports for children in your own class"
+        "You can only fill in reports for children in your own group"
     ),
     "errors.common.unknown_type": "unknown",
     "errors.messaging.bad_file_type": (

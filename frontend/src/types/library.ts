@@ -9,6 +9,13 @@ export interface Book {
   title:              string
   author:             string
   description:        string | null
+  /**
+   * Version anglaise de la description — `null` sur les portails parent et
+   * éducateur, qui reçoivent `description` DÉJÀ dans la langue du lecteur.
+   * N'a de sens que sur l'écran de gestion, pour corriger l'anglais à côté du
+   * français sans les confondre.
+   */
+  description_en:     string | null
   total_quantity:     number
   available_quantity: number
   is_active:          boolean
@@ -25,8 +32,9 @@ export interface BookListResponse {
 export interface BookCreatePayload {
   title:          string
   author:         string
-  description?:   string | null
-  total_quantity: number
+  description?:    string | null
+  description_en?: string | null
+  total_quantity:  number
   section_ids:    string[]
 }
 
@@ -34,6 +42,7 @@ export interface BookUpdatePayload {
   title?:          string
   author?:         string
   description?:    string | null
+  description_en?: string | null
   total_quantity?: number
   section_ids?:    string[]
   is_active?:      boolean

@@ -302,6 +302,26 @@ La plateforme est installable comme une application native (mobile/desktop) :
   ⚠️ **`CACHE_VERSION`** en tête de `sw.js` : l'incrémenter à chaque
   changement de stratégie/des assets pré-cachés, sinon les clients gardent le
   worker précédent.
+- **Tapotement sur une notification** (`notificationclick`) : deux défauts
+  cumulés, et aucun ne se voyait.
+  1. La **destination était ignorée** — on ouvrait toujours `/`. Un parent qui
+     tapotait « rapport validé » arrivait sur son accueil et devait retrouver le
+     rapport à la main, un clic perdu à chaque notification. Le backend joint
+     désormais `data.url`, pris dans `app/core/links.py` : la destination dépend
+     du DESTINATAIRE (l'admin et le parent n'ont pas le même écran de
+     messagerie), donc elle est choisie au point d'envoi.
+  2. La recherche d'un onglet déjà ouvert testait `client.url.startsWith('/')` —
+     or `client.url` est une URL **absolue**. Le test était donc toujours faux,
+     la branche « ramener l'onglet au premier plan » ne s'exécutait jamais, et
+     une fenêtre neuve s'ouvrait à chaque fois. (`client.closed` n'existe pas
+     davantage sur un `WindowClient`.) On compare les ORIGINES, et on fait
+     **naviguer** l'onglet retrouvé : le ramener au premier plan ne suffit pas,
+     il peut être sur une tout autre page que celle qu'annonce la notification.
+  - L'URL est résolue contre notre propre origine et refusée si elle en sort :
+    le contenu d'un push ne doit jamais pouvoir ouvrir un site tiers.
+  - Vérifié en rejouant le vrai `sw.js` hors navigateur, sur quatre cas (aucun
+    onglet, onglet ailleurs, push sans destination, destination hors domaine) —
+    l'ancienne version ouvrait `/` dans les quatre.
 - **`PwaProvider`** (`src/components/pwa/pwa-provider.tsx`, monté dans le root
   layout) : enregistre `/sw.js` (avec `registration.update()`), capture
   `beforeinstallprompt` → bouton flottant « Installer l'application »
@@ -3729,6 +3749,11 @@ Nouveau module créé avec :
 ### Événements push notifiés
 - **Messagerie** : nouvel message (title/body avec noms), diffusion admin→parent
 - **Rapports** : rapport validé (title/body avec nom de l'enfant, période)
+
+Chaque envoi joint une **destination** (`data.url`) prise dans
+`app/core/links.py` — et elle dépend du destinataire : un message poussé à
+l'admin mène à `/dashboard/admin/messaging`, le même poussé au parent à
+`/dashboard/parent/messaging`. Sans elle, le service worker ouvrait l'accueil.
 
 ### Sécurité
 - Les clés VAPID privées ne sont JAMAIS exposées au frontend (seule la clé publique l'est)

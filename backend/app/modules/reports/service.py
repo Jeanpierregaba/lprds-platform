@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import media, storage
+from app.core import links, media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
@@ -745,7 +745,8 @@ async def _send_report_push_notifications(report: Report, db) -> int:
                 t("push.report.title", locale),
                 t("push.report.body", locale,
                   period=_label_of(report, locale), child=child.first_names),
-                {"report_id": str(report.id), "child_id": str(child.id)},
+                {"report_id": str(report.id), "child_id": str(child.id),
+                 "url": links.PARENT_REPORTS},
             )
             if success:
                 sent += 1

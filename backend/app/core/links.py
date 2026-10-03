@@ -17,6 +17,11 @@ D'où ce module : les chemins sont nommés une fois, et
 `tests/e2e/test_email_links.py` vérifie que chacun correspond à une route qui
 existe vraiment dans le frontend.
 
+Les **notifications push** y puisent aussi : elles n'emportaient aucune
+destination, et le service worker ouvrait donc toujours l'accueil. Un parent
+qui tapotait « rapport validé » arrivait sur sa page d'accueil et devait
+retrouver le rapport à la main — un clic perdu à chaque notification.
+
 ⚠️ **Pas de préfixe de langue dans ces liens**, et c'est volontaire. Avec
 `localePrefix: 'as-needed'`, le français n'en porte pas ; un destinataire dont
 le compte est en anglais est redirigé vers `/en/...` par le middleware, qui lit
@@ -32,9 +37,14 @@ NEW_PASSWORD = "/auth/new-password"
 PARENT_REPORTS = "/dashboard/parent/reports"
 PARENT_MESSAGING = "/dashboard/parent/messaging"
 PARENT_LIBRARY = "/dashboard/parent/library"
+ADMIN_MESSAGING = "/dashboard/admin/messaging"
 
 #: Tous les chemins ci-dessus — la liste que la garde parcourt.
-ALL_PATHS = (LOGIN, NEW_PASSWORD, PARENT_REPORTS, PARENT_MESSAGING, PARENT_LIBRARY)
+ALL_PATHS = (
+    LOGIN, NEW_PASSWORD,
+    PARENT_REPORTS, PARENT_MESSAGING, PARENT_LIBRARY,
+    ADMIN_MESSAGING,
+)
 
 
 def url(path: str, **query: str) -> str:

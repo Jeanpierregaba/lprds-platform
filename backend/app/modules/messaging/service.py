@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import media, storage
+from app.core import links, media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
@@ -151,8 +151,11 @@ async def create_announcement(
         "push.announcement.title",
         None,
         db,
+        # `url` : où le tapotement doit mener. Sans elle, le service worker
+        # ouvre l'accueil et le destinataire doit retrouver l'information.
         {"type": "announcement", "announcement_id": str(announcement.id),
-         "department_ids": [str(d) for d in department_ids]},
+         "department_ids": [str(d) for d in department_ids],
+         "url": links.PARENT_MESSAGING},
         parent_ids=audience,
         # Le titre part dans la langue de CHAQUE parent : une diffusion touche
         # tout l'établissement, et la notification est souvent la seule chose
@@ -560,7 +563,8 @@ async def send_message(
             "push.message_from_school.title",
             preview,
             db,
-            {"type": "message", "conversation_id": str(conversation.id)},
+            {"type": "message", "conversation_id": str(conversation.id),
+             "url": links.PARENT_MESSAGING},
             parent_ids={conversation.parent_id},
         )
     else:
@@ -569,7 +573,9 @@ async def send_message(
             "push.message.title",
             None,
             db,
-            {"type": "message", "conversation_id": str(conversation.id)},
+            # Destination côté ADMIN : ce n'est pas le même écran que le parent.
+            {"type": "message", "conversation_id": str(conversation.id),
+             "url": links.ADMIN_MESSAGING},
             body_key="push.message.body",
             body_params={"sender": sender_label},
         )

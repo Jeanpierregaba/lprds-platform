@@ -13,8 +13,31 @@
  * pré-cachés, sinon les clients gardent l'ancienne version de ce worker.
  */
 
-const CACHE_VERSION = '2026.12'
+const CACHE_VERSION = '2026.13'
 const SHELL = 'lprds-shell@' + CACHE_VERSION
+
+/* ⚠️ L'ESPACE CONNECTÉ N'EST JAMAIS MIS EN CACHE.
+ *
+ * Le commentaire d'en-tête annonçait « /api/* : jamais caché (données
+ * authentifiées, sensibles RGPD) » — le principe était juste, l'application
+ * incomplète. Seuls les APPELS d'API étaient épargnés : le HTML des pages du
+ * tableau de bord passait par le gestionnaire de navigation, et leurs charges
+ * RSC (`?_rsc=`, qui portent des données rendues côté serveur) tombaient dans
+ * le filet final. Le dossier d'un enfant restait donc sur le disque, lisible
+ * hors ligne, et survivait à la déconnexion — rien ne purge les caches à ce
+ * moment-là. Sur un appareil partagé, c'est exactement ce qu'on ne veut pas.
+ *
+ * La règle reflète `PRIVATE_PREFIX` du middleware (`src/middleware.ts`) : les
+ * deux doivent dire la même chose. Conséquence assumée : une page de
+ * l'espace connecté demandée hors ligne retombe sur /offline au lieu d'un
+ * écran périmé — pour des données d'enfants, c'est la bonne réponse.
+ */
+function isPrivate(pathname) {
+  return pathname === '/dashboard'
+    || pathname.startsWith('/dashboard/')
+    || pathname === '/en/dashboard'
+    || pathname.startsWith('/en/dashboard/')
+}
 
 const PRECACHE_URLS = [
   '/',
@@ -167,6 +190,17 @@ self.addEventListener('fetch', (event) => {
   // Sonde de version (auto-update PWA) : toujours le réseau, jamais le cache —
   // sinon le sondage périodique lirait une version périmée via stale-while-revalidate.
   if (url.pathname === '/version.json') return
+
+  // Espace connecté : ni mis en cache, ni servi depuis le cache. Une
+  // navigation hors ligne y retombera sur /offline par le gestionnaire
+  // ci-dessous ; une charge RSC échouera, ce qui est le comportement juste.
+  if (isPrivate(url.pathname)) {
+    if (request.mode === 'navigate') {
+      const offlinePage = url.pathname.startsWith('/en/') ? '/en/offline' : '/offline'
+      event.respondWith(fetch(request).catch(() => caches.match(offlinePage)))
+    }
+    return
+  }
 
   // Navigation (pages) : network-first, repli HTML -> /offline.
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {

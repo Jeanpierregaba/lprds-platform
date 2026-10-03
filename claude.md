@@ -299,9 +299,39 @@ La plateforme est installable comme une application native (mobile/desktop) :
   | `/_next/static/*` | stale-while-revalidate (chunks hashed) |
   | `/icons`, `/images` | cache-first |
   | `/api/*` | **jamais caché** (données authentifiées, sensibles RGPD) |
+  | `/dashboard/*` (et `/en/dashboard/*`) | **jamais caché**, ni servi du cache |
   ⚠️ **`CACHE_VERSION`** en tête de `sw.js` : l'incrémenter à chaque
   changement de stratégie/des assets pré-cachés, sinon les clients gardent le
   worker précédent.
+
+  ⚠️ **L'espace connecté n'est jamais mis en cache.** Le principe « données
+  authentifiées jamais cachées » était écrit mais n'était appliqué qu'aux
+  APPELS d'API : le HTML des pages du tableau de bord passait par le
+  gestionnaire de navigation, et leurs charges **RSC** (`?_rsc=`, qui portent
+  des données rendues côté serveur) tombaient dans le filet final
+  `staleWhileRevalidate`. Le dossier d'un enfant restait donc sur le disque,
+  lisible hors ligne, et **survivait à la déconnexion** — rien ne purge les
+  caches à ce moment-là. Sur un appareil partagé, c'est exactement ce qu'on ne
+  veut pas, et pour des données d'enfants la question est réglementaire.
+  `isPrivate()` dans `sw.js` reflète `PRIVATE_PREFIX` du middleware : **les
+  deux doivent dire la même chose**. Conséquence assumée : une page de l'espace
+  connecté demandée hors ligne retombe sur `/offline` plutôt que d'afficher un
+  écran périmé.
+
+  ⚠️ **`/offline` échappe à la détection de langue** (middleware). Le worker
+  précache les deux versions pour que chacun retrouve la sienne sans réseau —
+  mais sur un appareil anglophone, `/offline` était redirigé vers `/en/offline`
+  PENDANT le précache : le contenu anglais se retrouvait stocké sous la clé
+  française, et un utilisateur repassé en français lisait une page hors-ligne
+  anglaise. La langue de cette page suit donc son URL, jamais le navigateur —
+  c'est le worker qui choisit la bonne clé au moment de servir. Vérifié dans un
+  vrai navigateur : `/offline` contient `lang="fr"`, `/en/offline` `lang="en"`.
+
+  ⚠️ **Restera vrai** : la page d'ACCUEIL précachée (`/`) suit, elle, la langue
+  de l'appareil — on ne peut pas l'exempter sans désactiver la détection
+  elle-même. Hors ligne, un francophone sur un appareil anglophone verra donc
+  l'accueil en anglais. Repli acceptable, et sans équivalent côté `/offline`,
+  qui est la page que le worker sert vraiment.
 - **Tapotement sur une notification** (`notificationclick`) : deux défauts
   cumulés, et aucun ne se voyait.
   1. La **destination était ignorée** — on ouvrait toujours `/`. Un parent qui

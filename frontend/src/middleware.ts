@@ -155,7 +155,18 @@ export function middleware(request: NextRequest) {
   // et qui arrive sur une URL sans préfixe est envoyé vers sa version anglaise.
   // `next-intl` ne peut pas s'en charger : son repli natif ramènerait au
   // français toute langue qu'il ne reconnaît pas (cf. src/i18n/detect.ts).
-  if (!prefixed && locale !== DEFAULT_LOCALE) {
+  // ⚠️ La page hors-ligne échappe à la détection de langue.
+  //
+  // Le service worker PRÉCACHE les deux versions (`/offline` et `/en/offline`)
+  // pour que chacun retrouve la sienne sans réseau. Mais sur un appareil
+  // anglophone, `/offline` était redirigé vers `/en/offline` pendant le
+  // précache : le contenu ANGLAIS se retrouvait stocké sous la clé FRANÇAISE,
+  // et un utilisateur repassé en français lisait une page hors-ligne anglaise.
+  // La langue de cette page doit donc suivre son URL, jamais le navigateur —
+  // c'est le worker qui choisit la bonne clé au moment de servir.
+  const isOfflinePage = bare === '/offline'
+
+  if (!prefixed && locale !== DEFAULT_LOCALE && !isOfflinePage) {
     const url = request.nextUrl.clone()
     url.pathname = localized(pathname, locale)
     return NextResponse.redirect(url)

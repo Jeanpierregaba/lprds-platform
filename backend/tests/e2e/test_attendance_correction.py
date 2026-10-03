@@ -233,10 +233,16 @@ def test_absence_inquiry_individual_relaunch(client):
     ck("Anti-doublon contourné (pas de already_notified)",
        r.json()["already_notified"], [])
 
-    # Enfant présent (scan d'arrivée) → 422.
-    qr = c.get(f"/attendance/qrcode/child/{child1['id']}", headers=adm).json()
-    c.post("/attendance/scan", json={
-        "qr_payload": qr["qr_payload"], "event_type": "arrival"}, headers=adm)
+    # Enfant présent → 422.
+    #
+    # ⚠️ Arrivée SAISIE sur `day_iso`, pas un scan. Le scan enregistre l'heure
+    # courante : un week-end, `day_iso` a reculé au vendredi pendant que le scan
+    # tombait le samedi, donc l'enfant restait absent le jour interrogé et la
+    # relance repassait en 200. Le test ne passait que du lundi au vendredi —
+    # il a tenu jusqu'au premier samedi d'exécution de la suite.
+    c.post("/attendance/events/manual", json={
+        "person_type": "child", "child_id": child1["id"],
+        "event_type": "arrival", "date": day_iso, "time": "08:00"}, headers=adm)
     ck("Enfant présent → 422", c.post(
         f"/attendance/absent-notifications?date={day_iso}&child_id={child1['id']}",
         headers=adm).status_code, 422)

@@ -9,7 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core import storage
+from app.core import media, storage
 from app.core.config import settings
 from app.core.i18n import current_locale, t
 from app.modules.auth.models import User
@@ -503,38 +503,33 @@ async def _store_document(
     file: UploadFile,
     db: AsyncSession,
 ) -> ChildAttachmentResponse:
-    content_bytes = await file.read()
-    max_bytes = settings.children_max_attachment_mb * 1024 * 1024
-    if len(content_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=t("errors.blog.file_too_large", max_mb=settings.children_max_attachment_mb),
-        )
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.common.empty_file"),
-        )
+    # ⚠️ Ce chemin était le plus strict des quatre : une LISTE BLANCHE de MIME
+    # exacts, sans même le sur-ensemble `image/*` des autres modules. Une photo
+    # d'iPhone était donc refusée MÊME correctement nommée `image/heic`, et un
+    # scan TIFF aussi — alors qu'un document d'inscription est très
+    # majoritairement une pièce d'identité photographiée au téléphone.
+    #
+    # `min_image_long_side` : un document doit rester LISIBLE. Ailleurs, une
+    # photo réduite reste utile ; ici, une pièce d'identité illisible ne se
+    # découvre qu'au moment où on en a besoin. Sous ce plancher, on refuse en
+    # expliquant plutôt que de stocker un document inexploitable.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.children_max_attachment_mb,
+        max_video_mb=settings.children_max_attachment_mb,
+        allow_video=False,
+        allow_pdf=True,
+        min_image_long_side=1600,
+    )
 
-    content_type = file.content_type or ""
-    if content_type not in settings.children_allowed_attachment_types_set:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t(
-                "errors.children.bad_file_type",
-                content_type=content_type or 'inconnu',
-                allowed=', '.join(sorted(settings.children_allowed_attachment_types_set)),
-            ),
-        )
-
-    filename = file.filename or "document"
-    storage_key = await storage.save_file("children", filename, content_bytes)
+    storage_key = await storage.save_file("children", accepted.filename, accepted.content)
     attachment = ChildAttachment(
         child_id=child_id,
         uploaded_by_id=current_user.id,
-        filename=filename,
-        content_type=content_type,
-        size_bytes=len(content_bytes),
+        filename=accepted.filename,
+        content_type=accepted.content_type,
+        size_bytes=len(accepted.content),
         storage_key=storage_key,
     )
     db.add(attachment)

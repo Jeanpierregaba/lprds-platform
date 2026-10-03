@@ -262,6 +262,7 @@ src/
 │   ├── stores/
 │   │   └── auth.store.ts          # Store Zustand (session + tokens)
 │   └── utils/
+│       ├── uploads.ts             # Pré-sélection : ne refuser que le sûr
 │       ├── api-error.ts           # getApiErrorMessage() — lit le cookie de langue
 │       ├── locale-format.ts       # intlLocale() (fr→fr-FR, en→en-GB), intlLocaleFor()
 │       └── cn.ts                  # Utilitaire Tailwind merge
@@ -1603,18 +1604,14 @@ foulée, façon WhatsApp.
   est dans le périmètre (404 sinon). **Jamais de fichier servi en statique**
   (pas de `StaticFiles` mount) — un accès direct au chemin de stockage ne
   suffirait à rien voir, toute lecture passe par cette vérification.
-- **Validation** : taille max (`MESSAGING_MAX_ATTACHMENT_MB`, défaut 10 Mo,
-  413 sinon — **sauf la vidéo** : `MESSAGING_MAX_VIDEO_MB`, défaut 50 Mo, car
-  10 Mo rendrait tout envoi vidéo impossible) et type MIME — la liste blanche
-  (`MESSAGING_ALLOWED_ATTACHMENT_TYPES`, défaut images + PDF, 422 sinon) est
-  complétée par un sur-ensemble : **tout MIME `image/*` est accepté** (sauf
-  `image/svg+xml`) partout, et **tout MIME `video/*` est accepté dans les
-  conversations privées ET les diffusions** (`_validate_upload(allow_video=True)`,
-  plafond vidéo dédié) —
-  le `content_type` déclaré par le client n'est **pas** vérifié par analyse du
-  contenu (pas de sniffing des octets magiques) : simplification assumée,
-  acceptable pour ce périmètre mais pas une garantie de sécurité forte contre
-  un client qui mentirait délibérément sur le type.
+- **Validation** : entièrement déléguée à `app/core/media.py` (cf. §
+  « Téléversement de médias »). Le TYPE est lu dans les octets — plus de liste
+  blanche de MIME — et une image trop lourde est **recompressée** au lieu
+  d'être refusée. Plafonds : `MESSAGING_MAX_ATTACHMENT_MB` (10 Mo) et
+  `MESSAGING_MAX_VIDEO_MB` (50 Mo, car 10 Mo rendrait tout envoi vidéo
+  impossible — et une vidéo n'est pas transcodée, donc son dépassement reste
+  un refus). Images, vidéos et PDF sont admis dans les conversations privées
+  comme dans les diffusions ; le SVG est refusé partout (XSS).
 - **Poussé en temps réel** comme un message : `{"type": "attachment", conversation_id, message_id, ...}`
   sur les mêmes canaux (`messaging:conv:{id}` + `messaging:estab:{id}:admin`),
   ou `{"type": "announcement_attachment", ...}` sur le canal diffusions pour
@@ -1622,8 +1619,9 @@ foulée, façon WhatsApp.
 
 ### Limites connues (hors périmètre de cette version)
 - Pas de limitation de débit sur l'envoi de messages/fichiers.
-- Pas de vérification du contenu réel des fichiers (seulement taille + type
-  MIME déclaré).
+- Les **vidéos ne sont pas transcodées** : au-delà du plafond, c'est un refus
+  (cf. § « Téléversement de médias »). Le type, lui, est bien vérifié dans le
+  contenu depuis que `app/core/media.py` existe.
 - Un seul backend de stockage (local) — `S3`/objet distant non implémenté
   malgré le paramètre `storage_backend` qui l'anticipe.
 
@@ -1741,13 +1739,10 @@ Table dédiée `report_attachments` (pas de polymorphisme avec les pièces
 jointes de la messagerie — modules indépendants, pas de FK croisée) :
 - Upload en **deux temps**, comme la messagerie : le rapport existe déjà
   (JSON), le fichier s'ajoute après via `multipart/form-data`.
-- Limites **propres au module** (`MESSAGING_*` ne s'applique pas ici) :
-  `REPORTS_MAX_ATTACHMENT_MB` (défaut 50 Mo — plus haut que la messagerie car
-  la vidéo est acceptée) et `REPORTS_ALLOWED_ATTACHMENT_TYPES`. **Tout MIME
-  `image/*` ou `video/*` est accepté** (le plafond + la liste configurée
-  restent en vigueur en sur-ensemble) — l'utilisateur a demandé le support de
-  **tous** les formats image/vidéo. Seul `image/svg+xml` est rejeté (422,
-  risque XSS).
+- Limite **propre au module** : `REPORTS_MAX_ATTACHMENT_MB` (défaut 50 Mo —
+  plus haut que la messagerie car la vidéo est acceptée). Le TYPE est lu dans
+  les octets par `app/core/media.py` (cf. § « Téléversement de médias ») : pas
+  de liste blanche, une image trop lourde est recompressée, le SVG est refusé.
 - **Téléchargement authentifié uniquement**, jamais de fichier servi en
   statique — même principe que la messagerie. Côté parent
   (`GET /reports/mine/{id}/attachments/{id}`), les pièces jointes ne sont
@@ -2227,9 +2222,9 @@ une, médias) avant d'être rendu public via `POST /articles/{id}/publish`.
 - **Médias (galerie)** : table dédiée `article_attachments` (même pattern que
   `ReportAttachment`/messaging `Attachment` — pas de polymorphisme entre
   modules), liste illimitée d'images/vidéos, upload/suppression indépendants
-  de l'article. `BLOG_MAX_ATTACHMENT_MB` (défaut 50 Mo) et
-  `BLOG_ALLOWED_ATTACHMENT_TYPES`. Idem rapports : **tout MIME `image/*` ou
-  `video/*` est accepté**, seul `image/svg+xml` est rejeté.
+  de l'article. `BLOG_MAX_ATTACHMENT_MB` (défaut 50 Mo). Idem rapports : le
+  type est lu dans les octets, pas de liste blanche, et seul le SVG est rejeté
+  (cf. § « Téléversement de médias »).
 
 ### Suppression : soft delete explicite (demande utilisateur)
 
@@ -2962,22 +2957,17 @@ MAIL_SSL_TLS=false
 MAIL_SUPPRESS_SEND=false
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
-# Pièces jointes messagerie (défauts si absent : 10 Mo, 50 Mo vidéo) — tout
-# MIME image/* est accepté en plus de la liste (sauf image/svg+xml) ; tout
-# MIME video/* est accepté UNIQUEMENT dans les conversations privées (les
-# diffusions restent images + PDF), avec son propre plafond vidéo.
+# Pièces jointes — le TYPE est lu dans le contenu du fichier, jamais dans ce
+# que le navigateur en dit : plus aucune liste blanche à tenir (les anciennes
+# *_ALLOWED_ATTACHMENT_TYPES sont ignorées, elles peuvent être effacées).
+# Une IMAGE au-dessus du plafond est recompressée ; une VIDÉO est refusée.
 MESSAGING_MAX_ATTACHMENT_MB=10
 MESSAGING_MAX_VIDEO_MB=50
-MESSAGING_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf
-# Pièces jointes rapports (défauts si absent : 50 Mo) — tout MIME image/* ou
-# video/* est accepté en plus de la liste (sauf image/svg+xml)
 REPORTS_MAX_ATTACHMENT_MB=50
-REPORTS_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
-# Pièces jointes blog (défauts si absent : 50 Mo) — même sur-ensemble image/*
-# ou video/* sauf image/svg+xml. L'image à la une est en plus filtrée aux
-# seuls types "image/*" (cf. blog/service.py)
 BLOG_MAX_ATTACHMENT_MB=50
-BLOG_ALLOWED_ATTACHMENT_TYPES=image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm
+# Dossier d'inscription enfant — images + PDF, jamais de vidéo. La compression
+# ne descend pas sous 1600 px : une pièce d'identité doit rester lisible.
+CHILDREN_MAX_ATTACHMENT_MB=10
 # Notifications push Web (PWA Phase 2) — clés VAPID (privée JAMAIS exposée au frontend)
 VAPID_PRIVATE_KEY=<vapid privée>
 VAPID_PUBLIC_KEY=<vapid publique>
@@ -3235,7 +3225,8 @@ tests/
     │                                    #   par un admin renvoie bien « validated »
     ├── test_media_uploads.py            # même photo acceptée quel que soit le MIME
     │                                    #   annoncé, image recompressée, fichier
-    │                                    #   déguisé refusé — rapports/messagerie/blog
+    │                                    #   déguisé refusé — les QUATRE modules,
+    │                                    #   + plancher de lisibilité des documents
     ├── test_gallery.py                  # agrégation rapports/messagerie, filtres RBAC
     ├── test_menus.py                    # lecture ouverte vs historique restreint
     ├── test_blog.py                     # workflow publication, soft delete, accès PUBLIC
@@ -3330,9 +3321,10 @@ Réglages du worker, et ce qu'ils supposent :
 
 ## Téléversement de médias — une seule porte, `app/core/media.py`
 
-Trois modules acceptent des photos et des vidéos (rapports, messagerie, blog +
-galerie du site vitrine). Ils appliquaient chacun leur variante de la même
-règle, et tous sur **le MIME déclaré par le navigateur**.
+**Quatre** modules acceptent des fichiers : rapports, messagerie, blog (+
+galerie du site vitrine) et le **dossier d'inscription enfant**. Ils
+appliquaient chacun leur variante de la même règle, et tous sur **le MIME
+déclaré par le navigateur**.
 
 ⚠️ **Le type d'un fichier se lit dans son CONTENU.** Une photo parfaitement
 valide arrivant en `application/octet-stream` ou sans type du tout était
@@ -3341,7 +3333,14 @@ refusée, alors que la même photo passait depuis un autre appareil : c'est le
 ne dépendait pas du format mais du chemin par lequel le fichier arrivait
 (gestionnaire de fichiers, re-partage depuis une messagerie, `.heic` d'iPhone).
 `media.sniff()` lit les octets ; `media.accept_upload()` est le seul point
-d'entrée des trois modules.
+d'entrée des quatre modules.
+
+⚠️ **Le dossier d'inscription était le plus strict des quatre** : une liste
+blanche de MIME exacts, sans même le sur-ensemble `image/*` des autres. Une
+photo d'iPhone y était refusée **même correctement nommée `image/heic`**, et un
+scan TIFF aussi — alors qu'un document d'inscription est très majoritairement
+une pièce d'identité photographiée au téléphone. C'était donc le chemin qui
+refusait le plus, sur le cas d'usage le plus fréquent.
 
 Deux effets, et le second compte autant :
 - on cesse de refuser ce qui est valide ;
@@ -3366,6 +3365,21 @@ gratuit. L'orientation EXIF est **appliquée** avant ré-encodage, sinon une
 photo prise à la verticale ressortirait couchée. Une **animation** n'est jamais
 aplatie en silence : elle est refusée si elle dépasse, avec son motif.
 
+⚠️ **Un document garde un PLANCHER de définition** (`min_image_long_side`,
+1600 px pour le dossier d'inscription). Ailleurs, une photo réduite reste
+utile ; une pièce d'identité devenue illisible, elle, ne se découvre qu'au
+moment où l'établissement en a besoin. Sous le plancher, on refuse en
+l'expliquant plutôt que de stocker un document inexploitable.
+
+Deux pièges s'y sont succédé, et le second n'a été vu qu'en sabotant le test :
+- le plancher était testé **après** l'encodage, donc il laissait passer un
+  palier EN DESSOUS de lui (1536 px pour un plancher de 1600). Un plancher
+  qu'on franchit d'un cran n'est pas un plancher ;
+- la première version du test passait **même en retirant le plancher** : par
+  l'API, le seul plafond hors cadre est 0 Mo, où la compression échoue de
+  toute façon. Il faut un plafond atteignable en descendant sous le plancher,
+  et ça se joue en kilooctets — d'où un test au ras du moteur, pas par HTTP.
+
 ⚠️ **La vidéo n'est pas transcodée.** Il faudrait ffmpeg sur le serveur
 (dépendance système lourde, travail CPU long — à faire passer par le worker
 Celery si le besoin se confirme). Le refus reste donc, mais le message
@@ -3378,7 +3392,7 @@ démarrage et les HEIC sont refusés avec un message qui propose le repli
 
 ⚠️ **Les listes blanches `*_ALLOWED_ATTACHMENT_TYPES` ne gouvernent plus
 rien.** Elles filtraient le MIME déclaré, c'est-à-dire la cause du bug. Les
-trois champs restent déclarés dans `Settings` mais vides et sans lecteur :
+**quatre** champs restent déclarés dans `Settings` mais vides et sans lecteur :
 les supprimer empêcherait l'application de démarrer sur toute installation dont
 le `.env` les porte encore (Pydantic refuse les clés inconnues). Ils ont
 disparu de `.env.example`.

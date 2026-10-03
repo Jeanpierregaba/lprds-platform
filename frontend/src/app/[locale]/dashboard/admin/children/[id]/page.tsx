@@ -29,6 +29,12 @@ import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Child, ChildDocument } from '@/types/children'
+import {
+  ACCEPT_DOCUMENT,
+  isObviouslyRejectedDocument,
+  isPdfOverLimit,
+} from '@/lib/utils/uploads'
+import { formatBytes } from '@/lib/utils/locale-format'
 
 type T = (key: string) => string
 
@@ -606,19 +612,6 @@ function ContactsTab({ childId, child, onSaved, canWrite }: TabProps) {
 }
 
 const DOCUMENT_MAX_MB = 10
-const DOCUMENT_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-]
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} o`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(intlLocale())
@@ -650,9 +643,11 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > DOCUMENT_MAX_MB * 1024 * 1024) {
+      // Seul le PDF est arrêté sur la taille : une image trop lourde sera
+      // allégée par le serveur, la refuser ici serait un faux refus.
+      if (isPdfOverLimit(file, DOCUMENT_MAX_MB)) {
         toast.error(t('detail.fileTooBig', { max: DOCUMENT_MAX_MB }))
-      } else if (!DOCUMENT_ALLOWED_TYPES.includes(file.type)) {
+      } else if (isObviouslyRejectedDocument(file)) {
         toast.error(t('detail.badFileType'))
       } else {
         uploadMutation.mutate(file)
@@ -683,7 +678,7 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
             ref={fileInputRef}
             id="document"
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+            accept={ACCEPT_DOCUMENT}
             className="hidden"
             onChange={onFileSelected}
           />

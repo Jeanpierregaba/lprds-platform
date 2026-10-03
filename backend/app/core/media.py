@@ -142,7 +142,9 @@ def _encode_jpeg(img: Image.Image, quality: int) -> bytes:
     return buf.getvalue()
 
 
-def _compress_image_sync(content: bytes, max_bytes: int) -> bytes | None:
+def _compress_image_sync(
+    content: bytes, max_bytes: int, min_long_side: int = 320
+) -> bytes | None:
     """Ramène une image sous `max_bytes`, ou rend None si c'est hors d'atteinte.
 
     Deux leviers, dans cet ordre : la QUALITÉ d'abord (invisible à l'œil
@@ -151,6 +153,11 @@ def _compress_image_sync(content: bytes, max_bytes: int) -> bytes | None:
     en premier ferait perdre du détail là où un simple ré-encodage aurait
     suffi : une photo de 12 Mpx sortie d'un téléphone pèse souvent 8 Mo en
     HEIC et 2 Mo en JPEG de qualité 85, à définition identique.
+
+    `min_long_side` est un PLANCHER de définition : en dessous, on préfère
+    rendre None (donc refuser) plutôt que livrer l'image. Une photo de vacances
+    reste utile en petit ; la photo d'une pièce d'identité devient illisible, et
+    l'établissement ne s'en apercevrait qu'au moment d'en avoir besoin.
     """
     try:
         with Image.open(io.BytesIO(content)) as img:
@@ -181,31 +188,43 @@ def _compress_image_sync(content: bytes, max_bytes: int) -> bytes | None:
             # demande était justement de compresser SANS sacrifier le rendu.
             # Quelques itérations de plus coûtent des millisecondes ; une photo
             # inutilement floue reste floue.
+            # ⚠️ Le plancher se vérifie AVANT d'encoder, pas après. Testé
+            # après coup, il laissait passer un palier EN DESSOUS : un document
+            # réputé protégé ressortait à 1536 px pour un plancher de 1600.
+            # Un plancher qu'on franchit d'un cran n'est pas un plancher.
+            #
+            # Et il ne s'applique que si l'original le dépasse : une petite
+            # image doit rester acceptée telle quelle, pas refusée pour être
+            # née sous la limite.
+            floor = min(min_long_side, max(img.width, img.height))
             scale = 1.0
             for _ in range(12):
                 scale *= 0.8
-                work = img.resize(
-                    (max(int(img.width * scale), 1), max(int(img.height * scale), 1)),
-                    Image.LANCZOS,
-                )
+                width = max(int(img.width * scale), 1)
+                height = max(int(img.height * scale), 1)
+                if max(width, height) < floor:
+                    break
+                work = img.resize((width, height), Image.LANCZOS)
                 out = _encode_jpeg(work, 80)
                 if len(out) <= max_bytes:
                     return out
-                if work.width <= 320 or work.height <= 320:
-                    break
     except Exception as exc:  # noqa: BLE001 — une image illisible n'est pas une panne
         logger.info("Compression impossible : %s", exc)
         return None
     return None
 
 
-async def compress_image(content: bytes, max_bytes: int) -> bytes | None:
+async def compress_image(
+    content: bytes, max_bytes: int, min_long_side: int = 320
+) -> bytes | None:
     """Version non bloquante — le décodage et le ré-encodage sont lourds.
 
     Même patron que `reports/pdf.py` : du travail CPU ne doit jamais tenir la
     boucle asyncio, sinon une photo de 10 Mo fige toutes les autres requêtes.
     """
-    return await asyncio.to_thread(_compress_image_sync, content, max_bytes)
+    return await asyncio.to_thread(
+        _compress_image_sync, content, max_bytes, min_long_side
+    )
 
 
 def jpeg_filename(original: str) -> str:
@@ -260,6 +279,7 @@ async def accept_upload(
     allow_video: bool,
     allow_pdf: bool = False,
     images_only: bool = False,
+    min_image_long_side: int = 320,
 ) -> AcceptedMedia:
     """Porte d'entrée unique de tous les téléversements de médias.
 
@@ -333,10 +353,15 @@ async def accept_upload(
             detail=t("errors.media.animated_too_large", max_mb=max_image_mb),
         )
 
-    compressed = await compress_image(content, max_image_bytes)
+    compressed = await compress_image(content, max_image_bytes, min_image_long_side)
     if compressed is None:
+        # Deux causes possibles, et elles n'appellent pas le même geste : soit
+        # l'image est illisible, soit elle ne tient pas sous le plafond sans
+        # descendre sous le plancher de définition. On distingue, parce que
+        # « envoyez un fichier plus léger » n'aide pas si le fichier est corrompu.
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=t("errors.media.unreadable_image"),
+            detail=t("errors.media.unreadable_image") if sniff(content).content_type is None
+            else t("errors.media.too_heavy_to_keep_readable", max_mb=max_image_mb),
         )
     return AcceptedMedia(compressed, "image/jpeg", jpeg_filename(filename), transformed=True)

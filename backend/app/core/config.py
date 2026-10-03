@@ -149,20 +149,17 @@ class Settings(BaseSettings):
     blog_max_attachment_mb: int = 50
 
     # Pièces jointes (module enfants) — documents du dossier d'inscription
-    # (pièce d'identité, certificat médical, autorisations...). Implique la
-    # messagerie (images + PDF) : la vidéo n'a pas de sens pour un dossier.
+    # (pièce d'identité, certificat médical, autorisations...). Images et PDF :
+    # la vidéo n'a pas de sens pour un dossier.
+    #
+    # ⚠️ `CHILDREN_ALLOWED_ATTACHMENT_TYPES` ne gouverne plus rien, comme ses
+    # trois sœurs : c'était la liste la plus stricte du projet (MIME exacts,
+    # sans sur-ensemble `image/*`), donc celle qui refusait le plus — une photo
+    # d'iPhone passait à la trappe même correctement nommée. Le champ reste
+    # déclaré mais vide : le supprimer empêcherait de démarrer sur un `.env`
+    # qui le porte encore.
     children_max_attachment_mb: int = 10
-    children_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,application/pdf"
-    )
-
-    @property
-    def children_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.children_allowed_attachment_types.split(",")
-            if t.strip()
-        }
+    children_allowed_attachment_types: str = ""
 
     # ── Traduction automatique du contenu saisi (blog, menus) ────
     # Désactivée par défaut, comme MAIL_SUPPRESS_SEND côté email : un dev qui

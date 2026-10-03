@@ -27,6 +27,11 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
 import { useRouter } from '@/i18n/navigation'
+import {
+  ACCEPT_DOCUMENT,
+  isObviouslyRejectedDocument,
+  isPdfOverLimit,
+} from '@/lib/utils/uploads'
 
 /** Les trois schémas deviennent des fabriques : leurs messages de validation
  *  sont traduits, donc ils ne peuvent plus être résolus au chargement du
@@ -80,13 +85,6 @@ const STEP_FIELDS: Record<number, (keyof Form)[]> = {
 const STEP_KEYS = ['basic', 'medical', 'guardians', 'documents', 'summary'] as const
 
 const DOCUMENT_MAX_MB = 10
-const DOCUMENT_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-]
 
 function formatDate(iso: string) {
   if (!iso) return '—'
@@ -149,11 +147,13 @@ export default function NewChildPage() {
     if (!e.target.files) return
     const accepted: File[] = []
     for (const file of Array.from(e.target.files)) {
-      if (file.size > DOCUMENT_MAX_MB * 1024 * 1024) {
+      // Même règle que sur la fiche : le PDF seul est arrêté sur la taille,
+      // l'image sera allégée par le serveur.
+      if (isPdfOverLimit(file, DOCUMENT_MAX_MB)) {
         toast.error(t('documents.tooLarge', { name: file.name, max: DOCUMENT_MAX_MB }))
         continue
       }
-      if (!DOCUMENT_ALLOWED_TYPES.includes(file.type)) {
+      if (isObviouslyRejectedDocument(file)) {
         toast.error(t('documents.badType', { name: file.name }))
         continue
       }
@@ -543,7 +543,7 @@ export default function NewChildPage() {
                         id="documents"
                         type="file"
                         multiple
-                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                        accept={ACCEPT_DOCUMENT}
                         className="hidden"
                         onChange={onFilesSelected}
                       />

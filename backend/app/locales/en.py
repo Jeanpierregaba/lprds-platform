@@ -33,6 +33,10 @@ MESSAGES: dict[str, str] = {
         "HEIC photos cannot be converted on this server. Save it as JPEG from "
         "your phone, then try again"
     ),
+    "errors.media.too_heavy_to_keep_readable": (
+        "This document is too large to fit under {max_mb} MB without becoming "
+        "unreadable. Photograph it again, or save it as a PDF"
+    ),
     "errors.media.unreadable_image": (
         "This image could not be read — it is probably damaged"
     ),

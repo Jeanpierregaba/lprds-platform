@@ -55,14 +55,20 @@ def test_child_documents(client):
        headers={"Authorization": "Bearer token.invalide"}).status_code, 401)
 
     # ── Validations (mêmes règles que les autres modules) ──
-    ck("Type non autorisé (vidéo) → 422", c.post(f"/children/{cid}/documents",
-       files={"file": ("video.mp4", b"fake", "video/mp4")},
+    # ⚠️ Des contenus RÉELS, pas des octets de remplissage : le type est
+    # maintenant lu dans les octets (cf. app/core/media.py), donc `b"fake"`
+    # annoncé « video/mp4 » ne teste plus le refus des vidéos — il teste le
+    # refus d'un fichier illisible, ce qui n'est pas la même règle.
+    mp4 = b"\x00\x00\x00\x20ftypisom" + b"\x00" * 256
+    ck("Vidéo (aucun sens dans un dossier) → 422", c.post(f"/children/{cid}/documents",
+       files={"file": ("video.mp4", mp4, "video/mp4")},
        headers=adm).status_code, 422)
     ck("Fichier vide → 422", c.post(f"/children/{cid}/documents",
        files={"file": ("vide.pdf", b"", "application/pdf")},
        headers=adm).status_code, 422)
-    big = b"x" * (11 * 1024 * 1024)  # 11 Mo > limite par défaut (children_max_attachment_mb=10)
-    ck("Fichier trop volumineux → 413", c.post(f"/children/{cid}/documents",
+    # Un VRAI PDF trop lourd : un PDF n'est pas recompressé, le refus demeure.
+    big = b"%PDF-1.4\n" + b"x" * (11 * 1024 * 1024)
+    ck("PDF trop volumineux → 413", c.post(f"/children/{cid}/documents",
        files={"file": ("gros.pdf", big, "application/pdf")},
        headers=adm).status_code, 413)
 

@@ -3442,6 +3442,17 @@ réseaux séparés (`internal` / `web`) et n'expose les ports que sur `127.0.0.1
 (un reverse proxy est devant). Le fichier backend, lui, publie sur toutes les
 interfaces et surcharge `DATABASE_URL`/`REDIS_URL` vers les noms de service.
 
+⚠️ **`POSTGRES_USER`/`POSTGRES_DB` sont paramétrables, défauts historiques
+conservés.** Le même fichier servant aux deux environnements, la production
+tournait avec une base nommée `lprds_preprod` — rien ne se mélangeait (volumes
+et conteneurs distincts), mais lire « preprod » sur la base de production
+trompe forcément quelqu'un un jour de diagnostic. Les surcharger ne suffit
+cependant PAS à renommer une installation existante : Postgres ne lit ces
+variables qu'à l'initialisation d'un volume VIDE. Sur un volume peuplé elles
+sont ignorées, et l'application ne trouverait plus sa base. Un vrai renommage
+demande `ALTER DATABASE` / `ALTER ROLE` à la main, puis `DATABASE_URL` aligné
+dans `backend/.env`.
+
 `Dockerfile` (image unique, `docker/entrypoint.sh` exécute `alembic upgrade
 head` puis `python -m app.core.seed` avant `uvicorn`).
 
@@ -3477,21 +3488,34 @@ dépendances Python (l'image est rebâtie, `pip install -r requirements/base.txt
 rejoue), les **migrations Alembic** (l'entrypoint les applique au démarrage du
 backend), et tout nouveau service du compose racine.
 
-⚠️ **`NEXT_PUBLIC_APP_VERSION` n'est PAS injectée au build.** Le compose
-déclare `env_file: ./frontend/.env`, qui ne vaut qu'au RUNTIME : une variable
-`NEXT_PUBLIC_*` est lue à la compilation du bundle. Elle est donc vide, le
-sondage de `/version.json` reste désactivé, et **les navigateurs déjà ouverts
-gardent l'ancien bundle après un déploiement** au lieu de se recharger. Pour
-le corriger il faut un `ARG`/`ENV` dans `frontend/Dockerfile` **et** un
-`build.args` dans le compose alimenté par le SHA du commit depuis le workflow —
-les trois, sinon rien ne change.
+⚠️ **`NEXT_PUBLIC_APP_VERSION` passe par un `ARG`, jamais par `env_file`.**
+Une variable `NEXT_PUBLIC_*` est lue à la COMPILATION du bundle ; `env_file` ne
+vaut qu'au runtime, donc elle arrivait trop tard. Résultat : le bundle
+n'embarquait aucune version, le sondage de `/version.json` restait désactivé, et
+**un navigateur déjà ouvert gardait l'ancien code après un déploiement**.
 
-> ⚠️ Le build de l'image n'a **pas** été exécuté dans l'environnement où ces
-> fichiers ont été écrits. `docker compose config` valide la syntaxe et le
-> graphe de services, et le worker comme le beat ont été lancés hors conteneur
-> (tâche mise en file, exécutée, et échéance `crontab` déclenchée à la seconde
-> attendue) — mais un vrai `docker compose up --build` reste à passer avant de
-> s'y fier en CI/déploiement.
+La chaîne tient en **trois** maillons, et il les faut tous :
+1. `ARG NEXT_PUBLIC_APP_VERSION` + `ENV` dans `frontend/Dockerfile`, **avant**
+   `pnpm run build` ;
+2. `build.args` dans le compose racine, alimenté par `${APP_VERSION:-}` ;
+3. `export APP_VERSION="$(git rev-parse --short HEAD)"` dans les deux workflows,
+   après le `git pull` — la version est donc le SHA réellement déployé.
+
+Vérifié sur une vraie image : `version.json` et le bundle compilé portent la
+même valeur, ce que l'auto-update compare précisément. Un piège sournois s'y
+cache : sans l'`ARG`, `stamp-version.mjs` retombe sur le SHA git (le `.git` est
+copié dans l'image) et écrit un `version.json` d'apparence correcte — pendant
+que le bundle, lui, n'a rien. Les deux valeurs diffèrent, le provider voit sa
+propre version vide et se tait. Le fichier semble bon, le mécanisme est mort.
+
+Les **deux images ont été construites et vérifiées** : côté backend, le HEIC est
+lisible dans l'image Linux (roue `manylinux` de `pillow-heif`, aucun paquet
+système à ajouter) et le worker y découvre bien ses cinq tâches ; côté frontend,
+`version.json` et le bundle compilé portent la même version quand l'`ARG` est
+fourni. Reste non exécuté : un `docker compose up` COMPLET, avec Postgres et
+Redis réels — donc l'enchaînement migrations → seed → démarrage et le
+`depends_on: service_healthy` du worker. C'est le premier déploiement préprod
+qui le vérifiera.
 
 ---
 

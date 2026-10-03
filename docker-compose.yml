@@ -1,15 +1,27 @@
 services:
+  # ⚠️ Nom d'utilisateur et de base PARAMÉTRABLES, avec les valeurs historiques
+  # en défaut. Ce fichier sert aux DEUX environnements : la production tournait
+  # donc avec une base nommée « lprds_preprod ». Rien ne se mélangeait — les
+  # conteneurs et les volumes sont distincts — mais le jour d'un diagnostic,
+  # lire « preprod » sur la base de production trompe forcément quelqu'un.
+  #
+  # ⚠️ Changer ces valeurs sur une installation EXISTANTE ne renomme rien :
+  # Postgres ne lit `POSTGRES_USER`/`POSTGRES_DB` qu'à l'initialisation d'un
+  # volume VIDE. Sur un volume déjà peuplé, la variable est ignorée et
+  # l'application ne trouverait plus sa base. Pour renommer réellement, il faut
+  # un `ALTER DATABASE` / `ALTER ROLE` à la main, puis aligner `DATABASE_URL`
+  # dans `backend/.env`. Les défauts ci-dessous préservent donc l'existant.
   db:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_USER: lprds_preprod_user
+      POSTGRES_USER: ${POSTGRES_USER:-lprds_preprod_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: lprds_preprod
+      POSTGRES_DB: ${POSTGRES_DB:-lprds_preprod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lprds_preprod_user -d lprds_preprod"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lprds_preprod_user} -d ${POSTGRES_DB:-lprds_preprod}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -100,7 +112,14 @@ services:
       - internal
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # ⚠️ Passé en ARG et non via `env_file` : une variable `NEXT_PUBLIC_*`
+      # est lue à la compilation du bundle, et `env_file` ne vaut qu'au
+      # runtime. Le workflow fournit `APP_VERSION` (SHA du commit déployé) ;
+      # vide en local, ce qui désactive simplement le sondage de version.
+      args:
+        NEXT_PUBLIC_APP_VERSION: "${APP_VERSION:-}"
     restart: always
     env_file: ./frontend/.env
     depends_on:

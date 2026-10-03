@@ -9,6 +9,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from app.core import links
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.modules.auth.email import render, send_html_email
@@ -29,7 +30,7 @@ async def send_due_reminder_email(
         locale,
         parent_first_name=parent_first_name,
         items=items,
-        library_url=f"{settings.frontend_url}/dashboard/parent/library",
+        library_url=links.url(links.PARENT_LIBRARY),
         platform_name="LPRDS",
     )
     await send_html_email(

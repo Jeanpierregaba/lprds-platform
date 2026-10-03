@@ -9,6 +9,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from app.core import links
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.modules.auth.email import render, send_html_email
@@ -33,7 +34,7 @@ async def send_absence_inquiry_email(
         children_names=children_names,
         date_label=date_label,
         establishment_name=establishment_name,
-        frontend_url=f"{settings.frontend_url}/dashboard/parent/messaging",
+        frontend_url=links.url(links.PARENT_MESSAGING),
         platform_name="LPRDS",
     )
     await send_html_email(

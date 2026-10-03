@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from fastapi_mail import FastMail, MessageSchema, MessageType, ConnectionConfig
 from jinja2 import Environment, FileSystemLoader
+from app.core import links
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.modules.auth.models import UserRole
@@ -93,7 +94,7 @@ async def send_welcome_email(
         email=email,
         temp_password=temp_password,
         establishment_name=establishment_name,
-        login_url=f"{settings.frontend_url}/auth/login",
+        login_url=links.url(links.LOGIN),
         platform_name="LPRDS",
     )
     message = MessageSchema(
@@ -112,7 +113,7 @@ async def send_reset_email(
     reset_token: str,
     locale: Locale = DEFAULT_LOCALE,
 ) -> None:
-    reset_url = f"{settings.frontend_url}/auth/new-password?token={reset_token}"
+    reset_url = links.url(links.NEW_PASSWORD, token=reset_token)
     html = _jinja[locale.value].get_template("reset_password.html").render(
         first_name=first_name,
         reset_url=reset_url,
@@ -144,7 +145,7 @@ async def send_credentials_reset_email(
         first_name=first_name,
         email=email,
         new_password=new_password,
-        login_url=f"{settings.frontend_url}/auth/login",
+        login_url=links.url(links.LOGIN),
     )
     message = MessageSchema(
         subject=t("emails.parent_password_reset.subject", locale),

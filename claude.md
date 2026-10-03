@@ -75,6 +75,7 @@ app/
 │   ├── database.py                # Engine SQLAlchemy async + get_db + task_sessions()
 │   ├── models.py                  # ⚠️ Registre central des modèles (cf. ci-dessous)
 │   ├── redis.py                   # Client Redis async partagé
+│   ├── links.py                   # ⚠️ Liens vers le frontend — source UNIQUE
 │   ├── storage.py                 # Stockage fichiers (backend local uniquement)
 │   ├── media.py                   # ⚠️ Porte UNIQUE des téléversements — type lu
 │   │                              #   dans les octets, images recompressées
@@ -431,6 +432,33 @@ POST   /api/v1/auth/password-reset     # Demande reset (public)
 POST   /api/v1/auth/password-reset/confirm
 POST   /api/v1/auth/password-change    # Changement mdp (connecté)
 ```
+
+### ⚠️ Les liens des emails — `app/core/links.py`, et nulle part ailleurs
+
+Six modules fabriquaient leur URL à la main (`f"{settings.frontend_url}/..."`),
+et l'un d'eux s'est trompé : l'email « rapport disponible » pointait vers
+`/parent/reports` au lieu de `/dashboard/parent/reports`. C'est **l'email le
+plus envoyé de la plateforme** — un par parent à chaque rapport validé.
+
+Le défaut a vécu longtemps parce qu'il était **masqué** : tant que le middleware
+redirigeait toute URL inconnue vers l'écran de connexion, le parent atterrissait
+sur le login, se connectait, et arrivait sur son espace — agaçant, mais
+fonctionnel en apparence. Le jour où ce middleware a cessé de rediriger une URL
+inconnue (cf. § « Protection des routes (frontend) »), le lien s'est mis à
+afficher une 404. **Corriger un défaut en a révélé un autre, plus ancien** — et
+c'est ainsi que l'établissement l'a signalé.
+
+Les cinq chemins sont nommés une fois dans `app/core/links.py`, et
+`tests/e2e/test_email_links.py` compare chacun à l'arborescence RÉELLE du
+frontend (`frontend/src/app/[locale]/…/page.tsx`), pas à une liste recopiée —
+une liste recopiée serait exactement le miroir qui diverge sans qu'on le voie.
+Le test se saute proprement si le frontend est absent (backend déployé seul).
+
+⚠️ **Aucun préfixe de langue dans ces liens**, volontairement. Avec
+`localePrefix: 'as-needed'` le français n'en porte pas, et un destinataire dont
+le compte est en anglais est redirigé vers `/en/...` par le middleware, qui lit
+sa langue dans le cookie de session. Préfixer ici obligerait à connaître la
+langue à l'envoi ET à refaire la résolution côté backend.
 
 ### Envoi d'emails — deux comportements volontairement différents
 
@@ -3223,6 +3251,8 @@ tests/
     ├── test_reports_annuel_content.py   # + génération PDF
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
+    ├── test_email_links.py              # les liens des emails mènent à une route
+    │                                    #   qui existe (comparés à l'arbre frontend)
     ├── test_media_uploads.py            # même photo acceptée quel que soit le MIME
     │                                    #   annoncé, image recompressée, fichier
     │                                    #   déguisé refusé — les QUATRE modules,

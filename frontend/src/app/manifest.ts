@@ -99,6 +99,28 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
         purpose: 'maskable',
       },
     ],
+    /* Sans `screenshots`, Chrome sur Android réserve son invite d'installation
+       RICHE — celle qui montre un aperçu — et se rabat sur une invite minimale.
+       Il en faut au moins une `wide` et une `narrow`, et toutes celles d'un
+       même format doivent partager le même rapport d'aspect.
+       Captures localisées comme le reste du manifeste : un anglophone qui
+       installe l'app voit l'app qu'il aura. */
+    screenshots: [
+      {
+        src: `/screenshots/w-${locale}.jpg`,
+        sizes: '1280x800',
+        type: 'image/jpeg',
+        form_factor: 'wide',
+        label: pwa.screenshotHome,
+      },
+      {
+        src: `/screenshots/n-${locale}.jpg`,
+        sizes: '750x1624',
+        type: 'image/jpeg',
+        form_factor: 'narrow',
+        label: pwa.screenshotMobile,
+      },
+    ],
     shortcuts: [
       {
         name: marketing.nav.gallery,

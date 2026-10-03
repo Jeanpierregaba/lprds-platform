@@ -35,9 +35,69 @@ services:
       - backend_media:/app/media
     ports:
       - "127.0.0.1:8000:8000"
+    # Le worker et le beat attendent CE signal : l'entrypoint du backend est le
+    # seul à migrer la base, et une tâche partie avant aurait un schéma d'avance
+    # sur elle. `service_started` ne dirait que « le process existe ».
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health/ready')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     networks:
       - internal
       - web
+
+  # ── Tâches planifiées ──────────────────────────────────────────
+  #
+  # ⚠️ Ce fichier est celui que DÉPLOIE la CI (`docker compose up -d --build`
+  # à la racine) ; `backend/docker-compose.yml` ne sert qu'au développement
+  # local. Les deux services avaient d'abord été ajoutés au second seulement :
+  # les rappels de bibliothèque et les reprises de traduction ne tournaient donc
+  # nulle part en préprod ni en production, alors que tout semblait en place.
+  #
+  # Deux services et non un seul (`worker --beat`) : le beat est un
+  # ORDONNANCEUR, il ne doit exister qu'en un exemplaire. Fusionné au worker, il
+  # repartirait avec chaque réplique, et doubler les workers doublerait chaque
+  # rappel reçu par un parent.
+  #
+  # Ils réutilisent l'image du backend mais PAS son entrypoint, qui migre, seede
+  # et lance uvicorn : trois conteneurs qui migrent en même temps, c'est la
+  # course garantie. `entrypoint: []` le neutralise explicitement.
+  worker:
+    build: ./backend
+    restart: always
+    env_file: ./backend/.env
+    entrypoint: []
+    # `--concurrency=2` plutôt que le défaut (un process par cœur) : ces tâches
+    # attendent du réseau — traduction, SMTP, base — elles ne calculent rien.
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=2
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+  beat:
+    build: ./backend
+    restart: always
+    env_file: ./backend/.env
+    entrypoint: []
+    # L'état du planificateur vit dans un volume : sans lui, chaque
+    # redémarrage repart d'une ardoise vierge et refait tomber les échéances
+    # déjà passées. Les tâches sont idempotentes, donc rien ne casse — mais un
+    # parent recevrait un second rappel à chaque déploiement, et la CI déploie
+    # à chaque push.
+    command: >
+      celery -A app.core.celery_app beat --loglevel=info
+      --schedule=/var/lib/celery/celerybeat-schedule
+    volumes:
+      - celery_beat:/var/lib/celery
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
 
   frontend:
     build: ./frontend
@@ -57,3 +117,4 @@ networks:
 volumes:
   postgres_data:
   backend_media:
+  celery_beat:

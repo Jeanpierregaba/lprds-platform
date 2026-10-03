@@ -3422,12 +3422,28 @@ jetable de `tests/conftest.py`. Les cinq tâches (`library` ×2, `blog`, `menus`
 
 ---
 
-## Docker
+## Docker — ⚠️ DEUX fichiers compose, et un seul est déployé
+
+| Fichier | Rôle | Qui le lance |
+|---|---|---|
+| **`docker-compose.yml`** (racine) | **Préprod et production** | la CI, `docker compose up -d --build` |
+| `backend/docker-compose.yml` | Développement local du backend seul | un humain, à la main |
+
+⚠️ **Toute modification du déploiement doit passer par celui de la RACINE.**
+Les services `worker` et `beat` ont d'abord été ajoutés au seul fichier
+`backend/`, qui n'est jamais déployé : les rappels de bibliothèque et les
+reprises de traduction ne tournaient donc ni en préprod ni en production,
+alors que tout semblait en place — et un `docker compose up` local, lui,
+fonctionnait parfaitement. Le piège se referme exactement parce que la
+vérification locale réussit.
+
+Le fichier racine porte aussi le **frontend** (absent du fichier backend), des
+réseaux séparés (`internal` / `web`) et n'expose les ports que sur `127.0.0.1`
+(un reverse proxy est devant). Le fichier backend, lui, publie sur toutes les
+interfaces et surcharge `DATABASE_URL`/`REDIS_URL` vers les noms de service.
 
 `Dockerfile` (image unique, `docker/entrypoint.sh` exécute `alembic upgrade
-head` puis `python -m app.core.seed` avant `uvicorn`) + `docker-compose.yml`
-(Postgres 16, Redis 7, backend — healthchecks, volumes nommés pour les
-données Postgres et les fichiers uploadés).
+head` puis `python -m app.core.seed` avant `uvicorn`).
 
 ```bash
 docker compose up --build
@@ -3447,7 +3463,28 @@ pointe vers `localhost` pour un usage hors conteneur) — évite le piège
 classique « ça marche en local mais pas en conteneur ».
 
 Deux services supplémentaires, `worker` et `beat`, portent les tâches
-planifiées — cf. § « Tâches planifiées ».
+planifiées — cf. § « Tâches planifiées ». Ils sont dans **les deux** fichiers
+compose, et doivent le rester.
+
+### CI/CD — ce que le pipeline fait, et ce qu'il ne fait pas
+
+`.github/workflows/deploy-{preprod,prod}.yml` : un push sur `develop` déploie
+la préprod, un push sur `main` la production. Les deux font la même chose —
+`git pull` puis `docker compose up -d --build` à la racine.
+
+Sont donc pris en charge **sans aucune action sur le VPS** : les nouvelles
+dépendances Python (l'image est rebâtie, `pip install -r requirements/base.txt`
+rejoue), les **migrations Alembic** (l'entrypoint les applique au démarrage du
+backend), et tout nouveau service du compose racine.
+
+⚠️ **`NEXT_PUBLIC_APP_VERSION` n'est PAS injectée au build.** Le compose
+déclare `env_file: ./frontend/.env`, qui ne vaut qu'au RUNTIME : une variable
+`NEXT_PUBLIC_*` est lue à la compilation du bundle. Elle est donc vide, le
+sondage de `/version.json` reste désactivé, et **les navigateurs déjà ouverts
+gardent l'ancien bundle après un déploiement** au lieu de se recharger. Pour
+le corriger il faut un `ARG`/`ENV` dans `frontend/Dockerfile` **et** un
+`build.args` dans le compose alimenté par le SHA du commit depuis le workflow —
+les trois, sinon rien ne change.
 
 > ⚠️ Le build de l'image n'a **pas** été exécuté dans l'environnement où ces
 > fichiers ont été écrits. `docker compose config` valide la syntaxe et le

@@ -2,6 +2,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, WebSocket, status
 from fastapi.responses import FileResponse
+
+from app.core.media_serving import media_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -426,12 +428,20 @@ async def download_attachment(
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_admin_or_parent),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_attachment_for_download(
         attachment_id, current_user, db
     )
-    return FileResponse(
-        path, filename=attachment.filename, media_type=attachment.content_type
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
     )
 
 

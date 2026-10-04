@@ -41,5 +41,47 @@ def resolve_path(storage_key: str) -> Path:
     return _root() / storage_key
 
 
+#: Les dérivés (vignettes) vivent à part, pour que le dossier des originaux
+#: reste exactement ce qui a été téléversé — un nettoyage du cache se fait en
+#: supprimant ce seul dossier, et il se reconstruit tout seul.
+DERIVED_FOLDER = "_derived"
+
+
+def derived_path(storage_key: str, variant: str) -> Path:
+    """Chemin du dérivé `variant` d'un fichier stocké (vignette, etc.)."""
+    return _root() / DERIVED_FOLDER / variant / f"{storage_key}.jpg"
+
+
+async def read_file(storage_key: str) -> bytes:
+    return await asyncio.to_thread(resolve_path(storage_key).read_bytes)
+
+
+def _write_atomic(path: Path, content: bytes) -> None:
+    """Écrit via un fichier temporaire puis renomme.
+
+    ⚠️ Deux requêtes peuvent demander la même vignette en même temps — c'est
+    même le cas NORMAL, une grille en demande douze d'un coup. Une écriture
+    directe laisserait l'autre requête servir un fichier à moitié écrit : une
+    image tronquée, donc cassée à l'écran, et mise en cache pour de bon.
+    Le renommage est atomique sur un même système de fichiers.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f".{uuid.uuid4().hex}.tmp")
+    tmp.write_bytes(content)
+    tmp.replace(path)
+
+
+async def save_derived(storage_key: str, variant: str, content: bytes) -> Path:
+    path = derived_path(storage_key, variant)
+    await asyncio.to_thread(_write_atomic, path, content)
+    return path
+
+
 async def delete_file(storage_key: str) -> None:
     await asyncio.to_thread(resolve_path(storage_key).unlink, True)
+    # Les dérivés suivent l'original : les laisser derrière ferait grossir le
+    # disque de fichiers que plus rien ne référence.
+    for variant_dir in (_root() / DERIVED_FOLDER).glob("*"):
+        await asyncio.to_thread(
+            (variant_dir / f"{storage_key}.jpg").unlink, True
+        )

@@ -419,7 +419,7 @@ export default function ArticleDetailPage() {
                   >
                     <AuthMedia
                       queryKey={['blog', 'media-thumb', att.id]}
-                      fetchBlob={() => blogApi.downloadAttachment(id, att.id).then((r) => r.data)}
+                      fetchBlob={() => blogApi.downloadAttachment(id, att.id, true).then((r) => r.data)}
                       contentType={att.content_type}
                       alt={att.filename}
                       className="size-full"

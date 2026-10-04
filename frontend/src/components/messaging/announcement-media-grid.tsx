@@ -95,7 +95,8 @@ function MediaFrame({
   overlay?: React.ReactNode
 }) {
   const t = useTranslations('messaging')
-  const { url, isLoading, isError } = useAttachmentBlob(att.id)
+  // Case de grille : vignette. Le viewer plein écran, lui, prend l'original.
+  const { url, isLoading, isError } = useAttachmentBlob(att.id, { thumb: true })
   const isVideo = att.content_type.startsWith('video/')
 
   return (

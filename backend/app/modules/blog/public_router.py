@@ -13,6 +13,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
+
+from app.core.media_serving import media_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -87,9 +89,20 @@ async def download_public_cover(
     establishment_code: str,
     article_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     article, path = await service.get_public_cover(establishment_code, article_id, db)
-    return FileResponse(path, filename=article.cover_filename, media_type=article.cover_content_type)
+    return await media_response(
+        storage_key=article.cover_storage_key,
+        path=path,
+        filename=article.cover_filename,
+        content_type=article.cover_content_type,
+        thumb=thumb,
+        public=True,
+    )
 
 
 @router.get("/{establishment_code}/articles/{article_id}/attachments/{attachment_id}")
@@ -98,11 +111,22 @@ async def download_public_attachment(
     article_id: uuid.UUID,
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_public_attachment(
         establishment_code, article_id, attachment_id, db
     )
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
+        public=True,
+    )
 
 
 # ── Galerie (site vitrine, SANS authentification) ────────────────
@@ -144,7 +168,18 @@ async def download_public_gallery_photo(
     establishment_code: str,
     photo_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     """Contenu binaire — lisibilité publique tant que la photo existe."""
     photo, path = await service.get_public_gallery_photo(establishment_code, photo_id, db)
-    return FileResponse(path, filename=photo.filename, media_type=photo.content_type)
+    return await media_response(
+        storage_key=photo.storage_key,
+        path=path,
+        filename=photo.filename,
+        content_type=photo.content_type,
+        thumb=thumb,
+        public=True,
+    )

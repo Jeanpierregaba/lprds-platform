@@ -17,6 +17,7 @@ import heroImg from '../../../../public/images/marketing/hero-img.png'
 import { Link } from '@/i18n/navigation'
 import { marketingPath } from '@/i18n/slugs'
 import { asAppLocale } from '@/i18n/routing'
+import { thumbUrl } from '@/lib/media/thumb'
 
 // Icône Lucide par section (aperçu accueil : 3 sections crèche) — voir aussi
 // sectionPinIcon() pour la page Nos Sections (les 7 sections).
@@ -222,7 +223,7 @@ export default async function HomePage() {
                     className={`relative aspect-square overflow-hidden rounded-2xl ${i === 2 ? 'sm:row-span-2 sm:aspect-auto' : ''} ${i === 4 ? 'col-span-2 sm:col-span-1' : ''}`}
                   >
                     <Image
-                      src={photo.url}
+                      src={thumbUrl(photo.url)}
                       alt={photo.category?.name ?? tHome('gallery.photoAlt')}
                       fill
                       unoptimized
@@ -267,7 +268,7 @@ export default async function HomePage() {
                   <div className="relative h-50 shrink-0 overflow-hidden rounded-[2rem] bg-muted">
                     {article.coverUrl ? (
                       <Image
-                        src={article.coverUrl}
+                        src={thumbUrl(article.coverUrl)}
                         alt={article.title}
                         fill
                         unoptimized

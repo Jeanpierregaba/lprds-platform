@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Reveal } from './reveal'
 import type { GalleryPhotoCategory } from '@/types/blog'
+import { thumbUrl } from '@/lib/media/thumb'
 
 export type LiveGalleryItem = {
   id: string
@@ -86,7 +87,7 @@ export function GalleryExplorer({
                 className="group relative block aspect-square w-full overflow-hidden rounded-2xl"
               >
                 <Image
-                  src={item.url}
+                  src={thumbUrl(item.url)}
                   alt={categoryName(item.category?.id ?? null)}
                   fill
                   unoptimized

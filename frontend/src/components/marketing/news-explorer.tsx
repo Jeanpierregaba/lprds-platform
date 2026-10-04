@@ -8,6 +8,7 @@ import { Newspaper, Search } from 'lucide-react'
 import { Reveal } from './reveal'
 import type { PublicBlogPostPreview, PublicBlogTag } from '@/types/public-blog'
 import { Link } from '@/i18n/navigation'
+import { thumbUrl } from '@/lib/media/thumb'
 
 const dateFormatter = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -16,7 +17,7 @@ function ArticleCover({ coverUrl, title }: { coverUrl: string | null; title: str
   if (coverUrl) {
     return (
       <Image
-        src={coverUrl}
+        src={thumbUrl(coverUrl)}
         alt={title}
         fill
         unoptimized

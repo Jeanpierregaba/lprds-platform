@@ -59,8 +59,9 @@ export const reportsApi = {
     return apiClient.post<ReportAttachment>(`/api/v1/reports/${id}/attachments`, form)
   },
 
-  downloadAttachment: (reportId: string, attachmentId: string) =>
-    apiClient.get<Blob>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`, BLOB_REQUEST),
+  downloadAttachment: (reportId: string, attachmentId: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
 
   deleteAttachment: (reportId: string, attachmentId: string) =>
     apiClient.delete<void>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`),
@@ -73,8 +74,9 @@ export const reportsApi = {
 
   markMineRead: (id: string) => apiClient.post<void>(`/api/v1/reports/mine/${id}/read`),
 
-  downloadMineAttachment: (reportId: string, attachmentId: string) =>
-    apiClient.get<Blob>(`/api/v1/reports/mine/${reportId}/attachments/${attachmentId}`, BLOB_REQUEST),
+  downloadMineAttachment: (reportId: string, attachmentId: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/reports/mine/${reportId}/attachments/${attachmentId}`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
 
   downloadMinePdf: (id: string) =>
     apiClient.get<Blob>(`/api/v1/reports/mine/${id}/pdf`, BLOB_REQUEST),

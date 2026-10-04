@@ -382,7 +382,7 @@ export default function ReportDetailPage() {
                   >
                     <AuthMedia
                       queryKey={['reports', 'attachment-thumb', att.id]}
-                      fetchBlob={() => reportsApi.downloadAttachment(id, att.id).then((r) => r.data)}
+                      fetchBlob={() => reportsApi.downloadAttachment(id, att.id, true).then((r) => r.data)}
                       contentType={att.content_type}
                       alt={att.filename}
                       className="size-full transition group-hover:scale-105"

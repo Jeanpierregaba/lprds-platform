@@ -134,6 +134,25 @@ def sniff(content: bytes) -> SniffResult:
     return SniffResult(None, is_image=False, is_video=False)
 
 
+def _upright_rgb(img: Image.Image) -> Image.Image:
+    """Image redressée et sans canal alpha — prête pour un encodage JPEG.
+
+    ⚠️ L'orientation EXIF doit être APPLIQUÉE : le JPEG de sortie ne porte plus
+    l'EXIF d'origine, et sans ça une photo prise à la verticale ressort
+    couchée. La transparence, elle, n'existe pas en JPEG : on aplatit sur du
+    blanc plutôt que de laisser Pillow échouer sur un PNG à canal alpha.
+    """
+    img = ImageOps.exif_transpose(img)
+    if img.mode in ("RGBA", "LA", "P"):
+        img = img.convert("RGBA")
+        flat = Image.new("RGB", img.size, (255, 255, 255))
+        flat.paste(img, mask=img.split()[-1])
+        return flat
+    if img.mode != "RGB":
+        return img.convert("RGB")
+    return img
+
+
 def _encode_jpeg(img: Image.Image, quality: int) -> bytes:
     buf = io.BytesIO()
     # `optimize` gagne quelques pourcents gratuitement ; `progressive` affiche
@@ -164,16 +183,7 @@ def _compress_image_sync(
             # L'orientation EXIF doit être APPLIQUÉE avant de ré-encoder : le
             # JPEG de sortie ne porte plus l'EXIF d'origine, et sans ça une
             # photo prise à la verticale ressortirait couchée.
-            img = ImageOps.exif_transpose(img)
-            # La transparence n'existe pas en JPEG : on aplatit sur du blanc
-            # plutôt que de laisser Pillow échouer sur un PNG à canal alpha.
-            if img.mode in ("RGBA", "LA", "P"):
-                img = img.convert("RGBA")
-                flat = Image.new("RGB", img.size, (255, 255, 255))
-                flat.paste(img, mask=img.split()[-1])
-                img = flat
-            elif img.mode != "RGB":
-                img = img.convert("RGB")
+            img = _upright_rgb(img)
 
             for quality in (85, 75, 65):
                 out = _encode_jpeg(img, quality)
@@ -225,6 +235,38 @@ async def compress_image(
     return await asyncio.to_thread(
         _compress_image_sync, content, max_bytes, min_long_side
     )
+
+
+#: Côté le plus long d'une vignette. Une case de grille fait au plus ~200 px
+#: d'affichage ; 480 couvre les écrans à forte densité (×2) sans excès.
+THUMBNAIL_LONG_SIDE = 480
+#: Plus agressif que pour un original : à cette taille, l'œil ne voit pas la
+#: différence, et c'est le POIDS qui décide si la vignette arrive ou non.
+THUMBNAIL_QUALITY = 72
+
+THUMBNAIL_TYPE = "image/jpeg"
+
+
+def _thumbnail_sync(content: bytes, long_side: int) -> bytes | None:
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            img = _upright_rgb(img)
+            # `thumbnail` préserve le rapport d'aspect et ne grandit JAMAIS une
+            # image déjà plus petite — une petite image reste donc elle-même.
+            img.thumbnail((long_side, long_side), Image.LANCZOS)
+            return _encode_jpeg(img, THUMBNAIL_QUALITY)
+    except Exception as exc:  # noqa: BLE001 — une image illisible n'est pas une panne
+        logger.info("Vignette impossible : %s", exc)
+        return None
+
+
+async def thumbnail(content: bytes, long_side: int = THUMBNAIL_LONG_SIDE) -> bytes | None:
+    """Vignette JPEG, ou None si l'image est illisible.
+
+    Non bloquant, même raison que `compress_image` : décoder une photo de
+    12 Mpx tient la boucle asyncio plusieurs dizaines de millisecondes.
+    """
+    return await asyncio.to_thread(_thumbnail_sync, content, long_side)
 
 
 def jpeg_filename(original: str) -> str:

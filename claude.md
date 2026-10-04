@@ -79,6 +79,8 @@ app/
 │   ├── storage.py                 # Stockage fichiers (backend local uniquement)
 │   ├── media.py                   # ⚠️ Porte UNIQUE des téléversements — type lu
 │   │                              #   dans les octets, images recompressées
+│   ├── thumbnails.py              # Vignettes à la demande, gardées sur disque
+│   ├── media_serving.py           # ⚠️ Service des médias — source UNIQUE (9 endpoints)
 │   ├── rate_limit.py              # Anti brute-force générique (INCR+EXPIRE Redis)
 │   ├── i18n.py                    # Locale, t(), ContextVar de requête, format_long_date()
 │   ├── translation.py             # Traduction auto du contenu saisi (SDK Anthropic)
@@ -1926,13 +1928,57 @@ il n'y en a pas.
 seconde a été supprimée, sans quoi chacun de ces correctifs aurait été à faire
 deux fois.
 
-⚠️ **Reste entier** : il n'y a **pas de vignette côté serveur**. Une image n'est
-recompressée qu'au-dessus de `REPORTS_MAX_ATTACHMENT_MB` (50 Mo), donc une photo
-de téléphone est servie telle quelle, et chaque case de grille télécharge
-l'ORIGINAL. La galerie parent affiche 30 médias par page : à 4 Mo pièce, c'est
-120 Mo du forfait du parent pour une page de miniatures. Le retrait du plafond
-transforme « cassé » en « lent et cher » — le vrai remède est un endpoint de
-vignette (Pillow est déjà là, cf. `app/core/media.py`), non implémenté.
+### Vignettes — `?thumb=true` sur les neuf endpoints de média
+
+Retirer le plafond rendait l'affichage possible ; il restait **cher**. Une image
+n'est recompressée au téléversement qu'au-dessus du plafond du module (50 Mo
+pour les rapports), donc une photo de téléphone est stockée TELLE QUELLE, et
+chaque case de grille téléchargeait l'ORIGINAL — 30 médias par page de galerie
+parent, soit des dizaines de Mo du forfait du parent pour une page de
+miniatures.
+
+`app/core/thumbnails.py` fabrique une vignette JPEG (côté long 480 px,
+qualité 72) **à la demande**, puis la garde dans `media/_derived/`. Mesuré sur
+les vraies images du dépôt : **~40 Ko par vignette, 4 à 74× plus léger** selon
+l'original — davantage encore sur une photo de téléphone.
+
+- **À la demande, pas au téléversement** : les médias déjà en ligne en
+  bénéficient sans reprise de données, et changer la taille ne demande que de
+  vider `_derived/` — le nom du dérivé (`VARIANT`) porte la taille, donc le
+  cache s'invalide tout seul si elle change.
+- **Écriture atomique** (fichier temporaire puis renommage) : une grille demande
+  douze vignettes d'un coup, c'est le cas NORMAL. Une écriture directe
+  laisserait une autre requête servir un fichier à moitié écrit — image
+  tronquée, et mise en cache pour de bon.
+- **Dégradation volontaire** : vignette impossible (vidéo, PDF, image
+  illisible) → on sert l'ORIGINAL. L'appelant n'a jamais à savoir si un fichier
+  est « vignettable » ; au pire la case est lourde, jamais vide.
+- **Les dérivés suivent l'original** : `storage.delete_file` les supprime aussi.
+- **`Cache-Control`** sur tous les médias : un média ne change jamais pour un
+  identifiant donné, il est remplacé par un autre avec un autre identifiant.
+  `private` pour l'espace connecté (données authentifiées), `public` pour le
+  site vitrine. Sur un forfait mobile, ne pas retélécharger compte autant que la
+  vignette.
+- **Un seul helper** (`app/core/media_serving.py`) pour les neuf endpoints des
+  quatre modules. Les ajouter neuf fois, c'était neuf occasions de n'en faire
+  que huit — ce qui est exactement ce qui était arrivé à la validation des
+  téléversements avant `media.py`.
+
+⚠️ **Ce qui diffère d'un module à l'autre, c'est le NOM de la clé de stockage**
+(`storage_key`, `cover_storage_key`). Une faute de frappe ne se verrait qu'à
+l'exécution, sur ce module-là seulement : `test_media_thumbnails.py` couvre donc
+deux modules distincts, pas seulement les rapports.
+
+⚠️ **Côté frontend, la vignette et l'original sont deux fichiers différents** et
+doivent avoir des clés de cache DISTINCTES. Les confondre ferait enregistrer la
+vignette à la place de la photo — dans la messagerie, le même blob servait
+l'aperçu ET l'enregistrement, donc le bouton « enregistrer » va désormais
+chercher l'original explicitement. Les grilles demandent
+`thumb` (`lib/media/thumb.ts` côté public, un drapeau sur les API
+authentifiées) ; les visionneuses plein écran gardent l'original.
+
+Le **site vitrine** en bénéficie aussi : ses `<Image unoptimized>` servaient
+l'original jusque pour une miniature de 48 px.
 
 ### Téléchargement PDF (rapport annuel uniquement)
 
@@ -3479,6 +3525,8 @@ tests/
     │                                    #   par un admin renvoie bien « validated »
     ├── test_email_links.py              # les liens des emails mènent à une route
     │                                    #   qui existe (comparés à l'arbre frontend)
+    ├── test_media_thumbnails.py         # ?thumb : nettement plus léger, original
+    │                                    #   intact, vidéo servie telle quelle, cache
     ├── test_media_uploads.py            # même photo acceptée quel que soit le MIME
     │                                    #   annoncé, image recompressée, fichier
     │                                    #   déguisé refusé — les QUATRE modules,

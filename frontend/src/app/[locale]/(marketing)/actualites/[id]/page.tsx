@@ -12,6 +12,7 @@ import { BRAND } from '@/lib/marketing/data'
 import { fetchPublicBlogPost, fetchPublicBlogPosts } from '@/lib/api/public-blog.api'
 import type { PublicBlogPostPreview } from '@/types/public-blog'
 import { Link } from '@/i18n/navigation'
+import { thumbUrl } from '@/lib/media/thumb'
 
 
 export const dynamic = 'force-dynamic'
@@ -109,7 +110,7 @@ export default async function NewsArticlePage({ params }: { params: Promise<{ id
                 >
                   {post.coverUrl ? (
                     <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-muted">
-                      <Image src={post.coverUrl} alt={post.title} fill unoptimized sizes="48px" className="object-cover" />
+                      <Image src={thumbUrl(post.coverUrl)} alt={post.title} fill unoptimized sizes="48px" className="object-cover" />
                     </div>
                   ) : (
                     <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground" aria-hidden>

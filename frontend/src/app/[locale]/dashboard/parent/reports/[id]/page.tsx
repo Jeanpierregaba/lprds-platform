@@ -138,7 +138,9 @@ export default function ParentReportDetailPage() {
                   >
                     <AuthMedia
                       queryKey={['parent', 'report-attachment-thumb', att.id]}
-                      fetchBlob={() => reportsApi.downloadMineAttachment(id, att.id).then((r) => r.data)}
+                      // Vignette : la case fait cent pixels, pas la peine de
+                      // rapatrier l'original (cf. lib/media/thumb.ts).
+                      fetchBlob={() => reportsApi.downloadMineAttachment(id, att.id, true).then((r) => r.data)}
                       contentType={att.content_type}
                       alt={att.filename}
                       className="size-full"

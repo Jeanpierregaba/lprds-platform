@@ -2,6 +2,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import FileResponse
+
+from app.core.media_serving import media_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -189,9 +191,19 @@ async def download_article_cover(
     article_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     article, path = await service.get_article_cover_for_staff(article_id, user.establishment_id, db)
-    return FileResponse(path, filename=article.cover_filename, media_type=article.cover_content_type)
+    return await media_response(
+        storage_key=article.cover_storage_key,
+        path=path,
+        filename=article.cover_filename,
+        content_type=article.cover_content_type,
+        thumb=thumb,
+    )
 
 
 # ── Médias (galerie image/vidéo) ──────────────────────────────────
@@ -215,11 +227,21 @@ async def download_article_attachment(
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_article_attachment_for_staff(
         article_id, attachment_id, user.establishment_id, db
     )
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
+    )
 
 
 @router.delete(
@@ -316,9 +338,19 @@ async def download_gallery_photo(
     photo_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     photo, path = await service.get_gallery_photo_for_staff(photo_id, user.establishment_id, db)
-    return FileResponse(path, filename=photo.filename, media_type=photo.content_type)
+    return await media_response(
+        storage_key=photo.storage_key,
+        path=path,
+        filename=photo.filename,
+        content_type=photo.content_type,
+        thumb=thumb,
+    )
 
 
 @router.delete("/gallery/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)

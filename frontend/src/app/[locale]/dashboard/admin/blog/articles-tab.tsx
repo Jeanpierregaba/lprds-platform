@@ -152,7 +152,7 @@ export function ArticlesTab() {
                   {article.cover_url ? (
                     <AuthMedia
                       queryKey={['blog', 'cover-thumb', article.id]}
-                      fetchBlob={() => blogApi.downloadCover(article.id).then((r) => r.data)}
+                      fetchBlob={() => blogApi.downloadCover(article.id, true).then((r) => r.data)}
                       contentType="image/*"
                       alt={article.title}
                       className="size-10 rounded object-cover"

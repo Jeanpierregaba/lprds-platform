@@ -49,8 +49,9 @@ export const blogApi = {
     return apiClient.post<Article>(`/api/v1/blog/articles/${id}/cover`, form)
   },
 
-  downloadCover: (id: string) =>
-    apiClient.get<Blob>(`/api/v1/blog/articles/${id}/cover`, BLOB_REQUEST),
+  downloadCover: (id: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/blog/articles/${id}/cover`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
 
   uploadAttachment: (articleId: string, file: File) => {
     const form = new FormData()
@@ -58,8 +59,9 @@ export const blogApi = {
     return apiClient.post<BlogAttachment>(`/api/v1/blog/articles/${articleId}/attachments`, form)
   },
 
-  downloadAttachment: (articleId: string, attachmentId: string) =>
-    apiClient.get<Blob>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`, BLOB_REQUEST),
+  downloadAttachment: (articleId: string, attachmentId: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
 
   deleteAttachment: (articleId: string, attachmentId: string) =>
     apiClient.delete<void>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`),
@@ -88,8 +90,9 @@ export const blogApi = {
     return apiClient.post<GalleryPhoto>('/api/v1/blog/gallery', form)
   },
 
-  downloadGalleryImage: (id: string) =>
-    apiClient.get<Blob>(`/api/v1/blog/gallery/${id}/image`, BLOB_REQUEST),
+  downloadGalleryImage: (id: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/blog/gallery/${id}/image`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
 
   deleteGallery: (id: string) => apiClient.delete<void>(`/api/v1/blog/gallery/${id}`),
 }

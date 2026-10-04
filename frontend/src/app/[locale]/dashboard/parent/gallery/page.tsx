@@ -100,7 +100,7 @@ export default function ParentGalleryPage() {
             >
               <AuthMedia
                 queryKey={['parent', 'gallery-blob', item.id]}
-                fetchBlob={() => galleryApi.download(item.url).then((r) => r.data)}
+                fetchBlob={() => galleryApi.download(item.url, true).then((r) => r.data)}
                 contentType={item.content_type}
                 alt={item.filename}
                 className="size-full transition group-hover:scale-105"

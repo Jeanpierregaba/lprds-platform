@@ -194,7 +194,7 @@ export function GalleryTab() {
                 <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl border bg-muted">
                   <AuthMedia
                     queryKey={['blog', 'gallery-image', photo.id]}
-                    fetchBlob={() => blogApi.downloadGalleryImage(photo.id).then((r) => r.data)}
+                    fetchBlob={() => blogApi.downloadGalleryImage(photo.id, true).then((r) => r.data)}
                     contentType={photo.content_type}
                     alt={photo.filename}
                     className="size-full"

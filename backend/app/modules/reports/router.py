@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.media_serving import media_response
+
 from app.core.database import get_db
 from app.core.i18n import coerce_locale, t
 from app.modules.auth.dependencies import get_current_user, require_roles
@@ -322,11 +324,21 @@ async def download_report_attachment(
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_can_see_reports),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_report_attachment_for_staff(
         report_id, attachment_id, user.establishment_id, user, db
     )
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
+    )
 
 
 # ── Portail parent ────────────────────────────────────────────────
@@ -381,8 +393,18 @@ async def download_my_report_attachment(
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     parent: User = Depends(get_parent),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_report_attachment_for_parent(
         report_id, attachment_id, parent, db
     )
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
+    )

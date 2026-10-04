@@ -130,12 +130,15 @@ function MediaPreview({
     return () => observer.disconnect()
   }, [])
 
-  const { blob, url, isLoading, isError } = useAttachmentBlob(visible ? att.id : null)
+  // Aperçu en vignette : la bulle fait quelques dizaines de pixels.
+  const { url, isLoading, isError } = useAttachmentBlob(visible ? att.id : null, { thumb: true })
 
   const save = async () => {
-    if (!blob) return
     try {
-      await shareOrDownload(blob, att.filename, att.content_type)
+      // ⚠️ L'ORIGINAL, pas la vignette affichée au-dessus : on enregistre la
+      // photo que l'établissement a envoyée, pas sa miniature.
+      const res = await messagingApi.downloadAttachment(att.id)
+      await shareOrDownload(res.data, att.filename, att.content_type)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }

@@ -1,0 +1,9 @@
+⚠️ Message inexact — pendant du commit 944f07c, avec lequel les contenus se
+sont croisés (deux sessions sur le même checkout, `git add -A` des deux côtés).
+
+Ce commit ne contient RIEN de la dérive Alembic qu'il annonce : aucun fichier
+backend, seulement la suite du travail de traduction du frontend. La résorption
+de la dérive et son test sont dans 944f07c.
+
+Rien n'a été perdu et le code est juste. Annoté plutôt que réécrit — voir
+944f07c pour le raisonnement.

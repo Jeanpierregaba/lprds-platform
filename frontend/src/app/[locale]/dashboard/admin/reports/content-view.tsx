@@ -18,6 +18,44 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
+/**
+ * Liste à puces — pour les libellés qui sont des PHRASES.
+ *
+ * ⚠️ Les comportements et les activités étaient rendus en pastilles, et sur un
+ * téléphone le texte y était COUPÉ : un comportement monte à près de soixante
+ * caractères (« A eu besoin d'être accompagné(e) dans certaines activités. »)
+ * et une activité est du texte libre, donc sans limite. Une pastille est faite
+ * pour une étiquette courte ; passée à trois lignes, elle n'étiquette plus
+ * rien. Une liste se lit, et ne peut pas déborder.
+ *
+ * Les humeurs restent des pastilles : onze caractères et un émoji, c'est
+ * exactement ce pour quoi la forme est faite.
+ */
+function BulletList({
+  items, ordered = false,
+}: {
+  items: string[]
+  /** Les activités sont numérotées — leur ordre est celui de la journée. */
+  ordered?: boolean
+}) {
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">—</p>
+  const Tag = ordered ? 'ol' : 'ul'
+  return (
+    <Tag
+      className={cn(
+        'space-y-1.5 pl-5 text-sm marker:text-secondary/60',
+        ordered ? 'list-decimal' : 'list-disc',
+      )}
+    >
+      {items.map((item, i) => (
+        <li key={`${item}-${i}`} className="break-words [overflow-wrap:anywhere]">
+          {item}
+        </li>
+      ))}
+    </Tag>
+  )
+}
+
 function Tags({
   codes, vocabulary, badgeClassName,
 }: {
@@ -98,24 +136,13 @@ export function ContentView({
           <Tags codes={c.moods} vocabulary={vocabulary.mood} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
         </Section>
         <Section title={t('content.activities')}>
-          {activities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">—</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {activities.map((activity, i) => (
-                <Badge
-                  key={`${activity}-${i}`}
-                  variant="outline"
-                  className="max-w-full whitespace-normal break-words border-primary/50 bg-primary/10 text-left font-normal"
-                >
-                  {i + 1}-{activity}
-                </Badge>
-              ))}
-            </div>
-          )}
+          {/* La numérotation était écrite À LA MAIN dans le libellé (« 1-… ») :
+              c'est la liste qui la porte maintenant, donc elle s'aligne et se
+              renumérote toute seule. */}
+          <BulletList items={activities} ordered />
         </Section>
         <Section title={t('content.behaviors')}>
-          <Tags codes={c.behaviors} vocabulary={vocabulary.behavior_tag} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
+          <BulletList items={c.behaviors.map((code) => vocabulary.behavior_tag[code] ?? code)} />
         </Section>
         {c.highlight && (
           <Section title={t('content.highlight')}>

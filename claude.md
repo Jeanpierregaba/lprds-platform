@@ -1892,6 +1892,36 @@ visibilité que le rapport lui-même (`validated` uniquement, sinon 404).
 - `Content-Disposition: attachment` — le fichier est bien téléchargé, pas
   affiché inline dans le navigateur.
 
+### ⚠️ Lecture d'un rapport : des LISTES, pas des pastilles
+
+Les activités et les comportements s'affichaient en pastilles. Sur un
+téléphone, leur texte était **coupé** — un établissement l'a signalé depuis le
+portail parent.
+
+La cause n'était pas dans l'écran mais dans le composant partagé : la base de
+`badgeVariants` impose `h-5` (hauteur FIXE) **et** `overflow-hidden`. Les
+appelants posaient bien `whitespace-normal break-words`, le texte passait bien à
+la ligne — et se faisait couper à vingt pixels. L'appelant voyait ses classes
+appliquées ; c'est la base qui gagnait. `h-5` est devenu `min-h-5` : rien ne
+change pour une pastille d'une seule ligne, celles qui débordent grandissent.
+
+Mais la forme était aussi en cause, et c'est le fond de la correction : un
+comportement monte à **58 caractères** (« A eu besoin d'être accompagné(e) dans
+certaines activités. ») et une activité est du **texte libre**, donc sans
+limite. Une pastille étiquette ; passée à trois lignes elle n'étiquette plus
+rien. Les deux sont donc des listes — numérotée pour les activités (la
+numérotation était écrite À LA MAIN dans le libellé, « 1-… » ; c'est la liste
+qui la porte), à puces pour les comportements.
+
+Les **humeurs restent des pastilles** : onze caractères et un émoji, c'est
+exactement ce pour quoi la forme est faite. Même raisonnement pour les
+vocabulaires du bi-mensuel (18 à 39 caractères), que le `min-h-5` protège
+désormais s'ils venaient à déborder.
+
+Vérifié à 375 px : aucun élément coupé, aucun débordement horizontal. Le
+`min-h-5` a été prouvé par sabotage — remis à `h-5`, la pastille n'affiche plus
+que 18 px sur les 27 nécessaires.
+
 ### Trois types, affectés par département (pas globalement)
 
 ```

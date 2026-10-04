@@ -1,3 +1,4 @@
+import { BLOB_REQUEST } from '@/lib/api/blob-request'
 import { apiClient } from './client'
 import type {
   AbsenceInquiryResponse, AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
@@ -85,7 +86,7 @@ export const attendanceApi = {
 
   // ── Export des présences (PDF / Excel) ──
   exportAttendance: (params: AttendanceExportParams) =>
-    apiClient.get<Blob>('/api/v1/attendance/export', { params, responseType: 'blob' }),
+    apiClient.get<Blob>('/api/v1/attendance/export', { ...BLOB_REQUEST, params }),
 
   // ── Correction manuelle (admin ou attendance:write) ──
   createManualEvent: (data: ManualEventPayload) =>

@@ -1874,6 +1874,66 @@ jointes de la messagerie — modules indépendants, pas de FK croisée) :
   accessibles **qu'une fois le rapport `validated`** (404 avant, même règle
   que la lecture du rapport lui-même).
 
+### ⚠️ Affichage des médias — le plafond de 10 s du client ne vaut pas ici
+
+Les photos d'un rapport s'affichaient en « image indisponible » chez les
+parents. La cause n'était ni le backend ni les droits : `apiClient` impose
+`timeout: 10_000`, et ce plafond s'appliquait à TOUT, fichiers compris.
+
+C'est juste pour un appel JSON — une API qui ne répond pas en dix secondes est
+en panne — et faux pour un fichier, dont la durée dépend de sa TAILLE et du
+DÉBIT, pas de la santé du serveur. Le défaut était donc invisible depuis un
+poste de bureau et systématique sur un téléphone.
+
+⚠️ **Le même réglage ne se comporte pas pareil des deux côtés.** Dans Node,
+le `timeout` d'axios est une inactivité de socket : un téléchargement lent mais
+régulier ne le déclenche jamais. Dans un NAVIGATEUR, il passe par
+`XMLHttpRequest.timeout`, qui est un délai FERME sur l'échange entier. Un banc
+d'essai en Node conclut donc exactement l'inverse de la réalité — piège vécu en
+diagnostiquant ce défaut.
+
+Mesuré dans un vrai navigateur :
+
+| Cas | Avec le plafond | Sans |
+|---|---|---|
+| 1 photo 8 Mo, lien 10 Mbit/s | passe (6,9 s) | passe |
+| 1 photo 8 Mo, lien 3 Mbit/s | **coupée à 10,0 s** | passe (22,5 s) |
+| Grille de 4 photos 4 Mo, 10 Mbit/s | **0/4** | 4/4 (13,9 s) |
+| Grille de 6 photos 4 Mo, 10 Mbit/s | **0/6** | — |
+
+Une grille partage la bande passante entre ses cases : plus il y a de médias,
+plus chacun est lent, et le plafond les fauche TOUS d'un coup. C'est pourquoi le
+défaut se voyait sur un rapport chargé et pas sur un rapport à une photo.
+
+`lib/api/blob-request.ts` porte donc la configuration des requêtes de FICHIER —
+médias, exports, PDF — avec `timeout: 0`. Zéro plutôt qu'une valeur généreuse :
+toute borne finie recrée le même défaut pour quelqu'un dont le lien est plus
+lent. ⚠️ Cela valait aussi pour les **exports** (présences, enfants), fabriqués
+par le serveur avant l'envoi : dix secondes ne suffisent pas toujours sur une
+longue période.
+
+⚠️ **Une vignette de vidéo ne télécharge plus la vidéo.** `<video src="blob:…">`
+exige le fichier ENTIER avant d'afficher la moindre image : une case de cent
+pixels rapatriait jusqu'à 50 Mo. Contrepartie assumée — la case ne montre plus
+une image du film, faute de vignette fabriquée par le serveur.
+
+⚠️ **`!objectUrl` est un état d'ATTENTE, pas une erreur.** Il était traité comme
+un échec, donc l'icône « image indisponible » clignotait sur un média
+parfaitement valide, le temps d'un rendu. De quoi faire chercher une panne là où
+il n'y en a pas.
+
+`AuthMedia` existait en **deux copies identiques** (une pour le blog) : la
+seconde a été supprimée, sans quoi chacun de ces correctifs aurait été à faire
+deux fois.
+
+⚠️ **Reste entier** : il n'y a **pas de vignette côté serveur**. Une image n'est
+recompressée qu'au-dessus de `REPORTS_MAX_ATTACHMENT_MB` (50 Mo), donc une photo
+de téléphone est servie telle quelle, et chaque case de grille télécharge
+l'ORIGINAL. La galerie parent affiche 30 médias par page : à 4 Mo pièce, c'est
+120 Mo du forfait du parent pour une page de miniatures. Le retrait du plafond
+transforme « cassé » en « lent et cher » — le vrai remède est un endpoint de
+vignette (Pillow est déjà là, cf. `app/core/media.py`), non implémenté.
+
 ### Téléchargement PDF (rapport annuel uniquement)
 
 Le parent peut télécharger le **bulletin annuel** en PDF (`GET

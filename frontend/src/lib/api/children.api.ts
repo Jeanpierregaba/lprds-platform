@@ -1,3 +1,4 @@
+import { BLOB_REQUEST } from '@/lib/api/blob-request'
 import { apiClient } from './client'
 import type {
   Child, ChildCreatePayload, ChildDocument, ChildImportReportResponse, ChildListResponse,
@@ -30,10 +31,10 @@ export const childrenApi = {
 
   // ── Import / export (format plat XLSX / CSV, round-trip par matricule) ─
   export: (params?: { file_format?: ChildrenExportFormat; include_inactive?: boolean }) =>
-    apiClient.get<Blob>('/api/v1/children/export', { params, responseType: 'blob' }),
+    apiClient.get<Blob>('/api/v1/children/export', { ...BLOB_REQUEST, params }),
 
   importTemplate: (file_format: ChildrenExportFormat = 'xlsx') =>
-    apiClient.get<Blob>('/api/v1/children/import/template', { params: { file_format }, responseType: 'blob' }),
+    apiClient.get<Blob>('/api/v1/children/import/template', { ...BLOB_REQUEST, params: { file_format } }),
 
   import: (file: File) => {
     const form = new FormData()
@@ -49,7 +50,7 @@ export const childrenApi = {
   },
 
   downloadDocument: (childId: string, documentId: string) =>
-    apiClient.get<Blob>(`/api/v1/children/${childId}/documents/${documentId}`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/children/${childId}/documents/${documentId}`, BLOB_REQUEST),
 
   removeDocument: (childId: string, documentId: string) =>
     apiClient.delete<void>(`/api/v1/children/${childId}/documents/${documentId}`),

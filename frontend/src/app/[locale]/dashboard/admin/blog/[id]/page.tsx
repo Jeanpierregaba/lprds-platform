@@ -24,7 +24,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink } from '@/components/dashboard/shared/page'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
-import { AuthMedia } from '../auth-media'
+import { AuthMedia } from '@/components/media/auth-media'
 import { useRouter } from '@/i18n/navigation'
 
 const NO_TAG = '__no_tag__'

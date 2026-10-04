@@ -15,7 +15,7 @@ import { blogApi } from '@/lib/api/blog.api'
 import { cn } from '@/lib/utils/cn'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
-import { AuthMedia } from './auth-media'
+import { AuthMedia } from '@/components/media/auth-media'
 import { ARTICLE_STATUSES, type ArticleStatus } from '@/types/blog'
 import { Link, useRouter } from '@/i18n/navigation'
 

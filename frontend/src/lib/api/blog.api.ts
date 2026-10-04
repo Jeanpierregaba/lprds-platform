@@ -1,3 +1,4 @@
+import { BLOB_REQUEST } from '@/lib/api/blob-request'
 import { apiClient } from './client'
 import type {
   Article, ArticleCreatePayload, ArticleListResponse, ArticleStatus,
@@ -49,7 +50,7 @@ export const blogApi = {
   },
 
   downloadCover: (id: string) =>
-    apiClient.get<Blob>(`/api/v1/blog/articles/${id}/cover`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/blog/articles/${id}/cover`, BLOB_REQUEST),
 
   uploadAttachment: (articleId: string, file: File) => {
     const form = new FormData()
@@ -58,7 +59,7 @@ export const blogApi = {
   },
 
   downloadAttachment: (articleId: string, attachmentId: string) =>
-    apiClient.get<Blob>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`, BLOB_REQUEST),
 
   deleteAttachment: (articleId: string, attachmentId: string) =>
     apiClient.delete<void>(`/api/v1/blog/articles/${articleId}/attachments/${attachmentId}`),
@@ -88,7 +89,7 @@ export const blogApi = {
   },
 
   downloadGalleryImage: (id: string) =>
-    apiClient.get<Blob>(`/api/v1/blog/gallery/${id}/image`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/blog/gallery/${id}/image`, BLOB_REQUEST),
 
   deleteGallery: (id: string) => apiClient.delete<void>(`/api/v1/blog/gallery/${id}`),
 }

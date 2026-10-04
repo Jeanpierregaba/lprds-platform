@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { blogApi } from '@/lib/api/blog.api'
-import { AuthMedia } from './auth-media'
+import { AuthMedia } from '@/components/media/auth-media'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { GalleryPhotoCategory } from '@/types/blog'

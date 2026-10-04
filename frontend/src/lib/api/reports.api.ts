@@ -1,3 +1,4 @@
+import { BLOB_REQUEST } from '@/lib/api/blob-request'
 import { apiClient } from './client'
 import type {
   DepartmentReportTypeSetting, MissingReportResponse, ParentReportDetail, ParentReportListResponse, Report,
@@ -59,7 +60,7 @@ export const reportsApi = {
   },
 
   downloadAttachment: (reportId: string, attachmentId: string) =>
-    apiClient.get<Blob>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`, BLOB_REQUEST),
 
   deleteAttachment: (reportId: string, attachmentId: string) =>
     apiClient.delete<void>(`/api/v1/reports/${reportId}/attachments/${attachmentId}`),
@@ -73,8 +74,8 @@ export const reportsApi = {
   markMineRead: (id: string) => apiClient.post<void>(`/api/v1/reports/mine/${id}/read`),
 
   downloadMineAttachment: (reportId: string, attachmentId: string) =>
-    apiClient.get<Blob>(`/api/v1/reports/mine/${reportId}/attachments/${attachmentId}`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/reports/mine/${reportId}/attachments/${attachmentId}`, BLOB_REQUEST),
 
   downloadMinePdf: (id: string) =>
-    apiClient.get<Blob>(`/api/v1/reports/mine/${id}/pdf`, { responseType: 'blob' }),
+    apiClient.get<Blob>(`/api/v1/reports/mine/${id}/pdf`, BLOB_REQUEST),
 }

@@ -1,0 +1,12 @@
+⚠️ Message inexact — deux sessions ont commité sur le même checkout au même
+moment, et les contenus se sont croisés. Les deux ont utilisé `git add -A`.
+
+Ce commit contient BIEN l'espace admin passé au catalogue de traduction, mais
+AUSSI le travail annoncé par aa5f582 : la résorption de la dérive Alembic, son
+test (backend/tests/e2e/test_schema_drift.py) et les ajouts correspondants à
+CLAUDE.md.
+
+Rien n'a été perdu et le code est juste : seuls les deux messages décrivent
+autre chose que leur contenu. Annoté plutôt que réécrit — ces commits sont
+fusionnés et poussés, et les corriger aurait demandé de réécrire 41 commits
+puis de forcer le push sur une branche que la CI déploie. Voir aussi aa5f582.

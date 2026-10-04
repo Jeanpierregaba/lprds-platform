@@ -745,8 +745,10 @@ async def _send_report_push_notifications(report: Report, db) -> int:
                 t("push.report.title", locale),
                 t("push.report.body", locale,
                   period=_label_of(report, locale), child=child.first_names),
+                # Le rapport PRÉCIS, pas la liste : son identifiant était
+                # déjà dans la charge utile, simplement inutilisé.
                 {"report_id": str(report.id), "child_id": str(child.id),
-                 "url": links.PARENT_REPORTS},
+                 "url": links.parent_report(report.id)},
             )
             if success:
                 sent += 1

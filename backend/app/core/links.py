@@ -22,12 +22,21 @@ destination, et le service worker ouvrait donc toujours l'accueil. Un parent
 qui tapotait « rapport validé » arrivait sur sa page d'accueil et devait
 retrouver le rapport à la main — un clic perdu à chaque notification.
 
+⚠️ Elles menaient ensuite à l'ÉCRAN, pas à l'ÉLÉMENT. L'identifiant du rapport
+ou de la conversation voyageait pourtant déjà dans la charge utile, inutilisé :
+un parent tapotait « rapport validé » et arrivait sur la LISTE de ses rapports,
+à lui de retrouver lequel. Pire, les deux écrans de messagerie ouvrent par
+défaut l'onglet des diffusions : une notification de message privé menait donc à
+l'onglet d'à côté. Les helpers ci-dessous nomment la destination précise.
+
 ⚠️ **Pas de préfixe de langue dans ces liens**, et c'est volontaire. Avec
 `localePrefix: 'as-needed'`, le français n'en porte pas ; un destinataire dont
 le compte est en anglais est redirigé vers `/en/...` par le middleware, qui lit
 sa langue dans le cookie de session. Préfixer ici obligerait à connaître la
 langue au moment de l'envoi ET à refaire la résolution côté backend.
 """
+
+from urllib.parse import urlencode
 
 from app.core.config import settings
 
@@ -39,19 +48,50 @@ PARENT_MESSAGING = "/dashboard/parent/messaging"
 PARENT_LIBRARY = "/dashboard/parent/library"
 ADMIN_MESSAGING = "/dashboard/admin/messaging"
 
-#: Tous les chemins ci-dessus — la liste que la garde parcourt.
+#: Route DYNAMIQUE — le segment entre accolades correspond à un dossier `[id]`
+#: côté frontend. Séparée des chemins nus parce que la garde la résout
+#: différemment (cf. `tests/e2e/test_email_links.py`).
+PARENT_REPORT = "/dashboard/parent/reports/{report_id}"
+
+#: Tous les chemins NUS ci-dessus — la liste que la garde parcourt.
 ALL_PATHS = (
     LOGIN, NEW_PASSWORD,
     PARENT_REPORTS, PARENT_MESSAGING, PARENT_LIBRARY,
     ADMIN_MESSAGING,
 )
 
+#: Les routes à segment dynamique, vérifiées à part par la même garde.
+ALL_DYNAMIC_PATHS = (PARENT_REPORT,)
+
+# ⚠️ Les deux écrans de messagerie ouvrent l'onglet des DIFFUSIONS par défaut.
+# Une notification de message privé doit donc nommer son onglet, sinon elle
+# mène juste à côté de ce qu'elle annonce. Les valeurs sont celles des
+# `TabPanel` du frontend — côté parent l'onglet s'appelle `conversation`
+# (il n'en a qu'une), côté admin `conversations` (il les a toutes).
+TAB_ANNOUNCEMENTS = "announcements"
+TAB_PARENT_CONVERSATION = "conversation"
+TAB_ADMIN_CONVERSATIONS = "conversations"
+
+
+def parent_report(report_id: object) -> str:
+    """Chemin du rapport PRÉCIS dans le portail parent."""
+    return PARENT_REPORT.format(report_id=report_id)
+
+
+def url_path(path: str, **query: str) -> str:
+    """Chemin + paramètres, SANS hôte — destination d'une notification push.
+
+    ⚠️ Volontairement relatif. Le service worker résout cette valeur contre sa
+    PROPRE origine et refuse tout ce qui en sortirait : le contenu d'un push ne
+    doit jamais pouvoir ouvrir un site tiers. Un chemin ne peut pas désigner un
+    autre site, une URL absolue si — elle ferait reposer cette garantie sur la
+    seule justesse de `FRONTEND_URL`.
+    """
+    if not query:
+        return path
+    return f"{path}?{urlencode(query)}"
+
 
 def url(path: str, **query: str) -> str:
-    """URL absolue vers le frontend, pour un email ou une notification."""
-    base = f"{settings.frontend_url.rstrip('/')}{path}"
-    if not query:
-        return base
-    from urllib.parse import urlencode
-
-    return f"{base}?{urlencode(query)}"
+    """URL absolue vers le frontend, pour un EMAIL (qui n'a pas d'origine)."""
+    return f"{settings.frontend_url.rstrip('/')}{url_path(path, **query)}"

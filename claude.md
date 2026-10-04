@@ -3893,8 +3893,41 @@ Nouveau module créé avec :
 
 Chaque envoi joint une **destination** (`data.url`) prise dans
 `app/core/links.py` — et elle dépend du destinataire : un message poussé à
-l'admin mène à `/dashboard/admin/messaging`, le même poussé au parent à
-`/dashboard/parent/messaging`. Sans elle, le service worker ouvrait l'accueil.
+l'admin mène à l'écran d'administration, le même poussé au parent au sien. Sans
+elle, le service worker ouvrait l'accueil.
+
+⚠️ **Elle mène à l'ÉLÉMENT, pas seulement à l'écran.** L'identifiant du rapport
+et celui de la conversation voyageaient déjà dans la charge utile, inutilisés :
+un parent tapotait « rapport validé » et arrivait sur la LISTE de ses rapports,
+à lui de retrouver lequel. Pire, **les deux écrans de messagerie ouvrent
+l'onglet des diffusions par défaut** : une notification de message privé menait
+donc à l'onglet d'à côté — défaut silencieux s'il en est, puisque la bonne page
+s'ouvre.
+
+| Événement | Destinataire | Destination |
+|---|---|---|
+| Rapport validé | Parent | `/dashboard/parent/reports/{id}` — le rapport lui-même |
+| Message privé | Parent | `/dashboard/parent/messaging?tab=conversation` |
+| Message privé | Admin | `/dashboard/admin/messaging?tab=conversations&conversation={id}` |
+| Diffusion | Parent | `/dashboard/parent/messaging?tab=announcements` |
+
+Les trois valeurs d'onglet sont nommées dans `links.py` (`TAB_*`) et doivent
+rester celles des `TabPanel` du frontend ; les deux pages les lisent via
+`useSearchParams` (autorisé par la règle ESLint, contrairement à `useRouter`).
+L'admin ayant PLUSIEURS conversations, il faut en plus désigner laquelle —
+`ConversationsTab` accepte `initialConversationId`.
+
+⚠️ **Une destination de push est un CHEMIN, jamais une URL absolue**
+(`links.url_path`, à ne pas confondre avec `links.url` qui sert aux EMAILS et
+porte l'hôte). Le service worker la résout contre sa propre origine et refuse ce
+qui en sort : un chemin ne peut pas désigner un autre site, une URL absolue si —
+elle ferait reposer cette garantie sur la seule justesse de `FRONTEND_URL`.
+
+`tests/e2e/test_email_links.py` couvre les deux : la route dynamique est
+cherchée dans l'arborescence réelle du frontend (n'importe quel dossier `[...]`
+au bon niveau — c'est Next qui nomme le paramètre, pas nous), et les
+destinations sont vérifiées relatives. Les onglets ont été contrôlés en
+navigateur, sur les quatre cas : avec et sans paramètre, des deux côtés.
 
 ### Sécurité
 - Les clés VAPID privées ne sont JAMAIS exposées au frontend (seule la clé publique l'est)

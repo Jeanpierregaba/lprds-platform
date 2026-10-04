@@ -155,7 +155,8 @@ async def create_announcement(
         # ouvre l'accueil et le destinataire doit retrouver l'information.
         {"type": "announcement", "announcement_id": str(announcement.id),
          "department_ids": [str(d) for d in department_ids],
-         "url": links.PARENT_MESSAGING},
+         "url": links.url_path(links.PARENT_MESSAGING,
+                               tab=links.TAB_ANNOUNCEMENTS)},
         parent_ids=audience,
         # Le titre part dans la langue de CHAQUE parent : une diffusion touche
         # tout l'établissement, et la notification est souvent la seule chose
@@ -563,8 +564,12 @@ async def send_message(
             "push.message_from_school.title",
             preview,
             db,
+            # ⚠️ L'onglet NOMMÉ : cet écran ouvre les diffusions par défaut,
+            # donc sans lui la notification menait juste à côté du message
+            # qu'elle annonce.
             {"type": "message", "conversation_id": str(conversation.id),
-             "url": links.PARENT_MESSAGING},
+             "url": links.url_path(links.PARENT_MESSAGING,
+                                   tab=links.TAB_PARENT_CONVERSATION)},
             parent_ids={conversation.parent_id},
         )
     else:
@@ -573,9 +578,13 @@ async def send_message(
             "push.message.title",
             None,
             db,
-            # Destination côté ADMIN : ce n'est pas le même écran que le parent.
+            # Destination côté ADMIN : ce n'est pas le même écran que le
+            # parent, et l'admin a PLUSIEURS conversations — il faut donc en
+            # plus désigner laquelle, sinon il doit la retrouver dans la liste.
             {"type": "message", "conversation_id": str(conversation.id),
-             "url": links.ADMIN_MESSAGING},
+             "url": links.url_path(links.ADMIN_MESSAGING,
+                                   tab=links.TAB_ADMIN_CONVERSATIONS,
+                                   conversation=str(conversation.id))},
             body_key="push.message.body",
             body_params={"sender": sender_label},
         )

@@ -11,6 +11,7 @@ import { PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { AnnouncementsTab } from './announcements-tab'
 import { ConversationTab } from './conversation-tab'
+import { useSearchParams } from 'next/navigation'
 
 function ConnectionBadge() {
   const t = useTranslations('messaging')
@@ -32,6 +33,10 @@ function ConnectionBadge() {
 }
 
 export default function ParentMessagingPage() {
+  /* Destination d'une notification push : cet écran ouvre les DIFFUSIONS par
+   * défaut, donc une notification de message privé menait à l'onglet d'à côté
+   * (cf. `app/core/links.py`). */
+  const tab = useSearchParams().get('tab') === 'conversation' ? 'conversation' : 'announcements'
   const t = useTranslations('messaging')
   return (
     <PageMotion>
@@ -43,7 +48,7 @@ export default function ParentMessagingPage() {
         <ConnectionBadge />
       </div>
 
-      <Tabs defaultValue="announcements">
+      <Tabs defaultValue={tab}>
         <PillsTabsList>
           <PillsTrigger value="announcements" active="primary" icon={Megaphone}>
             {t('tabs.announcements')}

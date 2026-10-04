@@ -32,10 +32,17 @@ function formatDateTime(iso: string) {
 const conversationsKey = ['messaging', 'conversations'] as const
 const messagesKey = (conversationId: string) => ['messaging', 'conversation-messages', conversationId] as const
 
-export function ConversationsTab() {
+export function ConversationsTab({
+  initialConversationId = null,
+}: {
+  /** Conversation désignée par une notification push (`?conversation=`). */
+  initialConversationId?: string | null
+}) {
   const t = useTranslations('messaging')
   const queryClient = useQueryClient()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Pré-sélection venue de l'URL : une notification push désigne LA
+  // conversation concernée, pas seulement l'écran.
+  const [selectedId, setSelectedId] = useState<string | null>(initialConversationId)
   const [startDialogOpen, setStartDialogOpen] = useState(false)
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null)
   const [firstBody, setFirstBody] = useState('')

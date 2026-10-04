@@ -56,6 +56,64 @@ def test_the_broken_link_would_be_caught():
     ck("/dashboard/parent/reports existe (la correction)", bon.is_file(), True)
 
 
+@pytest.mark.skipif(not FRONTEND_ROUTES.is_dir(), reason="frontend absent")
+def test_dynamic_links_point_to_a_real_dynamic_route():
+    """Les destinations à segment dynamique existent aussi comme route.
+
+    ⚠️ Elles ont été ajoutées pour que les notifications push mènent à
+    l'ÉLÉMENT et non à l'écran : un parent qui tapotait « rapport validé »
+    arrivait sur la LISTE de ses rapports, alors que l'identifiant du rapport
+    voyageait déjà, inutilisé, dans la charge utile.
+
+    Un segment `{report_id}` correspond à un dossier `[id]` côté frontend. On
+    ne devine pas son nom : n'importe quel dossier `[...]` au bon niveau fait
+    l'affaire, c'est Next qui nomme le paramètre, pas nous.
+    """
+    for path in links.ALL_DYNAMIC_PATHS:
+        parent = FRONTEND_ROUTES / path.lstrip("/").rsplit("/", 1)[0]
+        ck(f"{path} — le parent existe", parent.is_dir(), True)
+        dynamiques = [
+            d for d in parent.iterdir()
+            if d.is_dir() and d.name.startswith("[") and (d / "page.tsx").is_file()
+        ]
+        ck(f"{path} — une route dynamique existe dessous", bool(dynamiques), True)
+
+
+def test_push_destinations_name_their_tab():
+    """Les deux écrans de messagerie ouvrent les DIFFUSIONS par défaut.
+
+    Une notification de message privé qui ne nomme pas son onglet mène donc
+    juste à côté de ce qu'elle annonce — défaut silencieux s'il en est : la
+    bonne page s'ouvre, simplement sur le mauvais onglet.
+    """
+    parent = links.url_path(links.PARENT_MESSAGING, tab=links.TAB_PARENT_CONVERSATION)
+    ck("parent → onglet conversation", parent.endswith("?tab=conversation"), True)
+    admin = links.url_path(
+        links.ADMIN_MESSAGING,
+        tab=links.TAB_ADMIN_CONVERSATIONS, conversation="c-1",
+    )
+    ck("admin → onglet conversations", "tab=conversations" in admin, True)
+    # L'admin en a plusieurs : il faut en plus désigner LAQUELLE.
+    ck("admin → conversation désignée", "conversation=c-1" in admin, True)
+
+
+def test_push_destinations_stay_relative():
+    """⚠️ Une destination de push est un CHEMIN, jamais une URL absolue.
+
+    Le service worker la résout contre sa propre origine et refuse tout ce qui
+    en sortirait : le contenu d'un push ne doit pas pouvoir ouvrir un site
+    tiers. Un chemin ne peut pas désigner un autre site ; une URL absolue, si —
+    elle ferait reposer cette garantie sur la seule justesse de `FRONTEND_URL`.
+    """
+    for built in (
+        links.parent_report("r-1"),
+        links.url_path(links.PARENT_MESSAGING, tab=links.TAB_ANNOUNCEMENTS),
+        links.url_path(links.ADMIN_MESSAGING, tab=links.TAB_ADMIN_CONVERSATIONS),
+    ):
+        ck(f"{built} est relatif", built.startswith("/"), True)
+        ck(f"{built} sans schéma", "//" in built, False)
+
+
 def test_links_carry_no_locale_prefix():
     """⚠️ Volontairement SANS préfixe de langue.
 

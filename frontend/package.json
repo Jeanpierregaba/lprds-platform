@@ -7,7 +7,7 @@
     "prebuild": "node scripts/stamp-version.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict && node scripts/check-zod-messages.mjs --strict && node scripts/check-locale-resolution.mjs && node scripts/check-marketing-slugs.mjs --strict && node scripts/check-private-routes.mjs --strict && node scripts/check-password-policy.mjs && node scripts/check-sw-cache.mjs",
+    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict && node scripts/check-zod-messages.mjs --strict && node scripts/check-locale-resolution.mjs && node scripts/check-marketing-slugs.mjs --strict && node scripts/check-private-routes.mjs --strict && node scripts/check-password-policy.mjs && node scripts/check-sw-cache.mjs && node scripts/check-public-assets.mjs",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
@@ -17,7 +17,8 @@
     "check-password-policy": "node scripts/check-password-policy.mjs",
     "check-locale-resolution": "node scripts/check-locale-resolution.mjs",
     "check-marketing-slugs": "node scripts/check-marketing-slugs.mjs",
-    "check-sw-cache": "node scripts/check-sw-cache.mjs"
+    "check-sw-cache": "node scripts/check-sw-cache.mjs",
+    "check-public-assets": "node scripts/check-public-assets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

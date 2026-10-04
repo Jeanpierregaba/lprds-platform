@@ -267,9 +267,20 @@ export const config = {
     // qui applique SA propre authentification. Seul le blog public
     // (/api/v1/public/blog/...) est volontairement sans token (cf. module Blog).
     // Les ressources PWA servies telles quelles (manifest, service worker,
-    // icônes, sonde de version) sont aussi exclues : elles doivent rester
-    // accessibles sans session — /version.json est sondé par l'auto-update y
-    // compris visiteur anonyme.
+    // icônes, CAPTURES D'ÉCRAN, sonde de version) sont aussi exclues : elles
+    // doivent rester accessibles sans session — /version.json est sondé par
+    // l'auto-update y compris visiteur anonyme.
+    //
+    // ⚠️ `screenshots` manquait, et les quatre captures du manifeste
+    // répondaient 404 : passées par le middleware, elles étaient réécrites
+    // vers le segment `[locale]`, où aucune route ne leur correspond (et
+    // redirigées vers `/en/screenshots/...` pour un anglophone, qui n'existe
+    // pas davantage). Le manifeste était donc servi avec quatre URL mortes,
+    // Chrome ignorait les captures et retombait sur son invite d'installation
+    // minimale — exactement ce qu'elles devaient éviter. Rien ne le signalait :
+    // le manifeste lui-même répond 200, et les fichiers sont bien dans l'image.
+    // Vu seulement en interrogeant les URL dans une pile Docker complète.
+    // D'où `scripts/check-public-assets.mjs`.
     //
     // ⚠️ La page /offline, elle, n'est PAS exclue ici — elle l'a été jusqu'à
     // ce que les routes passent sous `[locale]`, et ça la cassait des deux
@@ -283,6 +294,6 @@ export const config = {
     // déclinent PAS par langue. Un robot les cherche à la racine du domaine et
     // nulle part ailleurs ; les laisser passer par la détection de langue
     // renverrait /sitemap.xml vers /en/sitemap.xml, que rien n'ira lire.
-    '/((?!_next/static|_next/image|favicon.ico|icons|images|public|api|manifest.webmanifest|sw.js|version.json|sitemap.xml|robots.txt).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons|images|screenshots|public|api|manifest.webmanifest|sw.js|version.json|sitemap.xml|robots.txt).*)',
   ],
 }

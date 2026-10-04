@@ -223,6 +223,7 @@ scripts/
 ├── check-zod-messages.mjs         # Messages de validation Zod en français
 ├── check-private-routes.mjs       # Route échappant à la garde d'authentification
 ├── check-sw-cache.mjs             # Stratégies de cache du SW, rejouées hors navigateur
+├── check-public-assets.mjs        # Asset statique servi à travers le middleware de langue
 └── stamp-version.mjs              # public/version.json au build (PWA auto-update)
 
 src/
@@ -3170,6 +3171,7 @@ pnpm type-check
 pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
                #   + check-locale-resolution + check-marketing-slugs
                #   + check-private-routes + check-password-policy + check-sw-cache
+               #   + check-public-assets
 pnpm build
 
 # Ajouter un composant shadcn
@@ -3181,8 +3183,9 @@ pnpm dlx shadcn@latest add <composant>
 Aucune ne suffit seule : elles couvrent trois angles disjoints, et une chaîne
 non traduite ne casse jamais rien — ni au type-check, ni à l'exécution.
 (`pnpm lint` enchaîne deux autres gardes hors traduction :
-`check-password-policy`, sur la politique de mot de passe, et `check-sw-cache`,
-sur les stratégies de cache du service worker — cf. ci-dessous.)
+`check-password-policy`, sur la politique de mot de passe, et `check-sw-cache`
++ `check-public-assets`, sur le service worker et les assets statiques —
+cf. ci-dessous.)
 
 | Script | Vérifie | Sans lui |
 |---|---|---|
@@ -3273,6 +3276,21 @@ lui qui décide des redirections, donc de tout ce qui est vérifié. Sa premièr
 version redirigeait `/icons/...`, que le matcher réel exclut — la garde
 accusait alors le worker à tort. Les cinq contrôles ont été prouvés par
 sabotage (cf. `lint-guards-must-fail-first`).
+
+#### `check-public-assets.mjs` — un asset ne doit pas passer par le middleware
+
+Un fichier de `public/` n'a aucune route sous le segment `[locale]` : s'il
+n'est pas exclu du matcher, le middleware le réécrit vers ce segment et la
+réponse est une 404 (ou une redirection vers `/en/...`, qui n'existe pas
+davantage). **Rien ne le signale** — `pnpm build` passe, le fichier est dans
+l'image, et c'est l'URL seule qui échoue.
+
+La garde collecte les chemins référencés par `src/app/manifest.ts` et par la
+liste précachée de `public/sw.js`, et exige que tout chemin portant une
+EXTENSION soit exclu du matcher. Les chemins sans extension (`/`, `/en`,
+`/offline`) sont des PAGES et doivent au contraire y passer — c'est le
+middleware qui les réécrit vers la bonne langue. Prouvée par sabotage, dont le
+faux positif inverse (une page ajoutée au précache ne doit pas être signalée).
 
 ⚠️ **Un schéma Zod constant au niveau module ne peut pas appeler `t`** (le hook
 n'existe qu'à l'intérieur du composant). Le patron du projet est une fabrique :
@@ -3656,14 +3674,39 @@ copié dans l'image) et écrit un `version.json` d'apparence correcte — pendan
 que le bundle, lui, n'a rien. Les deux valeurs diffèrent, le provider voit sa
 propre version vide et se tait. Le fichier semble bon, le mécanisme est mort.
 
-Les **deux images ont été construites et vérifiées** : côté backend, le HEIC est
-lisible dans l'image Linux (roue `manylinux` de `pillow-heif`, aucun paquet
-système à ajouter) et le worker y découvre bien ses cinq tâches ; côté frontend,
-`version.json` et le bundle compilé portent la même version quand l'`ARG` est
-fourni. Reste non exécuté : un `docker compose up` COMPLET, avec Postgres et
-Redis réels — donc l'enchaînement migrations → seed → démarrage et le
-`depends_on: service_healthy` du worker. C'est le premier déploiement préprod
-qui le vérifiera.
+### La pile complète a été exécutée — et ce qu'elle a révélé
+
+Un `docker compose up --build` COMPLET (Postgres et Redis réels) a été joué en
+local sur le fichier de la RACINE. Tout l'enchaînement passe : 41 tables migrées
+jusqu'à `head`, superadmin seedé, 22 permissions insérées par migration,
+`/health/ready` qui répond `database: ok, redis: ok`, login du superadmin en
+200, worker qui découvre ses 5 tâches, beat démarré, et le
+`depends_on: service_healthy` qui tient bien worker et beat en attente jusqu'à
+ce que le backend soit sain. `version.json` et le bundle compilé portent la même
+valeur quand l'`ARG` est fourni.
+
+⚠️ **Le compose RACINE ne surcharge PAS `DATABASE_URL`/`REDIS_URL`**, contrairement
+à `backend/docker-compose.yml`. Il dépend donc entièrement du `backend/.env` du
+serveur, qui doit viser les noms de service Docker (`db`, `redis`). Un
+`backend/.env` de développement, qui vise `localhost`, ferait chercher le
+conteneur lui-même. De même, `${DB_PASSWORD}` n'a pas de défaut et doit venir
+d'un `.env` à la RACINE — et rester cohérent avec le mot de passe écrit dans
+`DATABASE_URL`, qui est une seconde source de vérité pour la même valeur.
+
+Pour rejouer la validation ailleurs : un override jetable fournissant ces deux
+URL vers `db`/`redis`, plus `POSTGRES_USER`/`POSTGRES_DB`/`DB_PASSWORD` en
+variables d'environnement, et un nom de projet distinct (`-p`) pour ne toucher
+à aucun volume existant.
+
+⚠️ **Ce que cette exécution a trouvé, et que rien d'autre n'aurait trouvé** :
+les quatre captures du manifeste répondaient **404**. `screenshots` manquait à
+la liste d'exclusion du matcher du middleware, donc ces fichiers passaient par
+la détection de langue et étaient réécrits vers le segment `[locale]`, où
+aucune route ne leur correspond. Le manifeste répondait 200 et déclarait bien
+ses captures ; les fichiers étaient bien dans l'image ; `pnpm build` passait.
+Seules les URL échouaient — et Chrome, ne pouvant les charger, retombait sur son
+invite d'installation minimale, c'est-à-dire exactement ce que les captures
+devaient éviter. `scripts/check-public-assets.mjs` referme la classe.
 
 ---
 

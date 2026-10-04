@@ -1,11 +1,12 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 import { Download, Smartphone, WifiOff, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils/cn'
+import { notifyLocaleChanged } from '@/lib/pwa/sw-messages'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -52,6 +53,7 @@ const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const t = useTranslations('common')
+  const locale = useLocale()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState<boolean>(false)
   const [offline, setOffline] = useState<boolean>(false)
@@ -193,6 +195,22 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [applyUpdate])
+
+  /* L'accueil précaché suit la langue CHOISIE, pas celle de l'appareil.
+   *
+   * Effet distinct de l'enregistrement du worker ci-dessus, et volontairement
+   * dépendant de `locale` seul : il doit rejouer à chaque bascule de langue,
+   * alors que l'enregistrement ne doit avoir lieu qu'une fois.
+   *
+   * Posté ici plutôt que depuis `useLocaleSwitch()` : à ce stade la page est
+   * rendue dans la nouvelle langue, donc le cookie de langue est bel et bien
+   * posé — c'est lui qui décidera si `/` est encore redirigé. Depuis le geste
+   * de bascule, le message partirait avant l'écriture du cookie et le worker
+   * redemanderait l'accueil dans l'ANCIENNE langue.
+   */
+  useEffect(() => {
+    notifyLocaleChanged(locale)
+  }, [locale])
 
   const promptInstall = useCallback(async () => {
     if (!deferredPrompt) return

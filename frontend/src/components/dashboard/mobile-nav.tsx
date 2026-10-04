@@ -8,35 +8,25 @@ import { toast } from 'sonner'
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { useAuthStore, useUser } from '@/lib/stores/auth.store'
-import { authApi } from '@/lib/api/auth.api'
+import { useUser } from '@/lib/stores/auth.store'
+import { logout } from '@/lib/auth/logout'
 import { useMessagingUnread } from '@/lib/messaging/use-messaging-unread'
 import { NavList } from './nav-list'
 import { useNavItems } from './use-nav-items'
-import { useRouter } from '@/i18n/navigation'
 
 export function MobileNav() {
   const t = useTranslations('common')
   const tNav = useTranslations('nav')
   const user = useUser()
-  const router = useRouter()
   const items = useNavItems()
   const unreadMessages = useMessagingUnread()
   const [open, setOpen] = useState(false)
-  const { refreshToken, clearSession } = useAuthStore()
 
   if (!user) return null
 
   const handleLogout = async () => {
     setOpen(false)
-    try {
-      if (refreshToken) await authApi.logout(refreshToken)
-    } catch {
-      // best-effort
-    } finally {
-      clearSession()
-      router.push('/')
-    }
+    await logout()
   }
 
   return (

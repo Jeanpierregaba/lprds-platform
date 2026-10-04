@@ -13,7 +13,7 @@
  * pré-cachés, sinon les clients gardent l'ancienne version de ce worker.
  */
 
-const CACHE_VERSION = '2026.13'
+const CACHE_VERSION = '2026.14'
 const SHELL = 'lprds-shell@' + CACHE_VERSION
 
 /* ⚠️ L'ESPACE CONNECTÉ N'EST JAMAIS MIS EN CACHE.
@@ -54,10 +54,45 @@ const PRECACHE_URLS = [
   '/icons/apple-touch-icon.png',
 ]
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(SHELL).then((cache) => cache.addAll(PRECACHE_URLS)).catch(() => {}),
+/* Précache du shell — ⚠️ JAMAIS `cache.addAll` ici.
+ *
+ * `addAll` suit les redirections et stocke le RÉSULTAT sous l'URL DEMANDÉE.
+ * C'est ainsi que `/offline` s'est retrouvé en anglais sous la clé française :
+ * sur un appareil anglophone, le middleware redirigeait `/offline` vers
+ * `/en/offline` PENDANT le précache. Cette page a pu être exemptée de la
+ * détection de langue ; l'ACCUEIL, lui, ne peut pas l'être — c'est la
+ * détection elle-même qu'il faudrait désactiver. On gravait donc l'accueil
+ * ANGLAIS sous la clé `/`, et un francophone repassé en français lisait un
+ * accueil anglais hors ligne.
+ *
+ * On ne précache donc que les réponses NON REDIRIGÉES. `/` n'est gardé que
+ * sur les appareils où il sert réellement du français ; ailleurs il reste
+ * absent, et le repli hors ligne de la racine passe par `/en`
+ * (cf. `navigationFallback`) — c'est-à-dire exactement ce que le réseau
+ * aurait servi à cet appareil.
+ *
+ * Conséquence : un fichier manquant ne fait plus échouer tout le précache,
+ * contrairement à `addAll` qui rejette en bloc.
+ */
+async function precache() {
+  const cache = await caches.open(SHELL)
+  await Promise.all(
+    PRECACHE_URLS.map(async (url) => {
+      try {
+        // `cache: 'reload'` : on ne veut pas graver une réponse que le cache
+        // HTTP du navigateur garderait d'un déploiement précédent.
+        const response = await fetch(url, { cache: 'reload' })
+        if (!response.ok || response.redirected) return
+        await cache.put(url, response)
+      } catch {
+        // Hors ligne au moment de l'installation, ou asset absent.
+      }
+    }),
   )
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(precache())
   self.skipWaiting()
 })
 
@@ -178,6 +213,109 @@ function staleWhileRevalidate(event, cacheName = SHELL) {
   )
 }
 
+/* Repli hors ligne d'une navigation.
+ *
+ * La langue suit l'URL DEMANDÉE, jamais celle du navigateur — `/en/...`
+ * retombe sur la page hors-ligne anglaise, le reste sur la française (le
+ * français n'a pas de préfixe, cf. localePrefix 'as-needed').
+ *
+ * ⚠️ La RACINE est le seul cas où l'URL ne dit rien : `/` sert du français ou
+ * de l'anglais selon l'appareil. On le déduit du précache plutôt que de le
+ * deviner — si `/` est en cache, c'est que cet appareil reçoit bien du
+ * français à la racine (aucune redirection n'a eu lieu à l'installation) ; son
+ * absence signifie que `/` redirige vers `/en`, et le repli anglais est alors
+ * la réponse JUSTE : c'est celle que le réseau aurait donnée.
+ */
+async function navigationFallback(request, pathname) {
+  const exact = await caches.match(request)
+  if (exact) return exact
+
+  // `/` tombe ici avec le reste : son absence du cache ci-dessus EST le signal
+  // que cet appareil est servi en anglais à la racine.
+  if (pathname === '/' || pathname === '/en' || pathname.startsWith('/en/')) {
+    return (await caches.match('/en')) || (await caches.match('/en/offline'))
+  }
+  return (await caches.match('/')) || (await caches.match('/offline'))
+}
+
+/* Fin de session — purge des PAGES mises en cache.
+ *
+ * Rien ne nettoyait les caches à la déconnexion. Depuis que l'espace connecté
+ * n'est plus mis en cache du tout, le risque est résiduel (il ne reste que des
+ * pages publiques), mais sur un appareil partagé la ceinture et les bretelles
+ * ne coûtent rien.
+ *
+ * ⚠️ On ne vide PAS le cache en entier. Le shell (page hors-ligne, icônes,
+ * accueil) n'est précaché qu'à l'INSTALLATION du worker : le supprimer ici
+ * laisserait l'appareil sans repli hors ligne jusqu'au prochain changement de
+ * `CACHE_VERSION` — c'est-à-dire longtemps. On ne retire donc que les PAGES
+ * visitées (documents HTML et charges RSC), en gardant les URL précachées et
+ * les assets statiques, qui ne portent rien de personnel.
+ */
+async function purgeVisitedPages() {
+  const cache = await caches.open(SHELL)
+  const keys = await cache.keys()
+  await Promise.all(
+    keys.map(async (request) => {
+      const url = new URL(request.url)
+      if (PRECACHE_URLS.includes(url.pathname)) return
+      const cached = await cache.match(request)
+      const type = cached?.headers.get('content-type') || ''
+      // `text/x-component` = charge RSC, qui porte des données rendues côté
+      // serveur ; `text/html` = la page elle-même.
+      if (type.includes('text/html') || type.includes('text/x-component')) {
+        await cache.delete(request)
+      }
+    }),
+  )
+}
+
+/* Accueil précaché — aligné sur le choix de langue de l'utilisateur.
+ *
+ * La page hors-ligne a pu être exemptée de la détection de langue ; l'accueil
+ * ne peut pas l'être, c'est la détection même qu'il faudrait couper. Hors
+ * ligne, un francophone sur un appareil anglophone voyait donc l'accueil en
+ * anglais — et ça ne se corrigeait jamais tout seul.
+ *
+ * On ne touche pas à la détection : on REJOUE le précache de l'accueil quand
+ * la langue choisie change (la page nous le dit, cf. `notifyLocaleChanged`).
+ * Le cookie de langue est alors posé, donc `/` sert enfin le français et
+ * n'est plus redirigé.
+ *
+ * Idempotent et quasi gratuit : appelé à chaque chargement de page, il ne fait
+ * un appel réseau que si le cache n'est pas déjà dans l'état voulu.
+ */
+async function alignHomeCache(locale) {
+  const cache = await caches.open(SHELL)
+
+  if (locale !== 'fr') {
+    // L'anglais a sa propre clé (`/en`). Garder une entrée sous `/` ne
+    // pourrait plus que servir du français à qui a choisi l'anglais.
+    await cache.delete('/')
+    return
+  }
+
+  if (await cache.match('/')) return
+
+  try {
+    const response = await fetch('/', { cache: 'reload' })
+    if (response.ok && !response.redirected) await cache.put('/', response)
+  } catch {
+    // Hors ligne : on réessaiera au prochain chargement.
+  }
+}
+
+self.addEventListener('message', (event) => {
+  const data = event.data
+  if (data?.type === 'session-ended') {
+    event.waitUntil(purgeVisitedPages())
+    return
+  }
+  if (data?.type === 'locale-changed') {
+    event.waitUntil(alignHomeCache(data.locale))
+  }
+})
+
 self.addEventListener('fetch', (event) => {
   const request = event.request
   const url = new URL(request.url)
@@ -204,27 +342,23 @@ self.addEventListener('fetch', (event) => {
 
   // Navigation (pages) : network-first, repli HTML -> /offline.
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
-    // Le repli suit la langue du chemin demandé : `/en/...` retombe sur la
-    // page hors-ligne anglaise, tout le reste sur la française (le français
-    // n'a pas de préfixe — cf. localePrefix 'as-needed').
-    const isEnglish = url.pathname === '/en' || url.pathname.startsWith('/en/')
-    const home = isEnglish ? '/en' : '/'
-    const offline = isEnglish ? '/en/offline' : '/offline'
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response && response.ok) {
+          // ⚠️ `response.redirected` : même piège que le précache, mais à
+          // l'EXÉCUTION. Un anglophone qui ouvre `/` est redirigé vers `/en`
+          // par le middleware ; sans ce test, on graverait l'accueil ANGLAIS
+          // sous la clé `/`, et un francophone sur le même appareil lirait
+          // ensuite un accueil anglais hors ligne. La réponse est servie
+          // normalement, elle n'est simplement pas mise en cache sous une clé
+          // qui n'est pas la sienne — `/en` a la sienne.
+          if (response && response.ok && !response.redirected) {
             const clone = response.clone()
             caches.open(SHELL).then((cache) => cache.put(request, clone))
           }
           return response
         })
-        .catch(() =>
-          caches
-            .match(request)
-            .then((cached) => cached || caches.match(home))
-            .then((fallback) => fallback || caches.match(offline)),
-        ),
+        .catch(() => navigationFallback(request, url.pathname)),
     )
     return
   }

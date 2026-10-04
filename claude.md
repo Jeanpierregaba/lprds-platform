@@ -222,6 +222,7 @@ scripts/
 ├── check-hardcoded-text.mjs       # Texte visible en dur dans le JSX (analyse AST)
 ├── check-zod-messages.mjs         # Messages de validation Zod en français
 ├── check-private-routes.mjs       # Route échappant à la garde d'authentification
+├── check-sw-cache.mjs             # Stratégies de cache du SW, rejouées hors navigateur
 └── stamp-version.mjs              # public/version.json au build (PWA auto-update)
 
 src/
@@ -260,6 +261,10 @@ src/
 │   ├── i18n/labels.ts             # useLabel() / useLabelMap() — libellés d'énumération
 │   ├── hooks/
 │   │   └── use-report-vocabulary.ts  # Vocabulaire rapports, locale dans la clé de cache
+│   ├── auth/
+│   │   └── logout.ts              # ⚠️ Le geste de déconnexion — source UNIQUE
+│   ├── pwa/
+│   │   └── sw-messages.ts         # Messages au service worker (fin de session, langue)
 │   ├── stores/
 │   │   └── auth.store.ts          # Store Zustand (session + tokens)
 │   └── utils/
@@ -274,6 +279,7 @@ src/
 
 public/
 ├── sw.js                          # Service worker PWA (app shell + vitrine)
+│                                  #   ⚠️ sous garde : scripts/check-sw-cache.mjs
 ├── icons/                         # Icônes PWA (192/512, maskable, apple-touch, favicon)
 └── images/                        # Assets marketing (dont images du site)
 ```
@@ -310,13 +316,32 @@ La plateforme est installable comme une application native (mobile/desktop) :
   gestionnaire de navigation, et leurs charges **RSC** (`?_rsc=`, qui portent
   des données rendues côté serveur) tombaient dans le filet final
   `staleWhileRevalidate`. Le dossier d'un enfant restait donc sur le disque,
-  lisible hors ligne, et **survivait à la déconnexion** — rien ne purge les
-  caches à ce moment-là. Sur un appareil partagé, c'est exactement ce qu'on ne
-  veut pas, et pour des données d'enfants la question est réglementaire.
+  lisible hors ligne, et **survivait à la déconnexion**. Sur un appareil
+  partagé, c'est exactement ce qu'on ne veut pas, et pour des données d'enfants
+  la question est réglementaire.
   `isPrivate()` dans `sw.js` reflète `PRIVATE_PREFIX` du middleware : **les
   deux doivent dire la même chose**. Conséquence assumée : une page de l'espace
   connecté demandée hors ligne retombe sur `/offline` plutôt que d'afficher un
   écran périmé.
+
+  ⚠️ **La fin de session purge les pages mises en cache** — ceinture et
+  bretelles, maintenant que l'espace connecté n'y entre plus du tout.
+  `clearSession()` (`lib/stores/auth.store.ts`) poste `session-ended` au worker,
+  qui retire les **pages visitées** (documents HTML et charges RSC). La purge
+  part de là, et non du bouton « Se déconnecter », parce qu'une session se
+  termine par **trois** chemins : les deux boutons (barre latérale, navigation
+  mobile) et l'expiration du jeton de rafraîchissement (intercepteur Axios) —
+  les accrocher un par un, c'est en oublier un, et celui qu'on oublierait est
+  justement celui que personne ne déclenche volontairement.
+  ⚠️ **On ne vide PAS le cache entier.** Le shell (pages hors-ligne, icônes,
+  accueil) n'est précaché qu'à l'INSTALLATION du worker : le supprimer
+  laisserait l'appareil sans repli hors ligne jusqu'au prochain changement de
+  `CACHE_VERSION`, c'est-à-dire longtemps. Les URL précachées et les assets
+  statiques sont donc conservés — ils ne portent rien de personnel.
+  Et la déconnexion fait un **rechargement complet** (`lib/auth/logout.ts`, geste
+  unique qui vivait en deux copies) : `router.push()` gardait en mémoire le cache
+  de React Query et le cache de routeur de Next, qui peut réafficher une page du
+  tableau de bord sur un retour arrière.
 
   ⚠️ **`/offline` échappe à la détection de langue** (middleware). Le worker
   précache les deux versions pour que chacun retrouve la sienne sans réseau —
@@ -327,11 +352,32 @@ La plateforme est installable comme une application native (mobile/desktop) :
   c'est le worker qui choisit la bonne clé au moment de servir. Vérifié dans un
   vrai navigateur : `/offline` contient `lang="fr"`, `/en/offline` `lang="en"`.
 
-  ⚠️ **Restera vrai** : la page d'ACCUEIL précachée (`/`) suit, elle, la langue
-  de l'appareil — on ne peut pas l'exempter sans désactiver la détection
-  elle-même. Hors ligne, un francophone sur un appareil anglophone verra donc
-  l'accueil en anglais. Repli acceptable, et sans équivalent côté `/offline`,
-  qui est la page que le worker sert vraiment.
+  ⚠️ **L'ACCUEIL précaché avait le même défaut, en pire.** `/offline` a pu être
+  exempté de la détection de langue ; l'accueil, lui, ne peut pas l'être — c'est
+  la détection même qu'il faudrait couper. Hors ligne, un francophone sur un
+  appareil anglophone voyait donc l'accueil en anglais, **et rien ne venait
+  jamais le rattraper**. Le défaut avait en plus un second foyer, invisible : le
+  gestionnaire de navigation regravait l'accueil anglais sous la clé `/` à
+  CHAQUE visite, à l'exécution.
+  Trois règles le referment, et il les faut toutes les trois :
+  1. **jamais `cache.addAll`** au précache — il suit les redirections et stocke
+     le résultat sous l'URL DEMANDÉE (c'est l'origine exacte du défaut
+     `/offline`). On précache un par un, en écartant toute réponse
+     `response.redirected` ;
+  2. **même test dans le gestionnaire de navigation** : une réponse redirigée
+     est servie normalement mais jamais mise en cache sous une clé qui n'est pas
+     la sienne ;
+  3. **l'accueil est réaligné sur la langue CHOISIE** : `PwaProvider` poste
+     `locale-changed` à chaque rendu de page (pas seulement à la bascule — le
+     worker peut s'être installé avant que l'utilisateur n'ait choisi), et le
+     worker redemande `/`, qui n'est plus redirigé une fois le cookie de langue
+     posé. Idempotent : aucun appel réseau si le cache est déjà dans l'état
+     voulu.
+  Hors ligne, la racine retombe donc sur `/` s'il est en cache (français avéré)
+  et sinon sur `/en` — c'est-à-dire exactement ce que le réseau aurait servi à
+  cet appareil. Vérifié en vrai navigateur, sur un appareil anglophone : `/`
+  absent du cache, puis français sous `/` après passage au français, puis de
+  nouveau absent après retour à l'anglais.
 - **Tapotement sur une notification** (`notificationclick`) : deux défauts
   cumulés, et aucun ne se voyait.
   1. La **destination était ignorée** — on ouvrait toujours `/`. Un parent qui
@@ -3123,7 +3169,7 @@ pnpm dev
 pnpm type-check
 pnpm lint      # eslint + check-messages + check-hardcoded-text + check-zod-messages
                #   + check-locale-resolution + check-marketing-slugs
-               #   + check-private-routes + check-password-policy
+               #   + check-private-routes + check-password-policy + check-sw-cache
 pnpm build
 
 # Ajouter un composant shadcn
@@ -3134,8 +3180,9 @@ pnpm dlx shadcn@latest add <composant>
 
 Aucune ne suffit seule : elles couvrent trois angles disjoints, et une chaîne
 non traduite ne casse jamais rien — ni au type-check, ni à l'exécution.
-(`pnpm lint` enchaîne une quatrième garde, `check-password-policy`, qui porte
-sur la politique de mot de passe et non sur la traduction.)
+(`pnpm lint` enchaîne deux autres gardes hors traduction :
+`check-password-policy`, sur la politique de mot de passe, et `check-sw-cache`,
+sur les stratégies de cache du service worker — cf. ci-dessous.)
 
 | Script | Vérifie | Sans lui |
 |---|---|---|
@@ -3205,6 +3252,27 @@ paramètres d'API) n'est pas décidable par la position seule :
 
 Les occurrences connues sont traitées ; un relevé par AST des valeurs par
 défaut littérales ne laisse plus que des valeurs techniques.
+
+#### `check-sw-cache.mjs` — le service worker, rejoué hors navigateur
+
+`public/sw.js` n'est couvert ni par `tsc` ni par ESLint, et **tous ses défauts
+sont silencieux** : la page s'affiche, simplement dans la mauvaise langue ou
+avec un contenu qui aurait dû disparaître. Les trois qui ont réellement existé
+le montrent — page hors-ligne anglaise stockée sous la clé française, espace
+connecté qui restait sur le disque après déconnexion, accueil suivant la langue
+de l'APPAREIL et non celle de l'utilisateur. Aucun n'aurait été vu sans ouvrir
+un vrai navigateur hors ligne, dans la bonne langue, au bon moment.
+
+La garde charge le VRAI fichier dans un contexte minimal (`caches`, `fetch`,
+`self`) avec un `fetch` qui imite le middleware, et vérifie ce que le worker met
+en cache, sous quelle clé, et ce qu'il sert hors ligne — précache selon la
+langue, réalignement sur le choix de l'utilisateur, purge de fin de session.
+
+⚠️ **Le `fetch` simulé doit rester le miroir de `src/middleware.ts`** : c'est
+lui qui décide des redirections, donc de tout ce qui est vérifié. Sa première
+version redirigeait `/icons/...`, que le matcher réel exclut — la garde
+accusait alors le worker à tort. Les cinq contrôles ont été prouvés par
+sabotage (cf. `lint-guards-must-fail-first`).
 
 ⚠️ **Un schéma Zod constant au niveau module ne peut pas appeler `t`** (le hook
 n'existe qu'à l'intérieur du composant). Le patron du projet est une fabrique :

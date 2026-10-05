@@ -4078,6 +4078,39 @@ Deux services supplémentaires, `worker` et `beat`, portent les tâches
 planifiées — cf. § « Tâches planifiées ». Ils sont dans **les deux** fichiers
 compose, et doivent le rester.
 
+### ⚠️ Node compte les cœurs de l'HÔTE, pas ceux du conteneur
+
+Un déploiement a été signalé en échec alors que rien n'était cassé : les deux
+environnements tournaient, sur la version précédente. L'action SSH avait
+simplement **coupé** la session au bout de ses dix minutes par défaut, laissant
+le `docker compose up` inachevé — donc les anciens conteneurs en place. Bon mode
+d'échec, diagnostic trompeur.
+
+La lenteur venait du frontend. Le VPS a **2 cœurs et 4 Go**, et le journal
+annonçait « using 31 workers » : Node lit `/proc/cpuinfo`, qui expose les cœurs
+de la machine HÔTE, pas la part que le cgroup accorde au conteneur. Trente et un
+processus chargeant chacun l'application sur 4 Go — la machine passait en swap,
+et des pages qui se génèrent en une seconde en prenaient soixante. Le build ne
+cassait pas, il n'aboutissait jamais.
+
+`NEXT_BUILD_CPUS`, posé dans `frontend/Dockerfile` et lu par `next.config.ts`,
+plafonne la concurrence. Mesuré : **31 workers → 2**, et les 102 pages générées
+en moins d'une seconde. Non défini (poste de développement), Next décide seul —
+là, son compte de cœurs est juste. Vérifié dans les deux sens : 15 workers sans
+la variable, 2 avec.
+
+⚠️ La valeur est dans le **Dockerfile**, pas dans le compose : elle doit valoir à
+la COMPILATION, exactement comme `NEXT_PUBLIC_APP_VERSION`. Un réglage runtime
+arriverait trop tard.
+
+⚠️ **Ne jamais pousser `develop` et `main` coup sur coup.** Les deux workflows
+déploient sur le MÊME VPS : deux builds complets se disputent alors deux cœurs.
+Pousser `develop`, attendre la fin, puis merger.
+
+`command_timeout: 40m` a été ajouté aux deux workflows — c'est une ceinture, pas
+la correction : un build qui dure quarante minutes sur ce projet signale un
+problème, il ne le résout pas.
+
 ### CI/CD — ce que le pipeline fait, et ce qu'il ne fait pas
 
 `.github/workflows/deploy-{preprod,prod}.yml` : un push sur `develop` déploie

@@ -18,6 +18,11 @@ COPY . .
 ARG NEXT_PUBLIC_APP_VERSION=""
 ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
 
+# ⚠️ Plafonne les processus de build — cf. `next.config.ts`. C'est ICI et non
+# dans le compose : la valeur doit valoir à la COMPILATION. Deux, parce que le
+# VPS a deux cœurs ; Node, lui, en voit trente-deux à travers le cgroup.
+ENV NEXT_BUILD_CPUS=2
+
 RUN pnpm run build
 
 FROM node:22-alpine AS runner

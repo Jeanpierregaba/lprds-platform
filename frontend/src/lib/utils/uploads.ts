@@ -36,6 +36,13 @@ export function isObviouslyRejectedDocument(file: File): boolean {
   return !(file.type.startsWith('image/') || file.type === 'application/pdf')
 }
 
+/** `accept` d'un média de rapport, d'article ou de message : image OU vidéo.
+ *
+ * La chaîne vivait en littéral dans quatre fichiers, donc une extension ajoutée
+ * à l'un ne l'était pas aux autres — et une extension manquante GRISE le
+ * fichier dans le sélecteur, sans rien signaler. */
+export const ACCEPT_MEDIA = `image/*,video/*,${IMAGE_EXTENSIONS},${VIDEO_EXTENSIONS}`
+
 /** `accept` d'une photo de profil : une image, jamais un document. */
 export const ACCEPT_PHOTO = `image/*,${IMAGE_EXTENSIONS}`
 

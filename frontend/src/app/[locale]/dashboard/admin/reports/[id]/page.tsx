@@ -31,6 +31,8 @@ import { useReportForms } from '@/lib/reports/use-report-forms'
 import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { uploadEachInTurn } from '@/lib/api/upload-many'
+import { ACCEPT_MEDIA } from '@/lib/utils/uploads'
 import { BackLink } from '@/components/dashboard/shared/page'
 import { reportsBackHref } from '../list-params'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
@@ -183,9 +185,21 @@ export default function ReportDetailPage() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
+  // Une SÉLECTION, pas un fichier : les photos d'une journée s'ajoutent
+  // ensemble. Le bilan est rendu tel quel — un envoi partiel annoncé comme un
+  // succès laisserait l'utilisateur ignorer ce qu'il doit reprendre.
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => reportsApi.uploadAttachment(id, file),
-    onSuccess: () => { toast.success(t('detail.attachmentAdded')); invalidate() },
+    mutationFn: (files: File[]) =>
+      uploadEachInTurn(files, (file) => reportsApi.uploadAttachment(id, file)),
+    onSuccess: ({ sent, failed, firstError }, files) => {
+      if (sent > 0) {
+        toast.success(sent === 1 ? t('detail.attachmentAdded') : tCommon('uploads.added', { count: sent }))
+      }
+      if (failed > 0) {
+        toast.error(`${tCommon('uploads.partial', { failed, total: files.length })} ${getApiErrorMessage(firstError)}`)
+      }
+      invalidate()
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -440,30 +454,35 @@ export default function ReportDetailPage() {
             // on dit pourquoi, et comment reprendre la main.
             <p className="text-sm text-muted-foreground">{t('detail.attachmentsLocked')}</p>
           )}
+          {/* ⚠️ `multiple` : sans lui, iOS n'offre AUCUNE sélection multiple —
+              le sélecteur se referme sur la première photo touchée. La page de
+              création l'avait, celle-ci non, alors que c'est ici qu'on ajoute
+              les photos d'une journée, après coup. */}
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,video/*,.heic,.heif,.avif,.mov,.3gp,.mkv"
+            multiple
+            accept={ACCEPT_MEDIA}
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) {
-                // ⚠️ On ne refuse que ce dont on est SÛR. Ce test exigeait un
-                // MIME commençant par image/ ou video/ — or un `.heic`
-                // d'iPhone, ou un fichier venu d'un gestionnaire de fichiers,
-                // arrive souvent avec un type VIDE : la photo était refusée
-                // ici, sans jamais atteindre le serveur, et la même photo
-                // passait depuis un autre appareil. Le serveur lit désormais
-                // les octets ; en cas de doute on le laisse trancher.
-                const surelyWrong = file.type === 'image/svg+xml'
-                  || (!!file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/'))
-                if (surelyWrong) {
-                  toast.error(t('detail.badFileType'))
-                } else {
-                  uploadMutation.mutate(file)
-                }
-              }
+              const chosen = Array.from(e.target.files ?? [])
               e.target.value = ''
+              if (chosen.length === 0) return
+              // ⚠️ On ne refuse que ce dont on est SÛR. Ce test exigeait un
+              // MIME commençant par image/ ou video/ — or un `.heic` d'iPhone,
+              // ou un fichier venu d'un gestionnaire de fichiers, arrive
+              // souvent avec un type VIDE : la photo était refusée ici, sans
+              // jamais atteindre le serveur, et la même photo passait depuis un
+              // autre appareil. Le serveur lit les octets ; en cas de doute on
+              // le laisse trancher.
+              const surelyWrong = (file: File) => file.type === 'image/svg+xml'
+                || (!!file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/'))
+              // Les fichiers douteux sont ÉCARTÉS, pas bloquants : refuser
+              // toute la sélection pour un intrus ferait reprendre les neuf
+              // autres à la main.
+              const keep = chosen.filter((f) => !surelyWrong(f))
+              if (keep.length < chosen.length) toast.error(t('detail.badFileType'))
+              if (keep.length > 0) uploadMutation.mutate(keep)
             }}
           />
         </CardContent>

@@ -24,6 +24,7 @@ import { childrenApi } from '@/lib/api/children.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { uploadEachInTurn } from '@/lib/api/upload-many'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
@@ -634,13 +635,23 @@ function formatDate(iso: string) {
 
 function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
   const t = useTranslations('children')
+  const tCommon = useTranslations('common')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [docToDelete, setDocToDelete] = useState<ChildDocument | null>(null)
 
+  // Un dossier d'inscription arrive en LOT — pièce d'identité, justificatif,
+  // carnet de santé — pas une pièce par passage. L'étape 3 de la création
+  // l'acceptait déjà ; cette carte, qui complète le même dossier, non.
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => childrenApi.uploadDocument(childId, file),
-    onSuccess: () => {
-      toast.success(t('detail.docAdded'))
+    mutationFn: (files: File[]) =>
+      uploadEachInTurn(files, (file) => childrenApi.uploadDocument(childId, file)),
+    onSuccess: ({ sent, failed, firstError }, files) => {
+      if (sent > 0) {
+        toast.success(sent === 1 ? t('detail.docAdded') : tCommon('uploads.added', { count: sent }))
+      }
+      if (failed > 0) {
+        toast.error(`${tCommon('uploads.partial', { failed, total: files.length })} ${getApiErrorMessage(firstError)}`)
+      }
       onSaved()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -656,19 +667,19 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
   })
 
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Seul le PDF est arrêté sur la taille : une image trop lourde sera
-      // allégée par le serveur, la refuser ici serait un faux refus.
-      if (isPdfOverLimit(file, DOCUMENT_MAX_MB)) {
-        toast.error(t('detail.fileTooBig', { max: DOCUMENT_MAX_MB }))
-      } else if (isObviouslyRejectedDocument(file)) {
-        toast.error(t('detail.badFileType'))
-      } else {
-        uploadMutation.mutate(file)
-      }
-    }
+    const chosen = Array.from(e.target.files ?? [])
     e.target.value = ''
+    if (chosen.length === 0) return
+    // Seul le PDF est arrêté sur la taille : une image trop lourde sera allégée
+    // par le serveur, la refuser ici serait un faux refus.
+    const tooBig = chosen.filter((f) => isPdfOverLimit(f, DOCUMENT_MAX_MB))
+    const wrongType = chosen.filter((f) => !isPdfOverLimit(f, DOCUMENT_MAX_MB) && isObviouslyRejectedDocument(f))
+    // Les fichiers écartés le sont un par un : un intrus dans la sélection ne
+    // doit pas faire reprendre tous les autres à la main.
+    if (tooBig.length > 0) toast.error(t('detail.fileTooBig', { max: DOCUMENT_MAX_MB }))
+    if (wrongType.length > 0) toast.error(t('detail.badFileType'))
+    const keep = chosen.filter((f) => !tooBig.includes(f) && !wrongType.includes(f))
+    if (keep.length > 0) uploadMutation.mutate(keep)
   }
 
   const onDownload = async (doc: ChildDocument) => {
@@ -689,10 +700,12 @@ function DocumentsTab({ childId, child, onSaved, canWrite }: TabProps) {
           <Label htmlFor="document" className="cursor-pointer text-sm font-medium text-primary">
             {t('detail.addDocument')}
           </Label>
+          {/* `multiple` : voir `onFileSelected` — un dossier arrive en lot. */}
           <input
             ref={fileInputRef}
             id="document"
             type="file"
+            multiple
             accept={ACCEPT_DOCUMENT}
             className="hidden"
             onChange={onFileSelected}

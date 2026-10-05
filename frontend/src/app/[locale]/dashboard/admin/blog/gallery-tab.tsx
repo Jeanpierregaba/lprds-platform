@@ -21,6 +21,8 @@ import {
 import { blogApi } from '@/lib/api/blog.api'
 import { AuthMedia } from '@/components/media/auth-media'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { uploadEachInTurn } from '@/lib/api/upload-many'
+import { ACCEPT_PHOTO } from '@/lib/utils/uploads'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { GalleryPhotoCategory } from '@/types/blog'
 
@@ -43,7 +45,7 @@ export function GalleryTab() {
   const [uploadCategoryId, setUploadCategoryId] = useState('')
   const [manageOpen, setManageOpen] = useState(false)
   const [photoToDelete, setPhotoToDelete] = useState<{ id: string } | null>(null)
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
 
   const { data: categories = [] } = useGalleryCategories()
   const invalidate = () => {
@@ -59,15 +61,26 @@ export function GalleryTab() {
         .then((r) => r.data),
   })
 
+  // Une galerie de site vitrine se remplit par lot — les photos d'une sortie,
+  // d'une fête. Une par dialogue, c'est autant d'allers-retours que de photos.
   const uploadMutation = useMutation({
-    mutationFn: ({ categoryId: cid, file: f }: { categoryId: string; file: File }) =>
-      blogApi.uploadGallery(cid, f),
-    onSuccess: () => {
-      toast.success(t('gallery.published'))
-      setUploadOpen(false)
-      setFile(null)
-      setUploadCategoryId('')
-      if (fileInputRef.current) fileInputRef.current.value = ''
+    mutationFn: ({ categoryId: cid, files: chosen }: { categoryId: string; files: File[] }) =>
+      uploadEachInTurn(chosen, (f) => blogApi.uploadGallery(cid, f)),
+    onSuccess: ({ sent, failed, firstError }, { files: chosen }) => {
+      if (sent > 0) {
+        toast.success(sent === 1 ? t('gallery.published') : tCommon('uploads.added', { count: sent }))
+      }
+      if (failed > 0) {
+        toast.error(`${tCommon('uploads.partial', { failed, total: chosen.length })} ${getApiErrorMessage(firstError)}`)
+      }
+      // Le dialogue ne se referme QUE si tout est passé : sinon on y laisse la
+      // sélection, pour que l'utilisateur voie ce qu'il reste à reprendre.
+      if (failed === 0) {
+        setUploadOpen(false)
+        setFiles([])
+        setUploadCategoryId('')
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
       invalidate()
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -110,7 +123,7 @@ export function GalleryTab() {
 
           <Dialog open={uploadOpen} onOpenChange={(open) => {
             setUploadOpen(open)
-            if (!open) { setFile(null); setUploadCategoryId(''); if (fileInputRef.current) fileInputRef.current.value = '' }
+            if (!open) { setFiles([]); setUploadCategoryId(''); if (fileInputRef.current) fileInputRef.current.value = '' }
           }}>
             <DialogTrigger render={<Button type="button" />}>
               <Upload className="mr-1.5 size-4" />
@@ -124,7 +137,7 @@ export function GalleryTab() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
-                  if (file && uploadCategoryId) uploadMutation.mutate({ categoryId: uploadCategoryId, file })
+                  if (files.length > 0 && uploadCategoryId) uploadMutation.mutate({ categoryId: uploadCategoryId, files })
                 }}
                 className="space-y-4"
               >
@@ -152,16 +165,17 @@ export function GalleryTab() {
                   <Input
                     id="gallery-file"
                     type="file"
-                    accept="image/*,.heic,.heif,.avif"
+                    multiple
+                    accept={ACCEPT_PHOTO}
                     ref={fileInputRef}
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
                   />
                   <p className="text-xs text-muted-foreground">
                     {t('gallery.imagesOnly')}
                   </p>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={!file || !uploadCategoryId || uploadMutation.isPending}>
+                  <Button type="submit" disabled={files.length === 0 || !uploadCategoryId || uploadMutation.isPending}>
                     {uploadMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
                     {t('gallery.publish')}
                   </Button>

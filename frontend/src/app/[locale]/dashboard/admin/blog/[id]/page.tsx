@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { blogApi } from '@/lib/api/blog.api'
 import type { TranslationStatus } from '@/types/blog'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { uploadEachInTurn } from '@/lib/api/upload-many'
+import { ACCEPT_MEDIA } from '@/lib/utils/uploads'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink } from '@/components/dashboard/shared/page'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
@@ -48,6 +50,7 @@ function formatDateTime(iso: string) {
 
 export default function ArticleDetailPage() {
   const t = useTranslations('blog')
+  const tCommon = useTranslations('common')
   const articleStatusLabel = useLabel('articleStatus')
   const translationStatusLabel = useLabel('translationStatus')
   const { id } = useParams<{ id: string }>()
@@ -144,9 +147,19 @@ export default function ArticleDetailPage() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
+  // Une galerie d'article se remplit par lot, pas photo par photo.
   const uploadMediaMutation = useMutation({
-    mutationFn: (file: File) => blogApi.uploadAttachment(id, file),
-    onSuccess: () => { toast.success(t('form.mediaAdded')); invalidate() },
+    mutationFn: (files: File[]) =>
+      uploadEachInTurn(files, (file) => blogApi.uploadAttachment(id, file)),
+    onSuccess: ({ sent, failed, firstError }, files) => {
+      if (sent > 0) {
+        toast.success(sent === 1 ? t('form.mediaAdded') : tCommon('uploads.added', { count: sent }))
+      }
+      if (failed > 0) {
+        toast.error(`${tCommon('uploads.partial', { failed, total: files.length })} ${getApiErrorMessage(firstError)}`)
+      }
+      invalidate()
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -453,15 +466,18 @@ export default function ArticleDetailPage() {
                 {uploadMediaMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Upload className="mr-1.5 size-4" />}
                 {t('form.addMedia')}
               </Button>
+              {/* `multiple` : la page de création acceptait déjà un lot, pas
+                  celle-ci — alors que c'est ici qu'on enrichit un article. */}
               <input
                 ref={mediaInputRef}
                 type="file"
-                accept="image/*,video/*,.heic,.heif,.avif,.mov,.3gp,.mkv"
+                multiple
+                accept={ACCEPT_MEDIA}
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) uploadMediaMutation.mutate(file)
+                  const chosen = Array.from(e.target.files ?? [])
                   e.target.value = ''
+                  if (chosen.length > 0) uploadMediaMutation.mutate(chosen)
                 }}
               />
             </>

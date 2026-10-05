@@ -112,5 +112,9 @@
   "views": {
     "list": "Vue en liste",
     "cards": "Vue en cartes"
+  },
+  "uploads": {
+    "added": "{count, plural, one {# fichier ajouté.} other {# fichiers ajoutés.}}",
+    "partial": "{failed, plural, one {# fichier sur {total} n'a pas pu être envoyé.} other {# fichiers sur {total} n'ont pas pu être envoyés.}}"
   }
 }

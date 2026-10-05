@@ -2017,8 +2017,36 @@ signale alors une panne RÉSEAU. L'utilisateur lit donc « Impossible de joindre
 le serveur », qui n'évoque en rien un problème de taille. `getApiErrorMessage`
 traite désormais le 413 explicitement, pour les cas où la réponse arrive.
 
-**La correction est côté SERVEUR**, hors du dépôt : `client_max_body_size` doit
-couvrir le plafond le plus haut de la plateforme, marge multipart comprise.
+**La correction est côté SERVEUR**, hors du dépôt — c'est ce qui la rend
+fragile : rien dans le dépôt ne la rappelle, et une réinstallation du VPS la
+perdrait sans le moindre signal. D'où ce qui suit.
+
+Le réglage était **absent de toute la configuration** (`grep -rn
+"client_max_body_size" /etc/nginx/` ne renvoyait rien), donc nginx appliquait
+son défaut. Il vit maintenant dans un fichier à lui, au niveau `http` :
+
+```nginx
+# /etc/nginx/conf.d/upload-size.conf
+client_max_body_size 60M;
+```
+
+- **Au niveau `http`, pas dans un bloc `server`** : les deux environnements
+  tournent sur le même nginx, et `conf.d/` les couvre tous les deux d'un coup.
+  Un réglage par site serait à refaire pour chacun, donc à oublier pour l'un.
+- **60 Mo et non 50** : le plafond le plus haut de la plateforme est 50 Mo
+  (rapports, blog), et l'encodage multipart ajoute quelques pour cent au poids
+  réel. Un plafond à 50 Mo pile refuserait un fichier de 50 Mo.
+- ⚠️ **Un `client_max_body_size` posé dans un `server` ou un `location`
+  l'emporterait** sur celui-ci. Le `grep` ci-dessus portait sur TOUT
+  `/etc/nginx/` et ne renvoyait rien : aucun des deux sites n'en porte. Mais une
+  directive ajoutée plus bas annulerait ce correctif silencieusement.
+
+⚠️ **`nginx -t` ne prouve PAS que le fichier est lu**, seulement que la syntaxe
+est bonne : sans `include /etc/nginx/conf.d/*.conf;` dans `nginx.conf`, le test
+passerait à l'identique et le plafond resterait à 1 Mo. Vérifié présent (ligne
+59), puis prouvé par un envoi RÉEL de 2 Mo à travers le proxy — qui renvoie
+422 (l'API refuse le corps) et non 413 (nginx refuse la taille). C'est le seul
+contrôle qui distingue les deux.
 
 ⚠️ Cette limite a probablement contribué au signalement « certains fichiers
 passent, d'autres non » — attribué à l'époque au seul MIME déclaré. Les deux
@@ -2038,6 +2066,55 @@ remonter.
 `UPLOAD_REQUEST` (`lib/api/file-transfer.ts`, qui remplace `blob-request.ts`)
 couvre les douze. Sans cela, corriger nginx aurait simplement déplacé l'échec :
 même message, autre cause.
+
+### ⚠️ Les pages de DÉTAIL n'acceptaient qu'un fichier à la fois
+
+Signalé par un établissement : impossible de joindre plusieurs photos à un
+rapport bi-mensuel. Sur iOS, le sélecteur se referme sur la première photo
+touchée — il n'offre **aucune** sélection multiple quand l'`input` ne porte pas
+`multiple`.
+
+Le défaut n'était pas isolé, et sa forme est instructive : **les pages de
+CRÉATION l'avaient, les pages de DÉTAIL non** — alors que les deux alimentent le
+même objet. Quatre foyers, découverts d'un coup en relevant tous les
+`type="file"` du projet :
+
+| Écran | Création | Détail (avant) |
+|---|---|---|
+| Rapport — pièces jointes | lot | **un seul** |
+| Article de blog — médias | lot | **un seul** |
+| Dossier d'inscription enfant | lot | **un seul** |
+| Galerie du site vitrine | — | **un seul** |
+
+C'est le détail qui compte le plus, pas la création : les photos d'une journée
+arrivent APRÈS la rédaction — c'est la raison même pour laquelle le `submitted`
+a été ouvert au staff. Le cas le plus fréquent était donc le seul mal servi.
+
+`lib/api/upload-many.ts` porte la boucle, une fois pour les quatre :
+
+- **Séquentiel, jamais en parallèle.** Les envois simultanés se partagent le
+  débit MONTANT, déjà trois à dix fois plus faible que le descendant sur un
+  abonnement mobile : les lancer ensemble ne va pas plus vite et retarde le
+  premier résultat. C'est le raisonnement INVERSE d'une grille de vignettes, où
+  le parallélisme sert l'affichage — d'où le risque de transposer l'un à l'autre.
+- **Un échec n'arrête pas les suivants**, et le bilan est DIT (`common.uploads.*`,
+  pluriels ICU). Sur dix photos, la neuvième qui passe mal ne doit pas faire
+  perdre la dixième, et un envoi partiel annoncé comme un succès laisserait
+  l'utilisateur ignorer ce qu'il doit reprendre.
+- **Les fichiers douteux sont écartés un par un**, pas la sélection entière : un
+  intrus parmi dix ne doit pas faire tout recommencer.
+- `ACCEPT_MEDIA` (`lib/utils/uploads.ts`) remplace la chaîne `image/*,video/*,…`
+  qui vivait en littéral dans quatre fichiers — une extension ajoutée à l'un ne
+  l'était pas aux autres, et une extension manquante GRISE le fichier dans le
+  sélecteur sans rien signaler.
+
+Les quatre appels passent déjà par `UPLOAD_REQUEST` (aucun plafond de délai),
+sans quoi une série de photos de téléphone se serait fait couper en route.
+
+Prouvé par sabotage (cf. [[lint-guards-must-fail-first]]) : rendu parallèle, le
+contrôle de simultanéité tombe ; arrêté au premier échec, trois contrôles
+tombent ; en retenant la dernière erreur au lieu de la première, celui qui la
+vise tombe.
 
 ### Vignettes — `?thumb=true` sur les neuf endpoints de média
 

@@ -112,5 +112,9 @@
   "views": {
     "list": "List view",
     "cards": "Card view"
+  },
+  "uploads": {
+    "added": "{count, plural, one {# file added.} other {# files added.}}",
+    "partial": "{failed, plural, one {# of {total} files could not be sent.} other {# of {total} files could not be sent.}}"
   }
 }

@@ -3787,6 +3787,49 @@ calculée par rapport à `date.today()` au moment de l'exécution (cf.
 
 ---
 
+## ⚠️ Une fonctionnalité éteinte doit le DIRE au démarrage
+
+**Deux variables seulement sont obligatoires** (`DATABASE_URL`, `SECRET_KEY`) ;
+les quarante-six autres ont un défaut. Le backend démarre donc parfaitement avec
+une fonctionnalité entière hors service, et ne le signale nulle part.
+
+Ce n'est pas théorique. Découvert en production, par hasard, en cherchant autre
+chose : **les clés VAPID n'y avaient jamais été posées**, donc aucune
+notification push n'est jamais partie — ni « rapport validé », ni « nouveau
+message », ni diffusion. Tout le travail sur les destinations de notification
+(mener au bon rapport, au bon onglet de messagerie) n'a jamais rien produit en
+vrai. L'envoi étant best-effort, l'échec est journalisé au fond du module et
+n'atteint jamais un écran.
+
+Deux raisons se cumulaient, et aucune ne se voyait :
+
+1. **La commande de génération des clés vivait en commentaire, en DEUX copies,
+   toutes deux fausses** — `print(v)` affichait la représentation de l'objet
+   dans `config.py`, et `.env.example` appelait `private_key_b64()`, une méthode
+   qui n'existe pas dans `py_vapid`. Deux copies, deux erreurs différentes,
+   aucune jamais exécutée. D'où `backend/scripts/generate_vapid_keys.py` : une
+   commande qu'on exécute se fait démentir, un commentaire qu'on recopie non.
+2. **Le développement local, lui, AVAIT ses clés.** Tout fonctionnait sur le
+   poste de développement ; seul le serveur était muet. C'est le même piège que
+   le `worker`/`beat` ajoutés au seul compose local : la vérification locale
+   réussit, et c'est ce qui referme le piège.
+
+`_warn_dormant_features()` (`app/main.py`, appelé au `lifespan`) annonce donc au
+démarrage ce qui dort — push sans clés VAPID, traduction inactive — en nommant
+la commande qui répare. Un **avertissement, jamais une erreur** : ces
+fonctionnalités sont facultatives, et refuser de démarrer serait une bien pire
+panne. Même raisonnement que l'avertissement `pillow-heif` de `media.py` : une
+dégradation CHOISIE se dit, une dégradation SUBIE se découvre trop tard.
+
+⚠️ Le garde distingue « drapeau éteint » de « drapeau allumé mais sans clé » —
+le second est le vrai piège, puisqu'on croit avoir activé la fonctionnalité. Et
+une seule des deux clés VAPID ne vaut pas configuration.
+
+⚠️ **Un couple de clés VAPID DIFFÉRENT par environnement** : partagées, un
+abonnement pris en préprod resterait valide en production, et une notification
+de test partirait à de vrais parents. Changer les clés d'une installation
+existante invalide tous les abonnements déjà pris.
+
 ## Tâches planifiées — worker et beat
 
 Deux services du compose, `worker` et `beat`, démarrés avec le reste

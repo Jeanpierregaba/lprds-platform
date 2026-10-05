@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,10 +12,53 @@ from app.core.redis import close_redis, redis_client
 from app.api.v1.router import api_router
 
 
+logger = logging.getLogger(__name__)
+
+
+def _warn_dormant_features() -> None:
+    """Annonce au démarrage les fonctionnalités ÉTEINTES faute de configuration.
+
+    ⚠️ Deux variables seulement sont obligatoires (`DATABASE_URL`,
+    `SECRET_KEY`) ; les quarante-six autres ont un défaut. Le backend démarre
+    donc parfaitement avec une fonctionnalité entière hors service, et ne le
+    dit nulle part.
+
+    Ce n'est pas théorique : les clés VAPID n'ont jamais été posées en
+    production, donc **aucune notification push n'est jamais partie** — ni
+    « rapport validé », ni « nouveau message ». L'envoi étant best-effort,
+    l'échec est journalisé au fond du module et n'atteint jamais un écran.
+    Personne ne pouvait le savoir sans interroger l'API à la main.
+
+    Même raisonnement que l'avertissement `pillow-heif` de `media.py` : une
+    dégradation choisie se dit, une dégradation subie se découvre trop tard.
+    Un avertissement, jamais une erreur — ces fonctionnalités sont facultatives
+    et refuser de démarrer serait une bien pire panne.
+    """
+    if not (settings.vapid_private_key and settings.vapid_public_key):
+        logger.warning(
+            "VAPID non configuré : AUCUNE notification push ne partira "
+            "(rapports, messagerie, diffusions). Générer les clés avec "
+            "`python scripts/generate_vapid_keys.py`, puis les poser dans "
+            "backend/.env."
+        )
+    if not settings.translation_active:
+        detail = (
+            "TRANSLATION_ENABLED est faux"
+            if not settings.translation_enabled
+            else f"moteur « {settings.translation_provider} » sans clé ni URL"
+        )
+        logger.warning(
+            "Traduction automatique inactive (%s) : blog, menus, rapports et "
+            "diffusions resteront en français pour les lecteurs anglophones.",
+            detail,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Le schéma est géré exclusivement par Alembic (alembic upgrade head).
     # Pas de create_all ici : deux sources de vérité divergeraient.
+    _warn_dormant_features()
     yield
     await engine.dispose()
     await close_redis()

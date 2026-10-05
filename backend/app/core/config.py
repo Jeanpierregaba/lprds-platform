@@ -46,7 +46,12 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
 
     # Notifications push Web (PWA Phase 2) — clés VAPID. Générer le couple via :
-    #   python -c "from py_vapid import Vapid01; v=Vapid01(); v.generate_keys(); print(v)"
+    #   docker compose exec backend python scripts/generate_vapid_keys.py
+    # ⚠️ La commande vivait ICI en commentaire, et elle était FAUSSE
+    # (`print(v)` affiche la représentation de l'objet). Jamais exécutée,
+    # donc jamais démentie : les clés n'ont jamais été posées en
+    # production et les notifications push n'y ont jamais fonctionné,
+    # sans la moindre erreur visible — l'envoi est best-effort.
     # (ou py_vapid CLI). La clé publique est exposée aux clients via
     # GET /api/v1/notifications/vapid-public-key pour la souscription.
     vapid_private_key: str = ""

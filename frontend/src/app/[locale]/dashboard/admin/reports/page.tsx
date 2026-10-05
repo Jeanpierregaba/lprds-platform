@@ -7,10 +7,14 @@ import { useLabel } from '@/lib/i18n/labels'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { TYPE_TAB_META, TypeTab } from './type-tab'
+import { useReportListParams } from './list-params'
 
 export default function ReportsPage() {
   const t = useTranslations('reports')
   const reportTypesLabel = useLabel('reportTypes')
+  // L'onglet vit dans l'URL : c'est ce qui permet de revenir ICI après avoir
+  // validé un rapport, au lieu de retomber sur « Quotidien ».
+  const { params, setParams } = useReportListParams()
   return (
     <PageMotion>
       <PageHeader
@@ -18,7 +22,7 @@ export default function ReportsPage() {
         description={t('page.description')}
       />
 
-      <Tabs defaultValue="quotidien">
+      <Tabs value={params.type} onValueChange={(v) => v && setParams({ type: v as typeof params.type })}>
         <PillsTabsList>
           {TYPE_TAB_META.map((tab) => (
             <PillsTrigger key={tab.value} value={tab.value} active={tab.active} icon={tab.icon}>

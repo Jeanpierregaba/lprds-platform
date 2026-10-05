@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -32,6 +32,7 @@ import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
 import { toDailyContent, fromDailyContent, fromBiMensuelContent, fromAnnualContent } from '@/lib/reports/content-schemas'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink } from '@/components/dashboard/shared/page'
+import { reportsBackHref } from '../list-params'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { REPORT_STATUS_BADGE_CLASS, type ReportAttachment } from '@/types/reports'
 import { DailyFields } from '../daily-fields'
@@ -93,6 +94,13 @@ export default function ReportDetailPage() {
     else if (report.report_type === 'annuel') annualForm.reset(fromAnnualContent(report.content))
   }, [report?.id])
 
+  /* Retour à la liste TELLE QU'ON L'A LAISSÉE — bon onglet, bonne pastille,
+   * même recherche. Un établissement l'a signalé : après chaque validation
+   * d'un rapport bi-mensuel, l'écran rouvrait l'onglet « Quotidien », et il
+   * fallait re-naviguer. Sur une série de validations, c'est tout le temps
+   * passé à revenir en arrière. */
+  const backHref = reportsBackHref(useSearchParams().get('from'))
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['reports', 'detail', id] })
     queryClient.invalidateQueries({ queryKey: ['reports', 'list'] })
@@ -106,7 +114,7 @@ export default function ReportDetailPage() {
   const saveMutation = useMutation({
     mutationFn: (content: Record<string, unknown>) =>
       reportsApi.update(id, { content }),
-    onSuccess: () => { toast.success(t('detail.saved')); invalidate(); router.push('/dashboard/admin/reports') },
+    onSuccess: () => { toast.success(t('detail.saved')); invalidate(); router.push(backHref) },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -148,7 +156,7 @@ export default function ReportDetailPage() {
 
   const validateMutation = useMutation({
     mutationFn: () => reportsApi.validate(id),
-    onSuccess: () => { toast.success(t('detail.validated')); invalidate(); router.push('/dashboard/admin/reports') },
+    onSuccess: () => { toast.success(t('detail.validated')); invalidate(); router.push(backHref) },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -170,7 +178,7 @@ export default function ReportDetailPage() {
     mutationFn: () => reportsApi.remove(id),
     onSuccess: () => {
       toast.success(t('detail.deleted'))
-      router.push('/dashboard/admin/reports')
+      router.push(backHref)
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
@@ -214,7 +222,7 @@ export default function ReportDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/reports" label={t('form.back')} />
+      <BackLink href={backHref} label={t('form.back')} />
 
       <Card>
         <CardHeader>

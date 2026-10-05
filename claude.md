@@ -2106,6 +2106,29 @@ draft ──submit──> submitted ──validate──> validated (publié au 
     rôle validateur serait inutilisable (la validation elle-même est sans
     restriction de groupe). Les brouillons/rejetés d'autrui restent invisibles.
 
+### ⚠️ Après une validation, on revient LÀ D'OÙ L'ON VIENT
+
+Signalé par un établissement : après avoir validé un rapport bi-mensuel, l'admin
+était renvoyé à la racine de la liste, **qui rouvre l'onglet « Quotidien »**. Il
+devait donc re-naviguer à chaque validation — et il en enchaîne des dizaines.
+Ses filtres aussi étaient perdus.
+
+La cause n'était pas la redirection mais l'ÉTAT : les onglets de type et les
+pastilles de statut vivaient en `useState`, donc rien ne survivait à une
+navigation. `list-params.ts` les porte désormais **dans l'URL**
+(`?type=&status=&q=`) ; le lien vers le détail recopie cette requête dans un
+paramètre `from`, et le détail y revient après enregistrement, validation ou
+suppression — ainsi que par le lien « Retour à la liste ».
+
+Effets de bord gratuits : le lien devient partageable, et le retour arrière du
+navigateur retrouve le bon écran.
+
+⚠️ `from` vient de la BARRE D'ADRESSE. `reportsBackHref` n'y obéit que s'il
+désigne bien la liste des rapports — sans quoi un lien piégé ferait sortir du
+site au moment où l'on clique « retour », juste après avoir validé quelque
+chose. Un `startsWith` seul ne suffirait pas : « /dashboard/admin/reportsXYZ »
+le satisferait.
+
 ### ⚠️ Auto-publication quand l'auteur est admin — et ce que l'écran doit en dire
 
 Quand `POST /reports/{id}/submit` est appelé par un **admin**, le rapport est

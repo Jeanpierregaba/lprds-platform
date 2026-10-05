@@ -11,9 +11,8 @@ import { reportsApi } from '@/lib/api/reports.api'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { REPORT_STATUSES, type ReportStatus, type ReportType } from '@/types/reports'
 import { StatusList } from './status-list'
+import { useReportListParams, type StatusTab } from './list-params'
 import { MissingList } from './missing-list'
-
-type StatusTab = ReportStatus | 'missing'
 
 /** Couleur de la pastille par statut — invariant, contrairement au libellé,
  *  qui dépend désormais de la langue et se résout donc dans le composant. */
@@ -39,7 +38,10 @@ function Count({ value }: { value: number | undefined }) {
 export function TypeTab({ reportType }: { reportType: ReportType }) {
   const tTabs = useTranslations('reports.tabs')
   const reportStatusLabel = useLabel('reportStatus')
-  const [status, setStatus] = useState<StatusTab>('submitted')
+  // Dans l'URL, comme l'onglet de type : un retour de validation doit
+  // retrouver la pastille d'où l'on est parti, pas « Soumis » par défaut.
+  const { params, setParams } = useReportListParams()
+  const status = params.status
   const [missingDate, setMissingDate] = useState(todayIso())
   const [missingSearch, setMissingSearch] = useState('')
 
@@ -65,7 +67,7 @@ export function TypeTab({ reportType }: { reportType: ReportType }) {
     tab === 'missing' ? missingQuery.data?.total : counts.data?.[tab]
 
   return (
-    <Tabs value={status} onValueChange={(v) => v && setStatus(v as StatusTab)}>
+    <Tabs value={status} onValueChange={(v) => v && setParams({ status: v as StatusTab })}>
       <PillsTabsList>
         {STATUS_TAB_STYLE.map((tab) => (
           <PillsTrigger key={tab.value} value={tab.value} active={tab.active}>

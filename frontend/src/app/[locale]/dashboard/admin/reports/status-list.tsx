@@ -21,6 +21,7 @@ import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem }
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { REPORT_STATUS_BADGE_CLASS, type ReportListItem, type ReportStatus, type ReportType } from '@/types/reports'
 import { Link } from '@/i18n/navigation'
+import { reportDetailHref, useReportListParams } from './list-params'
 
 const PAGE_SIZE = 20
 
@@ -45,17 +46,23 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
   // La page est partagée admin/staff : l'éducatrice sans reports:write
   // (lecture seule) ne voit pas le bouton de création.
   const canWrite = user?.role === 'admin' || permissions.has('reports:write')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const { params, setParams } = useReportListParams()
+  // La frappe reste locale (le champ doit répondre à chaque touche) ; c'est la
+  // valeur DÉBOUNCÉE qui va dans l'URL, sinon on y écrirait trente fois par mot.
+  const [search, setSearch] = useState(params.q)
+  const debouncedSearch = params.q
   const [skip, setSkip] = useState(0)
   const [view, setView] = useState<ViewMode>('cards')
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    if (search === params.q) return
+    const t = setTimeout(() => setParams({ q: search }), 300)
     return () => clearTimeout(t)
-  }, [search])
+  }, [search, params.q, setParams])
 
   useEffect(() => setSkip(0), [status, reportType, debouncedSearch])
+
+  const detailHref = (reportId: string) => reportDetailHref(reportId, params)
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['reports', 'list', { status, reportType, search: debouncedSearch, skip }],
@@ -127,36 +134,36 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
               items.map((r) => (
                 <TableRow key={r.id}>
                   <Td className="font-medium">
-                    <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
+                    <Link href={detailHref(r.id)} className="block">
                       {r.child.first_names} {r.child.last_name}
                     </Link>
                   </Td>
                   <Td>
-                    <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
+                    <Link href={detailHref(r.id)} className="block">
                       <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', REPORT_TYPE_PILLS[r.report_type])}>
                         {reportTypesLabel(r.report_type)}
                       </span>
                     </Link>
                   </Td>
                   <Td className="text-muted-foreground">
-                    <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
+                    <Link href={detailHref(r.id)} className="block">
                       {r.period_label}
                     </Link>
                   </Td>
                   <Td>
-                    <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
+                    <Link href={detailHref(r.id)} className="block">
                       <span className={cn('inline-block rounded-full px-3 py-1 text-xs font-semibold', REPORT_STATUS_BADGE_CLASS[r.status])}>
                         {reportStatusLabel(r.status)}
                       </span>
                     </Link>
                   </Td>
                   <Td className="text-muted-foreground">
-                    <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
+                    <Link href={detailHref(r.id)} className="block">
                       {r.created_by.nickname || `${r.created_by.first_name} ${r.created_by.last_name}`}
                     </Link>
                   </Td>
                   <Td className="text-muted-foreground">
-                    <Link href={`/dashboard/admin/reports/${r.id}`} className="block">
+                    <Link href={detailHref(r.id)} className="block">
                       {formatDate(r.updated_at)}
                     </Link>
                   </Td>
@@ -184,6 +191,9 @@ function ReportsCardGrid({
   const t = useTranslations('reports')
   const reportStatusLabel = useLabel('reportStatus')
   const reportTypesLabel = useLabel('reportTypes')
+  // Mêmes liens que la vue tableau : les deux doivent emporter les filtres.
+  const { params } = useReportListParams()
+  const detailHref = (reportId: string) => reportDetailHref(reportId, params)
 
   if (isLoading) {
     return <CardsSkeleton />
@@ -200,7 +210,7 @@ function ReportsCardGrid({
       {items.map((r, i) => (
         <StaggerItem key={r.id} index={i}>
           <ClickableCard
-            href={`/dashboard/admin/reports/${r.id}`}
+            href={detailHref(r.id)}
             label={t('list.openReport', { name: `${r.child.first_names} ${r.child.last_name}` })}
           >
             <CardContent className="space-y-1.5 p-5">
@@ -222,7 +232,7 @@ function ReportsCardGrid({
                 {t('list.byAndUpdated', { name: r.created_by.nickname || `${r.created_by.first_name} ${r.created_by.last_name}`, date: formatDate(r.updated_at) })}
               </p>
               <div className="flex flex-wrap gap-2 pt-3">
-                <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/reports/${r.id}`} />}>
+                <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={detailHref(r.id)} />}>
                   <Eye className="mr-1.5 size-4" />
                   {t('open')}
                 </Button>

@@ -3825,6 +3825,22 @@ réseaux séparés (`internal` / `web`) et n'expose les ports que sur `127.0.0.1
 (un reverse proxy est devant). Le fichier backend, lui, publie sur toutes les
 interfaces et surcharge `DATABASE_URL`/`REDIS_URL` vers les noms de service.
 
+⚠️ **Tout réglage qui DIFFÈRE d'un environnement à l'autre appartient au `.env`
+de la RACINE, jamais au compose.** Les ports publiés étaient codés en dur alors
+que préprod et production tournent sur le même VPS depuis ce même fichier : la
+production avait donc été modifiée À LA MAIN sur le serveur. Ça n'a rien cassé
+pendant des semaines — jusqu'au jour où un déploiement a touché le compose
+(ajout du `worker` et du `beat`), où `git pull` a refusé d'écraser la
+modification locale : « Your local changes would be overwritten by merge…
+Aborting ». Le script étant en `set -e`, plus rien ne s'est construit, et la
+production est restée sur son ancienne version — bon mode d'échec, mais
+déploiement bloqué.
+
+`BACKEND_PORT` et `FRONTEND_PORT` sont donc paramétrables (défauts 8000 / 3000),
+et `.env.example` à la racine documente enfin les six variables du compose —
+il n'en existait aucun, ce qui est précisément ce qui pousse à éditer le fichier
+suivi.
+
 ⚠️ **`POSTGRES_USER`/`POSTGRES_DB` sont paramétrables, défauts historiques
 conservés.** Le même fichier servant aux deux environnements, la production
 tournait avec une base nommée `lprds_preprod` — rien ne se mélangeait (volumes

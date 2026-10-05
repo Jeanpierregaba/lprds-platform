@@ -45,8 +45,20 @@ services:
         condition: service_started
     volumes:
       - backend_media:/app/media
+    # ⚠️ Ports PARAMÉTRABLES, défauts historiques conservés.
+    #
+    # Ce fichier sert aux DEUX environnements, et ils tournent sur le même
+    # VPS : avec des ports codés en dur, le second ne peut pas démarrer. La
+    # production avait donc été modifiée À LA MAIN sur le serveur — ce que
+    # `git pull` a fini par refuser d'écraser le jour où ce fichier a changé
+    # (ajout du worker et du beat), bloquant le déploiement avec « Your local
+    # changes would be overwritten by merge ».
+    #
+    # Un réglage qui diffère d'un environnement à l'autre appartient au `.env`
+    # de la racine, jamais à un fichier suivi par git : sinon chaque
+    # déploiement qui touche au compose se heurte au même mur.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     # Le worker et le beat attendent CE signal : l'entrypoint du backend est le
     # seul à migrer la base, et une tâche partie avant aurait un schéma d'avance
     # sur elle. `service_started` ne dirait que « le process existe ».
@@ -125,7 +137,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     networks:
       - web
 

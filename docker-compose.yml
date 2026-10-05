@@ -123,6 +123,46 @@ services:
     networks:
       - internal
 
+  # ── Traduction auto-hébergée (profil « translate ») ───────────
+  #
+  # ⚠️ Ce service n'existait que dans `backend/docker-compose.yml` — le fichier
+  # qui n'est JAMAIS déployé. Exactement le piège déjà vécu avec le `worker` et
+  # le `beat` : `docker compose --profile translate up -d` sur le serveur
+  # n'aurait rien démarré, `LIBRETRANSLATE_URL` aurait pointé vers le vide, et
+  # la traduction étant best-effort, l'échec n'aurait produit aucune erreur
+  # visible — du contenu resté en français, sans explication.
+  #
+  # Hors profil, il ne démarre pas : l'image embarque les modèles de langue
+  # (plusieurs Go) et n'a aucune raison de tourner sur une installation qui
+  # utilise Claude, ou qui n'a pas activé la traduction du tout.
+  #
+  # `LT_LOAD_ONLY` limite le téléchargement aux deux langues du projet — sans
+  # lui, l'image tire une cinquantaine de paires dont aucune ne sert.
+  #
+  # Réseau `internal` UNIQUEMENT, et aucun port publié : seul le backend
+  # l'appelle, par son nom de service. L'exposer donnerait à n'importe qui une
+  # API de traduction gratuite sur votre serveur.
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    profiles: ["translate"]
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: "fr,en"
+      LT_DISABLE_WEB_UI: "true"
+    volumes:
+      - libretranslate:/home/libretranslate/.local
+    # `start_period` long : le premier démarrage TÉLÉCHARGE les modèles. Sans
+    # cette fenêtre, le conteneur serait déclaré malsain et redémarré en
+    # boucle, reprenant le téléchargement à chaque fois.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:5000/languages')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+    networks:
+      - internal
+
   frontend:
     build:
       context: ./frontend
@@ -149,3 +189,6 @@ volumes:
   postgres_data:
   backend_media:
   celery_beat:
+  # Les modèles de langue téléchargés au premier démarrage — plusieurs Go. Sans
+  # volume, chaque recréation du conteneur les retélécharge.
+  libretranslate:

@@ -4045,9 +4045,25 @@ head` puis `python -m app.core.seed` avant `uvicorn`).
 docker compose up --build
 ```
 
-Un quatrième service, `libretranslate`, est derrière le **profil `translate`** :
-il ne démarre pas par défaut (son image embarque les modèles de langue,
-plusieurs Go) et n'a de sens que si `TRANSLATION_PROVIDER=libretranslate`.
+Un service `libretranslate` est derrière le **profil `translate`** : il ne
+démarre pas par défaut (son image embarque les modèles de langue, plusieurs Go)
+et n'a de sens que si `TRANSLATION_PROVIDER=libretranslate`.
+
+⚠️ **Il n'existait que dans `backend/docker-compose.yml`** — le fichier qui
+n'est jamais déployé. Deuxième occurrence EXACTE du piège du `worker` et du
+`beat`, et la leçon écrite juste au-dessus n'a pas suffi à l'éviter. Sur le
+serveur, `docker compose --profile translate up -d` n'aurait rien démarré (pas
+de service de ce nom), `LIBRETRANSLATE_URL` aurait pointé vers le vide, et la
+traduction étant best-effort, **aucune erreur n'aurait été visible** : du
+contenu resté en français, sans explication, comme les notifications push qui
+ne partaient pas.
+
+Il est réseau `internal` uniquement, sans port publié : seul le backend
+l'appelle, par son nom de service. L'exposer donnerait à n'importe qui une API
+de traduction gratuite sur votre serveur. Son `start_period` de cinq minutes
+couvre le TÉLÉCHARGEMENT des modèles au premier démarrage — sans cette fenêtre,
+le conteneur serait déclaré malsain et redémarré en boucle, reprenant le
+téléchargement à zéro à chaque fois.
 
 ```bash
 docker compose --profile translate up -d

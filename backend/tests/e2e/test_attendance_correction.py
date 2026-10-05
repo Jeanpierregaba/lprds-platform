@@ -180,7 +180,15 @@ def test_absence_inquiry_notifications(client):
            "password": "Parent2026", "child_ids": [child1["id"]]}, headers=adm)
     par = login(c, "parent@a.fr", "Parent2026")
 
-    day = _date.today()
+    # ⚠️ Un jour ouvré STRICTEMENT PASSÉ, jamais aujourd'hui.
+    #
+    # Deuxième version de cette garde. La première reculait seulement sur les
+    # week-ends — le test ne passait pas le samedi. Mais aujourd'hui reste
+    # piégeux pour une autre raison : l'arrivée est saisie à 08:00, et une
+    # heure future est refusée (422). La suite lancée à 1 h du matin échouait
+    # donc, en silence, puisque le statut de la saisie n'était pas vérifié.
+    # Partir de la veille rend le test indépendant de l'heure ET du jour.
+    day = _date.today() - _td(days=1)
     while day.weekday() >= 5:
         day -= _td(days=1)
     day_iso = day.isoformat()
@@ -219,7 +227,15 @@ def test_absence_inquiry_individual_relaunch(client):
     c.post("/parents", json={"first_name": "Anaïs", "last_name": "Kossou",
            "nickname": "Maman Anaïs", "phone": "+229 97", "email": "parent@a.fr",
            "password": "Parent2026", "child_ids": [child1["id"]]}, headers=adm)
-    day = _date.today()
+    # ⚠️ Un jour ouvré STRICTEMENT PASSÉ, jamais aujourd'hui.
+    #
+    # Deuxième version de cette garde. La première reculait seulement sur les
+    # week-ends — le test ne passait pas le samedi. Mais aujourd'hui reste
+    # piégeux pour une autre raison : l'arrivée est saisie à 08:00, et une
+    # heure future est refusée (422). La suite lancée à 1 h du matin échouait
+    # donc, en silence, puisque le statut de la saisie n'était pas vérifié.
+    # Partir de la veille rend le test indépendant de l'heure ET du jour.
+    day = _date.today() - _td(days=1)
     while day.weekday() >= 5:
         day -= _td(days=1)
     day_iso = day.isoformat()
@@ -240,9 +256,13 @@ def test_absence_inquiry_individual_relaunch(client):
     # tombait le samedi, donc l'enfant restait absent le jour interrogé et la
     # relance repassait en 200. Le test ne passait que du lundi au vendredi —
     # il a tenu jusqu'au premier samedi d'exécution de la suite.
-    c.post("/attendance/events/manual", json={
+    # Le statut EST vérifié : sans ça, une saisie refusée laisse l'enfant
+    # absent et l'échec se présente comme un défaut de la relance, à l'autre
+    # bout du scénario. C'est exactement ce qui s'est produit.
+    ck("Arrivée saisie", c.post("/attendance/events/manual", json={
         "person_type": "child", "child_id": child1["id"],
-        "event_type": "arrival", "date": day_iso, "time": "08:00"}, headers=adm)
+        "event_type": "arrival", "date": day_iso, "time": "08:00"},
+        headers=adm).status_code, 201)
     ck("Enfant présent → 422", c.post(
         f"/attendance/absent-notifications?date={day_iso}&child_id={child1['id']}",
         headers=adm).status_code, 422)

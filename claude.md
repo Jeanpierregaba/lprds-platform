@@ -3419,7 +3419,7 @@ LOGIN_RATE_LIMIT_WINDOW_SECONDS=300
 CORS_EXTRA_ORIGINS=
 MAIL_USERNAME=<mailtrap>
 MAIL_PASSWORD=<mailtrap>
-MAIL_FROM=noreply@lespetitsrayonsdesoleil.fr
+MAIL_FROM=hello@lespetitsrayonsdesoleil.net
 MAIL_FROM_NAME=LPRDS
 MAIL_PORT=587
 MAIL_SERVER=sandbox.smtp.mailtrap.io
@@ -3443,7 +3443,7 @@ CHILDREN_MAX_ATTACHMENT_MB=10
 # Notifications push Web (PWA Phase 2) — clés VAPID (privée JAMAIS exposée au frontend)
 VAPID_PRIVATE_KEY=<vapid privée>
 VAPID_PUBLIC_KEY=<vapid publique>
-VAPID_SUBJECT=mailto:no-reply@lespetitsrayonsdesoleil.fr
+VAPID_SUBJECT=mailto:hello@lespetitsrayonsdesoleil.net
 # Traduction automatique du contenu saisi (blog, menus) — cf. section
 # « Internationalisation ». Best-effort strict : un échec ne bloque jamais une
 # publication, le site vitrine retombe sur le français.

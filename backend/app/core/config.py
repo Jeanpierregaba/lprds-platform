@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # GET /api/v1/notifications/vapid-public-key pour la souscription.
     vapid_private_key: str = ""
     vapid_public_key: str = ""
-    vapid_subject: str = "mailto:no-reply@lespetitsrayonsdesoleil.fr"
+    vapid_subject: str = "mailto:hello@lespetitsrayonsdesoleil.net"
 
     # Anti brute-force sur /auth/login — cf. app/core/rate_limit.py.
     # Compté par (IP, email), remis à zéro sur connexion réussie.

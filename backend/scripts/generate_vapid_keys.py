@@ -53,7 +53,7 @@ def main() -> None:
     print("# À coller dans backend/.env, puis redémarrer le backend.")
     print(f"VAPID_PRIVATE_KEY={private_key}")
     print(f"VAPID_PUBLIC_KEY={public_key}")
-    print("VAPID_SUBJECT=mailto:no-reply@lespetitsrayonsdesoleil.fr")
+    print("VAPID_SUBJECT=mailto:hello@lespetitsrayonsdesoleil.net")
 
 
 if __name__ == "__main__":

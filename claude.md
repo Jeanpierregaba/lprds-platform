@@ -4394,12 +4394,56 @@ navigateur, sur les quatre cas : avec et sans paramètre, des deux côtés.
 
 ---
 
-## Compte de test
+## Compte de test — et le piège du seed
 
 ```
 Email    : tech@lespetitsrayonsdesoleil.fr
-Password : Geek-Ot@ku#2002   (à changer au premier login)
+Password : Geek-Ot@ku#2002
 Rôle     : superadmin
 ```
+
+⚠️ **Ce mot de passe est PUBLIÉ dans le dépôt.** C'est celui du compte le plus
+privilégié de la plateforme : quiconque lit ce fichier peut ouvrir une session
+superadmin sur toute installation qui ne l'a pas changé. Le seed le vérifie
+désormais à CHAQUE démarrage (`_warn_if_default_password`) et l'écrit dans les
+journaux tant qu'il n'a pas bougé — un avertissement, jamais un refus :
+verrouiller l'accès au démarrage transformerait un risque en panne certaine.
+
+⚠️ **Le domaine `.fr` n'est pas celui de la plateforme** (le site, les
+certificats et l'adresse d'envoi sont en `.net`). Un lien de réinitialisation
+pour ce compte partirait donc vers une boîte que personne ne relève.
+
+### Renommer le superadmin — l'ordre n'est plus piégé
+
+`SUPERADMIN_EMAIL` était une constante de `seed.py`, et le seed s'identifiait
+**par email** alors que l'entrypoint le rejoue à CHAQUE démarrage. Conséquence :
+renommer le compte en base créait un SECOND superadmin au redémarrage suivant,
+et changer la constante en créait un autre encore. **Toute tentative de
+correction dupliquait le compte le plus privilégié, silencieusement.**
+
+Le seed s'identifie maintenant sur l'EXISTENCE d'un superadmin, quel que soit
+son email : son rôle est d'amorcer une installation vierge, pas de maintenir une
+adresse. Les identifiants sont par ailleurs configurables
+(`SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`), les anciennes valeurs restant les
+défauts pour ne rien casser en développement.
+
+Le renommage se fait donc en base, et dans cet ordre :
+
+```bash
+# 1. D'ABORD déployer la correction du seed (sinon l'étape 2 créera un doublon
+#    au redémarrage suivant). Vérifier qu'elle est en place :
+docker compose exec -T backend grep -c "User.role == UserRole.SUPERADMIN" app/core/seed.py
+
+# 2. Renommer, en nommant le RÔLE et non l'ancienne adresse.
+docker compose exec -T db psql -U <user> -d <base> \
+  -c "UPDATE users SET email='tech@lespetitsrayonsdesoleil.net' WHERE role='superadmin';"
+
+# 3. Contrôler qu'il n'y en a toujours qu'UN.
+docker compose exec -T db psql -U <user> -d <base> \
+  -c "SELECT email FROM users WHERE role='superadmin';"
+```
+
+`tests/e2e/test_seed.py` verrouille le scénario exact — renommage puis
+redémarrage — et a été prouvé par sabotage : rétabli sur l'email, il échoue.
 
 ---

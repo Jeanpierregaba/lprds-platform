@@ -58,6 +58,19 @@ class Settings(BaseSettings):
     vapid_public_key: str = ""
     vapid_subject: str = "mailto:hello@lespetitsrayonsdesoleil.net"
 
+    # Premier superadmin, créé par `python -m app.core.seed` au démarrage.
+    #
+    # ⚠️ Les deux valeurs étaient ÉCRITES EN DUR dans seed.py, mot de passe
+    # compris — donc publiées dans le dépôt, et c'est le compte le plus
+    # privilégié de la plateforme. Les voici configurables, avec les anciennes
+    # valeurs en défaut pour ne rien casser en développement ni en test.
+    #
+    # ⚠️ Le défaut porte un domaine qui n'est PAS celui de la plateforme
+    # (`.fr` au lieu de `.net`). Le changer ici ne renomme PAS un compte
+    # existant : cf. le runbook de renommage dans CLAUDE.md.
+    superadmin_email: str = "tech@lespetitsrayonsdesoleil.fr"
+    superadmin_password: str = "Geek-Ot@ku#2002"
+
     # Anti brute-force sur /auth/login — cf. app/core/rate_limit.py.
     # Compté par (IP, email), remis à zéro sur connexion réussie.
     login_rate_limit_max_attempts: int = 5

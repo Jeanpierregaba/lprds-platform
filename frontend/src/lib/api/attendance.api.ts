@@ -1,4 +1,4 @@
-import { BLOB_REQUEST } from '@/lib/api/blob-request'
+import { BLOB_REQUEST } from '@/lib/api/file-transfer'
 import { apiClient } from './client'
 import type {
   AbsenceInquiryResponse, AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,

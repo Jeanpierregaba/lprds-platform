@@ -1,4 +1,4 @@
-import { BLOB_REQUEST } from '@/lib/api/blob-request'
+import { BLOB_REQUEST, UPLOAD_REQUEST } from '@/lib/api/file-transfer'
 import { apiClient } from './client'
 import type {
   Child, ChildCreatePayload, ChildDocument, ChildImportReportResponse, ChildListResponse,
@@ -39,7 +39,7 @@ export const childrenApi = {
   import: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<ChildImportReportResponse>('/api/v1/children/import', form)
+    return apiClient.post<ChildImportReportResponse>('/api/v1/children/import', form, UPLOAD_REQUEST)
   },
 
   // ── Photo de profil ─────────────────────────────────────────
@@ -51,7 +51,7 @@ export const childrenApi = {
     const form = new FormData()
     form.append('file', file)
     // `PUT` : il n'y a qu'une photo, la reposer remplace la précédente.
-    return apiClient.put<Child>(`/api/v1/children/${childId}/photo`, form)
+    return apiClient.put<Child>(`/api/v1/children/${childId}/photo`, form, UPLOAD_REQUEST)
   },
 
   downloadPhoto: (childId: string, thumb = false) =>
@@ -65,7 +65,7 @@ export const childrenApi = {
   uploadDocument: (childId: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<ChildDocument>(`/api/v1/children/${childId}/documents`, form)
+    return apiClient.post<ChildDocument>(`/api/v1/children/${childId}/documents`, form, UPLOAD_REQUEST)
   },
 
   downloadDocument: (childId: string, documentId: string) =>

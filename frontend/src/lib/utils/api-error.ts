@@ -33,6 +33,16 @@ export function getApiErrorMessage(error: unknown): string {
     if (Array.isArray(detail)) {
       return detail.map((e: { msg: string }) => e.msg).join(' · ')
     }
+    // ⚠️ 413 : c'est le REVERSE PROXY qui refuse, pas l'application — son
+    // `client_max_body_size` est plus bas que les plafonds de la plateforme.
+    // Le message doit donc parler de TAILLE, pas d'« erreur inattendue ».
+    // Vécu en production : nginx plafonnait à 1 Mo, soit en dessous de toute
+    // photo de téléphone.
+    //
+    // ⚠️ Il n'arrive pas toujours jusqu'ici : nginx ferme la connexion pendant
+    // que le navigateur envoie encore, et celui-ci signale alors une panne
+    // réseau — d'où le « Impossible de joindre le serveur » qui a été remonté.
+    if (error.response?.status === 413) return t.payloadTooLarge
     if (error.response?.status === 422) return t.invalidData
     if (error.response?.status === 401) return t.badCredentials
     if (error.response?.status === 403) return t.forbidden

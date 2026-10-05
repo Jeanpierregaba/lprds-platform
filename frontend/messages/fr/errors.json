@@ -1,5 +1,6 @@
 {
   "invalidData": "Données invalides",
+  "payloadTooLarge": "Fichier trop volumineux pour le serveur — prévenez l'administrateur si cela persiste",
   "badCredentials": "Email ou mot de passe incorrect",
   "forbidden": "Accès non autorisé",
   "serverError": "Erreur serveur, réessayez plus tard",

@@ -1,4 +1,4 @@
-import { BLOB_REQUEST } from '@/lib/api/blob-request'
+import { BLOB_REQUEST, UPLOAD_REQUEST } from '@/lib/api/file-transfer'
 import { apiClient } from './client'
 import type {
   Announcement, AnnouncementCreatePayload, AnnouncementListResponse, AnnouncementUpdatePayload,
@@ -19,13 +19,13 @@ export const messagingApi = {
   uploadAnnouncementAttachment: (announcementId: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<Attachment>(`/api/v1/messaging/announcements/${announcementId}/attachments`, form)
+    return apiClient.post<Attachment>(`/api/v1/messaging/announcements/${announcementId}/attachments`, form, UPLOAD_REQUEST)
   },
 
   uploadAnnouncementAttachments: (announcementId: string, files: File[]) => {
     const form = new FormData()
     files.forEach((file) => form.append('files', file))
-    return apiClient.post<Attachment[]>(`/api/v1/messaging/announcements/${announcementId}/attachments/batch`, form)
+    return apiClient.post<Attachment[]>(`/api/v1/messaging/announcements/${announcementId}/attachments/batch`, form, UPLOAD_REQUEST)
   },
 
   // ── Conversations (admin) ───────────────────────────────────
@@ -65,7 +65,7 @@ export const messagingApi = {
   uploadMessageAttachments: (conversationId: string, messageId: string, files: File[]) => {
     const form = new FormData()
     files.forEach((file) => form.append('files', file))
-    return apiClient.post<Attachment[]>(`/api/v1/messaging/conversations/${conversationId}/messages/${messageId}/attachments/batch`, form)
+    return apiClient.post<Attachment[]>(`/api/v1/messaging/conversations/${conversationId}/messages/${messageId}/attachments/batch`, form, UPLOAD_REQUEST)
   },
 
   // ── Pièces jointes ──────────────────────────────────────────
@@ -89,13 +89,13 @@ export const messagingApi = {
   uploadMyMessageAttachment: (messageId: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<Attachment>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments`, form)
+    return apiClient.post<Attachment>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments`, form, UPLOAD_REQUEST)
   },
 
   uploadMyMessageAttachments: (messageId: string, files: File[]) => {
     const form = new FormData()
     files.forEach((file) => form.append('files', file))
-    return apiClient.post<Attachment[]>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments/batch`, form)
+    return apiClient.post<Attachment[]>(`/api/v1/messaging/conversations/me/messages/${messageId}/attachments/batch`, form, UPLOAD_REQUEST)
   },
 
   editMyMessage: (messageId: string, body: string) =>

@@ -1,4 +1,4 @@
-import { BLOB_REQUEST } from '@/lib/api/blob-request'
+import { BLOB_REQUEST, UPLOAD_REQUEST } from '@/lib/api/file-transfer'
 import { apiClient } from './client'
 import type {
   DepartmentReportTypeSetting, MissingReportResponse, ParentReportDetail, ParentReportListResponse, Report,
@@ -56,7 +56,7 @@ export const reportsApi = {
   uploadAttachment: (id: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<ReportAttachment>(`/api/v1/reports/${id}/attachments`, form)
+    return apiClient.post<ReportAttachment>(`/api/v1/reports/${id}/attachments`, form, UPLOAD_REQUEST)
   },
 
   downloadAttachment: (reportId: string, attachmentId: string, thumb = false) =>

@@ -2003,6 +2003,42 @@ il n'y en a pas.
 seconde a été supprimée, sans quoi chacun de ces correctifs aurait été à faire
 deux fois.
 
+### ⚠️ Le reverse proxy plafonnait les envois à 1 Mo
+
+« Impossible de joindre le serveur » en voulant déposer une photo d'enfant. Ni
+l'application ni la base : **nginx renvoyait `413 Request Entity Too Large`
+au-delà de 1 Mo** — sa valeur par DÉFAUT — sur les deux environnements. Soit en
+dessous de toute photo de téléphone, et très en dessous des plafonds de la
+plateforme (10 Mo en messagerie, 50 Mo pour les rapports et le blog).
+
+⚠️ Le 413 n'arrive pas toujours jusqu'à l'écran : nginx ferme la connexion
+(`Connection: close`) pendant que le navigateur envoie encore, et celui-ci
+signale alors une panne RÉSEAU. L'utilisateur lit donc « Impossible de joindre
+le serveur », qui n'évoque en rien un problème de taille. `getApiErrorMessage`
+traite désormais le 413 explicitement, pour les cas où la réponse arrive.
+
+**La correction est côté SERVEUR**, hors du dépôt : `client_max_body_size` doit
+couvrir le plafond le plus haut de la plateforme, marge multipart comprise.
+
+⚠️ Cette limite a probablement contribué au signalement « certains fichiers
+passent, d'autres non » — attribué à l'époque au seul MIME déclaré. Les deux
+causes étaient réelles et indépendantes : le type lu dans les octets a réglé la
+première, celle-ci restait entière. Une petite image passait, une photo de
+téléphone non.
+
+### ⚠️ Un transfert de fichier n'a pas de délai — dans les DEUX sens
+
+Le plafond de 10 s du client avait été levé pour les TÉLÉCHARGEMENTS
+(`BLOB_REQUEST`), et le raisonnement s'arrêtait là : les douze points d'ENVOI
+gardaient le plafond. Or l'envoi est le pire des deux cas — le débit montant
+d'un abonnement mobile est couramment trois à dix fois plus faible que le
+descendant, donc une photo de 4 Mo qui descend en six secondes en met trente à
+remonter.
+
+`UPLOAD_REQUEST` (`lib/api/file-transfer.ts`, qui remplace `blob-request.ts`)
+couvre les douze. Sans cela, corriger nginx aurait simplement déplacé l'échec :
+même message, autre cause.
+
 ### Vignettes — `?thumb=true` sur les neuf endpoints de média
 
 Retirer le plafond rendait l'affichage possible ; il restait **cher**. Une image

@@ -1,4 +1,4 @@
-import { BLOB_REQUEST } from '@/lib/api/blob-request'
+import { BLOB_REQUEST, UPLOAD_REQUEST } from '@/lib/api/file-transfer'
 import { apiClient } from './client'
 import type {
   Article, ArticleCreatePayload, ArticleListResponse, ArticleStatus,
@@ -46,7 +46,7 @@ export const blogApi = {
   setCover: (id: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<Article>(`/api/v1/blog/articles/${id}/cover`, form)
+    return apiClient.post<Article>(`/api/v1/blog/articles/${id}/cover`, form, UPLOAD_REQUEST)
   },
 
   downloadCover: (id: string, thumb = false) =>
@@ -56,7 +56,7 @@ export const blogApi = {
   uploadAttachment: (articleId: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return apiClient.post<BlogAttachment>(`/api/v1/blog/articles/${articleId}/attachments`, form)
+    return apiClient.post<BlogAttachment>(`/api/v1/blog/articles/${articleId}/attachments`, form, UPLOAD_REQUEST)
   },
 
   downloadAttachment: (articleId: string, attachmentId: string, thumb = false) =>
@@ -87,7 +87,7 @@ export const blogApi = {
     const form = new FormData()
     form.append('category_id', categoryId)
     form.append('file', file)
-    return apiClient.post<GalleryPhoto>('/api/v1/blog/gallery', form)
+    return apiClient.post<GalleryPhoto>('/api/v1/blog/gallery', form, UPLOAD_REQUEST)
   },
 
   downloadGalleryImage: (id: string, thumb = false) =>

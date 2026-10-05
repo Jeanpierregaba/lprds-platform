@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from 'axios'
 
 /**
- * Configuration des requêtes qui transportent un FICHIER (média, export, PDF).
+ * Configuration des requêtes qui transportent un FICHIER — dans les DEUX sens.
  *
  * ⚠️ **Pas de plafond de temps.** Le client global impose `timeout: 10_000`,
  * ce qui est juste pour un appel JSON — une API qui ne répond pas en dix
@@ -26,5 +26,22 @@ import type { AxiosRequestConfig } from 'axios'
  */
 export const BLOB_REQUEST = {
   responseType: 'blob',
+  timeout: 0,
+} as const satisfies AxiosRequestConfig
+
+/**
+ * Envoi d'un fichier (multipart).
+ *
+ * ⚠️ Le plafond avait d'abord été levé pour les seuls TÉLÉCHARGEMENTS, alors
+ * que le raisonnement vaut à l'identique dans l'autre sens — et que l'envoi est
+ * le pire des deux cas : le débit montant d'un abonnement mobile est
+ * couramment trois à dix fois plus faible que le descendant. Une photo de 4 Mo
+ * qui descend en 6 secondes en met trente à remonter.
+ *
+ * Symptôme observé : « Impossible de joindre le serveur » — un dépassement de
+ * délai ne produit aucune réponse, donc l'écran ne peut pas le distinguer d'une
+ * panne réseau.
+ */
+export const UPLOAD_REQUEST = {
   timeout: 0,
 } as const satisfies AxiosRequestConfig

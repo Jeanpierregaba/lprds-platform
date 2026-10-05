@@ -1,8 +1,9 @@
-﻿"""E2E bibliothèque : catalogue multi-sections, prêts/retours bornés par la
+"""E2E bibliothèque : catalogue multi-sections, prêts/retours bornés par la
 quantité, rappels (email best-effort + message dans la conversation admin↔parent),
 paramètres admin-only, rôles socle bibliothécaire, consultation parent/éducatrice,
 isolation établissement, soft-delete des livres."""
 from datetime import date, timedelta
+from pathlib import Path
 
 from tests.helpers import SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onboard
 
@@ -285,3 +286,35 @@ def test_library_permission_granularity(client):
     ck("Catalogue seul : prêt → 403",
        c.post("/library/lendings", json={"book_id": book["id"],
               "child_id": child["id"]}, headers=writer).status_code, 403)
+
+def test_library_pagination_cap_matches_the_rest_of_the_api(client):
+    """`limit=200` est accepté, comme sur les dix autres modules.
+
+    La bibliothèque plafonnait seule à 100 alors que tout le reste de l'API
+    accepte 200, et que le frontend demande 200 partout. Le tableau de bord
+    admin appelait donc `/library/lendings?limit=200` et recevait un 422 : le
+    compteur « prêts en retard » ne se chargeait jamais, sans que rien ne le
+    signale à l'écran (constaté en recette, requête rouge dans l'onglet réseau).
+
+    Les deux routes de gestion sont vérifiées par HTTP. Les trois routes de
+    portail (`/mine/*`, `/educator/*`) ne le sont pas ici : un admin y reçoit
+    403 — le contrôle d'accès passe AVANT la validation des paramètres — et
+    monter un parent puis une éducatrice pour contrôler une borne de
+    pagination coûterait plus que ça ne prouve. La dernière assertion couvre
+    les cinq d'un coup, à la source.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    for path in ("/library/books", "/library/lendings"):
+        ck(f"{path} accepte limit=200",
+           c.get(f"{path}?limit=200", headers=adm).status_code, 200)
+        ck(f"{path} refuse limit=201",
+           c.get(f"{path}?limit=201", headers=adm).status_code, 422)
+
+    # Les cinq routes paginées du module, portails compris : une seule restée
+    # à 100 reproduirait l'écart avec le frontend.
+    router = (Path(__file__).resolve().parents[2] / "app/modules/library/router.py").read_text()
+    ck("aucune borne de pagination restée à 100", "le=100" in router, False)
+    ck("les cinq routes paginées sont à 200", router.count("ge=1, le=200"), 5)

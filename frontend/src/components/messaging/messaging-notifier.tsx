@@ -1,11 +1,13 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { useUser } from '@/lib/stores/auth.store'
+import { usePathname } from '@/i18n/navigation'
 
 /**
  * Notification à la réception d'un message privé (temps réel applicatif —
@@ -16,6 +18,7 @@ import { useUser } from '@/lib/stores/auth.store'
  * se met à jour en direct et la pastille des non-lus couvre l'information.
  */
 export function MessagingNotifier() {
+  const t = useTranslations('messaging')
   const user = useUser()
   const pathname = usePathname()
   const queryClient = useQueryClient()
@@ -49,11 +52,11 @@ export function MessagingNotifier() {
     const senderName =
       event.sender.nickname ||
       `${event.sender.first_name} ${event.sender.last_name ?? ''}`.trim() ||
-      "L'établissement"
-    const excerpt = event.body?.trim().slice(0, 120) || 'Nouvelle pièce jointe'
+      t('notifier.school')
+    const excerpt = event.body?.trim().slice(0, 120) || t('notifier.newAttachment')
     // Dédupé par conversation : sous une rafale, un seul toast vivant,
     // mis à jour au lieu d'empiler N toasts.
-    toast.info(`Nouveau message — ${senderName}`, {
+    toast.info(t('notifier.newMessage', { sender: senderName }), {
       id: `new-message-${event.conversation_id}`,
       description: excerpt,
     })

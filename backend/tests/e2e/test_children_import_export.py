@@ -86,6 +86,16 @@ def test_import_create_and_template(client):
     ck("Nom fichier modèle", r.headers["content-disposition"].split("filename=")[1].strip('"'),
        "modele_enfants.xlsx")
 
+    # Le nom du fichier suit la langue du compte (le contenu aussi : titres de
+    # feuille et feuille d'aide ; les en-têtes de colonnes, eux, sont le format
+    # d'échange et restent identiques pour que l'export reste réimportable).
+    c.patch("/auth/me/locale", json={"locale": "en"}, headers=adm)
+    r_en = c.get("/children/import/template", params={"file_format": "xlsx"}, headers=adm)
+    ck("Nom fichier modèle en anglais",
+       r_en.headers["content-disposition"].split("filename=")[1].strip('"'),
+       "children-template.xlsx")
+    c.patch("/auth/me/locale", json={"locale": "fr"}, headers=adm)
+
     payload = _csv_bytes(TWO_ROWS)
     r = c.post("/children/import",
                files={"file": ("import.csv", payload, "text/csv")}, headers=adm)
@@ -97,7 +107,8 @@ def test_import_create_and_template(client):
     ck("matricules générés", all(("matricule" in line and
                                   line["matricule"].startswith("LPRDS-"))
                                  for line in body["lignes"]), True)
-    ck("inactif respecté ligne 2", body["lignes"][1]["statut"], "créé")
+    # Code stable, jamais un libellé : c'est le frontend qui traduit.
+    ck("inactif respecté ligne 2", body["lignes"][1]["statut"], "created")
 
     details = c.get("/children",
                     params={"include_inactive": "true"}, headers=adm).json()
@@ -167,6 +178,24 @@ def test_import_rejections_and_isolation(client):
     ck("avertissements par ligne présents", all(hasattr(line, "avertissements")
                                                 or isinstance(line["avertissements"], list)
                                                 for line in body["lignes"]), True)
+
+    # Même fichier, compte passé en anglais : les motifs de rejet suivent la
+    # langue DU COMPTE (elle prime sur Accept-Language dès qu'on est
+    # authentifié), les codes de statut ne bougent pas.
+    ck("bascule du compte en anglais",
+       c.patch("/auth/me/locale", json={"locale": "en"}, headers=adm).status_code, 200)
+    r_en = c.post("/children/import",
+                  files={"file": ("bad.csv", _csv_bytes(rows), "text/csv")},
+                  headers={**adm, "Accept-Language": "fr"})
+    body_en = r_en.json()
+    errors_en = [line["erreur"] or "" for line in body_en["lignes"]]
+    ck("motif de rejet en anglais", any("unknown status" in e for e in errors_en), True)
+    ck("aucun motif français en anglais",
+       any("statut inconnu" in e for e in errors_en), False)
+    ck("statuts restent des codes stables",
+       {line["statut"] for line in body_en["lignes"]} <= {"created", "updated", "rejected"},
+       True)
+    c.patch("/auth/me/locale", json={"locale": "fr"}, headers=adm)
 
     # Superadmin exclu (isolation RGPD) — même page que les données enfants
     r = c.post("/children/import", files={"file": ("a.csv", _csv_bytes(TWO_ROWS), "text/csv")},

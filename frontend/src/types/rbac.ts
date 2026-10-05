@@ -1,7 +1,8 @@
+/** Catalogue RBAC tel que renvoyé par l'API : des codes, jamais un libellé —
+ *  ceux-ci vivent dans `messages/{locale}/rbac.json` sous `permissions.*`. */
 export interface Permission {
-  id:    string
-  code:  string
-  label: string
+  id:   string
+  code: PermissionCode
 }
 
 /**
@@ -37,17 +38,18 @@ export const PERMISSION_CODES = [
 export type PermissionCode = (typeof PERMISSION_CODES)[number]
 
 /** Regroupement par module pour le sélecteur de permissions (création de rôle). */
-export const PERMISSION_GROUPS: { module: string; codes: PermissionCode[] }[] = [
-  { module: 'Enfants', codes: ['children:read', 'children:write', 'children:archive'] },
-  { module: 'Parents', codes: ['parents:read', 'parents:write'] },
-  { module: 'Personnel', codes: ['staff:read', 'staff:write'] },
-  { module: 'Organisation', codes: ['organization:read', 'organization:write'] },
-  { module: 'Présences', codes: ['attendance:scan', 'attendance:read', 'attendance:write'] },
-  { module: 'Rapports', codes: ['reports:read', 'reports:write', 'reports:validate'] },
-  { module: 'Galerie', codes: ['gallery:read'] },
-  { module: 'Menus', codes: ['menus:read', 'menus:write'] },
-  { module: 'Blog', codes: ['blog:write'] },
-  { module: 'Bibliothèque', codes: ['library:read', 'library:write', 'library:lend'] },
+/** `moduleKey` pointe vers `nav.modules.*` : le libellé dépend de la langue. */
+export const PERMISSION_GROUPS: { moduleKey: string; codes: PermissionCode[] }[] = [
+  { moduleKey: 'children', codes: ['children:read', 'children:write', 'children:archive'] },
+  { moduleKey: 'parents', codes: ['parents:read', 'parents:write'] },
+  { moduleKey: 'staff', codes: ['staff:read', 'staff:write'] },
+  { moduleKey: 'organization', codes: ['organization:read', 'organization:write'] },
+  { moduleKey: 'attendance', codes: ['attendance:scan', 'attendance:read', 'attendance:write'] },
+  { moduleKey: 'reports', codes: ['reports:read', 'reports:write', 'reports:validate'] },
+  { moduleKey: 'gallery', codes: ['gallery:read'] },
+  { moduleKey: 'menus', codes: ['menus:read', 'menus:write'] },
+  { moduleKey: 'blog', codes: ['blog:write'] },
+  { moduleKey: 'library', codes: ['library:read', 'library:write', 'library:lend'] },
 ]
 
 export interface Role {

@@ -1,6 +1,9 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useForm } from 'react-hook-form'
+import { useLabel } from '@/lib/i18n/labels'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -12,35 +15,34 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { LanguageSettingsCard } from '@/components/dashboard/language-settings-card'
 import { authApi } from '@/lib/api/auth.api'
 import { useUser } from '@/lib/stores/auth.store'
-import { ROLE_LABELS } from '@/types/auth'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { passwordConfirmation } from '@/lib/validation/password'
 
-const schema = z.object({
-  current_password: z.string().min(1, 'Mot de passe actuel requis'),
-  new_password: z.string()
-    .min(8, '8 caractères minimum')
-    .regex(/[A-Z]/, 'Une majuscule requise')
-    .regex(/[0-9]/, 'Un chiffre requis'),
-  confirm: z.string(),
-}).refine((d) => d.new_password === d.confirm, {
-  message: 'Les mots de passe ne correspondent pas',
-  path: ['confirm'],
+type T = (key: string) => string
+
+const makeschema = (t: T, tAuth: T) => passwordConfirmation(tAuth).extend({
+  current_password: z.string().min(1, t('settings.currentPasswordRequired')),
 })
 
-type Form = z.infer<typeof schema>
+type Form = z.infer<ReturnType<typeof makeschema>>
 
 export function ProfileSettingsTab() {
+  const t = useTranslations('admin')
+  const tc = useTranslations('common')
+  const tAuth = useTranslations('auth')
+  const rolesLabel = useLabel('roles')
   const user = useUser()
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
-    useForm<Form>({ resolver: zodResolver(schema) })
+    useForm<Form>({ resolver: zodResolver(makeschema(t, tAuth)) })
 
   const onSubmit = async ({ current_password, new_password }: Form) => {
     try {
       await authApi.changePassword({ current_password, new_password })
-      toast.success('Mot de passe mis à jour.')
+      toast.success(t('settings.updated'))
       reset()
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -53,42 +55,46 @@ export function ProfileSettingsTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Informations</CardTitle>
+          <CardTitle className="text-base">{tc('profile.infoTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Nom complet</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.fullName')}</Label>
             <p className="text-sm font-medium">{user.first_name} {user.last_name}</p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Email</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.email')}</Label>
             <p className="break-all text-sm font-medium">{user.email}</p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Rôle</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.role')}</Label>
             <div>
               <Badge variant="default">
                 <ShieldCheck className="mr-1 size-3" />
-                {ROLE_LABELS[user.role]}
+                {rolesLabel(user.role)}
               </Badge>
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Téléphone</Label>
+            <Label className="text-xs text-muted-foreground">{tc('fields.phone')}</Label>
             <p className="text-sm font-medium">{user.phone ?? '—'}</p>
           </div>
         </CardContent>
       </Card>
 
+      {/* Entre l'identité (ce que je suis) et le mot de passe (ma sécurité) :
+          la langue est une préférence, elle se règle avant d'en venir là. */}
+      <LanguageSettingsCard />
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Changer de mot de passe</CardTitle>
-          <CardDescription>Votre mot de passe actuel vous sera demandé pour confirmer.</CardDescription>
+          <CardTitle className="text-base">{t('settings.passwordTitle')}</CardTitle>
+          <CardDescription>{t('settings.passwordHint')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="current_password">Mot de passe actuel</Label>
+              <Label htmlFor="current_password">{t('settings.currentPassword')}</Label>
               <Input
                 id="current_password"
                 type="password"
@@ -103,7 +109,7 @@ export function ProfileSettingsTab() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="new_password">Nouveau mot de passe</Label>
+              <Label htmlFor="new_password">{t('settings.newPassword')}</Label>
               <Input
                 id="new_password"
                 type="password"
@@ -113,7 +119,7 @@ export function ProfileSettingsTab() {
               {errors.new_password && <p className="text-sm text-destructive">{errors.new_password.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm">Confirmer le nouveau mot de passe</Label>
+              <Label htmlFor="confirm">{t('settings.confirmPassword')}</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -122,15 +128,13 @@ export function ProfileSettingsTab() {
               />
               {errors.confirm && <p className="text-sm text-destructive">{errors.confirm.message}</p>}
             </div>
-            <p className="text-xs text-muted-foreground">
-              8 caractères minimum · 1 majuscule · 1 chiffre
-            </p>
+            <p className="text-xs text-muted-foreground">{t('passwordRules')}</p>
 
             <div className="flex justify-end">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting
-                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> Enregistrement...</>
-                  : 'Mettre à jour le mot de passe'}
+                  ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tc('states.saving')}</>
+                  : t('settings.submit')}
               </Button>
             </div>
           </form>

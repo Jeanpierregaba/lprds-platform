@@ -1,13 +1,15 @@
 import uuid
 from datetime import date as date_
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.i18n import coerce_locale, t
 from app.modules.attendance import service
 from app.modules.attendance.models import PersonType
 from app.modules.attendance.schemas import (
+    AbsenceInquiryResponse,
     AttendanceEventListResponse,
     AttendanceEventResponse,
     AttendanceGeneralSettingsRequest,
@@ -110,6 +112,35 @@ async def update_event(
 ) -> AttendanceEventResponse:
     """Rectifie l'heure d'une ligne existante (type et personne inchangés)."""
     return await service.update_event(event_id, payload, user.establishment_id, db)
+
+
+@router.post("/absent-notifications", response_model=AbsenceInquiryResponse)
+async def send_absence_inquiries(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+    target_date: date_ | None = Query(default=None, alias="date"),
+    department_id: uuid.UUID | None = Query(default=None),
+    section_id: uuid.UUID | None = Query(default=None),
+    child_id: uuid.UUID | None = Query(default=None),
+) -> AbsenceInquiryResponse:
+    """Enquête manuelle d'absence : email + message conversation aux comptes
+    parents assignés aux enfants absents (aucune arrivée), pour connaître le
+    motif. Anti-doublon journalier par enfant (Redis) : un second clic ne
+    renotifie que les nouveaux absents. `child_id` = relance individuelle
+    (renvoi forcé, 404 hors établissement, 422 si non absent)."""
+    from datetime import date as _today
+
+    target = target_date or _today.today()
+    if target > _today.today():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=t("errors.common.date_future"),
+        )
+    return await service.send_absence_inquiries(
+        user.establishment_id, user, db,
+        target_date=target, department_id=department_id, section_id=section_id,
+        child_id=child_id, force=child_id is not None,
+    )
 
 
 @router.get("/events", response_model=AttendanceEventListResponse)
@@ -279,6 +310,7 @@ async def export_attendance(
         user.establishment_id, file_format, person_type, date_from, date_to, db,
         department_id=department_id, section_id=section_id,
         child_id=child_id, staff_id=staff_id,
+        locale=coerce_locale(user.locale),
     )
     media_type = (
         "application/pdf"

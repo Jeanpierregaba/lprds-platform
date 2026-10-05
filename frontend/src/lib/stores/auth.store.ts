@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import Cookies from 'js-cookie'
+import { notifySessionEnded } from '@/lib/pwa/sw-messages'
 import type { User, TokenResponse } from '@/types/auth'
 
 // middleware.ts (Edge) lit la session depuis un cookie, pas localStorage —
@@ -40,11 +41,20 @@ export const useAuthStore = create<AuthState>()(
           user,
         }),
 
-        clearSession: () => set({
-            user:         null,
-            accessToken:  null,
-            refreshToken: null,
-          }),
+        // ⚠️ La purge des caches du service worker part d'ICI, et non du
+        // bouton « Se déconnecter ». Une session se termine par TROIS chemins :
+        // les deux boutons (barre latérale, navigation mobile) et l'expiration
+        // du jeton de rafraîchissement (intercepteur Axios). Les accrocher un
+        // par un, c'est en oublier un — et celui qu'on oublierait est
+        // justement celui que personne ne déclenche volontairement.
+        clearSession: () => {
+            notifySessionEnded()
+            set({
+              user:         null,
+              accessToken:  null,
+              refreshToken: null,
+            })
+          },
     
           setUser:     (user) => set({ user }),
           setHydrated: ()     => set({ isHydrated: true }),

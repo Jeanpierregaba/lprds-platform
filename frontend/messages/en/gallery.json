@@ -1,0 +1,34 @@
+{
+  "page": {
+    "title": "Gallery",
+    "description": "Photos and videos from reports and messages.",
+    "count": "{count, plural, one {# item} other {# items}}"
+  },
+  "filters": {
+    "allChildren": "All children",
+    "allDepartments": "All departments",
+    "allGroups": "All groups",
+    "allStaff": "All staff",
+    "allSources": "All sources",
+    "allTypes": "All types",
+    "allStaffPlaceholder": "All staff",
+    "allGroupsPlaceholder": "All groups",
+    "dateFrom": "From",
+    "dateTo": "To"
+  },
+  "empty": {
+    "parent": "No media yet.",
+    "staff": "No media sent yet.",
+    "staffHint": "Photos and videos attached to your reports will appear here.",
+    "admin": "No media found.",
+    "adminHint": "Try widening your filters."
+  },
+  "lightbox": {
+    "announcement": "Announcement: {title}",
+    "parent": "Parent: {name}",
+    "uploadedBy": "Sent by {name}"
+  },
+  "badges": {
+    "report": "Report"
+  }
+}

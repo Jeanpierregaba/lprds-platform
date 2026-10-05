@@ -1,3 +1,4 @@
+import { BLOB_REQUEST } from '@/lib/api/blob-request'
 import { apiClient } from './client'
 import type {
   Announcement, AnnouncementCreatePayload, AnnouncementListResponse, AnnouncementUpdatePayload,
@@ -68,8 +69,9 @@ export const messagingApi = {
   },
 
   // ── Pièces jointes ──────────────────────────────────────────
-  downloadAttachment: (id: string) =>
-    apiClient.get<Blob>(`/api/v1/messaging/attachments/${id}`, { responseType: 'blob' }),
+  downloadAttachment: (id: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/messaging/attachments/${id}`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
 
   // ── Portail parent ───────────────────────────────────────────
   markAnnouncementRead: (id: string) => apiClient.post<void>(`/api/v1/messaging/announcements/${id}/read`),

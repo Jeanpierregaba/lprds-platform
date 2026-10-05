@@ -1,0 +1,81 @@
+{
+  "roles": {
+    "superadmin": "Super Administrateur",
+    "admin": "Administrateur",
+    "staff": "Personnel",
+    "parent": "Parent"
+  },
+  "staffTypes": {
+    "administrateur": "Administrateur",
+    "educateur": "Éducateur/trice",
+    "prestataire": "Prestataire",
+    "directrice": "Directeur/trice",
+    "redacteur": "Rédacteur/trice",
+    "secretaire": "Secrétaire",
+    "restaurateur": "Restaurateur/trice"
+  },
+  "weekdays": {
+    "monday": "Lundi",
+    "tuesday": "Mardi",
+    "wednesday": "Mercredi",
+    "thursday": "Jeudi",
+    "friday": "Vendredi"
+  },
+  "mealSlots": {
+    "collation": "Collation",
+    "dejeuner": "Déjeuner",
+    "dessert": "Dessert",
+    "gouter": "Goûter"
+  },
+  "reportTypes": {
+    "quotidien": "Quotidien",
+    "bi_mensuel": "Bi-mensuel",
+    "annuel": "Annuel"
+  },
+  "reportStatus": {
+    "draft": "Brouillon",
+    "submitted": "Soumis",
+    "rejected": "Rejeté",
+    "validated": "Validé"
+  },
+  "reportDomains": {
+    "oral_written_language": "Développement et structuration du langage oral et écrit",
+    "physical_activities": "Agir, s'exprimer, comprendre à travers les activités physiques",
+    "artistic_activities": "Agir, s'exprimer, comprendre à travers les activités artistiques",
+    "math_foundations": "L’acquisition des premiers outils mathématiques",
+    "world_exploration": "Explorer le monde",
+    "english": "Anglais"
+  },
+  "articleStatus": {
+    "draft": "Brouillon",
+    "published": "Publié"
+  },
+  "gallerySources": {
+    "report": "Rapports",
+    "message": "Messagerie",
+    "announcement": "Diffusions"
+  },
+  "gallerySourceBadges": {
+    "report": "Rapport",
+    "message": "Messagerie",
+    "announcement": "Diffusion"
+  },
+  "lendingStatus": {
+    "active": "En cours",
+    "overdue": "En retard",
+    "returned": "Rendu"
+  },
+  "attendanceStatus": {
+    "present": "Présent",
+    "late": "Retard",
+    "absent": "Absent",
+    "not_expected": "Non attendu",
+    "exempt": "Exempté"
+  },
+  "translationStatus": {
+    "pending": "À traduire",
+    "auto": "Traduction auto",
+    "manual": "Relue à la main",
+    "failed": "Traduction en échec"
+  }
+}

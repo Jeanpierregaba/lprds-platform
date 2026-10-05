@@ -1,16 +1,32 @@
 /**
- * Contenu du site vitrine — extrait et réécrit à partir du site existant
- * (lprds.netlify.app) puis retravaillé pour la refonte. Source de vérité
- * unique pour les pages marketing (accueil, à propos, sections, galerie,
- * actualités, contact).
+ * Données du site vitrine — partie STRUCTURELLE uniquement.
+ *
+ * Tout le texte affiché vit désormais dans `messages/<locale>/marketing.json` ;
+ * ce fichier ne conserve que ce qui ne se traduit pas : identifiants, chemins
+ * d'images, catégories, chiffres, coordonnées et liens.
+ *
+ * Les constructeurs `buildSections`, `buildDifferences`, etc. prennent un
+ * traducteur en paramètre plutôt que d'appeler `useTranslations` eux-mêmes.
+ * C'est volontaire : les pages vitrine mêlent composants client, composants
+ * serveur synchrones et composants serveur asynchrones (celles qui vont
+ * chercher le blog), et `useTranslations` ne fonctionne pas dans ces derniers.
+ * En recevant le traducteur, ces fonctions marchent dans les trois cas —
+ * l'appelant choisit entre `useTranslations()` et `await getTranslations()`.
  */
 
+/** Signature minimale commune à `useTranslations()` et `getTranslations()`. */
+export type MarketingTranslator = {
+  (key: string): string
+  raw: (key: string) => unknown
+}
+
+/** Coordonnées et identité — aucun de ces champs ne se traduit.
+ *  La baseline, l'adresse et les libellés d'horaires, eux, sont dans les
+ *  catalogues (cf. `buildBrandCopy`). */
 export const BRAND = {
   name: 'Les Petits Rayons de Soleil',
   shortName: 'LPRDS',
-  baseline: 'La maison de l’éveil',
   since: 2022,
-  address: 'Rue le sauveur, Quatrième voie à droite, en face du commissariat du 3e district, Djidjolé, Lomé -Togo',
   phone: '+228 98 60 29 20',
   phoneHref: 'tel:+22898602920',
   whatsapp: 'https://wa.me/22898602920',
@@ -21,27 +37,67 @@ export const BRAND = {
     linkedin: 'https://www.linkedin.com/company/lespetitsrayonsdesoleil/',
     tiktok: 'https://www.tiktok.com/@lespetitsrayonsdesoleil',
   },
+  /** Plages horaires — les heures sont universelles, seuls les jours se
+   *  traduisent (clé `marketing.brand.hours.*`). */
   hours: [
-    { day: 'Lundi — Vendredi', hours: '7h00 – 19h00' },
-    { day: 'Samedi (espace de jeux extérieur)', hours: '11h00 – 19h00' },
-    { day: 'Dimanche (espace de jeux extérieur)', hours: '14h00 – 19h00' },
+    { key: 'weekdays', hours: '7h00 – 19h00' },
+    { key: 'saturday', hours: '11h00 – 19h00' },
+    { key: 'sunday', hours: '14h00 – 19h00' },
   ],
 } as const
 
-export const STATS = [
-  { value: '100+', label: 'Enfants accueillis' },
-  { value: '15', label: 'Professionnels qualifiés' },
-  { value: '6', label: 'Sections, de 3 mois à 6 ans' },
-  { value: '100%', label: 'Parents satisfaits' },
+/** Navigation du site vitrine — partagée par l'en-tête et le pied de page.
+ *  Clé de libellé (catalogue `marketing.nav.*`) + destination. Vit ici plutôt
+ *  que dans l'un des deux composants : le pied de page est un composant
+ *  serveur et l'en-tête un composant client, et importer l'un depuis l'autre
+ *  entraînerait le premier dans le bundle client. */
+export const MARKETING_NAV = [
+  { key: 'home', href: '/' },
+  { key: 'about', href: '/a-propos' },
+  { key: 'sections', href: '/nos-sections' },
+  { key: 'gallery', href: '/galerie' },
+  { key: 'news', href: '/actualites' },
+  { key: 'contact', href: '/contact' },
 ] as const
 
-export const WHY_US = [
-  { value: '+100', label: 'Enfants confiés par leurs parents' },
-  { value: '+15', label: 'Professionnels passionnés et formés' },
-  { label: 'Espace de jeux spacieux et équipé' },
-  { label: 'Environnement 100 % sécurisé' },
+export function buildBrandCopy(t: MarketingTranslator) {
+  return {
+    baseline: t('brand.baseline'),
+    address: t('brand.address'),
+    hours: BRAND.hours.map(({ key, hours }) => ({
+      day: t(`brand.hours.${key}`),
+      hours,
+    })),
+  }
+}
+
+// ── Chiffres clés ────────────────────────────────────────────────
+const STAT_KEYS = [
+  { key: 'children', value: '100+' },
+  { key: 'professionals', value: '15' },
+  { key: 'sections', value: '6' },
+  { key: 'satisfaction', value: '100%' },
 ] as const
 
+export function buildStats(t: MarketingTranslator) {
+  return STAT_KEYS.map(({ key, value }) => ({ value, label: t(`stats.${key}`) }))
+}
+
+const WHY_US_KEYS = [
+  { key: 'children', value: '+100' },
+  { key: 'professionals', value: '+15' },
+  { key: 'playground' },
+  { key: 'safety' },
+] as const
+
+export function buildWhyUs(t: MarketingTranslator) {
+  return WHY_US_KEYS.map((entry) => ({
+    value: 'value' in entry ? entry.value : undefined,
+    label: t(`whyUs.${entry.key}`),
+  }))
+}
+
+// ── Sections d'âge ───────────────────────────────────────────────
 export type SectionAgeGroup = {
   id: string
   category: 'creche' | 'garderie' | 'maternelle'
@@ -56,252 +112,103 @@ export type SectionAgeGroup = {
   image: string
 }
 
-export const SECTIONS: SectionAgeGroup[] = [
-  {
-    id: 'creche_etoile',
-    category: 'creche',
-    title: 'Crèche — Section Étoile',
-    shortTitle: 'Étoile',
-    ageRange: '3 – 18 mois',
-    capacity: '10 enfants',
-    ratio: '1 adulte pour 5 bébés',
-    description: 'Un cocon douillet pour les premiers mois de découverte.',
-    activities: [
-      'Éveil sensoriel et motricité douce',
-      'Exploration des textures et des sons',
-      'Initiation musicale et moments de détente',
-      'Jeux de manipulation et d’exploration libre',
-      'Initiation au bébé signe ',
-    ],
-    schedule: {
-      morning: 'Accueil personnalisé, temps de soin, biberon et activités sensorielles',
-      midday: 'Repas adapté, moments calmes et sieste longue',
-      afternoon: 'Éveil en douceur, découverte en plein air et goûter',
-    },
-    image: '/images/marketing/',
-  },
-  {
-    id: 'creche_nuage',
-    category: 'creche',
-    title: 'Crèche — Section Nuage',
-    shortTitle: 'Nuage',
-    ageRange: '18 – 24 mois',
-    capacity: '14 enfants',
-    ratio: '1 adulte pour 7 enfants',
-    description: 'L’âge des premières explorations et de l’autonomie naissante.',
-    activities: [
-      'Motricité libre et parcours de découverte',
-      'Premiers gestes artistiques : peinture, collage, modelage',
-      'Chansons, comptines et manipulation',
-      'Jeux de construction et d’imitation',
-      'Observation et exploration en extérieur',
-    ],
-    schedule: {
-      morning: 'Accueil chaleureux, activités sportives, cercle matinal, collation, éveil et motricité',
-      midday: 'Repas en groupe, rituel de sieste',
-      afternoon: 'Bricolage, activités en extérieur, jeux libres, histoires, comptines',
-    },
-    image: '/images/marketing/about-image-2-Cg9tJUCQ.jpg',
-  },
-  {
-    id: 'creche_soleil',
-    category: 'creche',
-    title: 'Crèche — Section Soleil',
-    shortTitle: 'Soleil',
-    ageRange: '24 – 36 mois',
-    capacity: '14 enfants',
-    ratio: '1 adulte pour 7 enfants',
-    description: 'Une préparation douce et joyeuse vers l’école maternelle.',
-    activities: [
-      'Pré-graphisme et découverte de l’écrit',
-      'Expériences scientifiques simples et observations ludiques',
-      'Théâtre, expression corporelle et jeux de rôle',
-      'Ateliers créatifs et sensoriels',
-      'Découvertes extérieures et mini-sorties pédagogiques',
-    ],
-    schedule: {
-      morning: 'Accueil chaleureux, activités sportives, cercle matinal, ateliers d’éveil et de motricité',
-      midday: 'Repas en semi-autonomie, rituel de sieste',
-      afternoon: 'Ateliers créatifs, activités en plein air, lecture, comptines, exploration libre',
-    },
-    image: '/images/marketing/about-image-3-DRV-uMPE.jpg',
-  },
-  {
-    id: 'garderie',
-    category: 'garderie',
-    title: 'Garderie périscolaire',
-    shortTitle: 'Garderie',
-    ageRange: '3 – 6 ans',
-    capacity: '10 enfants',
-    ratio: '1 adulte pour 10 enfants',
-    description: 'Un espace d’épanouissement et d’accompagnement après l’école.',
-    activities: [
-      'Aide personnalisée aux devoirs',
-      'Ateliers créatifs et manuels',
-      'Activités sportives et jeux collectifs',
-      'Découvertes culturelles et ludiques',
-      'Projets de groupe favorisant coopération et autonomie',
-    ],
-    schedule: {
-      midday: 'Repas à la cantine, temps calme',
-      afternoon: 'Aide aux devoirs, activités thématiques, goûter, jeux en plein air',
-    },
-    image: '/images/marketing/life-gard.jpg',
-  },
-  {
-    id: 'maternelle_ps',
-    category: 'maternelle',
-    title: 'Maternelle — Petite Section',
-    shortTitle: 'Petite Section',
-    ageRange: '3 ans - 4 ans',
-    capacity: '20 enfants',
-    ratio: '1 adulte pour 10 enfants',
-    description: 'La Petite Section marque le début du parcours scolaire : l’enfant découvre le plaisir d’apprendre à travers le jeu, le mouvement et la communication.',
-    activities: [
-      'Langage : expression orale, premières comptines, salutations, couleurs, objets',
-      'Motricité fine et globale, jeux d’équilibre et parcours moteurs',
-      'Activités artistiques : dessin, peinture, modelage, musique',
-      'Premiers jeux mathématiques : tri, classement, formes et couleurs',
-      'Explorer le monde : nature, animaux, saisons et cinq sens',
-      'Anglais'
-    ],
-    schedule: {
-      morning: 'Accueil individualisé, jeux libres, rituels du jour, ateliers dirigés, chansons',
-      midday: 'Repas autonome suivi d’un temps de sieste',
-      afternoon: 'Ateliers créatifs, exploration et jeux en extérieur',
-    },
-    image: '/images/marketing/about-img-2.jpg',
-  },
-  {
-    id: 'maternelle_ms',
-    category: 'maternelle',
-    title: 'Maternelle — Moyenne Section',
-    shortTitle: 'Moyenne Section',
-    ageRange: '4 – 5 ans',
-    capacity: '16 enfants',
-    ratio: '1 adulte pour 8 enfants',
-    description: 'Les apprentissages se consolident : l’enfant affine son langage, sa motricité, et commence à organiser sa pensée.',
-    activities: [
-      'Langage : vocabulaire, phrases complètes, phonologie, anglais oral quotidien',
-      'Coordination, jeux collectifs, équilibre, danses',
-      'Arts et expression : peinture, bricolage, expression corporelle, chant',
-      'Repérage dans le temps et l’espace, tri, comparaison, nombres',
-      'Petites expériences sensorielles, découverte des plantes et animaux',
-      'Anglais'
-    ],
-    schedule: {
-      morning: 'Accueil individualisé, jeux libres, rituels du jour, ateliers dirigés, chansons',
-      midday: 'Repas en autonomie, sieste ou temps calme',
-      afternoon: 'Ateliers scientifiques, activités artistiques, exploration en extérieur',
-    },
-    image: '/images/marketing/about-img-3.jpg',
-  },
-  {
-    id: 'maternelle_gs',
-    category: 'maternelle',
-    title: 'Maternelle — Grande Section',
-    shortTitle: 'Grande Section',
-    ageRange: '5 – 6 ans',
-    capacity: '16 enfants',
-    ratio: '1 adulte pour 8 enfants',
-    description: 'La Grande Section prépare en douceur le passage vers l’école primaire : curiosité intellectuelle, rigueur, confiance en soi et envie d’apprendre.',
-    activities: [
-      'Conscience phonologique, reconnaissance des lettres, initiation à la lecture',
-      'Activités sportives, danses, motricité fine et autonomie',
-      'Dessin d’observation, créations collectives, théâtre et musique',
-      'Comparaison, suite logique, comptage jusqu’à 20, premiers calculs',
-      'Anglais structuré à travers jeux, chansons et vie quotidienne',
-    ],
-    schedule: {
-      morning: 'Accueil individualisé, rituels du jour, ateliers dirigés, langage',
-      midday: 'Repas en autonomie, temps calme',
-      afternoon: 'Ateliers de lecture, projets collectifs, jeux en extérieur',
-    },
-    image: '/images/marketing/about-img.jpg',
-  },
-]
+/** Ordre d'affichage, catégorie et visuel — invariants d'une langue à l'autre. */
+const SECTION_STRUCTURE = [
+  { id: 'creche_etoile', category: 'creche', image: '/images/marketing/', hasMorning: true },
+  { id: 'creche_nuage', category: 'creche', image: '/images/marketing/about-image-2-Cg9tJUCQ.jpg', hasMorning: true },
+  { id: 'creche_soleil', category: 'creche', image: '/images/marketing/about-image-3-DRV-uMPE.jpg', hasMorning: true },
+  // La garderie n'accueille qu'après l'école : pas de créneau du matin.
+  { id: 'garderie', category: 'garderie', image: '/images/marketing/life-gard.jpg', hasMorning: false },
+  { id: 'maternelle_ps', category: 'maternelle', image: '/images/marketing/about-img-2.jpg', hasMorning: true },
+  { id: 'maternelle_ms', category: 'maternelle', image: '/images/marketing/about-img-3.jpg', hasMorning: true },
+  { id: 'maternelle_gs', category: 'maternelle', image: '/images/marketing/about-img.jpg', hasMorning: true },
+] as const satisfies readonly {
+  id: string
+  category: SectionAgeGroup['category']
+  image: string
+  hasMorning: boolean
+}[]
 
+export function buildSections(t: MarketingTranslator): SectionAgeGroup[] {
+  return SECTION_STRUCTURE.map(({ id, category, image, hasMorning }) => ({
+    id,
+    category,
+    image,
+    title: t(`sections.${id}.title`),
+    shortTitle: t(`sections.${id}.shortTitle`),
+    ageRange: t(`sections.${id}.ageRange`),
+    capacity: t(`sections.${id}.capacity`),
+    ratio: t(`sections.${id}.ratio`),
+    description: t(`sections.${id}.description`),
+    activities: t.raw(`sections.${id}.activities`) as string[],
+    schedule: {
+      ...(hasMorning ? { morning: t(`sections.${id}.schedule.morning`) } : {}),
+      midday: t(`sections.${id}.schedule.midday`),
+      afternoon: t(`sections.${id}.schedule.afternoon`),
+    },
+  }))
+}
+
+// ── Ce qui nous distingue ────────────────────────────────────────
 export type Difference = {
   id: string
   title: string
   description: string
 }
 
-export const DIFFERENCES: Difference[] = [
-  {
-    id: 'bilingue',
-    title: 'Programme bilingue français / anglais',
-    description: 'Une ouverture au monde dès le plus jeune âge grâce à un apprentissage naturel des deux langues.',
-  },
-  {
-    id: 'montessori',
-    title: 'Pédagogie Montessori',
-    description: 'Une approche favorisant l’autonomie, la curiosité et l’apprentissage par l’expérience.',
-  },
-  {
-    id: 'soins-personnalises',
-    title: 'Soins personnalisés',
-    description: 'Chaque enfant reçoit une attention adaptée à ses besoins spécifiques et à son développement.',
-  },
-  {
-    id: 'environnement-securise',
-    title: 'Environnement sécurisé',
-    description: 'Notre établissement est conçu pour la sécurité des enfants, avec un personnel formé.',
-  },
-  {
-    id: 'educatrices-formees',
-    title: 'Éducatrices formées',
-    description: 'Une équipe qualifiée, passionnée et en formation continue, dédiée au bien-être et à la progression de chaque enfant.',
-  },
-  {
-    id: 'routines-structurees',
-    title: 'Routines structurées',
-    description: 'Des journées équilibrées entre apprentissage, jeu et repos, pour un développement harmonieux.',
-  },
-  {
-    id: 'activites-extrascolaires',
-    title: 'Activités extrascolaires enrichissantes',
-    description: 'Natation, karaté, escrime et danse afrocontemporaine pour stimuler la motricité, la confiance et la discipline.',
-  },
-  {
-    id: 'espace-de-jeux',
-    title: 'Espace de jeux spacieux et équipé',
-    description: 'Un lieu sûr et stimulant où l’enfant apprend en explorant et en s’amusant.',
-  },
-]
+const DIFFERENCE_IDS = [
+  'bilingue',
+  'montessori',
+  'soins-personnalises',
+  'environnement-securise',
+  'educatrices-formees',
+  'routines-structurees',
+  'activites-extrascolaires',
+  'espace-de-jeux',
+] as const
 
+export function buildDifferences(t: MarketingTranslator): Difference[] {
+  return DIFFERENCE_IDS.map((id) => ({
+    id,
+    title: t(`differences.${id}.title`),
+    description: t(`differences.${id}.description`),
+  }))
+}
+
+// ── Comment nous rejoindre ───────────────────────────────────────
 export type JoinStep = {
   id: string
   title: string
   description: string
 }
 
-export const JOIN_STEPS: JoinStep[] = [
-  {
-    id: 'visite',
-    title: 'Une visite (30 min)',
-    description: 'Explorez les locaux. Posez vos questions. Rassurez-vous.',
-  },
-  {
-    id: 'fiche-inscription',
-    title: "Fiche d'inscription",
-    description: 'Infos essentielles + besoins de votre enfant.',
-  },
-  {
-    id: 'demarrage-confirme',
-    title: 'Démarrage confirmé',
-    description: 'Bienvenue chez Les Petits Rayons de Soleil !',
-  },
-]
+const JOIN_STEP_IDS = ['visite', 'fiche-inscription', 'demarrage-confirme'] as const
 
-export const PARTNERS = [
-  { name: 'Pédiatre', role: 'Intervient en cas de besoin pour la santé et le bien-être général des enfants.' },
-  { name: 'Psychologue d’éducation', role: 'Accompagne le développement émotionnel et social.' },
-  { name: 'Psychomotricienne', role: 'Observe et soutient la motricité et la coordination corporelle.' },
-  { name: 'Orthophoniste', role: 'Veille au développement du langage et de la communication.' },
-  { name: 'Maître-nageur', role: 'Initie les enfants à la natation en toute sécurité.' },
-  { name: 'Professeur de musique', role: 'Développe la sensibilité musicale et la créativité.' },
-  { name: 'Professeur de karaté', role: 'Enseigne discipline, confiance et coordination.' },
-  { name: 'Professeure de danse', role: 'Favorise l’expression corporelle et le rythme.' },
-  { name: 'Maître d’armes d’escrime', role: 'Stimule la concentration, les réflexes et l’esprit sportif.' },
+export function buildJoinSteps(t: MarketingTranslator): JoinStep[] {
+  return JOIN_STEP_IDS.map((id) => ({
+    id,
+    title: t(`joinSteps.${id}.title`),
+    description: t(`joinSteps.${id}.description`),
+  }))
+}
+
+// ── Intervenants partenaires ─────────────────────────────────────
+const PARTNER_IDS = [
+  'pediatre',
+  'psychologue',
+  'psychomotricienne',
+  'orthophoniste',
+  'maitre-nageur',
+  'professeur-musique',
+  'professeur-karate',
+  'professeure-danse',
+  'maitre-armes',
 ] as const
+
+export function buildPartners(t: MarketingTranslator) {
+  return PARTNER_IDS.map((id) => ({
+    id,
+    name: t(`partners.${id}.name`),
+    role: t(`partners.${id}.role`),
+  }))
+}

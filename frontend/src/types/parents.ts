@@ -3,6 +3,7 @@ export interface ParentChildBrief {
   matricule: string
   last_name: string
   first_names: string
+  has_photo: boolean
 }
 
 export interface ParentListItem {
@@ -30,7 +31,6 @@ export interface Parent {
   phone: string | null
   establishment_id: string | null
   is_active: boolean
-  must_change_pwd: boolean
   created_at: string
   last_login_at: string | null
   assigned_children: ParentChildBrief[]

@@ -1,0 +1,98 @@
+{
+  "list": {
+    "title": "Personnel",
+    "description": "Gérer les comptes de votre personnel.",
+    "new": "Nouveau membre",
+    "search": "Rechercher par nom, surnom, email ou matricule...",
+    "allTypes": "Tous les types",
+    "includeInactive": "Inclure les comptes inactifs",
+    "columns": {
+      "matricule": "Matricule",
+      "name": "Nom",
+      "type": "Type",
+      "email": "Email",
+      "status": "Statut"
+    },
+    "emptySearch": "Aucun résultat pour cette recherche.",
+    "empty": "Aucun membre du personnel pour le moment.",
+    "emptySearchHint": "Essayez un autre nom, surnom, email ou matricule.",
+    "emptyHint": "Créez le premier compte pour commencer à gérer votre personnel.",
+    "codeLabel": "Code :",
+    "roleLabel": "Poste :",
+    "view": "Voir",
+    "qrCode": "QR Code",
+    "badge": "Badge de {name}",
+    "count": "{count, plural, one {# membre} other {# membres}}",
+    "openAccount": "Ouvrir le compte de {name}"
+  },
+  "status": {
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "deactivated": "Compte désactivé.",
+    "reactivated": "Compte réactivé.",
+    "confirmTitle": "Désactiver ce compte ?",
+    "reactivateTitle": "Réactiver ce compte ?",
+    "deactivateBody": "Le compte sera désactivé (réversible). La personne ne pourra plus se connecter.",
+    "reactivateBody": "Le compte redeviendra accessible.",
+    "confirm": "Confirmer",
+    "confirmBody": "{name} ne pourra plus se connecter (réversible depuis sa fiche)."
+  },
+  "validation": {
+    "firstName": "Prénom requis",
+    "lastName": "Nom requis",
+    "nickname": "Surnom requis",
+    "phone": "Téléphone requis",
+    "email": "Email invalide",
+    "staffType": "Type requis"
+  },
+  "fields": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "nickname": "Surnom",
+    "nicknamePlaceholder": "Ex. Tata Victoire",
+    "email": "Email",
+    "phone": "Téléphone",
+    "staffType": "Type de poste",
+    "chooseType": "Choisir un type",
+    "tempPassword": "Mot de passe temporaire",
+    "newPassword": "Nouveau mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
+  },
+  "form": {
+    "back": "Retour à la liste",
+    "newTitle": "Nouveau membre du personnel",
+    "newHint": "Un matricule est généré automatiquement. Les identifiants sont envoyés par email.",
+    "passwordHint": "8 caractères minimum · 1 majuscule · 1 chiffre — envoyé par email avec le matricule.",
+    "submit": "Créer le compte",
+    "submitting": "Création...",
+    "created": "Membre du personnel créé.",
+    "noRights": "Droits insuffisants — vous n’avez pas la permission de créer un compte du personnel.",
+    "updated": "Membre du personnel mis à jour.",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "reset": "Réinitialiser",
+    "sending": "Envoi...",
+    "resetDone": "Mot de passe réinitialisé et envoyé par email."
+  },
+  "tabs": {
+    "infos": "Infos",
+    "roles": "Rôles RBAC"
+  },
+  "roles": {
+    "title": "Rôles attribués",
+    "hint": "Les droits effectifs de ce membre du personnel.",
+    "none": "Aucun rôle attribué.",
+    "assign": "Attribuer un rôle",
+    "revoke": "Révoquer {name}",
+    "assigned": "Rôle attribué.",
+    "revoked": "Rôle révoqué."
+  },
+  "staffTypeHint": "Poste purement descriptif — n'attribue aucun droit. Les droits se gèrent depuis Rôles & permissions.",
+  "resetHintStaff": "Le nouveau mot de passe est envoyé par email au personnel — il n'a pas à le redéfinir.",
+  "noRoleYet": "Aucun rôle n'existe encore. Créez-en depuis Rôles & permissions.",
+  "detail": {
+    "notFound": "Membre du personnel introuvable."
+  }
+}

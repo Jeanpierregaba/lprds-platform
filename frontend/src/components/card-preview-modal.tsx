@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, FileDown, Loader2 } from 'lucide-react'
 
@@ -26,6 +28,7 @@ interface CardPreviewModalProps {
 }
 
 export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewModalProps) {
+  const t = useTranslations('common')
   const [cardImage, setCardImage] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +48,7 @@ export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewMo
     setGenerating(true)
     generateCardImage(cardData)
       .then(setCardImage)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Erreur de génération'))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t('renderError')))
       .finally(() => setGenerating(false))
   }, [open, cardData])
 
@@ -61,7 +64,7 @@ export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewMo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Carte scolaire</DialogTitle>
+          <DialogTitle>{t('card.title')}</DialogTitle>
           <DialogDescription>
             {cardData.firstName} {cardData.lastName}
           </DialogDescription>
@@ -71,7 +74,7 @@ export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewMo
           {generating ? (
             <div className="flex flex-col items-center gap-3 py-12">
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Génération en cours…</p>
+              <p className="text-sm text-muted-foreground">{t('card.generating')}</p>
             </div>
           ) : error ? (
             <p className="py-8 text-center text-sm text-destructive">{error}</p>
@@ -79,7 +82,7 @@ export function CardPreviewModal({ open, onOpenChange, cardData }: CardPreviewMo
             // eslint-disable-next-line @next/next/no-img-element -- generated data URI
             <img
               src={cardImage}
-              alt={`Carte de ${cardData.firstName} ${cardData.lastName}`}
+              alt={t('card.alt', { name: `${cardData.firstName} ${cardData.lastName}` })}
               className="max-h-[60vh] rounded-lg border border-border"
             />
           ) : null}

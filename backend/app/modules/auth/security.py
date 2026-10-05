@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from redis.exceptions import RedisError
 
 from app.core.config import settings
+from app.core.i18n import t
 from app.core.redis import redis_client
 
 # ── Mots de passe ───────────────────────────────────────────────
@@ -109,7 +110,7 @@ async def is_token_revoked(payload: dict) -> bool:
 def _redis_unavailable() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Service d'authentification temporairement indisponible",
+        detail=t("errors.auth.service_unavailable"),
     )
 
 # ── Token de reset mot de passe (signé, non JWT) ───────────────

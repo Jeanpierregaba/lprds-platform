@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import {
   Blocks,
   Brain,
@@ -10,7 +11,7 @@ import {
 } from 'lucide-react'
 import { Doodle } from '@/components/marketing/doodle'
 import { Reveal } from '@/components/marketing/reveal'
-import { DIFFERENCES } from '@/lib/marketing/data'
+import { buildDifferences } from '@/lib/marketing/data'
 import { cn } from '@/lib/utils/cn'
 
 // Roadmap verticale « Pourquoi sommes-nous différents » — inspirée de la
@@ -29,6 +30,10 @@ const DIFFERENCE_STYLES = [
 ] as const
 
 export function DifferenceTimeline() {
+  const t = useTranslations('marketing')
+  const tSection = useTranslations('marketing.differencesSection')
+  const differences = buildDifferences(t)
+
   return (
     <section aria-labelledby="differences-heading" className="relative overflow-clip px-6 py-20 sm:py-28 lg:px-8">
       <Doodle src="/images/marketing/icons-decor/planete-terre.png" size={64} className="right-[3%] top-24 hidden md:block" delay={0.7} duration={8} />
@@ -36,13 +41,13 @@ export function DifferenceTimeline() {
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="inline-flex items-center gap-2 py-2 text-sm font-semibold uppercase tracking-wide text-secondary">
-            Pourquoi nous choisir
+            {tSection('eyebrow')}
           </span>
           <h2 id="differences-heading" className="font-bold text-3xl text-primary sm:text-4xl">
-            Pourquoi sommes-nous différents&nbsp;?
+            {tSection('title')}
           </h2>
           <p className="mt-4 text-muted-foreground sm:text-lg">
-          Offrir à votre enfant le meilleur, c’est lui permettre de grandir, découvrir et s’épanouir dans un environnement bienveillant, stimulant et entièrement pensé pour son éveil et sa sécurité.
+          {tSection('body')}
           </p>
         </Reveal>
 
@@ -57,7 +62,7 @@ export function DifferenceTimeline() {
           <span aria-hidden className="absolute bottom-6 left-6 top-6 w-0.5 -translate-x-1/2 bg-border md:left-1/2" />
 
           <div className="flex flex-col gap-12 md:gap-14">
-            {DIFFERENCES.map((item, i) => {
+            {differences.map((item, i) => {
               const style = DIFFERENCE_STYLES[i % DIFFERENCE_STYLES.length] as (typeof DIFFERENCE_STYLES)[number]
               const onRight = i % 2 === 0
               const { Icon } = style

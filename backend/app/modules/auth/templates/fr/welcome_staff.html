@@ -1,0 +1,17 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#eca936">Bienvenue sur {{ platform_name }}, {{ nickname }} !</h2>
+  <p>L'établissement <strong>{{ establishment_name }}</strong> vous a créé un espace personnel.</p>
+  <p>Vos identifiants de connexion :</p>
+  <div style="background:#f3f4f6;padding:16px;border-radius:8px">
+    <p><strong>Email :</strong> {{ email }}</p>
+    <p><strong>Mot de passe temporaire :</strong> <code>{{ temp_password }}</code></p>
+  </div>
+  <p>Pour plus de confidentialité, n'hésitez pas à changer ce mot de passe à votre première connexion, depuis les paramètres de votre compte.</p>
+  <a href="{{ login_url }}" style="background:#eca936;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px">
+    Se connecter
+  </a>
+</body>
+</html>

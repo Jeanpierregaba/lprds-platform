@@ -19,6 +19,7 @@ Trois sources, volontairement traitées différemment (cf. claude.md) :
 """
 
 import uuid
+from app.core.i18n import t
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import HTTPException, status
@@ -83,7 +84,7 @@ async def list_gallery_media(
     if source in (GallerySource.MESSAGE, GallerySource.ANNOUNCEMENT) and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="La galerie de messagerie est réservée à l'administration",
+            detail=t("errors.gallery.messaging_admin_only"),
         )
     if not is_admin:
         include_message = False
@@ -157,7 +158,7 @@ async def list_my_gallery_media(
     if child_id:
         if child_id not in child_ids:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable"
+                status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found")
             )
         child_ids = {child_id}
 

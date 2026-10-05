@@ -1,4 +1,5 @@
 from datetime import date
+from app.core.i18n import t
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +14,8 @@ from app.modules.menus.schemas import (
     MenuCreateRequest,
     MenuListResponse,
     MenuResponse,
+    MenuTranslationRequest,
+    MenuTranslationResponse,
     MenuWriteRequest,
     VisibleDepartmentsResponse,
 )
@@ -35,7 +38,7 @@ async def _read_history(
     codes = user_permission_codes(user)
     if PermissionCode.MENUS_READ.value in codes or PermissionCode.MENUS_WRITE.value in codes:
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 # ── Écriture (admin ou staff délégué menus:write, TOUS départements) ─
@@ -62,6 +65,43 @@ async def update_menu(
     """Remplace le contenu entier du menu (département + semaine), pas de
     fusion partielle."""
     return await service.update_menu(
+        week_start, department_id, payload, user.establishment_id, user, db
+    )
+
+
+@router.get("/{week_start}/translation", response_model=MenuTranslationResponse)
+async def get_menu_translation(
+    week_start: date,
+    department_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> MenuTranslationResponse:
+    """Français et anglais côte à côte, pour relire la traduction automatique.
+
+    Réservé à `menus:write` : c'est un écran d'édition, pas de consultation —
+    qui lit le menu le lit déjà dans sa langue via les routes normales.
+    Deux segments, donc aucune ambiguïté avec `/{week_start}`.
+    """
+    return await service.get_menu_translation(
+        week_start, department_id, user.establishment_id, db
+    )
+
+
+@router.patch("/{week_start}/translation", response_model=MenuTranslationResponse)
+async def set_menu_translation(
+    week_start: date,
+    payload: MenuTranslationRequest,
+    department_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> MenuTranslationResponse:
+    """Enregistre l'anglais relu — et le grave dans la mémoire de traduction,
+    pour que la correction vaille aussi pour les semaines suivantes.
+
+    Contrairement aux autres écritures du module, une semaine passée est
+    acceptée : corriger une traduction ne réécrit pas ce qui a été servi.
+    """
+    return await service.set_menu_translation(
         week_start, department_id, payload, user.establishment_id, user, db
     )
 

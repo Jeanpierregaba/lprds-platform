@@ -1,0 +1,139 @@
+{
+  "status": {
+    "connecting": "Connecting...",
+    "offline": "Offline"
+  },
+  "tabs": {
+    "announcements": "Announcements",
+    "conversations": "Conversations",
+    "conversation": "Conversation"
+  },
+  "announcements": {
+    "new": "New announcement",
+    "editTitle": "Edit the announcement",
+    "newTitle": "New announcement",
+    "includeInactive": "Include deactivated announcements",
+    "title": "Title",
+    "content": "Content",
+    "recipients": "Recipients",
+    "allParents": "All parents at the school",
+    "allParentsShort": "All parents",
+    "noDepartment": "No departments at this school.",
+    "media": "Media (optional, max {max})",
+    "save": "Save",
+    "publish": "Publish",
+    "needDepartment": "Tick at least one department, or choose “All parents”.",
+    "updated": "Announcement updated.",
+    "published": "Announcement published.",
+    "mediaAdded": "{count} media added.",
+    "deactivated": "Announcement deactivated.",
+    "reactivated": "Announcement reactivated.",
+    "empty": "No announcements yet.",
+    "inactive": "Inactive",
+    "department": "Department",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deactivateTitle": "Deactivate this announcement?",
+    "reactivateTitle": "Reactivate this announcement?",
+    "deactivateBody": "It will be hidden from all parents (reversible).",
+    "reactivateBody": "It will become visible again to the parents concerned.",
+    "confirm": "Confirm",
+    "mediaLimit": "Limit of {max} media reached",
+    "attachFiles": "Attach files",
+    "addMediaTitle": "Add media",
+    "loadError": "Could not load announcements.",
+    "loadErrorHint": "Check your connection, then try again.",
+    "readRatio": "{read}/{total} have read it",
+    "newBadge": "New"
+  },
+  "conversations": {
+    "new": "New",
+    "newTitle": "New conversation",
+    "newHint": "Select a parent to start a private conversation.",
+    "firstMessage": "First message (optional)...",
+    "start": "Start",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "back": "← Back to conversations",
+    "created": "Conversation created.",
+    "empty": "No conversations yet.",
+    "noMessage": "No messages",
+    "selectOne": "Select a conversation.",
+    "noMessageYet": "No messages yet.",
+    "replyPlaceholder": "Reply on behalf of the school...",
+    "attachAria": "Attach photos or videos",
+    "attachTitle": "Attach photos or videos (with a preview before sending)",
+    "loadMessagesError": "Could not load messages.",
+    "loadError": "Could not load conversations.",
+    "loadParentsError": "Could not load parents.",
+    "noActiveParent": "No active parent.",
+    "creating": "Creating…",
+    "childCount": "{count, plural, one {# child} other {# children}}",
+    "listTitle": "Conversations"
+  },
+  "parentConversation": {
+    "placeholder": "Write to the school..."
+  },
+  "bubble": {
+    "deleted": "Message deleted",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edited": "· edited",
+    "editAria": "Edit the message",
+    "editTitle": "Edit (15 min)",
+    "deleteAria": "Delete the message",
+    "deleteTitle": "Delete",
+    "deleteConfirmTitle": "Delete this message?",
+    "deleteConfirmBody": "The message will be replaced by “Message deleted” and its attachments permanently erased.",
+    "delete": "Delete",
+    "seen": "· Seen"
+  },
+  "media": {
+    "prev": "Previous media",
+    "next": "Next media",
+    "removeAttachment": "Remove this attachment",
+    "saveToGallery": "Save to the gallery",
+    "download": "Download",
+    "rejectedWithPdf": "File(s) skipped — only photos, videos and PDFs are accepted:",
+    "rejectedNoPdf": "File(s) skipped — only photos and videos are accepted:",
+    "count": "{count}/{max} items",
+    "slotsLeft": "{count, plural, one {Photos, videos or PDFs — # slot left out of {max}.} other {Photos, videos or PDFs — # slots left out of {max}.}}",
+    "viewerTitle": "Item {index} of {total}",
+    "loadingPreview": "Loading preview…",
+    "viewNamed": "View item {name}",
+    "videoTooBig": "Video(s) too large — max {max} MB: {names}. Photos are compressed automatically, videos are not.",
+    "tooMany": "Limit of {max} media per send — {ignored} file(s) skipped."
+  },
+  "notifier": {
+    "school": "The school",
+    "newAttachment": "New attachment",
+    "newMessage": "New message — {sender}"
+  },
+  "thread": {
+    "mediaFailed": "Message sent, but the media failed — add them again with the paperclip on the message.",
+    "editWindowOver": "The editing window has passed — reload the thread.",
+    "newMessages": "{count, plural, one {# new message} other {# new messages}}"
+  },
+  "parentPage": {
+    "title": "Messages",
+    "description": "School announcements and your private conversation."
+  },
+  "adminPage": {
+    "title": "Messages",
+    "description": "Announcements to parents and private conversations."
+  },
+  "validation": {
+    "titleRequired": "Title required",
+    "bodyRequired": "Content required"
+  },
+  "announcementScopeHint": "Write the whole message first, then tick the departments it concerns before sending.",
+  "departmentsLoadError": "Could not load the departments — reopen this dialog to try again.",
+  "attachFiles": "Attach files",
+  "send": "Send",
+  "realtimeOn": "Live updates on",
+  "conversationEmpty": "No messages yet. Write to the school below.",
+  "enterToSend": "Press Enter to send.",
+  "carouselHint": "Announcement media carousel — use the arrows or keyboard to navigate, Esc to close.",
+  "previewUnavailable": "Preview unavailable"
+}

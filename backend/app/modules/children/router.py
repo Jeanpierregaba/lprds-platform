@@ -2,11 +2,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import FileResponse, Response
+
+from app.core.media_serving import media_response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.modules.auth.models import User
 from app.modules.children import service
+from app.modules.auth.dependencies import get_current_user
 from app.modules.children.dependencies import get_staff
 from app.modules.children.schemas import (
     ChildAttachmentResponse,
@@ -211,3 +214,61 @@ async def delete_child_document(
     await service.delete_child_document(
         child_id, document_id, current_user.establishment_id, db
     )
+
+
+# ── Photo de profil ────────────────────────────────────────────
+#
+# ⚠️ Ces trois routes n'utilisent PAS `require_permission` : le droit dépend du
+# LIEN à l'enfant, pas d'une permission RBAC. L'admin, un parent de l'enfant et
+# l'éducatrice de son groupe peuvent la gérer — un parent n'a aucune permission
+# RBAC, et un staff qui a `children:write` mais n'encadre pas l'enfant n'a rien
+# à faire sur sa photo. La règle vit dans le service (`_child_for_photo`), au
+# même endroit pour les trois routes.
+
+
+@router.put("/{child_id}/photo", response_model=ChildResponse)
+async def set_child_photo(
+    child_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ChildResponse:
+    """Dépose ou remplace la photo de profil.
+
+    `PUT` et non `POST` : il n'y en a qu'une, et la reposer remplace la
+    précédente — c'est idempotent au sens où deux envois successifs laissent
+    l'enfant avec une seule photo, la dernière.
+    """
+    child = await service.set_child_photo(child_id, current_user, file, db)
+    return await service.get_child(child.id, current_user.establishment_id, db)
+
+
+@router.get("/{child_id}/photo")
+async def download_child_photo(
+    child_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) — pour les listes et le trombinoscope.",
+    ),
+) -> FileResponse:
+    """Téléchargement authentifié uniquement — jamais servi en statique."""
+    child, path = await service.get_child_photo(child_id, current_user, db)
+    return await media_response(
+        storage_key=child.photo_storage_key or "",
+        path=path,
+        filename=child.photo_filename or "photo.jpg",
+        content_type=child.photo_content_type or "image/jpeg",
+        thumb=thumb,
+    )
+
+
+@router.delete("/{child_id}/photo", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_child_photo(
+    child_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Idempotent : retirer une photo absente n'est pas une erreur."""
+    await service.delete_child_photo(child_id, current_user, db)

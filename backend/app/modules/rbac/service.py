@@ -1,4 +1,5 @@
 import uuid
+from app.core.i18n import t
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -284,10 +285,7 @@ async def _resolve_permissions(
     if missing:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "Catalogue de permissions incomplet en base : "
-                f"{', '.join(sorted(missing))}. Lancez 'alembic upgrade head'"
-            ),
+            detail=t("errors.rbac.permissions_missing", missing=', '.join(sorted(missing))),
         )
     return found
 
@@ -307,7 +305,7 @@ async def _get_or_404(
     if not role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Rôle introuvable",
+            detail=t("errors.rbac.role_not_found"),
         )
     return role
 
@@ -329,7 +327,7 @@ async def _get_staff_or_404(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Membre du staff introuvable dans cet établissement",
+            detail=t("errors.rbac.staff_not_found"),
         )
     return user
 
@@ -348,5 +346,5 @@ async def _ensure_name_available(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Un rôle « {name} » existe déjà dans cet établissement",
+            detail=t("errors.rbac.role_exists", name=name),
         )

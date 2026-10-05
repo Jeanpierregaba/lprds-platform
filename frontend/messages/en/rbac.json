@@ -1,0 +1,73 @@
+{
+  "page": {
+    "title": "Roles & permissions",
+    "description": "Define your school's roles and assign them to your staff."
+  },
+  "tabs": {
+    "roles": "Roles",
+    "assignment": "Assignment"
+  },
+  "roles": {
+    "new": "New role",
+    "editTitle": "Edit role",
+    "newTitle": "New role",
+    "includeInactive": "Include inactive roles",
+    "name": "Name",
+    "nameRequired": "Name required",
+    "descriptionOptional": "Description (optional)",
+    "permissions": "Permissions",
+    "status": "Status",
+    "save": "Save",
+    "create": "Create",
+    "saving": "Saving...",
+    "edit": "Edit {name}",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "empty": "No roles yet.",
+    "created": "Role created.",
+    "updated": "Role updated.",
+    "deactivated": "Role deactivated.",
+    "reactivated": "Role reactivated.",
+    "noPermission": "None"
+  },
+  "assignment": {
+    "searchTitle": "Search for a staff member",
+    "searchHint": "By surname, nickname, email or ID.",
+    "searchPlaceholder": "Search...",
+    "noResult": "No results.",
+    "assignedTitle": "Assigned roles",
+    "selectStaff": "Select a staff member.",
+    "none": "No roles assigned.",
+    "revoke": "Revoke {name}",
+    "assigned": "Role assigned.",
+    "revoked": "Role revoked.",
+    "assignRole": "Assign a role"
+  },
+  "permissions": {
+    "children:read": "View children's records",
+    "children:write": "Create and edit children's records",
+    "children:archive": "Activate or deactivate a child's record",
+    "parents:read": "View parent accounts",
+    "parents:write": "Create, edit and reset parent accounts",
+    "staff:read": "View staff accounts",
+    "staff:write": "Create, edit and reset staff accounts",
+    "organization:read": "View departments, sections and groups",
+    "organization:write": "Manage departments, sections and groups",
+    "attendance:scan": "Scan attendance QR codes",
+    "attendance:read": "View attendance records and dashboards",
+    "attendance:write": "Configure attendance settings (hours, exemptions)",
+    "reports:read": "View reports",
+    "reports:write": "Create, edit and submit reports",
+    "reports:validate": "Approve or reject submitted reports",
+    "gallery:read": "View the media gallery (photos and videos from reports)",
+    "menus:read": "View the week's menu and past menus",
+    "menus:write": "Create and edit weekly menus, and view past menus",
+    "blog:write": "Write, publish, edit and delete news items on the public site",
+    "library:read": "View the library catalogue and lending records",
+    "library:write": "Create, edit and remove books from the catalogue",
+    "library:lend": "Record library loans, returns and reminders"
+  },
+  "permissionsOther": "Other",
+  "roleNameHint": "E.g. Head teacher, Deputy head… The rights granted apply to every staff member holding this role.",
+  "rolesEmpty": "Create roles to grant fine-grained rights to your staff (e.g. Head teacher, Secretary)."
+}

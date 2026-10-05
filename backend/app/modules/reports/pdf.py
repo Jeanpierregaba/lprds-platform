@@ -19,16 +19,18 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from app.modules.reports.models import ACQUISITION_LEVEL_LABELS, AcquisitionLevel
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
 
-_DOMAIN_LABELS: dict[str, str] = {
-    "oral_written_language": "Développement et structuration du langage oral et écrit",
-    "physical_activities": "Agir, s'exprimer, comprendre à travers les activités physiques",
-    "artistic_activities": "Agir, s'exprimer, comprendre à travers les activités artistiques",
-    "math_foundations": "L'acquisition des premiers outils mathématiques",
-    "world_exploration": "Explorer le monde",
-    "english": "Anglais",
-}
+# Les 6 domaines du bulletin, dans l'ordre d'impression. Seuls les CODES sont
+# ici : les libellés viennent du catalogue, comme le vocabulaire des rapports.
+_DOMAIN_FIELDS = (
+    "oral_written_language",
+    "physical_activities",
+    "artistic_activities",
+    "math_foundations",
+    "world_exploration",
+    "english",
+)
 
 
 def render_annual_report_pdf(
@@ -37,7 +39,14 @@ def render_annual_report_pdf(
     child_full_name: str,
     period_label: str,
     content: dict,
+    locale: Locale = DEFAULT_LOCALE,
 ) -> bytes:
+    """Rendu synchrone (bloquant) — appelé via `asyncio.to_thread`.
+
+    La locale est un paramètre explicite et non la langue de la requête : le
+    document part vers UN parent, dans SA langue, et rien ne garantit que
+    l'appel reste dans le contexte de sa requête (il passe par un thread).
+    """
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
@@ -57,22 +66,24 @@ def render_annual_report_pdf(
 
     story = [
         Paragraph(establishment_name, subtitle_style),
-        Paragraph("Bulletin annuel", title_style),
+        Paragraph(t("reports.pdf.title", locale), title_style),
         Paragraph(child_full_name, subtitle_style),
         Paragraph(period_label, subtitle_style),
         Spacer(1, 0.8 * cm),
     ]
 
     rows = [[
-        Paragraph("Domaine", domain_style),
-        Paragraph("Notation", domain_style),
-        Paragraph("Observation de l'éducatrice", domain_style),
+        Paragraph(t("reports.pdf.column.domain", locale), domain_style),
+        Paragraph(t("reports.pdf.column.rating", locale), domain_style),
+        Paragraph(t("reports.pdf.column.observation", locale), domain_style),
     ]]
-    for field, label in _DOMAIN_LABELS.items():
+    for field in _DOMAIN_FIELDS:
         assessment = content[field]
-        rating_label = ACQUISITION_LEVEL_LABELS[AcquisitionLevel(assessment["rating"])]
+        rating_label = t(
+            f"reports.vocabulary.acquisition_level.{assessment['rating']}", locale
+        )
         rows.append([
-            Paragraph(label, cell_style),
+            Paragraph(t(f"reports.domains.{field}", locale), cell_style),
             Paragraph(rating_label, cell_style),
             Paragraph(assessment["observation"], cell_style),
         ])

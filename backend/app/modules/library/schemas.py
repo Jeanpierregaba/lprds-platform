@@ -9,6 +9,9 @@ class BookCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     author: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
+    # Fourni = correction humaine : elle part en mémoire de traduction et la
+    # machine ne la réécrit pas tant que le français ne bouge pas.
+    description_en: str | None = Field(default=None, max_length=1000)
     total_quantity: int = Field(default=1, ge=1, le=1000)
     # Sections de l'établissement où le livre est accessible aux enfants.
     section_ids: list[uuid.UUID] = Field(default_factory=list)
@@ -21,6 +24,7 @@ class BookUpdateRequest(BaseModel):
     author: str | None = Field(default=None, min_length=1, max_length=200)
     # "" (chaîne vide) efface la description ; None = inchangé.
     description: str | None = Field(default=None, max_length=1000)
+    description_en: str | None = Field(default=None, max_length=1000)
     total_quantity: int | None = Field(default=None, ge=1, le=1000)
     # "[]" vide toutes les sections ; None = inchangé.
     section_ids: list[uuid.UUID] | None = Field(default=None)
@@ -38,6 +42,10 @@ class BookResponse(BaseModel):
     title: str
     author: str
     description: str | None
+    # Exposée à côté du français pour l'écran de gestion : l'admin édite la
+    # source et corrige l'anglais sans les confondre. Les portails parent et
+    # éducateur, eux, reçoivent `description` DÉJÀ dans la langue du lecteur.
+    description_en: str | None = None
     total_quantity: int
     # total_quantity - prêts en cours (jamais négatif, borné en service)
     available_quantity: int

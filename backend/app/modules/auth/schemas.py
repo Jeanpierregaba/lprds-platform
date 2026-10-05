@@ -1,20 +1,21 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 import uuid
 from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator
 from app.modules.auth.models import UserRole
+from app.core.i18n import t
 
 
 # ── Politique de mot de passe (partagée par tous les modules) ───
 def validate_password_strength(v: str) -> str:
     errors = []
     if not any(c.isupper() for c in v):
-        errors.append("une majuscule")
+        errors.append(t("validation.password_uppercase"))
     if not any(c.isdigit() for c in v):
-        errors.append("un chiffre")
+        errors.append(t("validation.password_digit"))
     if errors:
         raise ValueError(
-            f"Le mot de passe doit contenir : {', '.join(errors)}"
+            t("validation.password_requirements", missing=", ".join(errors))
         )
     return v
 
@@ -33,7 +34,6 @@ class TokenResponse(BaseModel):
     access_token:  str
     refresh_token: str
     token_type:    str = "bearer"
-    must_change_pwd: bool
 
 
 class RefreshRequest(BaseModel):
@@ -67,9 +67,20 @@ class UserResponse(BaseModel):
     role:             UserRole
     establishment_id: uuid.UUID | None
     is_active:        bool
-    must_change_pwd:  bool
+    locale:           str
     created_at:       datetime
     last_login_at:    datetime | None
+
+
+# ── Langue d'interface ─────────────────────────────────────────
+class LocaleUpdateRequest(BaseModel):
+    """Changement de langue, déclenché par le sélecteur FR/EN de l'en-tête.
+
+    `Literal` plutôt qu'une simple str : une valeur inconnue est rejetée en 422
+    par Pydantic, avant d'atteindre le service — la colonne ne peut donc jamais
+    contenir autre chose que les deux langues réellement traduites.
+    """
+    locale: Literal["fr", "en"]
 
 # ── Reset de mot de passe ──────────────────────────────────────
 class PasswordResetRequest(BaseModel):

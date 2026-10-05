@@ -1,4 +1,6 @@
 from functools import lru_cache
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -118,68 +120,89 @@ class Settings(BaseSettings):
     # images ET les vidéos ; les diffusions restent images + PDF. La vidéo a
     # son propre plafond (10 Mo par défaut = inutilisable pour une vidéo de
     # téléphone, d'où 50 Mo comme les rapports).
+    # ⚠️ Il n'y a plus de LISTE BLANCHE de types pour ces trois modules.
+    # Elles filtraient le MIME DÉCLARÉ par le navigateur — précisément ce qui
+    # refusait une photo valide selon l'appareil qui l'envoyait. Le type est
+    # désormais lu dans les octets (`app/core/media.py`), et la règle est
+    # « une vraie image, une vraie vidéo, un vrai PDF là où il est admis ».
+    #
+    # Les trois champs sont CONSERVÉS mais ignorés, et sans leur propriété
+    # `_set` : plus rien ne peut les lire par mégarde. Les supprimer aurait
+    # empêché l'application de démarrer sur toute installation dont le `.env`
+    # les porte encore (Pydantic refuse les clés inconnues) — casser un
+    # déploiement pour retirer trois lignes mortes serait un mauvais échange.
+    # Ils ont disparu de `.env.example` : une nouvelle installation n'en verra
+    # jamais la trace, une ancienne peut les effacer quand elle veut.
+    messaging_allowed_attachment_types: str = ""
+    reports_allowed_attachment_types: str = ""
+    blog_allowed_attachment_types: str = ""
     messaging_max_attachment_mb: int = 10
     messaging_max_video_mb: int = 50
-    messaging_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,application/pdf"
-    )
-
-    @property
-    def messaging_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.messaging_allowed_attachment_types.split(",")
-            if t.strip()
-        }
 
     # Pièces jointes (module rapports) — plafond plus élevé que la messagerie
     # car les rapports acceptent aussi la vidéo.
     reports_max_attachment_mb: int = 50
-    reports_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,"
-        "video/mp4,video/quicktime,video/webm"
-    )
-
-    @property
-    def reports_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.reports_allowed_attachment_types.split(",")
-            if t.strip()
-        }
 
     # Pièces jointes (module blog) — médias de la galerie d'un article
     # (image/vidéo, même plafond que les rapports). L'image à la une utilise
     # ce même ensemble filtré aux seuls types "image/*" (cf. blog/service.py).
     blog_max_attachment_mb: int = 50
-    blog_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,"
-        "video/mp4,video/quicktime,video/webm"
-    )
-
-    @property
-    def blog_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.blog_allowed_attachment_types.split(",")
-            if t.strip()
-        }
 
     # Pièces jointes (module enfants) — documents du dossier d'inscription
-    # (pièce d'identité, certificat médical, autorisations...). Implique la
-    # messagerie (images + PDF) : la vidéo n'a pas de sens pour un dossier.
+    # (pièce d'identité, certificat médical, autorisations...). Images et PDF :
+    # la vidéo n'a pas de sens pour un dossier.
+    #
+    # ⚠️ `CHILDREN_ALLOWED_ATTACHMENT_TYPES` ne gouverne plus rien, comme ses
+    # trois sœurs : c'était la liste la plus stricte du projet (MIME exacts,
+    # sans sur-ensemble `image/*`), donc celle qui refusait le plus — une photo
+    # d'iPhone passait à la trappe même correctement nommée. Le champ reste
+    # déclaré mais vide : le supprimer empêcherait de démarrer sur un `.env`
+    # qui le porte encore.
     children_max_attachment_mb: int = 10
-    children_allowed_attachment_types: str = (
-        "image/jpeg,image/png,image/gif,image/webp,application/pdf"
-    )
+    children_allowed_attachment_types: str = ""
+
+    # ── Traduction automatique du contenu saisi (blog, menus) ────
+    # Désactivée par défaut, comme MAIL_SUPPRESS_SEND côté email : un dev qui
+    # clone le repo ne doit pas appeler une API payante sans l'avoir décidé,
+    # et la suite de tests ne doit dépendre ni du réseau ni d'une clé.
+    translation_enabled: bool = False
+
+    # Moteur de traduction : `anthropic` (Claude Haiku, payant, meilleure
+    # qualité) ou `libretranslate` (open source, auto-hébergeable, gratuit).
+    # Les deux respectent le même contrat ; changer de moteur ne demande que
+    # cette variable.
+    translation_provider: Literal["anthropic", "libretranslate"] = "anthropic"
+
+    anthropic_api_key: str = ""
+    translation_model: str = "claude-haiku-4-5"
+
+    # Instance LibreTranslate — typiquement `http://libretranslate:5000` dans
+    # le docker-compose du projet. Une instance auto-hébergée n'exige aucune
+    # clé ; `libretranslate_api_key` ne sert qu'aux instances publiques.
+    libretranslate_url: str = ""
+    libretranslate_api_key: str = ""
+
+    # Plafond au-delà duquel on n'attend plus la traduction dans la requête
+    # HTTP : le statut reste `pending` et l'utilisateur relance depuis l'UI.
+    translation_timeout_seconds: float = 20.0
 
     @property
-    def children_allowed_attachment_types_set(self) -> set[str]:
-        return {
-            t.strip()
-            for t in self.children_allowed_attachment_types.split(",")
-            if t.strip()
-        }
+    def translation_active(self) -> bool:
+        """Traduction réellement appelable — le drapeau ET ce qu'exige le moteur.
+
+        Sans ce couple, un `TRANSLATION_ENABLED=true` laissé dans un .env sans
+        clé ferait échouer chaque publication d'article en `failed` au lieu de
+        se comporter comme « traduction non configurée ».
+
+        Chaque moteur a sa propre condition : une clé pour Anthropic, une URL
+        d'instance pour LibreTranslate. Les confondre ferait croire la
+        traduction active alors qu'elle ne peut pas aboutir.
+        """
+        if not self.translation_enabled:
+            return False
+        if self.translation_provider == "libretranslate":
+            return bool(self.libretranslate_url)
+        return bool(self.anthropic_api_key)
 
     @property
     def is_production(self) -> bool:

@@ -1,8 +1,11 @@
-import Link from 'next/link'
+import { getLocale, getTranslations } from 'next-intl/server'
+
+import { marketingPath } from '@/i18n/slugs'
 import Image from 'next/image'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
-import { BRAND } from '@/lib/marketing/data'
+import { BRAND, buildBrandCopy, MARKETING_NAV } from '@/lib/marketing/data'
 import { FacebookIcon, InstagramIcon, LinkedinIcon, TiktokIcon } from './brand-icons'
+import { Link } from '@/i18n/navigation'
 
 const SOCIALS = [
   { href: BRAND.social.facebook, label: 'Facebook', Icon: FacebookIcon },
@@ -11,16 +14,13 @@ const SOCIALS = [
   { href: BRAND.social.tiktok, label: 'TikTok', Icon: TiktokIcon },
 ]
 
-const NAV_LINKS = [
-  { name: 'Accueil', href: '/' },
-  { name: 'À Propos', href: '/a-propos' },
-  { name: 'Nos Sections', href: '/nos-sections' },
-  { name: 'Galerie', href: '/galerie' },
-  { name: 'Actualités', href: '/actualites' },
-  { name: 'Contact', href: '/contact' },
-]
+export async function SiteFooter() {
+  const t = await getTranslations('marketing')
+  const locale = await getLocale()
+  const tNav = await getTranslations('marketing.nav')
+  const tFooter = await getTranslations('marketing.footer')
+  const brand = buildBrandCopy(t)
 
-export function SiteFooter() {
   return (
     <footer className="bg-secondary text-primary-foreground">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
@@ -30,8 +30,7 @@ export function SiteFooter() {
               <Image src="/images/marketing/logo.png" alt={BRAND.name} width={200} height={90} className="h-16 w-auto sm:h-20" />
             </Link>
             <p className="mt-6 max-w-md text-sm leading-relaxed text-primary-foreground/75">
-              Depuis {BRAND.since}, nous accompagnons les enfants de 3 mois à 6 ans dans leur épanouissement
-              quotidien. Un environnement sécurisé, bienveillant et stimulant pour grandir en toute sérénité.
+              {tFooter('intro', { year: BRAND.since })}
             </p>
             <div className="mt-6 flex gap-3">
               {SOCIALS.map(({ href, label, Icon }) => (
@@ -50,12 +49,12 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h3 className="font-bold text-lg text-primary">Navigation</h3>
+            <h3 className="font-bold text-lg text-primary">{tFooter('navigation')}</h3>
             <ul className="mt-5 space-y-3">
-              {NAV_LINKS.map((l) => (
+              {MARKETING_NAV.map((l) => (
                 <li key={l.href}>
-                  <Link href={l.href} className="text-sm text-primary-foreground/75 transition-colors hover:text-primary">
-                    {l.name}
+                  <Link href={marketingPath(l.href, locale)} className="text-sm text-primary-foreground/75 transition-colors hover:text-primary">
+                    {tNav(l.key)}
                   </Link>
                 </li>
               ))}
@@ -63,11 +62,11 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h3 className="font-bold text-lg text-primary">Contact</h3>
+            <h3 className="font-bold text-lg text-primary">{tFooter('contact')}</h3>
             <ul className="mt-5 space-y-4 text-sm text-primary-foreground/75">
               <li className="flex gap-3">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span>{BRAND.address}</span>
+                <span>{brand.address}</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="size-4 shrink-0 text-primary" />
@@ -80,7 +79,7 @@ export function SiteFooter() {
               <li className="flex gap-3 pt-1">
                 <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="space-y-1">
-                  {BRAND.hours.map((h) => (
+                  {brand.hours.map((h) => (
                     <div key={h.day}>
                       <span className="block">{h.day}</span>
                       <span className="text-primary-foreground/60">{h.hours}</span>
@@ -95,10 +94,10 @@ export function SiteFooter() {
 
       <div className="border-t border-primary-foreground/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-6 py-6 text-xs text-primary-foreground/60 sm:flex-row sm:justify-between lg:px-8">
-          <p>© {new Date().getFullYear()} {BRAND.name}. Tous droits réservés.</p>
+          <p>{tFooter('rights', { year: new Date().getFullYear(), name: BRAND.name })}</p>
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-6">
-            <Link href="/mentions-legales" className="hover:text-primary">Mentions légales</Link>
-            <Link href="/confidentialite" className="hover:text-primary">Politique de confidentialité</Link>
+            <Link href={marketingPath('/mentions-legales', locale)} className="hover:text-primary">{tFooter('legal')}</Link>
+            <Link href={marketingPath('/confidentialite', locale)} className="hover:text-primary">{tFooter('privacy')}</Link>
           </div>
         </div>
       </div>

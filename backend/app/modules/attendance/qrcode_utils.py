@@ -19,6 +19,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.core.i18n import t
 from app.modules.attendance.models import PersonType
 
 
@@ -63,7 +64,7 @@ def decrypt_qr_payload(token: str) -> tuple[PersonType, uuid.UUID]:
             continue
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="Code QR invalide",
+        detail=t("errors.attendance.invalid_qr"),
     )
 
 

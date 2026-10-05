@@ -7,10 +7,18 @@
     "prebuild": "node scripts/stamp-version.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint && node scripts/check-messages.mjs && node scripts/check-hardcoded-text.mjs --strict && node scripts/check-zod-messages.mjs --strict && node scripts/check-locale-resolution.mjs && node scripts/check-marketing-slugs.mjs --strict && node scripts/check-private-routes.mjs --strict && node scripts/check-password-policy.mjs && node scripts/check-sw-cache.mjs && node scripts/check-public-assets.mjs",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check-messages": "node scripts/check-messages.mjs",
+    "check-hardcoded-text": "node scripts/check-hardcoded-text.mjs",
+    "check-zod-messages": "node scripts/check-zod-messages.mjs",
+    "check-password-policy": "node scripts/check-password-policy.mjs",
+    "check-locale-resolution": "node scripts/check-locale-resolution.mjs",
+    "check-marketing-slugs": "node scripts/check-marketing-slugs.mjs",
+    "check-sw-cache": "node scripts/check-sw-cache.mjs",
+    "check-public-assets": "node scripts/check-public-assets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -27,6 +35,7 @@
     "jsqr": "^1.4.0",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
+    "next-intl": "^4.14.7",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",

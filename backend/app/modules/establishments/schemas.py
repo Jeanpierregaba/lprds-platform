@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.modules.auth.schemas import StrongPassword, UserResponse
+from app.core.i18n import t
 
 # Code établissement : 2 à 10 caractères alphanumériques, majuscules.
 # Sert de préfixe aux matricules des membres — d'où la contrainte stricte.
@@ -14,10 +15,7 @@ _CODE_RE = re.compile(r"^[A-Z0-9]{2,10}$")
 def _normalize_code(v: str) -> str:
     code = v.strip().upper()
     if not _CODE_RE.match(code):
-        raise ValueError(
-            "Le code doit contenir 2 à 10 caractères alphanumériques "
-            "(lettres ou chiffres), sans espace ni accent"
-        )
+        raise ValueError(t("validation.establishment_code"))
     return code
 
 

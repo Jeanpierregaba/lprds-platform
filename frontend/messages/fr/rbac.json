@@ -1,0 +1,73 @@
+{
+  "page": {
+    "title": "Rôles & permissions",
+    "description": "Définir les rôles de votre établissement et les attribuer à votre personnel."
+  },
+  "tabs": {
+    "roles": "Rôles",
+    "assignment": "Attribution"
+  },
+  "roles": {
+    "new": "Nouveau rôle",
+    "editTitle": "Modifier le rôle",
+    "newTitle": "Nouveau rôle",
+    "includeInactive": "Inclure les rôles inactifs",
+    "name": "Nom",
+    "nameRequired": "Nom requis",
+    "descriptionOptional": "Description (optionnelle)",
+    "permissions": "Permissions",
+    "status": "Statut",
+    "save": "Enregistrer",
+    "create": "Créer",
+    "saving": "Enregistrement...",
+    "edit": "Modifier {name}",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "empty": "Aucun rôle pour le moment.",
+    "created": "Rôle créé.",
+    "updated": "Rôle mis à jour.",
+    "deactivated": "Rôle désactivé.",
+    "reactivated": "Rôle réactivé.",
+    "noPermission": "Aucune"
+  },
+  "assignment": {
+    "searchTitle": "Rechercher un membre du personnel",
+    "searchHint": "Par nom, surnom, email ou matricule.",
+    "searchPlaceholder": "Rechercher...",
+    "noResult": "Aucun résultat.",
+    "assignedTitle": "Rôles attribués",
+    "selectStaff": "Sélectionnez un membre du personnel.",
+    "none": "Aucun rôle attribué.",
+    "revoke": "Révoquer {name}",
+    "assigned": "Rôle attribué.",
+    "revoked": "Rôle révoqué.",
+    "assignRole": "Attribuer un rôle"
+  },
+  "permissions": {
+    "children:read": "Consulter les fiches enfants",
+    "children:write": "Créer et modifier les fiches enfants",
+    "children:archive": "Activer / désactiver une fiche enfant",
+    "parents:read": "Consulter les comptes parents",
+    "parents:write": "Créer, modifier et réinitialiser les comptes parents",
+    "staff:read": "Consulter les comptes du personnel",
+    "staff:write": "Créer, modifier et réinitialiser les comptes du personnel",
+    "organization:read": "Consulter départements, sections et groupes",
+    "organization:write": "Gérer départements, sections et groupes",
+    "attendance:scan": "Scanner les codes QR de présence",
+    "attendance:read": "Consulter les présences et tableaux de bord",
+    "attendance:write": "Configurer les paramètres de présence (horaires, exemptions)",
+    "reports:read": "Consulter les rapports",
+    "reports:write": "Créer, modifier et soumettre des rapports",
+    "reports:validate": "Valider ou rejeter les rapports soumis",
+    "gallery:read": "Consulter la galerie de médias (photos/vidéos des rapports)",
+    "menus:read": "Consulter le menu de la semaine et son historique",
+    "menus:write": "Créer et modifier les menus de la semaine, consulter l'historique",
+    "blog:write": "Rédiger, publier, modifier et supprimer les actualités du site vitrine",
+    "library:read": "Consulter le catalogue et le suivi des prêts de la bibliothèque",
+    "library:write": "Créer, modifier et supprimer les livres du catalogue",
+    "library:lend": "Enregistrer les prêts, retours et rappels de la bibliothèque"
+  },
+  "permissionsOther": "Autres",
+  "roleNameHint": "Ex. Directrice, Assistant de direction... Les droits attribués s'appliquent à tout membre du personnel qui portera ce rôle.",
+  "rolesEmpty": "Créez des rôles pour donner des droits fins à votre personnel (ex. Directrice, Secrétaire)."
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -44,6 +45,7 @@ export function useConversationThread({
   onThreadChanged: () => void
   onIncomingFromOther: () => void
 }) {
+  const t = useTranslations('messaging')
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
   const [picked, setPicked] = useState<File[]>([])
@@ -289,7 +291,7 @@ export function useConversationThread({
       setPicked([])
       setPickerOpen(false)
       if (!uploaded) {
-        toast.warning('Message envoyé, mais les médias ont échoué — ajoutez-les via le trombone du message.')
+        toast.warning(t('thread.mediaFailed'))
       }
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
@@ -307,7 +309,7 @@ export function useConversationThread({
       // afficher le bouton à tort (dérive) — message explicite, pas générique.
       const detail = getApiErrorMessage(err)
       toast.error(
-        detail.includes('15 minutes') ? "Délai d'édition dépassé — rechargez le fil." : detail
+        detail.includes('15 minutes') ? t('thread.editWindowOver') : detail
       )
     },
   })

@@ -165,10 +165,16 @@ def test_reports_daily_content(client):
     ck("Type non autorisé (pdf) → 422", c.post(f"/reports/{rid}/attachments",
        files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
        headers=educ).status_code, 422)
-    big = b"x" * (51 * 1024 * 1024)  # 51 Mo > limite par défaut (reports_max_attachment_mb=50)
-    ck("Fichier trop volumineux → 413", c.post(f"/reports/{rid}/attachments",
+    # ⚠️ Ce cas affirmait « 51 Mo de remplissage annoncé image/png → 413 ».
+    # Le type est maintenant lu dans les octets : 51 Mo de « x » n'est PAS une
+    # image, donc c'est un 422 (« ni une image ni une vidéo ») et non un refus
+    # de taille. Un gros fichier bidon ne peut plus tenir lieu de grosse photo.
+    # La politique de taille elle-même — image recompressée, vidéo refusée —
+    # est tenue par `test_media_uploads.py`, sur de vrais médias.
+    big = b"x" * (51 * 1024 * 1024)
+    ck("51 Mo de remplissage déguisé en PNG → 422", c.post(f"/reports/{rid}/attachments",
        files={"file": ("gros.png", big, "image/png")},
-       headers=educ).status_code, 413)
+       headers=educ).status_code, 422)
 
     detail = c.get(f"/reports/{rid}", headers=educ).json()
     ck("2 pièces jointes listées sur le rapport", len(detail["attachments"]), 2)

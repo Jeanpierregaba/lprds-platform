@@ -5,8 +5,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.media_serving import media_response
+
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_active_user, require_roles
+from app.core.i18n import coerce_locale, t
+from app.modules.auth.dependencies import get_current_user, require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.reports import service
 from app.modules.reports.dependencies import get_parent
@@ -45,7 +48,7 @@ def _sees_reports(user: User) -> bool:
     )
 
 
-async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
+async def _can_see_reports(user: User = Depends(get_current_user)) -> User:
     """Garde des endpoints de LECTURE (liste, détail, manquants) : admin, ou
     staff porteur d'au moins une permission du module. La sidebar affiche le
     module dès une permission détenue ; refuser ici donnerait « page visible,
@@ -55,12 +58,12 @@ async def _can_see_reports(user: User = Depends(get_active_user)) -> User:
         return user
     if user.role == UserRole.STAFF and _sees_reports(user):
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
-async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
+async def _vocabulary_access(user: User = Depends(get_current_user)) -> User:
     """
-    GET /vocabulary n'expose que des libellés FR statiques (aucune donnée
+    GET /vocabulary n'expose que des libellés statiques (aucune donnée
     d'enfant) — ouvert au staff qui voit les rapports (read/write/validate)
     ET au parent, qui en a besoin pour afficher le contenu de ses rapports
     validés sur son portail (contrairement au reste du module, jamais
@@ -71,7 +74,7 @@ async def _vocabulary_access(user: User = Depends(get_active_user)) -> User:
         return user
     if user.role == UserRole.STAFF and _sees_reports(user):
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 # Types de rapport par département : configuration réservée à l'admin —
@@ -82,7 +85,7 @@ _admin_only = require_roles(UserRole.ADMIN)
 
 # ── Paramètres : types de rapport activés par département ────────
 async def _read_types(
-    user: User = Depends(get_active_user),
+    user: User = Depends(get_current_user),
 ) -> User:
     """Lecture des types actifs : admin, ou staff porteur de reports:read OU
     reports:write — l'éducatrice en a besoin dans le formulaire de création
@@ -93,7 +96,7 @@ async def _read_types(
     codes = user_permission_codes(user)
     if PermissionCode.REPORTS_READ.value in codes or PermissionCode.REPORTS_WRITE.value in codes:
         return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissions insuffisantes")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
 
 
 @router.get(
@@ -179,12 +182,18 @@ async def list_reports(
 async def get_vocabulary(
     user: User = Depends(_vocabulary_access),
 ) -> ReportVocabularyResponse:
-    """Libellés français des listes déroulantes / cases à cocher du rapport
-    quotidien — pour que le frontend construise le formulaire sans dupliquer
-    ce vocabulaire. Ouvert à reports:read (admin/staff) et au parent (portail,
-    lecture de ses rapports validés). Placé AVANT /{report_id} pour éviter
-    toute ambiguïté de routage (même précaution que /mine/list, cf. claude.md)."""
-    return service.get_vocabulary()
+    """Libellés des listes déroulantes / cases à cocher du rapport, dans la
+    langue de l'appelant — pour que le frontend construise le formulaire sans
+    dupliquer ce vocabulaire (qui sert aussi au PDF du bulletin, d'où son
+    maintien côté backend, contrairement aux libellés RBAC). Ouvert à
+    reports:read (admin/staff) et au parent (portail, lecture de ses rapports
+    validés). Placé AVANT /{report_id} pour éviter toute ambiguïté de routage
+    (même précaution que /mine/list, cf. claude.md).
+
+    ⚠️ Réponse dépendante de la langue : côté frontend, la locale doit faire
+    partie de la clé de cache, sinon un changement de langue sert l'ancienne.
+    """
+    return service.get_vocabulary(coerce_locale(user.locale))
 
 
 @router.get("/missing", response_model=MissingReportResponse)
@@ -205,7 +214,7 @@ async def list_missing_reports(
     if target > date.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date ne peut pas être dans le futur",
+            detail=t("errors.common.date_future"),
         )
     return await service.list_missing_reports(
         user.establishment_id, user, db,
@@ -315,11 +324,21 @@ async def download_report_attachment(
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_can_see_reports),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_report_attachment_for_staff(
         report_id, attachment_id, user.establishment_id, user, db
     )
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
+    )
 
 
 # ── Portail parent ────────────────────────────────────────────────
@@ -374,8 +393,18 @@ async def download_my_report_attachment(
     attachment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     parent: User = Depends(get_parent),
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
 ) -> FileResponse:
     attachment, path = await service.get_report_attachment_for_parent(
         report_id, attachment_id, parent, db
     )
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type)
+    return await media_response(
+        storage_key=attachment.storage_key,
+        path=path,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        thumb=thumb,
+    )

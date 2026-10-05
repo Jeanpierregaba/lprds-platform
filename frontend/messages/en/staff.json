@@ -1,0 +1,98 @@
+{
+  "list": {
+    "title": "Staff",
+    "description": "Manage your staff accounts.",
+    "new": "New staff member",
+    "search": "Search by surname, nickname, email or ID...",
+    "allTypes": "All types",
+    "includeInactive": "Include inactive accounts",
+    "columns": {
+      "matricule": "ID",
+      "name": "Name",
+      "type": "Type",
+      "email": "Email",
+      "status": "Status"
+    },
+    "emptySearch": "No results for this search.",
+    "empty": "No staff members yet.",
+    "emptySearchHint": "Try another surname, nickname, email or ID.",
+    "emptyHint": "Create the first account to start managing your staff.",
+    "codeLabel": "ID:",
+    "roleLabel": "Role:",
+    "view": "View",
+    "qrCode": "QR code",
+    "badge": "{name}'s badge",
+    "count": "{count, plural, one {# member} other {# members}}",
+    "openAccount": "Open {name}’s account"
+  },
+  "status": {
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deactivated": "Account deactivated.",
+    "reactivated": "Account reactivated.",
+    "confirmTitle": "Deactivate this account?",
+    "reactivateTitle": "Reactivate this account?",
+    "deactivateBody": "The account will be deactivated (reversible). This person will no longer be able to sign in.",
+    "reactivateBody": "The account will become usable again.",
+    "confirm": "Confirm",
+    "confirmBody": "{name} will no longer be able to sign in (reversible from their record)."
+  },
+  "validation": {
+    "firstName": "First name required",
+    "lastName": "Surname required",
+    "nickname": "Nickname required",
+    "phone": "Phone required",
+    "email": "Invalid email",
+    "staffType": "Type required"
+  },
+  "fields": {
+    "firstName": "First name",
+    "lastName": "Surname",
+    "nickname": "Nickname",
+    "nicknamePlaceholder": "e.g. Auntie Victoire",
+    "email": "Email",
+    "phone": "Phone",
+    "staffType": "Job type",
+    "chooseType": "Choose a type",
+    "tempPassword": "Temporary password",
+    "newPassword": "New password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "form": {
+    "back": "Back to the list",
+    "newTitle": "New staff member",
+    "newHint": "An ID is generated automatically. Credentials are sent by email.",
+    "passwordHint": "8 characters minimum · 1 capital letter · 1 digit — emailed along with the ID.",
+    "submit": "Create account",
+    "submitting": "Creating...",
+    "created": "Staff member created.",
+    "noRights": "Insufficient permissions — you may not create a staff account.",
+    "updated": "Staff member updated.",
+    "save": "Save",
+    "saving": "Saving...",
+    "resetPassword": "Reset the password",
+    "reset": "Reset",
+    "sending": "Sending...",
+    "resetDone": "Password reset and emailed."
+  },
+  "tabs": {
+    "infos": "Details",
+    "roles": "RBAC roles"
+  },
+  "roles": {
+    "title": "Assigned roles",
+    "hint": "This staff member's effective permissions.",
+    "none": "No roles assigned.",
+    "assign": "Assign a role",
+    "revoke": "Revoke {name}",
+    "assigned": "Role assigned.",
+    "revoked": "Role revoked."
+  },
+  "staffTypeHint": "A purely descriptive job title — it grants no rights. Rights are managed under Roles & permissions.",
+  "resetHintStaff": "The new password is emailed to the staff member — they do not have to set it again.",
+  "noRoleYet": "No role exists yet. Create one under Roles & permissions.",
+  "detail": {
+    "notFound": "Staff member not found."
+  }
+}

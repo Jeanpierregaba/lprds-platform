@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
+import { Link } from '@/i18n/navigation'
 
 /**
  * CTA du site vitrine — pill-shaped, échelle hero, distincte du <Button/>

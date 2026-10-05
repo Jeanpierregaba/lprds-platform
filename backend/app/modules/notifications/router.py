@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.i18n import t
 from app.core.config import settings
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User, UserRole
@@ -37,7 +38,7 @@ async def create_subscription(
     if current_user.establishment_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Aucun établissement associé à ce compte",
+            detail=t("errors.notifications.no_establishment"),
         )
     # Définir l'établissement depuis le user courant
     subscription = await save_subscription(
@@ -68,7 +69,7 @@ async def remove_subscription(
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Abonnement introuvable",
+            detail=t("errors.notifications.subscription_not_found"),
         )
     await delete_subscription(subscription_id, db)
 
@@ -79,7 +80,7 @@ async def vapid_public_key() -> dict:
     if not settings.vapid_public_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Clé VAPID non configurée",
+            detail=t("errors.notifications.no_vapid_key"),
         )
     return {"vapidPublicKey": settings.vapid_public_key}
 
@@ -95,7 +96,7 @@ async def test_push(
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Clés VAPID non configurées — impossible d'envoyer de push",
+            detail=t("errors.notifications.no_vapid_keys"),
         )
 
     # Trouver ou créer une souscription de test

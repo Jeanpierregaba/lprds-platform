@@ -1,4 +1,6 @@
 import axios, { type AxiosError } from 'axios'
+
+import { clientLocale } from '@/i18n/client-locale'
 import { useAuthStore } from '@/lib/stores/auth.store'
 
 export const apiClient = axios.create({
@@ -6,12 +8,43 @@ export const apiClient = axios.create({
   timeout: 10_000,
 })
 
-// Injecte le token JWT à chaque requête
+// Injecte le token JWT et la langue courante à chaque requête.
+//
+// `Accept-Language` sert aux réponses immédiates (messages d'erreur, documents
+// générés à la demande). Pour tout ce qui part hors navigateur — emails,
+// notifications push — c'est `users.locale` qui fait foi côté backend :
+// l'en-tête n'existe pas au moment d'un envoi différé.
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
   if (token) config.headers.Authorization = `Bearer ${token}`
+
+  const locale = requestLocale()
+  if (locale) config.headers['Accept-Language'] = locale
+
   return config
 })
+
+/**
+ * Langue annoncée au backend. Côté serveur (rendu, tests unitaires), il n'y a
+ * ni URL ni cookie : aucun en-tête n'est envoyé et le backend applique sa
+ * propre résolution.
+ *
+ * ⚠️ Passe par `clientLocale()`, qui lit le PRÉFIXE D'URL avant le cookie. Ce
+ * module lisait le cookie seul, et c'était le plus coûteux des quatre endroits
+ * qui le faisaient : sur `/en/...` sans cookie, chaque requête annonçait
+ * `Accept-Language: fr` et le backend renvoyait ses messages d'erreur en
+ * français au beau milieu d'une interface anglaise.
+ *
+ * Rappel : pour un compte connecté, `users.locale` prime de toute façon sur
+ * cet en-tête côté backend (cf. claude.md, § Internationalisation). L'en-tête
+ * ne décide donc que pour les appels non authentifiés — login, reset de mot de
+ * passe, site vitrine — c'est-à-dire précisément ceux qu'un visiteur fait
+ * avant d'avoir le moindre cookie.
+ */
+function requestLocale(): string | null {
+  if (typeof window === 'undefined') return null
+  return clientLocale()
+}
 
 // Refresh automatique sur 401
 let isRefreshing = false

@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useTranslations } from 'next-intl'
 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   destructive?: boolean
   confirmDisabled?: boolean
 }) {
+  const tCommon = useTranslations('common')
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
@@ -31,7 +33,7 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogCancel>{tCommon('actions.cancel')}</AlertDialogCancel>
           <AlertDialogAction variant={destructive ? 'destructive' : 'default'} disabled={confirmDisabled} onClick={onConfirm}>
             {confirmLabel}
           </AlertDialogAction>

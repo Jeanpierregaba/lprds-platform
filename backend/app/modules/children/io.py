@@ -34,6 +34,8 @@ from io import BytesIO, StringIO
 
 from pydantic import ValidationError
 
+from app.core.i18n import t
+
 from app.modules.children.schemas import (
     AuthorizedPersonRequest,
     GuardianRequest,
@@ -60,7 +62,9 @@ AUTHORIZED_SLOTS = (1, 2)
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-ADDRESS_FALLBACK = "Adresse non renseignée"
+def address_fallback() -> str:
+    """Mention par défaut, rendue dans la langue de la requête en cours."""
+    return t("import.row.address_fallback")
 
 
 class ImportFileError(Exception):
@@ -98,7 +102,7 @@ def clean_email(raw: object) -> tuple[str | None, str | None]:
         return None, None
     if EMAIL_RE.match(email):
         return email, None
-    return None, f"email invalide ignoré ({clean(raw)[:40]})"
+    return None, t("import.row.email_invalid", email=clean(raw)[:40])
 
 
 def clean_phone(raw: object) -> tuple[str, str | None]:
@@ -106,13 +110,13 @@ def clean_phone(raw: object) -> tuple[str, str | None]:
     Au-delà → rejet (tronquer un téléphone serait dangereux)."""
     phone = clean(raw)
     if not phone:
-        raise RowError("téléphone manquant")
+        raise RowError(t("import.row.phone_missing"))
     if len(phone) <= 20:
         return phone, None
     first = phone.split("/")[0].strip()
     if first and len(first) <= 20:
-        return first, "numéro secondaire ignoré (téléphone > 20 car.)"
-    raise RowError(f"téléphone inexploitable ({phone[:30]}…)")
+        return first, t("import.row.phone_secondary_ignored")
+    raise RowError(t("import.row.phone_unusable", phone=phone[:30]))
 
 
 def flatten_validation_error(exc: ValidationError) -> str:
@@ -145,29 +149,40 @@ def flat_row_to_fields(
         if not last_name and not first_names and not row.get(f"tuteur_{slot}_tel", ""):
             continue
         if not last_name or not first_names:
-            raise RowError(f"tuteur_{slot} incomplet (nom + prénoms requis)")
+            raise RowError(t("import.row.guardian_incomplete", slot=slot))
         try:
             phone, phone_warning = clean_phone(row.get(f"tuteur_{slot}_tel", ""))
         except RowError:
-            raise RowError(f"tuteur_{slot} : téléphone manquant") from None
+            raise RowError(
+                t("import.row.guardian_phone_missing", slot=slot)
+            ) from None
         if phone_warning:
-            warnings.append(f"tuteur_{slot} : {phone_warning}")
+            warnings.append(
+                t("import.row.guardian_warning", slot=slot, warning=phone_warning)
+            )
         name_key = f"{last_name.lower()}|{first_names.lower()}"
         phone_key = f"tel:{phone.lower()}"
         if phone_key in seen_phones:
-            warnings.append(f"tuteur_{slot} en double ignoré ({first_names} {last_name})")
+            warnings.append(t(
+                "import.row.guardian_duplicate_ignored",
+                slot=slot, name=f"{first_names} {last_name}",
+            ))
             continue
         if name_key in seen_names:
-            warnings.append(
-                f"tuteur_{slot} en double fusionné ({first_names} {last_name} : "
-                f"{seen_names[name_key]} / {phone})"
-            )
+            warnings.append(t(
+                "import.row.guardian_duplicate_merged",
+                slot=slot,
+                name=f"{first_names} {last_name}",
+                phones=f"{seen_names[name_key]} / {phone}",
+            ))
             continue
         seen_phones.add(phone_key)
         seen_names[name_key] = phone
         email, email_warning = clean_email(row.get(f"tuteur_{slot}_email", ""))
         if email_warning:
-            warnings.append(f"tuteur_{slot} : {email_warning}")
+            warnings.append(
+                t("import.row.guardian_warning", slot=slot, warning=email_warning)
+            )
         guardians.append(GuardianRequest(
             last_name=last_name, first_names=first_names,
             phone=phone, email=email,
@@ -181,11 +196,13 @@ def flat_row_to_fields(
         if not last_name and not first_names and not row.get(f"autorise_{slot}_tel", ""):
             continue
         if not last_name or not first_names:
-            raise RowError(f"autorise_{slot} incomplet (nom + prénoms requis)")
+            raise RowError(t("import.row.authorized_incomplete", slot=slot))
         try:
             phone, _ = clean_phone(row.get(f"autorise_{slot}_tel", ""))
         except RowError:
-            raise RowError(f"autorise_{slot} : téléphone manquant") from None
+            raise RowError(
+                t("import.row.authorized_phone_missing", slot=slot)
+            ) from None
         name_key = f"{last_name.lower()}|{first_names.lower()}"
         if f"tel:{phone.lower()}" in seen_phones or name_key in seen_names:
             continue
@@ -197,14 +214,14 @@ def flat_row_to_fields(
 
     residence_address = real_text(row.get("adresse", ""))
     if not residence_address:
-        residence_address = ADDRESS_FALLBACK
-        warnings.append("adresse manquante → mention par défaut")
+        residence_address = address_fallback()
+        warnings.append(t("import.row.address_missing"))
 
     behavioral = real_text(row.get("notes_comportement", ""))
     usual = clean(row.get("nom_usuel", ""))
     first_names_value = clean(row.get("prenoms", ""))
     if usual and usual.lower() not in first_names_value.lower():
-        note = f"Nom usuel : {usual}."
+        note = t("import.row.usual_name_note", name=usual)
         behavioral = f"{note}\n{behavioral}" if behavioral else note
 
     section_id: uuid.UUID | None = None
@@ -213,7 +230,7 @@ def flat_row_to_fields(
     if section_name:
         resolved = sections_by_name.get(section_name)
         if resolved is None:
-            warnings.append(f"section inconnue ({section_name}) → sans section")
+            warnings.append(t("import.row.section_unknown", section=section_name))
         else:
             section_id, department_id = resolved
 
@@ -245,7 +262,7 @@ def parse_status(raw: object) -> bool:
         return True
     if text in ("inactif", "inactive", "0", "non", "faux", "false"):
         return False
-    raise RowError(f"statut inconnu ({clean(raw)[:20]}) — 'actif' ou 'inactif'")
+    raise RowError(t("import.row.status_unknown", value=clean(raw)[:20]))
 
 
 def parse_date_value(raw: object, field: str):
@@ -260,7 +277,7 @@ def parse_date_value(raw: object, field: str):
             return datetime.strptime(text, fmt).date()
         except ValueError:
             continue
-    raise RowError(f"{field} invalide ({text[:20]}) — AAAA-MM-JJ ou JJ/MM/AAAA")
+    raise RowError(t("import.row.date_invalid", field=field, value=text[:20]))
 
 
 # ── Lecture du fichier (xlsx + csv, mêmes colonnes) ───────────────
@@ -272,7 +289,7 @@ def _normalize_row(raw: dict, lineno: int) -> dict[str, str]:
     }
     row = {col: clean(normalized.get(col, "")) for col in IMPORT_COLUMNS}
     if not any(row.values()):
-        raise RowError("ligne entièrement vide")
+        raise RowError(t("import.row.empty"))
     return row
 
 
@@ -284,7 +301,7 @@ def read_import_rows(content: bytes, filename: str) -> list[dict[str, str]]:
         return _read_xlsx(content)
     if name.endswith(".csv"):
         return _read_csv(content)
-    raise ImportFileError("format non pris en charge — .xlsx ou .csv uniquement")
+    raise ImportFileError(t("import.file.unsupported_format"))
 
 
 def _read_xlsx(content: bytes) -> list[dict[str, str]]:
@@ -296,9 +313,9 @@ def _read_xlsx(content: bytes) -> list[dict[str, str]]:
         rows_iter = ws.iter_rows(values_only=True)
         headers = next(rows_iter, None)
     except Exception as exc:
-        raise ImportFileError(f"fichier Excel illisible ({exc})") from exc
+        raise ImportFileError(t("import.file.xlsx_unreadable", reason=exc)) from exc
     if not headers or not any(h is not None and str(h).strip() for h in headers):
-        raise ImportFileError("feuille vide ou sans en-têtes")
+        raise ImportFileError(t("import.file.no_headers"))
     header_names = [str(h or "").strip() for h in headers]
     rows: list[dict[str, str]] = []
     for lineno, values in enumerate(rows_iter, start=3):
@@ -310,7 +327,7 @@ def _read_xlsx(content: bytes) -> list[dict[str, str]]:
         except RowError:
             continue
     if not rows:
-        raise ImportFileError("aucune ligne de données")
+        raise ImportFileError(t("import.file.no_rows"))
     return rows
 
 
@@ -323,11 +340,11 @@ def _read_csv(content: bytes) -> list[dict[str, str]]:
         except (UnicodeDecodeError, UnicodeError):
             continue
     if text is None:
-        raise ImportFileError("encodage illisible (ni UTF-8 ni Windows-1252)")
+        raise ImportFileError(t("import.file.bad_encoding"))
     delimiter = _detect_delimiter(text)
     reader = csv.DictReader(StringIO(text), delimiter=delimiter)
     if not reader.fieldnames:
-        raise ImportFileError("CSV vide ou sans en-têtes")
+        raise ImportFileError(t("import.file.csv_no_headers"))
     rows: list[dict[str, str]] = []
     for lineno, raw in enumerate(reader, start=2):
         raw = {k: v for k, v in (raw or {}).items() if k is not None}
@@ -338,7 +355,7 @@ def _read_csv(content: bytes) -> list[dict[str, str]]:
         except RowError:
             continue
     if not rows:
-        raise ImportFileError("aucune ligne de données")
+        raise ImportFileError(t("import.file.no_rows"))
     return rows
 
 

@@ -1,23 +1,19 @@
 'use client'
 
+import { useLocale, useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
 import { Menu, X, MessageCircle, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BRAND } from '@/lib/marketing/data'
-
-const NAV_ITEMS = [
-  { name: 'Accueil', href: '/' },
-  { name: 'À Propos', href: '/a-propos' },
-  { name: 'Nos Sections', href: '/nos-sections' },
-  { name: 'Galerie', href: '/galerie' },
-  { name: 'Actualités', href: '/actualites' },
-  { name: 'Contact', href: '/contact' },
-]
+import { BRAND, MARKETING_NAV } from '@/lib/marketing/data'
+import { marketingPath } from '@/i18n/slugs'
+import { LocaleSwitcher } from '@/components/locale-switcher'
+import { Link, usePathname } from '@/i18n/navigation'
 
 export function SiteHeader() {
+  const tNav = useTranslations('marketing.nav')
+  const locale = useLocale()
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
 
@@ -36,19 +32,23 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-7 lg:flex">
-          {NAV_ITEMS.map((item) => {
-            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+          {MARKETING_NAV.map((item) => {
+            // `usePathname()` rend le chemin SERVI, débarrassé du préfixe de
+            // langue — donc `/about` en anglais, pas `/a-propos`. Comparer au
+            // chemin français n'allumerait jamais l'onglet actif côté anglais.
+            const href = marketingPath(item.href, locale)
+            const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={href}
                 className={cn(
                   'relative text-sm font-medium transition-colors',
                   'text-secondary hover:text-primary',
                   active && 'text-primary'
                 )}
               >
-                {item.name}
+                {tNav(item.key)}
                 {active && (
                   <span
                     className={cn(
@@ -63,11 +63,12 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <LocaleSwitcher />
           <a
             href={BRAND.whatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Discuter sur WhatsApp"
+            aria-label={tNav('whatsapp')}
             className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-tertiary text-tertiary-foreground transition-all hover:bg-tertiary/90 sm:inline-flex"
           >
             <MessageCircle className="size-5" />
@@ -81,12 +82,12 @@ export function SiteHeader() {
             )}
           >
             <User className="size-4" />
-            Espace Parent
+            {tNav('parentArea')}
           </Link>
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-label={menuOpen ? tNav('closeMenu') : tNav('openMenu')}
             aria-expanded={menuOpen}
             className="inline-flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-black/5 lg:hidden"
           >
@@ -98,14 +99,14 @@ export function SiteHeader() {
       {menuOpen && (
         <div className="mx-auto mt-2 max-h-[calc(100dvh-7rem)] max-w-7xl overflow-y-auto rounded-3xl bg-cream px-4 pb-6 pt-2 shadow-lg ring-1 ring-black/5 lg:hidden">
           <nav className="flex flex-col divide-y divide-border">
-            {NAV_ITEMS.map((item) => (
+            {MARKETING_NAV.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={marketingPath(item.href, locale)}
                 onClick={() => setMenuOpen(false)}
                 className="py-3 text-base font-medium text-foreground/90 hover:text-primary"
               >
-                {item.name}
+                {tNav(item.key)}
               </Link>
             ))}
           </nav>
@@ -117,7 +118,7 @@ export function SiteHeader() {
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#25D366] text-sm font-medium text-white"
             >
               <MessageCircle className="size-4" />
-              Discuter sur WhatsApp
+              {tNav('whatsapp')}
             </a>
             <Link
               href="/auth/login"
@@ -125,7 +126,7 @@ export function SiteHeader() {
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-[0_4px_0_var(--color-primary-layer)] transition-all hover:translate-y-1 hover:shadow-none"
             >
               <User className="size-4" />
-              Espace Parent
+              {tNav('parentArea')}
             </Link>
           </div>
         </div>

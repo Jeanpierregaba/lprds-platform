@@ -1,38 +1,32 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { LogOut, Menu } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { useAuthStore, useUser } from '@/lib/stores/auth.store'
-import { authApi } from '@/lib/api/auth.api'
+import { useUser } from '@/lib/stores/auth.store'
+import { logout } from '@/lib/auth/logout'
 import { useMessagingUnread } from '@/lib/messaging/use-messaging-unread'
 import { NavList } from './nav-list'
 import { useNavItems } from './use-nav-items'
 
 export function MobileNav() {
+  const t = useTranslations('common')
+  const tNav = useTranslations('nav')
   const user = useUser()
-  const router = useRouter()
   const items = useNavItems()
   const unreadMessages = useMessagingUnread()
   const [open, setOpen] = useState(false)
-  const { refreshToken, clearSession } = useAuthStore()
 
   if (!user) return null
 
   const handleLogout = async () => {
     setOpen(false)
-    try {
-      if (refreshToken) await authApi.logout(refreshToken)
-    } catch {
-      // best-effort
-    } finally {
-      clearSession()
-      router.push('/')
-    }
+    await logout()
   }
 
   return (
@@ -43,7 +37,7 @@ export function MobileNav() {
             variant="ghost"
             size="icon"
             className="md:hidden"
-            aria-label="Ouvrir la navigation"
+            aria-label={tNav('openNavigation')}
           />
         }
       >
@@ -77,12 +71,12 @@ export function MobileNav() {
           <button
             type="button"
             onClick={() => {
-              handleLogout().catch(() => toast.error('Erreur lors de la déconnexion'))
+              handleLogout().catch(() => toast.error(t('logoutError')))
             }}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium text-destructive transition-colors outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <LogOut className="size-4 shrink-0" />
-            Se déconnecter
+            {t('signOut')}
           </button>
         </div>
       </SheetContent>

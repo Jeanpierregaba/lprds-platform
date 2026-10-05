@@ -1,0 +1,56 @@
+{
+  "page": {
+    "title": "Menus",
+    "description": "Menu hebdomadaire — collation, déjeuner, dessert, goûter."
+  },
+  "tabs": {
+    "week": "Semaine",
+    "history": "Historique"
+  },
+  "week": {
+    "department": "Département",
+    "chooseDepartment": "Choisir un département",
+    "weekRange": "Semaine du {from}",
+    "weekTo": "Au {to}",
+    "prevWeek": "Semaine précédente",
+    "nextWeek": "Semaine suivante",
+    "today": "Aujourd’hui",
+    "emptyCell": "—",
+    "noDepartment": "Aucun département dans l’établissement — créez-en un d’abord pour saisir un menu.",
+    "noMenu": "Aucun menu enregistré pour cette semaine.",
+    "save": "Enregistrer",
+    "createWeek": "Créer cette semaine",
+    "deleteTitle": "Supprimer ce menu ?",
+    "deleteBody": "Cette action est définitive.",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "created": "Menu créé.",
+    "saved": "Menu enregistré.",
+    "deleted": "Menu supprimé.",
+    "pastReadOnly": "Semaine passée — lecture seule.",
+    "mealColumn": "Repas"
+  },
+  "history": {
+    "department": "Département",
+    "allDepartments": "Tous les départements",
+    "week": "Semaine",
+    "lastModified": "Dernière modification",
+    "view": "Voir",
+    "viewTitle": "Voir ce menu",
+    "empty": "Aucun menu enregistré pour le moment.",
+    "count": "{count, plural, one {# semaine enregistrée} other {# semaines enregistrées}}"
+  },
+  "parent": {
+    "empty": "Aucun menu publié pour cette semaine.",
+    "weekRange": "Semaine du {from} — au {to}",
+    "nextWeek": "Semaine suivante"
+  },
+  "translation": {
+    "review": "Relire la traduction",
+    "title": "Traduction anglaise de la semaine",
+    "hint": "Le français à gauche, l'anglais servi aux familles anglophones à droite. Un champ vide n'est pas encore traduit. Une correction enregistrée ici s'applique aussi aux prochaines semaines où le plat reviendra.",
+    "placeholder": "Pas encore traduit",
+    "corrected": "Relu",
+    "saved": "Traduction enregistrée."
+  }
+}

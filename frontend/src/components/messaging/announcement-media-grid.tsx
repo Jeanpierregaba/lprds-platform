@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, Download, ImageOff, Loader2, Play,
@@ -92,14 +94,16 @@ function MediaFrame({
   onOpen: () => void
   overlay?: React.ReactNode
 }) {
-  const { url, isLoading, isError } = useAttachmentBlob(att.id)
+  const t = useTranslations('messaging')
+  // Case de grille : vignette. Le viewer plein écran, lui, prend l'original.
+  const { url, isLoading, isError } = useAttachmentBlob(att.id, { thumb: true })
   const isVideo = att.content_type.startsWith('video/')
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Voir le média ${att.filename}`}
+      aria-label={t('media.viewNamed', { name: att.filename })}
       className="group relative block aspect-square w-full overflow-hidden rounded-md bg-muted ring-1 ring-border transition hover:ring-primary"
     >
       {isLoading ? (
@@ -139,6 +143,8 @@ function AnnouncementMediaViewer({
   onIndexChange: (index: number) => void
   onClose: () => void
 }) {
+  const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   // Index borné : la liste peut rétrécir pendant que le viewer est ouvert
   // (suppression) — sans ça `att` devient undefined après les hooks.
   const safeIndex = media.length === 0 ? 0 : index % media.length
@@ -176,11 +182,9 @@ function AnnouncementMediaViewer({
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            Média {safeIndex + 1} / {media.length}
+            {t('media.viewerTitle', { index: safeIndex + 1, total: media.length })}
           </DialogTitle>
-          <DialogDescription className="sr-only">
-            Carrousel des médias de la diffusion — flèches ou clavier pour naviguer, Échap pour fermer.
-          </DialogDescription>
+          <DialogDescription className="sr-only">{t('carouselHint')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex h-[50dvh] items-center justify-center overflow-hidden rounded-md bg-black">
@@ -203,7 +207,7 @@ function AnnouncementMediaViewer({
               className="h-10 w-10"
               onClick={() => onIndexChange((safeIndex - 1 + media.length) % media.length)}
               disabled={media.length < 2}
-              aria-label="Média précédent"
+              aria-label={t('media.prev')}
             >
               <ChevronLeft className="size-4" />
             </Button>
@@ -214,14 +218,14 @@ function AnnouncementMediaViewer({
               className="h-10 w-10"
               onClick={() => onIndexChange((safeIndex + 1) % media.length)}
               disabled={media.length < 2}
-              aria-label="Média suivant"
+              aria-label={t('media.next')}
             >
               <ChevronRight className="size-4" />
             </Button>
           </div>
           <Button type="button" variant="outline" className="h-10" onClick={onDownload}>
             <Download className="mr-1.5 size-4" />
-            Télécharger
+            {tCommon('actions.download')}
           </Button>
         </DialogFooter>
       </DialogContent>

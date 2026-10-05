@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useRef, useState } from 'react'
 import { Download, ImageOff, Loader2, Paperclip, Share, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,6 +33,8 @@ export function MessageAttachments({
   onRemove?: (attachmentId: string) => void
   removingId?: string | null
 }) {
+  const t = useTranslations('messaging')
+  const tCommon = useTranslations('common')
   return (
     <>
       {attachments.map((att) => (
@@ -45,8 +49,8 @@ export function MessageAttachments({
               type="button"
               onClick={() => onRemove(att.id)}
               disabled={removingId === att.id}
-              aria-label={`Retirer ${att.filename}`}
-              title="Retirer cette pièce jointe"
+              aria-label={tCommon('actions.removeNamed', { name: att.filename })}
+              title={t('media.removeAttachment')}
               className="absolute left-1 top-2.5 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive disabled:opacity-60"
             >
               {removingId === att.id
@@ -103,6 +107,7 @@ function MediaPreview({
 }: {
   attachment: Attachment
 }) {
+  const t = useTranslations('messaging')
   const [isPwa, setIsPwa] = useState(false)
   const [visible, setVisible] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -125,29 +130,32 @@ function MediaPreview({
     return () => observer.disconnect()
   }, [])
 
-  const { blob, url, isLoading, isError } = useAttachmentBlob(visible ? att.id : null)
+  // Aperçu en vignette : la bulle fait quelques dizaines de pixels.
+  const { url, isLoading, isError } = useAttachmentBlob(visible ? att.id : null, { thumb: true })
 
   const save = async () => {
-    if (!blob) return
     try {
-      await shareOrDownload(blob, att.filename, att.content_type)
+      // ⚠️ L'ORIGINAL, pas la vignette affichée au-dessus : on enregistre la
+      // photo que l'établissement a envoyée, pas sa miniature.
+      const res = await messagingApi.downloadAttachment(att.id)
+      await shareOrDownload(res.data, att.filename, att.content_type)
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
   }
-  const hint = isPwa ? 'Enregistrer dans la galerie' : 'Télécharger'
+  const hint = isPwa ? t('media.saveToGallery') : t('media.download')
 
   return (
     <span ref={ref} className="mt-1.5 block max-w-full">
       {!visible || isLoading ? (
         <span className="flex h-16 items-center text-xs opacity-70">
           {isLoading && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-          Chargement de l&apos;aperçu…
+          {t('media.loadingPreview')}
         </span>
       ) : isError || !url ? (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ImageOff className="size-3.5" />
-          Aperçu indisponible
+          {t('previewUnavailable')}
         </span>
       ) : isVideo ? (
         <span className="relative block">

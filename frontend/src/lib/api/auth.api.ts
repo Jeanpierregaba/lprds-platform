@@ -27,4 +27,10 @@ export const authApi = {
 
   logout: (refreshToken: string) =>
     apiClient.post('/api/v1/auth/logout', { refresh_token: refreshToken }),
+
+  /** Mémorise la langue sur le compte — c'est elle qui décidera de la langue
+   *  des emails, PDF et notifications push, que l'utilisateur soit connecté
+   *  ou non au moment de l'envoi. */
+  setLocale: (locale: 'fr' | 'en') =>
+    apiClient.patch<User>('/api/v1/auth/me/locale', { locale }),
 }

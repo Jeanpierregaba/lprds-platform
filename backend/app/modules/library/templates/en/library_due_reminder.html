@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="font-family: Arial, sans-serif; color: #18181b; background: #f4f4f5; margin: 0; padding: 24px;">
+  <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px;">
+    <h2 style="color: #18181b; margin-top: 0;">Reminder: books to return</h2>
+    <p>Hello {{ parent_first_name }},</p>
+    {% if items|length == 1 %}
+    <p>The book below, borrowed from the school library, is due back soon:</p>
+    {% else %}
+    <p>The books below, borrowed from the school library, are due back soon:</p>
+    {% endif %}
+    <ul>
+      {% for item in items %}
+      <li>
+        <strong>{{ item.book_title }}</strong>
+        — {{ item.child_name }}
+        <br>Due back: {{ item.due_date }}
+        {% if item.status == 'overdue' %}
+        <br><span style="color: #dc2626;">{{ item.overdue_days }} day(s) overdue</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p>Please return {{ 'this book' if items|length == 1 else 'these books' }} as soon as you can.</p>
+    <p>
+      <a href="{{ library_url }}" style="background:#18181b;color:#ffffff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">
+        See my loans
+      </a>
+    </p>
+    <p style="color:#71717a;font-size:12px;margin-top:24px;">{{ platform_name }}</p>
+  </div>
+</body>
+</html>

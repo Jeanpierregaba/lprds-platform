@@ -1,10 +1,13 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useEffect, useState } from 'react'
 import { Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function ThemeToggle() {
+  const t = useTranslations('common')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
@@ -15,9 +18,9 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      aria-label="Thème sombre bientôt disponible"
+      aria-label={t('themeSoon')}
       disabled
-      title="Thème sombre bientôt disponible"
+      title={t('themeSoon')}
     >
       <Moon className="size-4" />
     </Button>

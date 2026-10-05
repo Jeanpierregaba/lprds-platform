@@ -1,0 +1,517 @@
+{
+  "brand": {
+    "baseline": "La maison de l’éveil",
+    "address": "Rue le sauveur, Quatrième voie à droite, en face du commissariat du 3e district, Djidjolé, Lomé -Togo",
+    "hours": {
+      "weekdays": "Lundi — Vendredi",
+      "saturday": "Samedi (espace de jeux extérieur)",
+      "sunday": "Dimanche (espace de jeux extérieur)"
+    }
+  },
+  "nav": {
+    "home": "Accueil",
+    "about": "À Propos",
+    "sections": "Nos Sections",
+    "gallery": "Galerie",
+    "news": "Actualités",
+    "contact": "Contact",
+    "parentArea": "Espace Parent",
+    "whatsapp": "Discuter sur WhatsApp",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
+  },
+  "footer": {
+    "intro": "Depuis {year}, nous accompagnons les enfants de 3 mois à 6 ans dans leur épanouissement quotidien. Un environnement sécurisé, bienveillant et stimulant pour grandir en toute sérénité.",
+    "navigation": "Navigation",
+    "contact": "Contact",
+    "rights": "© {year} {name}. Tous droits réservés.",
+    "legal": "Mentions légales",
+    "privacy": "Politique de confidentialité"
+  },
+  "stats": {
+    "children": "Enfants accueillis",
+    "professionals": "Professionnels qualifiés",
+    "sections": "Sections, de 3 mois à 6 ans",
+    "satisfaction": "Parents satisfaits"
+  },
+  "whyUs": {
+    "children": "Enfants confiés par leurs parents",
+    "professionals": "Professionnels passionnés et formés",
+    "playground": "Espace de jeux spacieux et équipé",
+    "safety": "Environnement 100 % sécurisé"
+  },
+  "sections": {
+    "creche_etoile": {
+      "title": "Crèche — Section Étoile",
+      "shortTitle": "Étoile",
+      "ageRange": "3 – 18 mois",
+      "capacity": "10 enfants",
+      "ratio": "1 adulte pour 5 bébés",
+      "description": "Un cocon douillet pour les premiers mois de découverte.",
+      "activities": [
+        "Éveil sensoriel et motricité douce",
+        "Exploration des textures et des sons",
+        "Initiation musicale et moments de détente",
+        "Jeux de manipulation et d’exploration libre",
+        "Initiation au bébé signe"
+      ],
+      "schedule": {
+        "morning": "Accueil personnalisé, temps de soin, biberon et activités sensorielles",
+        "midday": "Repas adapté, moments calmes et sieste longue",
+        "afternoon": "Éveil en douceur, découverte en plein air et goûter"
+      }
+    },
+    "creche_nuage": {
+      "title": "Crèche — Section Nuage",
+      "shortTitle": "Nuage",
+      "ageRange": "18 – 24 mois",
+      "capacity": "14 enfants",
+      "ratio": "1 adulte pour 7 enfants",
+      "description": "L’âge des premières explorations et de l’autonomie naissante.",
+      "activities": [
+        "Motricité libre et parcours de découverte",
+        "Premiers gestes artistiques : peinture, collage, modelage",
+        "Chansons, comptines et manipulation",
+        "Jeux de construction et d’imitation",
+        "Observation et exploration en extérieur"
+      ],
+      "schedule": {
+        "morning": "Accueil chaleureux, activités sportives, cercle matinal, collation, éveil et motricité",
+        "midday": "Repas en groupe, rituel de sieste",
+        "afternoon": "Bricolage, activités en extérieur, jeux libres, histoires, comptines"
+      }
+    },
+    "creche_soleil": {
+      "title": "Crèche — Section Soleil",
+      "shortTitle": "Soleil",
+      "ageRange": "24 – 36 mois",
+      "capacity": "14 enfants",
+      "ratio": "1 adulte pour 7 enfants",
+      "description": "Une préparation douce et joyeuse vers l’école maternelle.",
+      "activities": [
+        "Pré-graphisme et découverte de l’écrit",
+        "Expériences scientifiques simples et observations ludiques",
+        "Théâtre, expression corporelle et jeux de rôle",
+        "Ateliers créatifs et sensoriels",
+        "Découvertes extérieures et mini-sorties pédagogiques"
+      ],
+      "schedule": {
+        "morning": "Accueil chaleureux, activités sportives, cercle matinal, ateliers d’éveil et de motricité",
+        "midday": "Repas en semi-autonomie, rituel de sieste",
+        "afternoon": "Ateliers créatifs, activités en plein air, lecture, comptines, exploration libre"
+      }
+    },
+    "garderie": {
+      "title": "Garderie périscolaire",
+      "shortTitle": "Garderie",
+      "ageRange": "3 – 6 ans",
+      "capacity": "10 enfants",
+      "ratio": "1 adulte pour 10 enfants",
+      "description": "Un espace d’épanouissement et d’accompagnement après l’école.",
+      "activities": [
+        "Aide personnalisée aux devoirs",
+        "Ateliers créatifs et manuels",
+        "Activités sportives et jeux collectifs",
+        "Découvertes culturelles et ludiques",
+        "Projets de groupe favorisant coopération et autonomie"
+      ],
+      "schedule": {
+        "midday": "Repas à la cantine, temps calme",
+        "afternoon": "Aide aux devoirs, activités thématiques, goûter, jeux en plein air"
+      }
+    },
+    "maternelle_ps": {
+      "title": "Maternelle — Petite Section",
+      "shortTitle": "Petite Section",
+      "ageRange": "3 ans - 4 ans",
+      "capacity": "20 enfants",
+      "ratio": "1 adulte pour 10 enfants",
+      "description": "La Petite Section marque le début du parcours scolaire : l’enfant découvre le plaisir d’apprendre à travers le jeu, le mouvement et la communication.",
+      "activities": [
+        "Langage : expression orale, premières comptines, salutations, couleurs, objets",
+        "Motricité fine et globale, jeux d’équilibre et parcours moteurs",
+        "Activités artistiques : dessin, peinture, modelage, musique",
+        "Premiers jeux mathématiques : tri, classement, formes et couleurs",
+        "Explorer le monde : nature, animaux, saisons et cinq sens",
+        "Anglais"
+      ],
+      "schedule": {
+        "morning": "Accueil individualisé, jeux libres, rituels du jour, ateliers dirigés, chansons",
+        "midday": "Repas autonome suivi d’un temps de sieste",
+        "afternoon": "Ateliers créatifs, exploration et jeux en extérieur"
+      }
+    },
+    "maternelle_ms": {
+      "title": "Maternelle — Moyenne Section",
+      "shortTitle": "Moyenne Section",
+      "ageRange": "4 – 5 ans",
+      "capacity": "16 enfants",
+      "ratio": "1 adulte pour 8 enfants",
+      "description": "Les apprentissages se consolident : l’enfant affine son langage, sa motricité, et commence à organiser sa pensée.",
+      "activities": [
+        "Langage : vocabulaire, phrases complètes, phonologie, anglais oral quotidien",
+        "Coordination, jeux collectifs, équilibre, danses",
+        "Arts et expression : peinture, bricolage, expression corporelle, chant",
+        "Repérage dans le temps et l’espace, tri, comparaison, nombres",
+        "Petites expériences sensorielles, découverte des plantes et animaux",
+        "Anglais"
+      ],
+      "schedule": {
+        "morning": "Accueil individualisé, jeux libres, rituels du jour, ateliers dirigés, chansons",
+        "midday": "Repas en autonomie, sieste ou temps calme",
+        "afternoon": "Ateliers scientifiques, activités artistiques, exploration en extérieur"
+      }
+    },
+    "maternelle_gs": {
+      "title": "Maternelle — Grande Section",
+      "shortTitle": "Grande Section",
+      "ageRange": "5 – 6 ans",
+      "capacity": "16 enfants",
+      "ratio": "1 adulte pour 8 enfants",
+      "description": "La Grande Section prépare en douceur le passage vers l’école primaire : curiosité intellectuelle, rigueur, confiance en soi et envie d’apprendre.",
+      "activities": [
+        "Conscience phonologique, reconnaissance des lettres, initiation à la lecture",
+        "Activités sportives, danses, motricité fine et autonomie",
+        "Dessin d’observation, créations collectives, théâtre et musique",
+        "Comparaison, suite logique, comptage jusqu’à 20, premiers calculs",
+        "Anglais structuré à travers jeux, chansons et vie quotidienne"
+      ],
+      "schedule": {
+        "morning": "Accueil individualisé, rituels du jour, ateliers dirigés, langage",
+        "midday": "Repas en autonomie, temps calme",
+        "afternoon": "Ateliers de lecture, projets collectifs, jeux en extérieur"
+      }
+    }
+  },
+  "explorer": {
+    "filters": {
+      "all": "Toutes les sections",
+      "creche": "Crèche",
+      "garderie": "Garderie",
+      "maternelle": "Maternelle"
+    },
+    "schedule": {
+      "morning": "Matin",
+      "midday": "Midi",
+      "afternoon": "Après-midi"
+    },
+    "openDetail": "Voir le détail : {title}",
+    "activityCount": "{count, plural, one {# activité} other {# activités}}",
+    "close": "Fermer",
+    "age": "Âge",
+    "capacity": "Capacité",
+    "ratio": "Encadrement",
+    "activitiesHeading": "Activités proposées",
+    "dayHeading": "Journée type"
+  },
+  "differences": {
+    "bilingue": {
+      "title": "Programme bilingue français / anglais",
+      "description": "Une ouverture au monde dès le plus jeune âge grâce à un apprentissage naturel des deux langues."
+    },
+    "montessori": {
+      "title": "Pédagogie Montessori",
+      "description": "Une approche favorisant l’autonomie, la curiosité et l’apprentissage par l’expérience."
+    },
+    "soins-personnalises": {
+      "title": "Soins personnalisés",
+      "description": "Chaque enfant reçoit une attention adaptée à ses besoins spécifiques et à son développement."
+    },
+    "environnement-securise": {
+      "title": "Environnement sécurisé",
+      "description": "Notre établissement est conçu pour la sécurité des enfants, avec un personnel formé."
+    },
+    "educatrices-formees": {
+      "title": "Éducatrices formées",
+      "description": "Une équipe qualifiée, passionnée et en formation continue, dédiée au bien-être et à la progression de chaque enfant."
+    },
+    "routines-structurees": {
+      "title": "Routines structurées",
+      "description": "Des journées équilibrées entre apprentissage, jeu et repos, pour un développement harmonieux."
+    },
+    "activites-extrascolaires": {
+      "title": "Activités extrascolaires enrichissantes",
+      "description": "Natation, karaté, escrime et danse afrocontemporaine pour stimuler la motricité, la confiance et la discipline."
+    },
+    "espace-de-jeux": {
+      "title": "Espace de jeux spacieux et équipé",
+      "description": "Un lieu sûr et stimulant où l’enfant apprend en explorant et en s’amusant."
+    }
+  },
+  "joinSteps": {
+    "visite": {
+      "title": "Une visite (30 min)",
+      "description": "Explorez les locaux. Posez vos questions. Rassurez-vous."
+    },
+    "fiche-inscription": {
+      "title": "Fiche d'inscription",
+      "description": "Infos essentielles + besoins de votre enfant."
+    },
+    "demarrage-confirme": {
+      "title": "Démarrage confirmé",
+      "description": "Bienvenue chez Les Petits Rayons de Soleil !"
+    }
+  },
+  "partners": {
+    "pediatre": {
+      "name": "Pédiatre",
+      "role": "Intervient en cas de besoin pour la santé et le bien-être général des enfants."
+    },
+    "psychologue": {
+      "name": "Psychologue d’éducation",
+      "role": "Accompagne le développement émotionnel et social."
+    },
+    "psychomotricienne": {
+      "name": "Psychomotricienne",
+      "role": "Observe et soutient la motricité et la coordination corporelle."
+    },
+    "orthophoniste": {
+      "name": "Orthophoniste",
+      "role": "Veille au développement du langage et de la communication."
+    },
+    "maitre-nageur": {
+      "name": "Maître-nageur",
+      "role": "Initie les enfants à la natation en toute sécurité."
+    },
+    "professeur-musique": {
+      "name": "Professeur de musique",
+      "role": "Développe la sensibilité musicale et la créativité."
+    },
+    "professeur-karate": {
+      "name": "Professeur de karaté",
+      "role": "Enseigne discipline, confiance et coordination."
+    },
+    "professeure-danse": {
+      "name": "Professeure de danse",
+      "role": "Favorise l’expression corporelle et le rythme."
+    },
+    "maitre-armes": {
+      "name": "Maître d’armes d’escrime",
+      "role": "Stimule la concentration, les réflexes et l’esprit sportif."
+    }
+  },
+  "home": {
+    "meta": {
+      "title": "{name} — Crèche, Garderie & École Maternelle à Lomé",
+      "description": "Crèche, garderie et école maternelle moderne et bienveillante à Lomé, Togo. Un environnement sûr, joyeux et stimulant où chaque enfant explore et rayonne."
+    },
+    "hero": {
+      "eyebrow": "Crèche · Garderie · Maternelle",
+      "titleLine1": "Où chaque enfant explore,",
+      "titleLine2": "et rayonne",
+      "lead": "Votre enfant mérite le meilleur départ dans la vie : un environnement bienveillant et sécurisé, où il peut grandir, apprendre, s’épanouir et révéler pleinement son potentiel.",
+      "bookVisit": "Réserver une visite",
+      "discoverSections": "Découvrir nos sections",
+      "imageAlt": "Enfants épanouis dans la cour de la crèche"
+    },
+    "about": {
+      "eyebrow": "A PROPOS DE NOUS",
+      "title": "Pourquoi Les Petits Rayons de Soleil ?",
+      "body": "Un cadre chaleureux et sécurisé, une équipe passionnée et une pédagogie pensée pour accompagner chaque enfant dans ses découvertes, son autonomie et son épanouissement, de la crèche à la Grande Section.",
+      "cta": "En savoir plus sur nous",
+      "imageAlt": "Éducatrice avec des enfants"
+    },
+    "sections": {
+      "eyebrow": "NOS SECTIONS",
+      "title": "Un parcours pensé pour chaque âge",
+      "body": "De la crèche à la grande section, chaque étape a son rythme, ses activités et son équipe dédiée.",
+      "cardLabel": "Découvrir la section {name} — {age}",
+      "cta": "Voir toutes les sections"
+    },
+    "gallery": {
+      "eyebrow": "NOTRE GALERIE",
+      "title": "La vie à la crèche, en images",
+      "body": "Ateliers, jeux, repas partagés, siestes paisibles — un aperçu du quotidien de nos petits rayons.",
+      "cta": "Toute la galerie",
+      "photoAlt": "Photo de la galerie"
+    },
+    "news": {
+      "title": "Nos dernières actualités",
+      "cta": "Toutes les actualités",
+      "read": "Lire"
+    }
+  },
+  "about": {
+    "meta": {
+      "title": "À Propos — {name}",
+      "description": "Découvrez l’histoire, la mission et l’équipe de professionnels des Petits Rayons de Soleil, crèche et école maternelle à Lomé."
+    },
+    "hero": {
+      "badge": "À propos",
+      "title": "Notre histoire et nos valeurs",
+      "subtitle": "Découvrez l’histoire des Petits Rayons de Soleil et l’équipe passionnée qui accompagne vos enfants chaque jour."
+    },
+    "history": {
+      "title": "Notre histoire",
+      "imageAlt": "Enfants et éducatrices dans un environnement bienveillant",
+      "p1": "Les Petits Rayons de Soleil est née d’une passion pour la petite enfance et d’un rêve simple : offrir aux enfants un lieu où ils puissent grandir dans la joie, la sécurité et la confiance.",
+      "p2": "Notre établissement grandit jour après jour, tout comme les sourires des enfants qui y ont fait leurs premiers pas. Aujourd’hui, {name} est devenue une référence d’accueil de qualité, alliant pédagogie moderne, bienveillance et engagement éducatif, tout en restant fidèle à son esprit familial.",
+      "p3": "Notre évolution s’est naturellement poursuivie avec l’ouverture de l’école maternelle, afin d’accompagner les enfants dans la continuité de leur développement jusqu’à l’entrée à l’école primaire.",
+      "p4": "Chaque jour, notre équipe met tout son cœur à créer un environnement où les enfants apprennent, explorent et s’épanouissent — car ici, grandir est une aventure lumineuse."
+    },
+    "purpose": {
+      "title": "Notre mission et notre vision",
+      "missionTitle": "Notre Mission",
+      "missionBody": "Offrir aux enfants un environnement qui nourrit leur curiosité et leur créativité, tout en développant leur capacité à interagir avec les autres et à explorer le monde. Nous accompagnons chaque enfant dans son parcours unique, en valorisant la confiance, la responsabilisation et la découverte personnelle.",
+      "visionTitle": "Notre Vision",
+      "visionBody": "Être un établissement où l’éducation va au-delà de l’apprentissage académique, en préparant les enfants à devenir des individus épanouis, autonomes et ouverts sur le monde. Une communauté éducative inspirante, où parents et éducateurs bâtissent ensemble un futur enrichissant pour chaque enfant."
+    },
+    "partners": {
+      "title": "Nos partenaires",
+      "body": "Pour un accompagnement complet, {name} s’entoure de professionnels spécialisés qui interviennent régulièrement auprès des enfants et complètent notre approche pédagogique."
+    }
+  },
+  "contact": {
+    "meta": {
+      "title": "Contact — {name}",
+      "description": "Une question, un projet d’inscription ? Contactez Les Petits Rayons de Soleil à Djidjolé, Lomé."
+    },
+    "hero": {
+      "badge": "Contact",
+      "title": "Contactez-nous",
+      "subtitle": "Une question ? Un projet d’inscription ? Notre équipe est là pour vous accompagner et vous renseigner."
+    },
+    "quick": {
+      "phone": "Téléphone",
+      "whatsapp": "WhatsApp",
+      "whatsappValue": "Discuter directement",
+      "email": "Email",
+      "ariaLabel": "{label} — {value}"
+    },
+    "form": {
+      "title": "Envoyez-nous un message",
+      "subtitle": "Nous répondons généralement sous 24 à 48h ouvrées."
+    },
+    "visit": {
+      "title": "Nous rendre visite",
+      "cta": "Voir sur la carte"
+    },
+    "hours": {
+      "title": "Horaires d’ouverture"
+    }
+  },
+  "legal": {
+    "meta": {
+      "title": "Mentions légales — {name}"
+    },
+    "title": "Mentions légales",
+    "publisherTitle": "Éditeur du site",
+    "publisherBody": "{name}, crèche, garderie et école maternelle.",
+    "phoneLabel": "Téléphone",
+    "emailLabel": "Email",
+    "hostingTitle": "Hébergement",
+    "hostingBody": "Ce site est hébergé et exploité dans le cadre de la plateforme de gestion {name}.",
+    "ipTitle": "Propriété intellectuelle",
+    "ipBody": "L’ensemble des contenus (textes, images, logo) présents sur ce site est la propriété de {name}, sauf mention contraire, et ne peut être reproduit sans autorisation préalable."
+  },
+  "privacy": {
+    "meta": {
+      "title": "Politique de confidentialité — {name}"
+    },
+    "title": "Politique de confidentialité",
+    "dataTitle": "Données collectées",
+    "dataBody": "Le formulaire de contact de ce site ne transmet aucune donnée à un serveur : il ouvre directement votre messagerie avec un message pré-rempli à destination de {email}. Aucune information n’est stockée par le site vitrine lui-même.",
+    "parentTitle": "Espace Parent",
+    "parentBody": "Les familles inscrites disposent d’un espace personnel sécurisé, régi par les conditions communiquées à l’inscription. Les données qui y sont traitées (rapports, présence, messagerie) restent strictement réservées au suivi de l’enfant par l’établissement.",
+    "contactTitle": "Contact",
+    "contactBody": "Pour toute question relative à vos données personnelles, contactez-nous à {email} ou au {phone}."
+  },
+  "contactForm": {
+    "ages": {
+      "placeholder": "Sélectionner (optionnel)",
+      "a": "3 – 18 mois",
+      "b": "18 – 24 mois",
+      "c": "24 – 36 mois",
+      "d": "3 – 6 ans",
+      "other": "Autre"
+    },
+    "mail": {
+      "subject": "Demande de contact — {name}",
+      "name": "Nom",
+      "email": "Email",
+      "phone": "Téléphone",
+      "childAge": "Âge de l'enfant"
+    },
+    "sent": {
+      "title": "Votre logiciel de messagerie s’est ouvert",
+      "body": "Il ne reste plus qu’à envoyer le message. Vous pouvez aussi nous écrire directement à",
+      "bodyEnd": "ou nous joindre sur WhatsApp.",
+      "again": "Envoyer un autre message"
+    },
+    "fields": {
+      "name": "Nom complet *",
+      "namePlaceholder": "Votre nom complet",
+      "email": "Email *",
+      "emailPlaceholder": "vous@exemple.com",
+      "phone": "Téléphone",
+      "phonePlaceholder": "+228 00 00 00 00",
+      "childAge": "Âge de l’enfant",
+      "message": "Message *",
+      "messagePlaceholder": "Parlez-nous de votre projet d’inscription ou de votre question..."
+    },
+    "submit": "Envoyer le message"
+  },
+  "cta": {
+    "title": "Prêt à commencer votre parcours ?",
+    "body": "Planifiez une visite de nos locaux et rencontrez notre équipe. Nous répondons à toutes vos questions.",
+    "visit": "Réserver une visite",
+    "whatsapp": "Discuter sur WhatsApp"
+  },
+  "newsPage": {
+    "meta": {
+      "title": "Actualités — {name}",
+      "description": "Suivez la vie quotidienne, les événements et les projets pédagogiques des Petits Rayons de Soleil."
+    },
+    "badge": "Actualités",
+    "title": "Toute l’actualité de la crèche",
+    "subtitle": "Suivez la vie quotidienne, les événements et les projets pédagogiques de nos petits rayons.",
+    "allCategories": "Toutes les actualités",
+    "searchPlaceholder": "Rechercher...",
+    "empty": "Aucun article ne correspond à votre recherche.",
+    "featured": "À la une"
+  },
+  "galleryPage": {
+    "meta": {
+      "title": "Galerie — {name}",
+      "description": "La vie à la crèche en images : ateliers, jeux extérieurs, repas et fêtes des Petits Rayons de Soleil."
+    },
+    "badge": "Galerie",
+    "title": "La vie à la crèche en images",
+    "subtitle": "Découvrez le quotidien joyeux de nos petits rayons de soleil à travers nos photos.",
+    "seeAll": "Tout voir",
+    "uncategorised": "Sans catégorie",
+    "emptyAll": "Aucune photo publiée pour le moment.",
+    "emptyCategory": "Aucune photo dans cette catégorie pour le moment.",
+    "emptyHint": "Les photos publiées par l’établissement apparaîtront ici.",
+    "close": "Fermer",
+    "previous": "Image précédente",
+    "next": "Image suivante"
+  },
+  "sectionsPage": {
+    "meta": {
+      "title": "Nos Sections — {name}",
+      "description": "De la crèche à la grande section maternelle : découvrez nos 7 sections d’âge, leurs activités et leur journée type."
+    },
+    "badge": "Nos sections",
+    "title": "Un parcours pensé pour chaque âge",
+    "subtitle": "De 3 mois à 6 ans, chaque section a son rythme, ses activités et une équipe dédiée pour accompagner votre enfant."
+  },
+  "differencesSection": {
+    "eyebrow": "Pourquoi nous choisir",
+    "title": "Pourquoi sommes-nous différents ?",
+    "body": "Offrir à votre enfant le meilleur, c’est lui permettre de grandir, découvrir et s’épanouir dans un environnement bienveillant, stimulant et entièrement pensé pour son éveil et sa sécurité."
+  },
+  "joinSection": {
+    "eyebrow": "Nous rejoindre",
+    "title": "Rejoignez-nous en 3 étapes simples",
+    "body": "De la première visite au premier jour de votre enfant : un parcours d’inscription simple et accompagné.",
+    "step": "Étape {n}",
+    "cta": "Réserver une visite"
+  },
+  "newsArticle": {
+    "fallbackNotice": "Cet article n'est pas encore disponible en anglais — il est affiché en français.",
+    "related": "À lire aussi",
+    "allNews": "Toutes les actualités"
+  },
+  "step": "Étape"
+}

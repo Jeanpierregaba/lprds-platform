@@ -1,6 +1,9 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { useState } from 'react'
+import { intlLocale } from '@/lib/utils/locale-format'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -11,7 +14,7 @@ import { cn } from '@/lib/utils/cn'
 import type { Message } from '@/types/messaging'
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
 }
 
 export function MessageBubble({
@@ -46,13 +49,14 @@ export function MessageBubble({
   onRemoveAttachment: (attachmentId: string) => void
   removingAttachmentId: string | null
 }) {
+  const t = useTranslations('messaging')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   if (msg.is_deleted) {
     return (
       <div className={cn('flex flex-col', isMine ? 'items-end' : 'items-start')}>
         <div className="max-w-[75%] rounded-lg bg-muted/60 px-3 py-2 text-sm italic text-muted-foreground">
-          Message supprimé
+          {t('bubble.deleted')}
         </div>
         <div className="mt-0.5 px-1 text-xs text-muted-foreground">
           <span>{formatTime(msg.created_at)}</span>
@@ -89,7 +93,7 @@ export function MessageBubble({
             />
             <div className="flex justify-end gap-1.5">
               <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit} disabled={editPending}>
-                Annuler
+                {t('bubble.cancel')}
               </Button>
               <Button
                 type="button"
@@ -97,7 +101,7 @@ export function MessageBubble({
                 onClick={onSaveEdit}
                 disabled={editPending || (!draft.trim() && msg.attachments.length === 0)}
               >
-                {editPending ? <Loader2 className="size-3.5 animate-spin" /> : 'Enregistrer'}
+                {editPending ? <Loader2 className="size-3.5 animate-spin" /> : t('bubble.save')}
               </Button>
             </div>
           </div>
@@ -115,8 +119,8 @@ export function MessageBubble({
       </div>
       <div className="mt-0.5 flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
         <span>{formatTime(msg.created_at)}</span>
-        {msg.edited_at && <span>· modifié</span>}
-        {isMine && msg.read_at && <span>· Vu</span>}
+        {msg.edited_at && <span>{t('bubble.edited')}</span>}
+        {isMine && msg.read_at && <span>{t('bubble.seen')}</span>}
         {showMenu && (
           // Visible au survol, au focus clavier, et toujours sur tactile
           // (pas de hover) — sinon édition/suppression inaccessibles sur mobile.
@@ -125,8 +129,8 @@ export function MessageBubble({
               <button
                 type="button"
                 onClick={onStartEdit}
-                aria-label="Modifier le message"
-                title="Modifier (15 min)"
+                aria-label={t('bubble.editAria')}
+                title={t('bubble.editTitle')}
                 className="rounded p-2 transition hover:bg-muted-foreground/20"
               >
                 <Pencil className="size-3.5" />
@@ -136,8 +140,8 @@ export function MessageBubble({
               type="button"
               onClick={() => setConfirmDelete(true)}
               disabled={editing}
-              aria-label="Supprimer le message"
-              title="Supprimer"
+              aria-label={t('bubble.deleteAria')}
+              title={t('bubble.deleteTitle')}
               className="rounded p-2 transition hover:bg-muted-foreground/20 hover:text-destructive disabled:opacity-40"
             >
               <Trash2 className="size-3.5" />
@@ -150,9 +154,9 @@ export function MessageBubble({
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Supprimer ce message ?"
-        description="Le message sera remplacé par « Message supprimé » et ses pièces jointes seront définitivement effacées."
-        confirmLabel="Supprimer"
+        title={t('bubble.deleteConfirmTitle')}
+        description={t('bubble.deleteConfirmBody')}
+        confirmLabel={t('bubble.delete')}
         destructive
         onConfirm={() => {
           setConfirmDelete(false)

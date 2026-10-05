@@ -1,0 +1,34 @@
+/**
+ * Catalogue français — agrégation des domaines.
+ *
+ * Ajouter un domaine = un fichier JSON + une ligne ici et dans `en/index.ts`.
+ * Le type `Messages` est dérivé du français, locale de référence : toute clé
+ * manquante côté anglais devient une erreur TypeScript au lieu de se découvrir
+ * en production sous la forme d'un libellé brut affiché à l'écran.
+ */
+import admin from './admin.json'
+import attendance from './attendance.json'
+import auth from './auth.json'
+import blog from './blog.json'
+import children from './children.json'
+import common from './common.json'
+import enums from './enums.json'
+import errors from './errors.json'
+import gallery from './gallery.json'
+import library from './library.json'
+import marketing from './marketing.json'
+import menus from './menus.json'
+import messaging from './messaging.json'
+import nav from './nav.json'
+import organization from './organization.json'
+import parents from './parents.json'
+import pwa from './pwa.json'
+import rbac from './rbac.json'
+import reports from './reports.json'
+import staff from './staff.json'
+
+export const messages = { admin, attendance, auth, blog, children, common, enums, errors, gallery, library, marketing, menus, messaging, nav, organization, parents, pwa, rbac, reports, staff } as const
+
+export type Messages = typeof messages
+
+export default messages

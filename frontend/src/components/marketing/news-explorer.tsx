@@ -1,20 +1,23 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { intlLocale } from '@/lib/utils/locale-format'
+import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Newspaper, Search } from 'lucide-react'
 import { Reveal } from './reveal'
 import type { PublicBlogPostPreview, PublicBlogTag } from '@/types/public-blog'
+import { Link } from '@/i18n/navigation'
+import { thumbUrl } from '@/lib/media/thumb'
 
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+const dateFormatter = new Intl.DateTimeFormat(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 
 /** Image à la une de l'article (chemins relatifs proxés par le rewrite /api/v1/*), placeholder sinon. */
 function ArticleCover({ coverUrl, title }: { coverUrl: string | null; title: string }) {
   if (coverUrl) {
     return (
       <Image
-        src={coverUrl}
+        src={thumbUrl(coverUrl)}
         alt={title}
         fill
         unoptimized
@@ -56,10 +59,11 @@ function ArticleCard({ article, delay = 0 }: { article: PublicBlogPostPreview; d
 }
 
 export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPreview[]; tags: PublicBlogTag[] }) {
+  const t = useTranslations('marketing.newsPage')
   const [filter, setFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
 
-  const categories = useMemo(() => [{ id: 'all', name: 'Toutes les actualités' }, ...tags], [tags])
+  const categories = useMemo(() => [{ id: 'all', name: t('allCategories') }, ...tags], [tags, t])
   const featured = articles[0] ?? null
 
   const filtered = useMemo(() => {
@@ -98,7 +102,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher..."
+            placeholder={t('searchPlaceholder')}
             className="h-11 w-full rounded-full border border-border bg-background pl-10 pr-4 text-sm outline-none ring-primary/30 transition-shadow focus:ring-3"
           />
         </div>
@@ -111,9 +115,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
             className="group grid grid-cols-1 overflow-hidden rounded-3xl bg-primary text-primary-foreground shadow-lg sm:grid-cols-2"
           >
             <div className="flex flex-col justify-center p-6 sm:p-10">
-              <span className="w-fit rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-                À la une
-              </span>
+              <span className="w-fit rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">{t('featured')}</span>
               {featured.tag && (
                 <span className="mt-3 text-xs font-semibold uppercase tracking-wide text-primary-foreground/70">
                   {featured.tag.name}
@@ -136,7 +138,7 @@ export function NewsExplorer({ articles, tags }: { articles: PublicBlogPostPrevi
 
       <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
         {filtered.length === 0 ? (
-          <p className="col-span-full py-16 text-center text-muted-foreground">Aucun article ne correspond à votre recherche.</p>
+          <p className="col-span-full py-16 text-center text-muted-foreground">{t('empty')}</p>
         ) : (
           filtered.map((article, i) => <ArticleCard key={article.id} article={article} delay={(i % 3) * 0.06} />)
         )}

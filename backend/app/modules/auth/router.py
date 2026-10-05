@@ -8,7 +8,7 @@ from app.modules.auth.schemas import (
     LoginRequest, TokenResponse, RefreshRequest, LogoutRequest,
     UserCreateRequest, UserResponse,
     PasswordResetRequest, PasswordResetConfirm,
-    PasswordChangeRequest,
+    PasswordChangeRequest, LocaleUpdateRequest,
 )
 from app.modules.auth.dependencies import get_current_user, require_roles
 from app.modules.auth.models import User, UserRole
@@ -49,6 +49,22 @@ async def me(
     current_user: User = Depends(get_current_user),
 ) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.patch("/me/locale", response_model=UserResponse)
+async def update_my_locale(
+    payload: LocaleUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """Change la langue d'interface du compte connecté.
+
+    Self-service intégral, hors RBAC : un utilisateur ne modifie que sa propre
+    langue, aucune permission n'entre en jeu (même principe que les abonnements
+    aux notifications push).
+    """
+    user = await service.set_user_locale(db, current_user, payload.locale)
+    return UserResponse.model_validate(user)
 
 @router.post(
     "/users",

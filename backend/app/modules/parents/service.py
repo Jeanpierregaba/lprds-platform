@@ -1,4 +1,5 @@
 import logging
+from app.core.i18n import coerce_locale, t
 import uuid
 
 from fastapi import HTTPException, status
@@ -43,7 +44,6 @@ async def create_parent(
         phone=payload.phone,
         establishment_id=establishment_id,
         # Mot de passe temporaire → changement imposé à la 1re connexion
-        must_change_pwd=True,
     )
     parent.assigned_children = children
     db.add(parent)
@@ -57,6 +57,7 @@ async def create_parent(
             email=parent.email,
             first_name=parent.first_name,
             role=UserRole.PARENT,
+            locale=coerce_locale(parent.locale),
             temp_password=payload.password,
             establishment_name=estab_name,
         )
@@ -64,10 +65,7 @@ async def create_parent(
         logger.exception("Échec d'envoi du mail de bienvenue à %s", parent.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Compte non créé : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_account"),
         ) from exc
 
     await db.refresh(parent)
@@ -175,18 +173,18 @@ async def reset_parent_password(
 ) -> None:
     """
     Reset administré : le nouveau mot de passe est fourni par l'admin/staff et
-    communiqué au parent par email. must_change_pwd reste False — on ne force
-    PAS le parent à le redéfinir.
+    communiqué au parent par email. Le parent s'en sert tel quel — la
+    plateforme n'impose aucune redéfinition à la connexion suivante.
     """
     parent = await _get_or_404(parent_id, establishment_id, db)
     parent.hashed_password = hash_password(new_password)
-    parent.must_change_pwd = False
     await db.flush()
 
     try:
         await send_credentials_reset_email(
             email=parent.email,
             first_name=parent.first_name,
+            locale=coerce_locale(parent.locale),
             new_password=new_password,
         )
     except EmailDeliveryError as exc:
@@ -195,10 +193,7 @@ async def reset_parent_password(
         logger.exception("Échec d'envoi du mail de reset à %s", parent.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Mot de passe non modifié : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_password"),
         ) from exc
 
 
@@ -225,10 +220,8 @@ async def _resolve_children(
         missing = unique_ids - found
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "Enfant(s) introuvable(s) dans cet établissement : "
-                + ", ".join(str(m) for m in missing)
-            ),
+            detail=t("errors.parents.children_not_found",
+                     ids=", ".join(str(m) for m in missing)),
         )
     return children
 
@@ -250,7 +243,7 @@ async def _get_or_404(
     if not parent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Parent introuvable",
+            detail=t("errors.common.parent_not_found"),
         )
     return parent
 
@@ -260,5 +253,5 @@ async def _ensure_email_available(email: str, db: AsyncSession) -> None:
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
+            detail=t("errors.common.email_exists"),
         )

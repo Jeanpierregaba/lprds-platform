@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import (
     create_async_engine,
     async_sessionmaker,
@@ -44,6 +47,35 @@ AsyncSessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+
+@asynccontextmanager
+async def task_sessions() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """Fabrique de sessions pour une tâche Celery — moteur JETABLE.
+
+    Une tâche Celery s'exécute par `asyncio.run(...)`, qui ouvre une boucle
+    neuve puis la ferme à chaque passage. Or une connexion asyncpg appartient
+    à la boucle qui l'a créée : réutiliser le moteur global reviendrait, au
+    deuxième passage du beat, à piocher dans le pool une connexion rattachée
+    à une boucle désormais fermée. Le premier passage fonctionnerait, les
+    suivants échoueraient — le pire profil de panne qui soit.
+
+    D'où un moteur par exécution, en `NullPool` (aucune connexion conservée)
+    et refermé en sortie. C'est le même raisonnement que le moteur jetable de
+    `tests/conftest.py`, pour la même raison.
+    """
+    task_engine = create_async_engine(
+        settings.database_url,
+        poolclass=NullPool,
+        pool_pre_ping=True,
+        connect_args=_connect_args,
+    )
+    try:
+        yield async_sessionmaker(
+            task_engine, class_=AsyncSession, expire_on_commit=False
+        )
+    finally:
+        await task_engine.dispose()
 
 
 class Base(DeclarativeBase):

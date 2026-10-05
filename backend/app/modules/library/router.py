@@ -66,7 +66,7 @@ async def list_books(
     section_id: uuid.UUID | None = Query(default=None),
     include_inactive: bool = Query(default=False),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(require_library_read),
     db: AsyncSession = Depends(get_db),
 ) -> BookListResponse:
@@ -130,7 +130,7 @@ async def list_lendings(
     child_id: uuid.UUID | None = Query(default=None),
     status_filter: str | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(require_library_read),
     db: AsyncSession = Depends(get_db),
 ) -> LendingListResponse:
@@ -171,7 +171,7 @@ async def run_reminders(
 @router.get("/mine/books", response_model=BookListResponse)
 async def my_books(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(get_parent),
     db: AsyncSession = Depends(get_db),
 ) -> BookListResponse:
@@ -181,7 +181,7 @@ async def my_books(
 @router.get("/mine/lendings", response_model=LendingListResponse)
 async def my_lendings(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(get_parent),
     db: AsyncSession = Depends(get_db),
 ) -> LendingListResponse:
@@ -194,7 +194,7 @@ async def my_lendings(
 @router.get("/educator/books", response_model=BookListResponse)
 async def educator_books(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: User = Depends(get_educator),
     db: AsyncSession = Depends(get_db),
 ) -> BookListResponse:

@@ -1,39 +1,42 @@
 import { z } from 'zod'
+
+/** Signature minimale d'un traducteur next-intl (valeurs ICU comprises). */
+type T = (key: string, values?: Record<string, string | number>) => string
 import type { AnnualReportContent, BiMensuelReportContent, DailyReportContent } from '@/types/reports'
 
-const numericStringInRange = (min: number, max: number) =>
+const numericStringInRange = (t: T, min: number, max: number) =>
   z.string().optional().or(z.literal('')).refine(
     (v) => !v || (!Number.isNaN(Number(v)) && Number(v) >= min && Number(v) <= max),
-    { message: `Doit être entre ${min} et ${max}` }
+    { message: t('validation.numberBetween', { min, max }) }
   )
 
-export const dailyContentSchema = z.object({
+export const makeDailyContentSchema = (t: T) => z.object({
   arrival_time: z.string().optional().or(z.literal('')),
   departure_time: z.string().optional().or(z.literal('')),
-  health_status: z.string().min(1, 'État de santé requis'),
-  temperature_arrival: numericStringInRange(30, 43),
-  temperature_departure: numericStringInRange(30, 43),
+  health_status: z.string().min(1, t('validation.healthStatus')),
+  temperature_arrival: numericStringInRange(t, 30, 43),
+  temperature_departure: numericStringInRange(t, 30, 43),
   health_notes: z.string().optional().or(z.literal('')),
-  breakfast: z.string().min(1, 'Requis'),
-  lunch: z.string().min(1, 'Requis'),
-  snack: z.string().min(1, 'Requis'),
+  breakfast: z.string().min(1, t('validation.required')),
+  lunch: z.string().min(1, t('validation.required')),
+  snack: z.string().min(1, t('validation.required')),
   nap: z.boolean(),
-  nap_duration_minutes: numericStringInRange(0, 600),
+  nap_duration_minutes: numericStringInRange(t, 0, 600),
   bath: z.boolean(),
   poop: z.boolean(),
-  moods: z.array(z.string()).min(1, 'Au moins une humeur requise'),
-  activities: z.array(z.string().min(1, 'Activité vide')).min(1, 'Au moins une activité requise'),
-  behaviors: z.array(z.string()).min(1, 'Au moins un comportement requis'),
+  moods: z.array(z.string()).min(1, t('validation.oneMood')),
+  activities: z.array(z.string().min(1, t('validation.emptyActivity'))).min(1, t('validation.oneActivity')),
+  behaviors: z.array(z.string()).min(1, t('validation.oneBehavior')),
   highlight: z.string().optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
   if (data.nap && !data.nap_duration_minutes) {
-    ctx.addIssue({ code: 'custom', path: ['nap_duration_minutes'], message: 'Durée requise si sieste = oui' })
+    ctx.addIssue({ code: 'custom', path: ['nap_duration_minutes'], message: t('validation.napDurationRequired') })
   }
   if (!data.nap && data.nap_duration_minutes) {
-    ctx.addIssue({ code: 'custom', path: ['nap_duration_minutes'], message: 'Aucune durée si sieste = non' })
+    ctx.addIssue({ code: 'custom', path: ['nap_duration_minutes'], message: t('validation.napDurationForbidden') })
   }
 })
-export type DailyContentForm = z.infer<typeof dailyContentSchema>
+export type DailyContentForm = z.infer<ReturnType<typeof makeDailyContentSchema>>
 
 export function toDailyContent(form: DailyContentForm): DailyReportContent {
   return {
@@ -87,19 +90,19 @@ export function fromDailyContent(content: Partial<DailyReportContent>): DailyCon
   }
 }
 
-export const bimensuelContentSchema = z.object({
-  oral_written_language: z.string().min(1, 'Requis'),
-  physical_activities: z.string().min(1, 'Requis'),
-  artistic_activities: z.string().min(1, 'Requis'),
-  math_foundations: z.string().min(1, 'Requis'),
-  world_exploration: z.string().min(1, 'Requis'),
-  english: z.string().min(1, 'Requis'),
-  class_behaviors: z.array(z.string()).min(1, 'Au moins un comportement requis'),
-  peer_relations: z.array(z.string()).min(1, 'Au moins une relation requise'),
-  emotion_management: z.array(z.string()).min(1, 'Au moins une observation requise'),
-  teacher_observations: z.string().min(1, 'Requis'),
+export const makeBimensuelContentSchema = (t: T) => z.object({
+  oral_written_language: z.string().min(1, t('validation.required')),
+  physical_activities: z.string().min(1, t('validation.required')),
+  artistic_activities: z.string().min(1, t('validation.required')),
+  math_foundations: z.string().min(1, t('validation.required')),
+  world_exploration: z.string().min(1, t('validation.required')),
+  english: z.string().min(1, t('validation.required')),
+  class_behaviors: z.array(z.string()).min(1, t('validation.oneBehavior')),
+  peer_relations: z.array(z.string()).min(1, t('validation.oneRelation')),
+  emotion_management: z.array(z.string()).min(1, t('validation.oneObservation')),
+  teacher_observations: z.string().min(1, t('validation.required')),
 })
-export type BiMensuelContentForm = z.infer<typeof bimensuelContentSchema>
+export type BiMensuelContentForm = z.infer<ReturnType<typeof makeBimensuelContentSchema>>
 
 export function fromBiMensuelContent(content: Partial<BiMensuelReportContent>): BiMensuelContentForm {
   return {
@@ -116,20 +119,20 @@ export function fromBiMensuelContent(content: Partial<BiMensuelReportContent>): 
   }
 }
 
-const domainAssessmentSchema = z.object({
-  rating: z.string().min(1, 'Notation requise'),
-  observation: z.string().min(1, 'Observation requise'),
+const makeDomainAssessmentSchema = (t: T) => z.object({
+  rating: z.string().min(1, t('validation.ratingRequired')),
+  observation: z.string().min(1, t('validation.observationRequired')),
 })
 
-export const annualContentSchema = z.object({
-  oral_written_language: domainAssessmentSchema,
-  physical_activities: domainAssessmentSchema,
-  artistic_activities: domainAssessmentSchema,
-  math_foundations: domainAssessmentSchema,
-  world_exploration: domainAssessmentSchema,
-  english: domainAssessmentSchema,
+export const makeAnnualContentSchema = (t: T) => z.object({
+  oral_written_language: makeDomainAssessmentSchema(t),
+  physical_activities: makeDomainAssessmentSchema(t),
+  artistic_activities: makeDomainAssessmentSchema(t),
+  math_foundations: makeDomainAssessmentSchema(t),
+  world_exploration: makeDomainAssessmentSchema(t),
+  english: makeDomainAssessmentSchema(t),
 })
-export type AnnualContentForm = z.infer<typeof annualContentSchema>
+export type AnnualContentForm = z.infer<ReturnType<typeof makeAnnualContentSchema>>
 
 const emptyDomain = { rating: '', observation: '' }
 

@@ -1,15 +1,27 @@
 services:
+  # ⚠️ Nom d'utilisateur et de base PARAMÉTRABLES, avec les valeurs historiques
+  # en défaut. Ce fichier sert aux DEUX environnements : la production tournait
+  # donc avec une base nommée « lprds_preprod ». Rien ne se mélangeait — les
+  # conteneurs et les volumes sont distincts — mais le jour d'un diagnostic,
+  # lire « preprod » sur la base de production trompe forcément quelqu'un.
+  #
+  # ⚠️ Changer ces valeurs sur une installation EXISTANTE ne renomme rien :
+  # Postgres ne lit `POSTGRES_USER`/`POSTGRES_DB` qu'à l'initialisation d'un
+  # volume VIDE. Sur un volume déjà peuplé, la variable est ignorée et
+  # l'application ne trouverait plus sa base. Pour renommer réellement, il faut
+  # un `ALTER DATABASE` / `ALTER ROLE` à la main, puis aligner `DATABASE_URL`
+  # dans `backend/.env`. Les défauts ci-dessous préservent donc l'existant.
   db:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_USER: lprds_preprod_user
+      POSTGRES_USER: ${POSTGRES_USER:-lprds_preprod_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: lprds_preprod
+      POSTGRES_DB: ${POSTGRES_DB:-lprds_preprod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lprds_preprod_user -d lprds_preprod"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lprds_preprod_user} -d ${POSTGRES_DB:-lprds_preprod}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -35,12 +47,79 @@ services:
       - backend_media:/app/media
     ports:
       - "127.0.0.1:8000:8000"
+    # Le worker et le beat attendent CE signal : l'entrypoint du backend est le
+    # seul à migrer la base, et une tâche partie avant aurait un schéma d'avance
+    # sur elle. `service_started` ne dirait que « le process existe ».
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health/ready')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     networks:
       - internal
       - web
 
+  # ── Tâches planifiées ──────────────────────────────────────────
+  #
+  # ⚠️ Ce fichier est celui que DÉPLOIE la CI (`docker compose up -d --build`
+  # à la racine) ; `backend/docker-compose.yml` ne sert qu'au développement
+  # local. Les deux services avaient d'abord été ajoutés au second seulement :
+  # les rappels de bibliothèque et les reprises de traduction ne tournaient donc
+  # nulle part en préprod ni en production, alors que tout semblait en place.
+  #
+  # Deux services et non un seul (`worker --beat`) : le beat est un
+  # ORDONNANCEUR, il ne doit exister qu'en un exemplaire. Fusionné au worker, il
+  # repartirait avec chaque réplique, et doubler les workers doublerait chaque
+  # rappel reçu par un parent.
+  #
+  # Ils réutilisent l'image du backend mais PAS son entrypoint, qui migre, seede
+  # et lance uvicorn : trois conteneurs qui migrent en même temps, c'est la
+  # course garantie. `entrypoint: []` le neutralise explicitement.
+  worker:
+    build: ./backend
+    restart: always
+    env_file: ./backend/.env
+    entrypoint: []
+    # `--concurrency=2` plutôt que le défaut (un process par cœur) : ces tâches
+    # attendent du réseau — traduction, SMTP, base — elles ne calculent rien.
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=2
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+  beat:
+    build: ./backend
+    restart: always
+    env_file: ./backend/.env
+    entrypoint: []
+    # L'état du planificateur vit dans un volume : sans lui, chaque
+    # redémarrage repart d'une ardoise vierge et refait tomber les échéances
+    # déjà passées. Les tâches sont idempotentes, donc rien ne casse — mais un
+    # parent recevrait un second rappel à chaque déploiement, et la CI déploie
+    # à chaque push.
+    command: >
+      celery -A app.core.celery_app beat --loglevel=info
+      --schedule=/var/lib/celery/celerybeat-schedule
+    volumes:
+      - celery_beat:/var/lib/celery
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # ⚠️ Passé en ARG et non via `env_file` : une variable `NEXT_PUBLIC_*`
+      # est lue à la compilation du bundle, et `env_file` ne vaut qu'au
+      # runtime. Le workflow fournit `APP_VERSION` (SHA du commit déployé) ;
+      # vide en local, ce qui désactive simplement le sondage de version.
+      args:
+        NEXT_PUBLIC_APP_VERSION: "${APP_VERSION:-}"
     restart: always
     env_file: ./frontend/.env
     depends_on:
@@ -57,3 +136,4 @@ networks:
 volumes:
   postgres_data:
   backend_media:
+  celery_beat:

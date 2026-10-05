@@ -10,7 +10,9 @@ export interface User {
   role:             UserRole
   establishment_id: string | null
   is_active:        boolean
-  must_change_pwd:  boolean
+  /** Langue d'interface du compte ("fr" | "en") — pilote aussi les emails,
+   *  PDF et notifications push envoyés hors session. */
+  locale:           string
   created_at:       string
   last_login_at:    string | null
 }
@@ -19,7 +21,6 @@ export interface TokenResponse {
     access_token:    string
     refresh_token:   string
     token_type:      string
-    must_change_pwd: boolean
 }
   
 export interface LoginPayload {
@@ -41,13 +42,10 @@ export interface PasswordChangePayload {
     new_password:     string
 }
 
-// Mapping rôle → libellé affiché
-export const ROLE_LABELS: Record<UserRole, string> = {
-    superadmin: 'Super Administrateur',
-    admin:      'Administrateur',
-    staff:      'Personnel',
-    parent:     'Parent',
-}
+// Les libellés affichés vivent dans les catalogues (`enums.roles`) —
+// cf. src/lib/i18n/labels.ts. Ici ne restent que les codes échangés avec le
+// backend, qui ne changent jamais de langue.
+export const USER_ROLES = ['superadmin', 'admin', 'staff', 'parent'] as const
   
 // Redirection par rôle après login
   export const ROLE_HOME: Record<UserRole, string> = {

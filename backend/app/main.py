@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine
+from app.core.i18n import resolve_accept_language, set_request_locale
 from app.core.models import Base  # importe tous les modèles (registre central)
 from app.core.redis import close_redis, redis_client
 from app.api.v1.router import api_router
@@ -26,6 +27,18 @@ app = FastAPI(
     redoc_url="/redoc" if not settings.is_production else None,
     lifespan=lifespan,
 )
+
+@app.middleware("http")
+async def resolve_locale(request, call_next):
+    """Pose la langue de la requête à partir de l'en-tête `Accept-Language`.
+
+    C'est le repli : dès qu'un utilisateur est authentifié,
+    `get_current_user` la remplace par `users.locale`, son choix explicite.
+    Les endpoints publics (site vitrine, blog) n'ont que cet en-tête.
+    """
+    set_request_locale(resolve_accept_language(request.headers.get("accept-language")))
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,

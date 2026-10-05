@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.i18n import t
 from app.modules.auth.dependencies import require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.rbac import service
@@ -26,7 +27,7 @@ async def admin_establishment_id(
     if current_user.establishment_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Votre compte n'est rattaché à aucun établissement",
+            detail=t("errors.common.no_establishment"),
         )
     return current_user.establishment_id
 

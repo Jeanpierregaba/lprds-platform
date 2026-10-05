@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from app.core import rate_limit
 from app.core.config import settings
+from app.core.i18n import coerce_locale, t
 from app.modules.auth.models import User, UserRole
 from app.modules.auth.schemas import (
     LoginRequest, TokenResponse,
@@ -49,13 +50,13 @@ async def login(
         # Message identique → pas d'énumération d'emails
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ou mot de passe incorrect",
+            detail=t("errors.auth.invalid_credentials"),
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Compte désactivé. Contactez votre administrateur",
+            detail=t("errors.auth.account_disabled"),
         )
 
     # Connexion réussie : on remet le compteur à zéro, jamais consommé par
@@ -72,7 +73,6 @@ async def login(
     return TokenResponse(
         access_token=create_token(user_id, user.role, "access"),
         refresh_token=create_token(user_id, user.role, "refresh"),
-        must_change_pwd=user.must_change_pwd,
     )
 
 # ── Refresh token ────────────────────────────────────────────────
@@ -85,26 +85,26 @@ async def refresh_tokens(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token invalide ou expiré",
+            detail=t("errors.auth.invalid_refresh"),
         )
 
     if payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Type de token incorrect",
+            detail=t("errors.auth.wrong_token_type"),
         )
 
     if await is_token_revoked(payload):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token invalide ou expiré",
+            detail=t("errors.auth.invalid_refresh"),
         )
 
     user = await _get_user_by_id(payload["sub"], db)
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utilisateur introuvable ou inactif",
+            detail=t("errors.auth.user_not_found_or_inactive"),
         )
 
     # Rotation : le refresh consommé est révoqué, il ne peut plus resservir
@@ -114,7 +114,6 @@ async def refresh_tokens(
     return TokenResponse(
         access_token=create_token(user_id, user.role, "access"),
         refresh_token=create_token(user_id, user.role, "refresh"),
-        must_change_pwd=user.must_change_pwd,
     )
 
 # ── Logout ──────────────────────────────────────────────────────
@@ -146,7 +145,7 @@ async def create_user(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
+            detail=t("errors.common.email_exists"),
         )
 
     temp_password = generate_temp_password()
@@ -161,7 +160,7 @@ async def create_user(
         if creator.establishment_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Votre compte n'est rattaché à aucun établissement",
+                detail=t("errors.common.no_establishment"),
             )
         establishment_id = creator.establishment_id
     else:
@@ -183,7 +182,6 @@ async def create_user(
         last_name=payload.last_name,
         phone=payload.phone,
         establishment_id=establishment_id,
-        must_change_pwd=True,
     )
     db.add(user)
     await db.flush()  # génère l'ID sans commit
@@ -198,6 +196,7 @@ async def create_user(
                 email=user.email,
                 first_name=user.first_name,
                 role=user.role,
+                locale=coerce_locale(user.locale),
                 temp_password=temp_password,
                 establishment_name=estab_name,
             )
@@ -208,10 +207,7 @@ async def create_user(
             logger.exception("Échec d'envoi du mail de bienvenue à %s", user.email)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=(
-                    "Compte non créé : le service d'email est indisponible. "
-                    "Vérifiez la configuration MAIL_* puis réessayez"
-                ),
+                detail=t("errors.common.email_unavailable_account"),
             ) from exc
 
     return UserResponse.model_validate(user)
@@ -229,6 +225,7 @@ async def request_password_reset(
             await send_reset_email(
                 email=user.email,
                 first_name=user.first_name,
+                locale=coerce_locale(user.locale),
                 reset_token=token,
             )
         except EmailDeliveryError:
@@ -245,14 +242,13 @@ async def confirm_password_reset(
     if not email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Lien invalide ou expiré",
+            detail=t("errors.auth.invalid_link"),
         )
     user = await _get_user_by_email(email, db)
     if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        raise HTTPException(status_code=404, detail=t("errors.auth.user_not_found"))
 
     user.hashed_password = hash_password(payload.new_password)
-    user.must_change_pwd = False
     await db.flush()
 
 
@@ -265,11 +261,23 @@ async def change_password(
     if not verify_password(payload.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mot de passe actuel incorrect",
+            detail=t("errors.auth.wrong_current_password"),
         )
     current_user.hashed_password = hash_password(payload.new_password)
-    current_user.must_change_pwd = False
     await db.flush()
+
+
+async def set_user_locale(db: AsyncSession, user: User, locale: str) -> User:
+    """Enregistre la langue d'interface du compte.
+
+    La valeur est déjà contrainte à "fr"/"en" par le schéma Pydantic — aucune
+    validation à refaire ici. Pas de `db.refresh()` : l'appelant ne lit aucune
+    relation chargée par une FK, seulement des colonnes scalaires déjà en
+    mémoire (cf. claude.md § Performance).
+    """
+    user.locale = locale
+    await db.flush()
+    return user
 
 
 # ── Helpers privés ───────────────────────────────────────────────
@@ -297,5 +305,5 @@ def _check_creation_permissions(creator: User, target_role: UserRole) -> None:
     if target_role not in allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Vous n'êtes pas autorisé à créer un compte {target_role}",
+            detail=t("errors.auth.cannot_create_role", role=target_role),
         )

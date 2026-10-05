@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -51,20 +52,17 @@ class ReportStatus(StrEnum):
 
 
 # ── Vocabulaire structuré du rapport quotidien ────────────────────
-# Codes stables en base ; les libellés français (affichés au frontend) sont
-# dans les dicts *_LABELS ci-dessous — modifiable sans jamais casser les
-# données déjà stockées (même pattern que PermissionCode/PERMISSION_LABELS).
+# Codes stables en base, libellés hors du code métier : chaque valeur a une
+# entrée "reports.vocabulary.<groupe>.<code>" dans app/locales/{fr,en}.py.
+# Renommer un libellé ne touche donc jamais aux données déjà stockées, et le
+# même catalogue sert l'API (/reports/vocabulary) et le PDF du bulletin.
+# ⚠️ Ajouter une valeur à un enum ci-dessous impose d'ajouter sa clé dans LES
+# DEUX catalogues — `test_reports_vocabulary_is_translated` y veille.
 class HealthStatus(StrEnum):
     BIEN          = "bien"
     A_SURVEILLER  = "a_surveiller"
     MALADE        = "malade"
 
-
-HEALTH_STATUS_LABELS: dict[HealthStatus, str] = {
-    HealthStatus.BIEN: "Bien",
-    HealthStatus.A_SURVEILLER: "À surveiller",
-    HealthStatus.MALADE: "Malade",
-}
 
 
 class MealAmount(StrEnum):
@@ -72,12 +70,6 @@ class MealAmount(StrEnum):
     PEU_MANGE   = "peu_mange"
     RIEN_MANGE  = "rien_mange"
 
-
-MEAL_AMOUNT_LABELS: dict[MealAmount, str] = {
-    MealAmount.BIEN_MANGE: "Bien mangé",
-    MealAmount.PEU_MANGE: "Peu mangé",
-    MealAmount.RIEN_MANGE: "Rien mangé",
-}
 
 
 class Mood(StrEnum):
@@ -88,15 +80,6 @@ class Mood(StrEnum):
     FATIGUE    = "fatigue"
     GRINCHEUX  = "grincheux"
 
-
-MOOD_LABELS: dict[Mood, str] = {
-    Mood.JOYEUX: "😊 Joyeux",
-    Mood.CALME: "😌 Calme",
-    Mood.AGITE: "😤 Agité",
-    Mood.TRISTE: "😢 Triste",
-    Mood.FATIGUE: "😴 Fatigué",
-    Mood.GRINCHEUX: "😠 Grincheux",
-}
 
 
 class BehaviorTag(StrEnum):
@@ -117,24 +100,6 @@ class BehaviorTag(StrEnum):
     PERSEVERANCE                    = "perseverance"
 
 
-BEHAVIOR_TAG_LABELS: dict[BehaviorTag, str] = {
-    BehaviorTag.PLEASANT_DAY: "A passé une agréable journée à la crèche.",
-    BehaviorTag.ENTHUSIASTIC_PARTICIPATION: "A participé avec enthousiasme aux activités.",
-    BehaviorTag.INTERESTED_PARTICIPATION: "A participé avec intérêt aux activités.",
-    BehaviorTag.OBSERVED_BEFORE_PARTICIPATING: "A préféré observer avant de participer.",
-    BehaviorTag.ATTENTIVE_FOCUSED: "S'est montré(e) attentif(ve) et concentré(e).",
-    BehaviorTag.DISTRACTED_MOMENTS: "A eu quelques moments de distraction.",
-    BehaviorTag.CURIOUS_INTERESTED: "A fait preuve de curiosité et d'intérêt.",
-    BehaviorTag.ASSIMILATED_LEARNING: "A bien assimilé les apprentissages de la journée.",
-    BehaviorTag.CAREFUL_APPLICATION: "A réalisé les activités avec soin et application.",
-    BehaviorTag.AUTONOMOUS: "S'est montré(e) autonome dans les activités.",
-    BehaviorTag.NEEDED_SUPPORT: "A eu besoin d'être accompagné(e) dans certaines activités.",
-    BehaviorTag.GOOD_INTERACTION: "A bien interagi avec les autres enfants.",
-    BehaviorTag.FOLLOWED_INSTRUCTIONS: "A respecté les consignes.",
-    BehaviorTag.NEEDED_COMFORT: "A eu besoin d'être consolé(e).",
-    BehaviorTag.PERSEVERANCE: "A fait preuve de persévérance face aux difficultés.",
-}
-
 
 # ── Vocabulaire structuré du rapport bi-mensuel ───────────────────
 class ClassBehavior(StrEnum):
@@ -149,18 +114,6 @@ class ClassBehavior(StrEnum):
     EMOTIONAL     = "emotional"
 
 
-CLASS_BEHAVIOR_LABELS: dict[ClassBehavior, str] = {
-    ClassBehavior.CALM: "😌 Calme",
-    ClassBehavior.JOYFUL: "😊 Joyeux(se)",
-    ClassBehavior.SMILING: "😄 Souriant(e)",
-    ClassBehavior.PARTICIPATIVE: "🙋 Participatif(ve)",
-    ClassBehavior.RESERVED: "🤐 Réservé(e)",
-    ClassBehavior.DYNAMIC: "⚡ Dynamique",
-    ClassBehavior.AGITATED: "😅 Agité(e)",
-    ClassBehavior.TIRED: "😴 Fatigué(e)",
-    ClassBehavior.EMOTIONAL: "😢 Émotif(ve)",
-}
-
 
 class PeerRelation(StrEnum):
     KIND_TO_PEERS     = "kind_to_peers"
@@ -169,14 +122,6 @@ class PeerRelation(StrEnum):
     STRUGGLES_SHARING = "struggles_sharing"
     PREFERS_ALONE     = "prefers_alone"
 
-
-PEER_RELATION_LABELS: dict[PeerRelation, str] = {
-    PeerRelation.KIND_TO_PEERS: "Gentil(le) avec les camarades",
-    PeerRelation.SOCIABLE: "Sociable",
-    PeerRelation.COOPERATIVE: "Coopératif(ve)",
-    PeerRelation.STRUGGLES_SHARING: "A parfois du mal à partager",
-    PeerRelation.PREFERS_ALONE: "Préfère jouer seul(e)",
-}
 
 
 class EmotionManagement(StrEnum):
@@ -188,15 +133,6 @@ class EmotionManagement(StrEnum):
     AUTONOMOUS                   = "autonomous"
 
 
-EMOTION_MANAGEMENT_LABELS: dict[EmotionManagement, str] = {
-    EmotionManagement.CRIED_LITTLE: "A peu pleuré",
-    EmotionManagement.CRIED_A_LOT: "A beaucoup pleuré",
-    EmotionManagement.NEEDED_REASSURANCE: "A eu besoin d'être rassuré(e)",
-    EmotionManagement.EXPRESSES_BETTER: "S'exprime mieux émotionnellement",
-    EmotionManagement.IMPROVING_EMOTION_MANAGEMENT: "En progrès dans la gestion des émotions",
-    EmotionManagement.AUTONOMOUS: "Autonome",
-}
-
 
 # ── Vocabulaire structuré du rapport annuel ───────────────────────
 class AcquisitionLevel(StrEnum):
@@ -204,12 +140,6 @@ class AcquisitionLevel(StrEnum):
     EN_COURS_ACQUISITION = "en_cours_acquisition"
     A_CONSOLIDER          = "a_consolider"
 
-
-ACQUISITION_LEVEL_LABELS: dict[AcquisitionLevel, str] = {
-    AcquisitionLevel.ACQUIS: "Acquis",
-    AcquisitionLevel.EN_COURS_ACQUISITION: "En cours d'acquisition",
-    AcquisitionLevel.A_CONSOLIDER: "À consolider",
-}
 
 
 class DepartmentReportType(Base):
@@ -281,6 +211,10 @@ class Report(Base):
     report_type: Mapped[str] = mapped_column(String(20), nullable=False)
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    # Libellé français posé à la création — trace lisible en base (requêtes
+    # manuelles, export SQL). ⚠️ Ce n'est PAS ce qui s'affiche : l'API et les
+    # documents recalculent le libellé dans la langue du lecteur, via
+    # `reports/service.py::period_label()`.
     period_label: Mapped[str] = mapped_column(String(50), nullable=False)
 
     status: Mapped[str] = mapped_column(
@@ -291,6 +225,38 @@ class Report(Base):
     # tant que leur contenu structuré n'est pas spécifié ; absent pour quotidien.
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    # Version anglaise des seuls champs de TEXTE LIBRE, même arborescence que
+    # `content` (les énumérations n'ont rien à y faire : elles portent des
+    # codes stables, que le frontend et le PDF traduisent déjà par catalogue).
+    #
+    # Un rapport est le texte le plus personnel de la plateforme, et il est lu
+    # par les parents — dont les anglophones. Le laisser en français revenait à
+    # leur refuser ce que l'établissement écrit sur leur propre enfant.
+    #
+    # NULL ou champ absent = pas traduit : la lecture retombe sur le français
+    # CHAMP PAR CHAMP, jamais rapport entier. Une observation ajoutée après une
+    # panne s'affiche en français sans faire basculer tout le bulletin.
+    # ⚠️ `none_as_null` : sans lui, SQLAlchemy écrit un `null` JSON (la VALEUR
+    # null) et non un NULL SQL — si bien qu'un `WHERE content_en IS NULL` ne
+    # ramène rien alors que la colonne paraît vide côté Python. Piège vécu.
+    content_en: Mapped[dict | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
+    summary_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Reste-t-il du texte à traduire ? Dérivé, recalculé à chaque tentative,
+    # jamais saisi.
+    #
+    # Les menus s'en passent (leur fenêtre utile tient en quelques lignes, un
+    # filtre Python suffit). Pour les rapports, le volume est tout autre — un
+    # quotidien par enfant et par jour — et le balayage doit rester exact ET
+    # bon marché. Un `content_en IS NULL` ne l'aurait pas été : il rate les
+    # rapports PARTIELLEMENT traduits, ceux qu'une panne en cours de
+    # modification laisse derrière elle.
+    translation_pending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true", default=True, index=True
+    )
 
     created_by_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False

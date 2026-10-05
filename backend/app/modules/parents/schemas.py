@@ -13,6 +13,9 @@ class ChildBrief(BaseModel):
     matricule:   str
     last_name:   str
     first_names: str
+    # Le portail parent affiche la photo de son enfant — il faut donc savoir
+    # s'il y en a une, sans quoi chaque carte demanderait une image absente.
+    has_photo:   bool = False
 
 
 class ParentCreateRequest(BaseModel):
@@ -54,7 +57,6 @@ class ParentResponse(BaseModel):
     phone:            str | None
     establishment_id: uuid.UUID | None
     is_active:        bool
-    must_change_pwd:  bool
     created_at:       datetime
     last_login_at:    datetime | None
     assigned_children: list[ChildBrief] = Field(

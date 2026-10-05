@@ -6,16 +6,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.modules.attendance.models import EventType, PersonType
+from app.core.i18n import t
 
 
 def _validate_timezone(v: str) -> str:
     try:
         ZoneInfo(v)
     except ZoneInfoNotFoundError as exc:
-        raise ValueError(
-            f"Fuseau horaire inconnu : « {v} ». Utilisez un nom IANA, "
-            "ex. « Africa/Porto-Novo »"
-        ) from exc
+        raise ValueError(t("validation.timezone_unknown", value=v)) from exc
     return v
 
 
@@ -168,7 +166,7 @@ class AttendanceSettingsRequest(BaseModel):
     @model_validator(mode="after")
     def check_order(self) -> "AttendanceSettingsRequest":
         if self.expected_departure_time <= self.expected_arrival_time:
-            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+            raise ValueError(t("validation.departure_before_arrival"))
         return self
 
 
@@ -196,7 +194,7 @@ class AttendanceGeneralSettingsRequest(BaseModel):
     @model_validator(mode="after")
     def check_order(self) -> "AttendanceGeneralSettingsRequest":
         if self.staff_expected_departure_time <= self.staff_expected_arrival_time:
-            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+            raise ValueError(t("validation.departure_before_arrival"))
         return self
 
 
@@ -222,7 +220,7 @@ class StaffScheduleRequest(BaseModel):
     @model_validator(mode="after")
     def check_order(self) -> "StaffScheduleRequest":
         if self.expected_departure_time <= self.expected_arrival_time:
-            raise ValueError("L'heure de départ doit être après l'heure d'arrivée")
+            raise ValueError(t("validation.departure_before_arrival"))
         return self
 
 
@@ -245,17 +243,37 @@ class ExportPersonType(StrEnum):
 
 
 class AttendanceExportRow(BaseModel):
-    """Une ligne de l'export : statut agrégé d'une personne pour UN jour."""
+    """Une ligne de l'export : statut agrégé d'une personne pour UN jour.
 
-    person_type:    str            # libellé : "Enfant" / "Personnel"
+    Structure interne (jamais sérialisée vers un client) : elle porte des
+    CODES, le rendu PDF/Excel posant les libellés dans la langue du document.
+    """
+
+    person_type:    str            # code : "child" | "staff"
     name:           str
     matricule:      str | None
     date:           date_
-    status:         str            # libellé FR : Présent / Retard / Absent / Non attendu / Exempté
+    status:         str            # code : present | late | absent | not_expected | exempt
     arrival_time:   datetime | None
     departure_time: datetime | None
     late_minutes:   int | None
     meal_taken:     bool | None
+
+
+# ── Enquête d'absence (parents des absents) ─────────────────────
+class AbsentNotifiedParent(BaseModel):
+    parent_name: str
+    children_names: list[str]
+    email_sent: bool
+    message_sent: bool
+
+
+class AbsenceInquiryResponse(BaseModel):
+    date: date_
+    total_absent: int
+    notified: list[AbsentNotifiedParent]
+    skipped_no_parent: list[str]
+    already_notified: list[str]
 
 
 # ── Exemptions staff ─────────────────────────────────────────────

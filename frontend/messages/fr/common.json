@@ -1,0 +1,116 @@
+{
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "create": "Créer",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "reset": "Réinitialiser",
+    "export": "Exporter",
+    "download": "Télécharger",
+    "send": "Envoyer",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "retry": "Réessayer",
+    "seeMore": "Voir plus",
+    "seeAll": "Tout voir",
+    "backToList": "Retour à la liste",
+    "removeNamed": "Retirer {name}"
+  },
+  "states": {
+    "loading": "Chargement…",
+    "saving": "Enregistrement…",
+    "sending": "Envoi…",
+    "empty": "Aucun résultat",
+    "noData": "Aucune donnée à afficher",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "required": "Obligatoire",
+    "optional": "Facultatif",
+    "yes": "Oui",
+    "no": "Non",
+    "submitting": "Soumission…",
+    "adding": "Ajout…",
+    "searching": "Recherche…",
+    "refreshing": "actualisation…"
+  },
+  "fields": {
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Email",
+    "phone": "Téléphone",
+    "password": "Mot de passe",
+    "nickname": "Surnom",
+    "address": "Adresse",
+    "date": "Date",
+    "time": "Heure",
+    "status": "Statut",
+    "notes": "Notes",
+    "fullName": "Nom complet",
+    "role": "Rôle"
+  },
+  "pagination": {
+    "showing": "{from}–{to} sur {total}",
+    "perPage": "Par page",
+    "page": "Page {page}",
+    "pageOf": "Page {page} sur {total}"
+  },
+  "locale": {
+    "label": "Langue",
+    "fr": "Français",
+    "en": "English",
+    "settingsTitle": "Langue de l'application",
+    "settingsHint": "Choisissez la langue de votre espace. Le changement est immédiat et enregistré sur votre compte, donc valable sur tous vos appareils.",
+    "settingsScope": "Cette langue vaut aussi pour les emails, les bulletins PDF et les notifications que vous recevez."
+  },
+  "theme": {
+    "toggle": "Changer de thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "logoutError": "Erreur lors de la déconnexion",
+  "renderError": "Erreur de génération",
+  "themeSoon": "Thème sombre bientôt disponible",
+  "appUpdated": "Application mise à jour.",
+  "newVersion": "Nouvelle version disponible ({reason}) — actualisation…",
+  "reasonVersion": "mise à jour détectée",
+  "reasonWorker": "service worker renouvelé",
+  "appDescription": "Gestion de crèche et école maternelle",
+  "profile": {
+    "infoTitle": "Informations"
+  },
+  "card": {
+    "title": "Carte scolaire",
+    "generating": "Génération en cours…",
+    "alt": "Carte de {name}"
+  },
+  "pwa": {
+    "install": "Installer l’application",
+    "dismiss": "Masquer le bouton d’installation",
+    "hide": "Masquer",
+    "iosIntro": "Sur iPhone/iPad, l’installation se fait depuis Safari :",
+    "macIntro": "Sur Mac, l’installation se fait depuis Safari :",
+    "iosStep1": "Ouvrez cette page dans <b>Safari</b>.",
+    "iosStep2": "Touchez le bouton <b>Partager</b> (carré avec une flèche vers le haut).",
+    "iosStep3": "Choisissez <b>« Sur l’écran d’accueil »</b> puis <b>Ajouter</b>.",
+    "macStep1": "Ouvrez cette page dans <b>Safari</b>.",
+    "macStep2": "Menu <b>Fichier → Ajouter au Dock</b> (ou Partager → Ajouter au Dock).",
+    "macStep3": "L’application apparaît dans votre Dock comme une app.",
+    "offline": "Vous êtes hors ligne — les contenus mis en cache restent disponibles."
+  },
+  "signOut": "Se déconnecter",
+  "views": {
+    "list": "Vue en liste",
+    "cards": "Vue en cartes"
+  }
+}

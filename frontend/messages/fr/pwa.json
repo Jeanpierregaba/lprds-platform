@@ -1,0 +1,9 @@
+{
+  "name": "LPRDS - Gestion Crèche",
+  "description": "LPRDS — plateforme de gestion des crèches, garderies et écoles maternelles : présences, messagerie, rapports, galerie, menus et actualités de l'établissement.",
+  "offlineTitle": "Hors ligne",
+  "offlineBody": "La connexion a été perdue. Les pages mises en cache restent consultables ; reconnectez-vous pour retrouver l’ensemble de la plateforme.",
+  "offlineRetry": "Réessayer",
+  "screenshotHome": "L'accueil du site : sections, actualités et espace parent",
+  "screenshotMobile": "L'accueil sur téléphone"
+}

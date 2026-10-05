@@ -2,18 +2,9 @@ import type { ReportType } from '@/types/reports'
 
 export type GallerySource = 'report' | 'message' | 'announcement'
 
-export const GALLERY_SOURCE_LABELS: Record<GallerySource, string> = {
-  report: 'Rapports',
-  message: 'Messagerie',
-  announcement: 'Diffusions',
-}
-
-/** Libellé court (pastille) — singulier, contrairement au filtre. */
-export const GALLERY_SOURCE_BADGE_LABEL: Record<GallerySource, string> = {
-  report: 'Rapport',
-  message: 'Messagerie',
-  announcement: 'Diffusion',
-}
+/** Libellés dans les catalogues : `enums.gallerySources` (filtres, pluriel)
+ *  et `enums.gallerySourceBadges` (pastilles, singulier). */
+export const GALLERY_SOURCES = ['report', 'message', 'announcement'] as const
 
 export interface GalleryUserBrief {
   id: string

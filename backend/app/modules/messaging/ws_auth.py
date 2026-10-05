@@ -1,5 +1,5 @@
 """
-Authentification WebSocket — réplique get_current_user/get_active_user pour un
+Authentification WebSocket — réplique `get_current_user` pour un
 contexte où il n'y a pas de header Authorization disponible (un navigateur ne
 peut pas en poser un sur une requête de handshake WS) : le jeton d'accès est
 donc passé en query string (`?token=...`), pattern standard pour les WS.
@@ -35,6 +35,4 @@ async def authenticate_ws(token: str, db: AsyncSession) -> User:
     user = await db.scalar(select(User).where(User.id == user_id))
     if not user or not user.is_active:
         raise WSAuthError("utilisateur introuvable ou inactif")
-    if user.must_change_pwd:
-        raise WSAuthError("changement de mot de passe requis")
     return user

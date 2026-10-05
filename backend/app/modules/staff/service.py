@@ -1,4 +1,5 @@
 import logging
+from app.core.i18n import coerce_locale, t
 import uuid
 
 from fastapi import HTTPException, status
@@ -41,7 +42,7 @@ async def create_staff(
     if not establishment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Établissement introuvable",
+            detail=t("errors.common.establishment_not_found"),
         )
     await _ensure_email_available(payload.email, db)
 
@@ -57,7 +58,6 @@ async def create_staff(
         matricule=await generate_unique_staff_matricule(establishment.code, db),
         establishment_id=establishment_id,
         # Mot de passe temporaire → changement imposé à la 1re connexion
-        must_change_pwd=True,
     )
     db.add(member)
     await db.flush()
@@ -83,6 +83,7 @@ async def create_staff(
             email=member.email,
             first_name=member.first_name,
             role=UserRole.STAFF,
+            locale=coerce_locale(member.locale),
             temp_password=payload.password,
             establishment_name=establishment.name,
         )
@@ -90,10 +91,7 @@ async def create_staff(
         logger.exception("Échec d'envoi du mail de bienvenue à %s", member.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Compte non créé : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_account"),
         ) from exc
 
     return StaffResponse.model_validate(member)
@@ -219,28 +217,25 @@ async def reset_staff_password(
 ) -> None:
     """
     Reset administré : le nouveau mot de passe est fourni par l'admin/staff
-    habilité et communiqué au personnel par email. must_change_pwd reste False —
-    on ne force PAS de redéfinition.
+    habilité et communiqué au personnel par email. Le membre s'en sert tel
+    quel — la plateforme n'impose aucune redéfinition à la connexion suivante.
     """
     member = await _get_or_404(staff_id, establishment_id, db)
     member.hashed_password = hash_password(new_password)
-    member.must_change_pwd = False
     await db.flush()
 
     try:
         await send_credentials_reset_email(
             email=member.email,
             first_name=member.first_name,
+            locale=coerce_locale(member.locale),
             new_password=new_password,
         )
     except EmailDeliveryError as exc:
         logger.exception("Échec d'envoi du mail de reset à %s", member.email)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Mot de passe non modifié : le service d'email est indisponible. "
-                "Vérifiez la configuration MAIL_* puis réessayez"
-            ),
+            detail=t("errors.common.email_unavailable_password"),
         ) from exc
 
 
@@ -276,7 +271,7 @@ async def _get_or_404(
     if not member:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Membre du personnel introuvable",
+            detail=t("errors.common.staff_not_found"),
         )
     return member
 
@@ -286,5 +281,5 @@ async def _ensure_email_available(email: str, db: AsyncSession) -> None:
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
+            detail=t("errors.common.email_exists"),
         )

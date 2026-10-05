@@ -17,6 +17,13 @@ export interface PublicBlogPostItem {
   tag: PublicBlogTag | null
   coverUrl: string | null
   publishedAt: string | null
+  /**
+   * Langue dans laquelle l'API a RÉELLEMENT servi le texte — pas celle
+   * demandée. Vaut « fr » quand la traduction anglaise manque (jamais
+   * générée, ou en échec), ce qui permet de signaler le repli au visiteur
+   * plutôt que de lui laisser croire à un texte anglais.
+   */
+  locale: string
 }
 
 export interface PublicBlogPost extends PublicBlogPostItem {

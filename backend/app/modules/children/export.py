@@ -13,18 +13,27 @@ est réservé aux porteurs de `children:read` et téléchargé, jamais affiché.
 
 from io import BytesIO
 
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.modules.children.io import IMPORT_COLUMNS, render_csv
 
+# ⚠️ Les EN-TÊTES de colonnes ne sont pas traduits, et c'est délibéré : ce sont
+# les identifiants du format d'échange (`IMPORT_COLUMNS`), reconnus tels quels
+# à la relecture. Un export anglais avec des en-têtes anglais ne serait pas
+# réimportable, alors que le round-trip export → import est justement la raison
+# d'être du format. Seuls l'aide, les titres de feuille et le nom du fichier
+# suivent la langue du lecteur.
+#
+# Colonne (identifiant du format) → clé de la règle correspondante.
 _TEMPLATE_HELP = [
-    ("matricule", "Vide = création. Renseignez le matricule (export) pour mettre à jour."),
-    ("nom / prenoms", "Obligatoires."),
-    ("nom_usuel", "Optionnel — repris dans les notes si différent des prénoms."),
-    ("date_naissance / date_admission", "AAAA-MM-JJ (ou JJ/MM/AAAA). Admission ≥ naissance."),
-    ("adresse", "Obligatoire (mention par défaut si vide, signalée)."),
-    ("statut", "actif / inactif (vide = actif)."),
-    ("section", "Nom exact de la section. Inconnu = sans section + avertissement."),
-    ("tuteur_1..3", "Au moins UN tuteur complet (nom, prénoms, tél) par enfant."),
-    ("autorise_1..2", "Personnes autorisées à récupérer l'enfant."),
+    ("matricule", "matricule"),
+    ("nom / prenoms", "names"),
+    ("nom_usuel", "usual_name"),
+    ("date_naissance / date_admission", "dates"),
+    ("adresse", "address"),
+    ("statut", "status"),
+    ("section", "section"),
+    ("tuteur_1..3", "guardians"),
+    ("autorise_1..2", "authorized"),
 ]
 
 
@@ -62,14 +71,16 @@ def _child_to_row(child) -> list[object]:
     ]
 
 
-def render_children_xlsx(children: list, example: bool = False) -> bytes:
+def render_children_xlsx(
+    children: list, example: bool = False, locale: Locale = DEFAULT_LOCALE,
+) -> bytes:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Enfants"
+    ws.title = t("children.export.sheet", locale)
 
     header_fill = PatternFill("solid", fgColor="005840")
     header_font = Font(bold=True, color="FFFFFF")
@@ -87,15 +98,16 @@ def render_children_xlsx(children: list, example: bool = False) -> bytes:
             ws.cell(row=row_idx, column=col_idx, value=value if value != "" else None)
 
     if example:
-        help_ws = wb.create_sheet("Aide")
-        help_ws["A1"] = "Colonne"
-        help_ws["B1"] = "Règle"
+        help_ws = wb.create_sheet(t("children.template.help_sheet", locale))
+        help_ws["A1"] = t("children.template.help.column", locale)
+        help_ws["B1"] = t("children.template.help.rule", locale)
         for cell in (help_ws["A1"], help_ws["B1"]):
             cell.fill = header_fill
             cell.font = header_font
-        for i, (col, rule) in enumerate(_TEMPLATE_HELP, start=2):
+        for i, (col, rule_key) in enumerate(_TEMPLATE_HELP, start=2):
             help_ws.cell(row=i, column=1, value=col)
-            help_ws.cell(row=i, column=2, value=rule)
+            help_ws.cell(row=i, column=2,
+                         value=t(f"children.template.help.{rule_key}", locale))
         help_ws.column_dimensions["A"].width = 24
         help_ws.column_dimensions["B"].width = 90
 

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -6,8 +7,10 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import links, media, storage
 from app.core.config import settings
+from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
+from app.core.translation import TranslationUnavailable, translate_texts
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.messaging.models import (
@@ -38,6 +41,8 @@ from app.modules.notifications.service import (
     send_push_to_establishment_parents,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def _announcements_channel(establishment_id: uuid.UUID) -> str:
     return f"messaging:estab:{establishment_id}:announcements"
@@ -58,6 +63,46 @@ def _conversation_channel(conversation_id: uuid.UUID) -> str:
 
 
 # ── Diffusions ──────────────────────────────────────────────────
+# ── Traduction des diffusions ────────────────────────────────────
+async def _translate_announcement(announcement: Announcement, db: AsyncSession) -> None:
+    """Remplit la version anglaise — best-effort, jamais bloquant.
+
+    Une diffusion part à TOUS les parents de l'établissement, anglophones
+    compris : la laisser en français revenait à ne pas les informer. Même
+    politique que le blog et les menus — un échec n'empêche jamais l'envoi, il
+    laisse simplement le parent anglophone lire le français.
+
+    Pas de colonne de statut, à la différence des articles : la règle est celle
+    des créneaux de menu. Une version anglaise fournie à la main est conservée
+    tant que le texte FRANÇAIS ne bouge pas ; dès qu'il change, elle est
+    refaite — garder la traduction d'un texte remplacé serait pire qu'un repli.
+    """
+    try:
+        title_en, body_en = await translate_texts(
+            [announcement.title, announcement.body], db
+        )
+    except TranslationUnavailable as exc:
+        logger.info("Traduction de la diffusion %s non aboutie : %s", announcement.id, exc)
+        return
+    announcement.title_en = title_en[:200]
+    announcement.body_en = body_en
+
+
+def _localized_announcement(announcement: Announcement, locale: Locale) -> tuple[str, str]:
+    """Titre et corps dans la langue du LECTEUR, repli champ par champ.
+
+    Par champ et non par diffusion : si le titre est traduit mais pas le corps
+    (ou l'inverse, après un échec partiel), on sert ce qui existe plutôt que de
+    tout ramener au français.
+    """
+    if locale is DEFAULT_LOCALE:
+        return announcement.title, announcement.body
+    return (
+        announcement.title_en or announcement.title,
+        announcement.body_en or announcement.body,
+    )
+
+
 async def create_announcement(
     payload: AnnouncementCreateRequest,
     establishment_id: uuid.UUID,
@@ -70,6 +115,7 @@ async def create_announcement(
         title=payload.title,
         body=payload.body,
     )
+    await _translate_announcement(announcement, db)
     db.add(announcement)
     await db.flush()
 
@@ -102,12 +148,23 @@ async def create_announcement(
     # Push : audience ciblée si départements cochés, sinon tous les parents.
     await send_push_to_establishment_parents(
         establishment_id,
-        "Nouvelle diffusion",
-        announcement.title,
+        "push.announcement.title",
+        None,
         db,
+        # `url` : où le tapotement doit mener. Sans elle, le service worker
+        # ouvre l'accueil et le destinataire doit retrouver l'information.
         {"type": "announcement", "announcement_id": str(announcement.id),
-         "department_ids": [str(d) for d in department_ids]},
+         "department_ids": [str(d) for d in department_ids],
+         "url": links.url_path(links.PARENT_MESSAGING,
+                               tab=links.TAB_ANNOUNCEMENTS)},
         parent_ids=audience,
+        # Le titre part dans la langue de CHAQUE parent : une diffusion touche
+        # tout l'établissement, et la notification est souvent la seule chose
+        # qu'on lit d'elle.
+        body_by_locale={
+            str(DEFAULT_LOCALE): announcement.title,
+            str(Locale.EN): announcement.title_en or announcement.title,
+        },
     )
     return response
 
@@ -159,6 +216,7 @@ async def list_announcements(
         items = [
             _announcement_response(
                 a, is_read=a.id in read_ids, attachments=attachments_map.get(a.id),
+                localized=True,
                 department_ids=departments_map.get(a.id, []),
             )
             for a in announcements
@@ -200,10 +258,11 @@ async def get_announcement(
     if current_user.role == UserRole.PARENT:
         # Hors périmètre → 404 (on ne révèle pas l'existence, comme partout).
         if scope and not (set(scope) & await _parent_department_ids(current_user.id, db)):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
         read_ids = await _read_announcement_ids(current_user.id, db)
         return _announcement_response(
             announcement, is_read=announcement.id in read_ids, attachments=attachments,
+            localized=True,
             department_ids=scope,
         )
 
@@ -223,6 +282,14 @@ async def update_announcement(
 ) -> AnnouncementResponse:
     announcement = await _get_announcement_or_404(announcement_id, establishment_id, db)
     changes = payload.model_dump(exclude_unset=True)
+    # La traduction suit le texte FRANÇAIS. Une version anglaise fournie dans
+    # le même appel fait foi (correction) ; sinon, un français modifié est
+    # retraduit, et un français inchangé garde sa traduction.
+    text_changed = any(
+        field in changes and changes[field] != getattr(announcement, field)
+        for field in ("title", "body")
+    )
+    manual_en = changes.get("title_en") is not None or changes.get("body_en") is not None
     # Le périmètre ne se pose pas par setattr (relation M2M) : il REMPLACE le
     # ciblage (liste vide = retour au broadcast).
     scope_change = changes.pop("department_ids", None)
@@ -258,6 +325,8 @@ async def update_announcement(
             if audience:
                 prune = prune.where(AnnouncementRead.parent_id.not_in(audience))
             await db.execute(prune)
+    if text_changed and not manual_en:
+        await _translate_announcement(announcement, db)
     await db.flush()
     await db.refresh(announcement)
 
@@ -279,7 +348,7 @@ async def mark_announcement_read(
     # Hors périmètre → 404 : un parent ne marque jamais lu ce qu'il ne voit pas.
     scope = await _announcement_department_ids(announcement_id, db)
     if scope and not (set(scope) & await _parent_department_ids(parent.id, db)):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
     existing = await db.scalar(
         select(AnnouncementRead.id).where(
             AnnouncementRead.announcement_id == announcement_id,
@@ -342,7 +411,7 @@ async def start_conversation(
         )
     )
     if not parent:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.parent_not_found"))
 
     conversation = await db.scalar(
         select(Conversation).where(
@@ -415,7 +484,7 @@ async def get_conversation_for_admin(
         )
     )
     if not conversation:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.conversation_not_found"))
     return conversation
 
 
@@ -438,7 +507,7 @@ async def list_messages(
             select(Message).where(Message.id == before_id, *filters)
         )
         if cursor is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
         filters.append(tuple_(Message.created_at, Message.id) < tuple_(cursor.created_at, cursor.id))
     result = await db.execute(
         select(Message)
@@ -488,23 +557,36 @@ async def send_message(
     # rapport — jamais bloquant) : aux admins si l'expéditeur est le parent,
     # au seul parent de la conversation si l'expéditeur est un admin.
     sender_label = f"{sender.nickname or sender.first_name} {sender.last_name or ''}".strip()
-    preview = body.strip()[:120] or "Nouvelle pièce jointe"
+    preview = body.strip()[:120] or t("push.new_attachment")
     if sender.role == UserRole.ADMIN:
         await send_push_to_establishment_parents(
             conversation.establishment_id,
-            "Nouveau message de l'établissement",
+            "push.message_from_school.title",
             preview,
             db,
-            {"type": "message", "conversation_id": str(conversation.id)},
+            # ⚠️ L'onglet NOMMÉ : cet écran ouvre les diffusions par défaut,
+            # donc sans lui la notification menait juste à côté du message
+            # qu'elle annonce.
+            {"type": "message", "conversation_id": str(conversation.id),
+             "url": links.url_path(links.PARENT_MESSAGING,
+                                   tab=links.TAB_PARENT_CONVERSATION)},
             parent_ids={conversation.parent_id},
         )
     else:
         await send_push_to_establishment_admins(
             conversation.establishment_id,
-            "Nouveau message",
-            f"Un nouveau message de {sender_label}",
+            "push.message.title",
+            None,
             db,
-            {"type": "message", "conversation_id": str(conversation.id)},
+            # Destination côté ADMIN : ce n'est pas le même écran que le
+            # parent, et l'admin a PLUSIEURS conversations — il faut donc en
+            # plus désigner laquelle, sinon il doit la retrouver dans la liste.
+            {"type": "message", "conversation_id": str(conversation.id),
+             "url": links.url_path(links.ADMIN_MESSAGING,
+                                   tab=links.TAB_ADMIN_CONVERSATIONS,
+                                   conversation=str(conversation.id))},
+            body_key="push.message.body",
+            body_params={"sender": sender_label},
         )
     return response
 
@@ -521,13 +603,13 @@ async def edit_message(
     if message.created_at + MESSAGE_EDIT_WINDOW < now:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Délai d'édition dépassé (15 minutes)",
+            detail=t("errors.messaging.edit_window_over"),
         )
     body = body.strip()
     if len(body) > 5000 or (not body and not await _message_attachment_count(message.id, db)):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Un message doit contenir un texte de 5000 caractères maximum ou un média",
+            detail=t("errors.messaging.body_or_media"),
         )
     message.body = body
     message.edited_at = now
@@ -552,9 +634,9 @@ async def delete_message(
 ) -> None:
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != requester.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     if message.is_deleted:
         return
     keys = (
@@ -654,11 +736,11 @@ async def _get_owned_message(
 ) -> Message:
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     if message.is_deleted:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Message supprimé")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=t("errors.messaging.message_deleted"))
     return message
 
 
@@ -672,7 +754,7 @@ async def _get_announcement_or_404(
         )
     )
     if not announcement:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
     return announcement
 
 
@@ -727,7 +809,7 @@ async def _validate_scope_departments(
     ).scalars().all()
     if set(rows) != set(unique):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Département introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.department_not_found")
         )
     return unique
 
@@ -835,12 +917,28 @@ def _announcement_response(
     is_read: bool | None = None,
     attachments: list[AttachmentResponse] | None = None,
     department_ids: list[uuid.UUID] | None = None,
+    localized: bool = False,
 ) -> AnnouncementResponse:
+    """`localized=True` sert le texte dans la langue du LECTEUR (vue parent).
+
+    La vue de GESTION garde le français, à dessein : c'est ce que l'admin a
+    écrit et ce que son formulaire d'édition réaffiche. Lui renvoyer l'anglais
+    parce que son compte est en anglais lui ferait écraser le français au
+    premier enregistrement. `title_en` / `body_en` restent exposés à côté, pour
+    qu'il puisse corriger la traduction sans jamais la confondre avec la source.
+    """
+    title, body = (
+        _localized_announcement(announcement, current_locale())
+        if localized
+        else (announcement.title, announcement.body)
+    )
     return AnnouncementResponse(
         id=announcement.id,
         establishment_id=announcement.establishment_id,
-        title=announcement.title,
-        body=announcement.body,
+        title=title,
+        body=body,
+        title_en=announcement.title_en,
+        body_en=announcement.body_en,
         is_active=announcement.is_active,
         department_ids=department_ids or [],
         created_by=UserBrief(
@@ -958,45 +1056,6 @@ async def _attachments_for_announcements(
     return by_announcement
 
 
-def _validate_upload(file: UploadFile, content: bytes, *, allow_video: bool = False) -> None:
-    """Plafond : vidéo → `messaging_max_video_mb`, sinon
-    `messaging_max_attachment_mb`. Types : liste blanche + tout `image/*`
-    (hors SVG) ; `video/*` uniquement si `allow_video` (messages privés ET
-    diffusions — jusqu'à `MAX_ANNOUNCEMENT_ATTACHMENTS` médias par diffusion)."""
-    is_video = (file.content_type or "").startswith("video/")
-    max_mb = settings.messaging_max_video_mb if is_video else settings.messaging_max_attachment_mb
-    max_bytes = max_mb * 1024 * 1024
-    if len(content) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {max_mb} Mo)",
-        )
-    if not content:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Fichier vide",
-        )
-    content_type = file.content_type or ""
-    image_ok = (
-        content_type.startswith("image/") and content_type != "image/svg+xml"
-    )
-    video_ok = allow_video and is_video
-    if content_type not in settings.messaging_allowed_attachment_types_set and not (
-        image_ok or video_ok
-    ):
-        allowed = ", ".join(sorted(settings.messaging_allowed_attachment_types_set))
-        detail = (
-            f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-            f"Autorisés : {allowed} ou toute image (hors SVG)"
-        )
-        if allow_video:
-            detail += " ou toute vidéo"
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=detail + ".",
-        )
-
-
 async def add_message_attachment(
     conversation: Conversation,
     message_id: uuid.UUID,
@@ -1011,27 +1070,35 @@ async def add_message_attachment(
 
 
 async def _save_attachment_batch(
-    payloads: list[tuple[UploadFile, bytes]],
+    payloads: list[media.AcceptedMedia],
     uploader: User,
     db: AsyncSession,
     *,
     message_id: uuid.UUID | None = None,
     announcement_id: uuid.UUID | None = None,
 ) -> list[AttachmentResponse]:
+    """⚠️ Le lot porte des médias déjà IDENTIFIÉS et normalisés.
+
+    Il stockait auparavant `file.content_type or "application/octet-stream"` —
+    donc le type que le navigateur avait annoncé, et à défaut un type générique.
+    Une photo parfaitement valide envoyée sans MIME était ainsi enregistrée
+    comme un flux d'octets, puis servie telle quelle : le navigateur du
+    destinataire proposait de la télécharger au lieu de l'afficher.
+    """
     keys: list[str] = []
     responses: list[AttachmentResponse] = []
     try:
         async with db.begin_nested():
-            for file, content in payloads:
-                key = await storage.save_file("messaging", file.filename or "fichier", content)
+            for item in payloads:
+                key = await storage.save_file("messaging", item.filename, item.content)
                 keys.append(key)
                 attachment = Attachment(
                     message_id=message_id,
                     announcement_id=announcement_id,
                     uploaded_by_id=uploader.id,
-                    filename=file.filename or "fichier",
-                    content_type=file.content_type or "application/octet-stream",
-                    size_bytes=len(content),
+                    filename=item.filename,
+                    content_type=item.content_type,
+                    size_bytes=len(item.content),
                     storage_key=key,
                 )
                 db.add(attachment)
@@ -1073,9 +1140,10 @@ def _ensure_message_quota(existing: int, incoming: int) -> None:
     if existing + incoming > MAX_MESSAGE_ATTACHMENTS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Limite de {MAX_MESSAGE_ATTACHMENTS} médias par message "
-                f"atteinte ({existing} déjà joint(s))"
+            detail=t(
+                "errors.messaging.message_media_limit",
+                max_media=MAX_MESSAGE_ATTACHMENTS,
+                existing=existing,
             ),
         )
 
@@ -1084,9 +1152,10 @@ def _ensure_announcement_quota(existing: int, incoming: int) -> None:
     if existing + incoming > MAX_ANNOUNCEMENT_ATTACHMENTS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Limite de {MAX_ANNOUNCEMENT_ATTACHMENTS} médias par diffusion "
-                f"atteinte ({existing} déjà joint(s))"
+            detail=t(
+                "errors.messaging.announcement_media_limit",
+                max_media=MAX_ANNOUNCEMENT_ATTACHMENTS,
+                existing=existing,
             ),
         )
 
@@ -1121,7 +1190,7 @@ async def add_announcement_attachments_batch(
     if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Aucun fichier fourni",
+            detail=t("errors.messaging.no_file"),
         )
     announcement = await db.scalar(
         select(Announcement)
@@ -1133,16 +1202,21 @@ async def add_announcement_attachments_batch(
         .execution_options(populate_existing=True)
     )
     if not announcement:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diffusion introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
     _ensure_announcement_quota(
         await _announcement_attachment_count(announcement.id, db), len(files)
     )
 
-    payloads: list[tuple[UploadFile, bytes]] = []
+    payloads: list[media.AcceptedMedia] = []
     for file in files:
-        content = await file.read()
-        _validate_upload(file, content, allow_video=True)
-        payloads.append((file, content))
+        payloads.append(await media.accept_upload(
+            file,
+            await file.read(),
+            max_image_mb=settings.messaging_max_attachment_mb,
+            max_video_mb=settings.messaging_max_video_mb,
+            allow_video=True,
+            allow_pdf=True,
+        ))
 
     responses = await _save_attachment_batch(
         payloads, uploader, db, announcement_id=announcement.id
@@ -1168,20 +1242,25 @@ async def add_message_attachments_batch(
     if not files:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Aucun fichier fourni",
+            detail=t("errors.messaging.no_file"),
         )
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message or message.is_deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != uploader.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     _ensure_message_quota(await _message_attachment_count(message.id, db), len(files))
 
-    payloads: list[tuple[UploadFile, bytes]] = []
+    payloads: list[media.AcceptedMedia] = []
     for file in files:
-        content = await file.read()
-        _validate_upload(file, content, allow_video=True)
-        payloads.append((file, content))
+        payloads.append(await media.accept_upload(
+            file,
+            await file.read(),
+            max_image_mb=settings.messaging_max_attachment_mb,
+            max_video_mb=settings.messaging_max_video_mb,
+            allow_video=True,
+            allow_pdf=True,
+        ))
 
     responses = await _save_attachment_batch(
         payloads, uploader, db, message_id=message.id
@@ -1207,21 +1286,21 @@ async def remove_message_attachment(
 ) -> None:
     message = await _lock_message_for_update(conversation, message_id, db)
     if not message or message.is_deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.message_not_found"))
     if message.sender_id != requester.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Non autorisé")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.unauthorized"))
     attachment = await db.scalar(
         select(Attachment).where(
             Attachment.id == attachment_id, Attachment.message_id == message.id
         )
     )
     if not attachment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found"))
     remaining = await _message_attachment_count(message.id, db)
     if remaining <= 1 and not message.body.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Un message doit garder au moins un média ou un texte",
+            detail=t("errors.messaging.keep_body_or_media"),
         )
     await db.delete(attachment)
     await db.flush()
@@ -1241,7 +1320,7 @@ async def get_attachment_for_download(
 ) -> tuple[Attachment, Path]:
     attachment = await db.scalar(select(Attachment).where(Attachment.id == attachment_id))
     if not attachment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found"))
 
     if attachment.message_id:
         message = await db.scalar(select(Message).where(Message.id == attachment.message_id))
@@ -1250,7 +1329,7 @@ async def get_attachment_for_download(
         )
         if message.is_deleted:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+                status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found")
             )
         establishment_id = conversation.establishment_id
         owner_ok = (
@@ -1273,6 +1352,6 @@ async def get_attachment_for_download(
             )
 
     if establishment_id != current_user.establishment_id or not owner_ok:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found"))
 
     return attachment, storage.resolve_path(attachment.storage_key)

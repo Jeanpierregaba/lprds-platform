@@ -1,9 +1,7 @@
 export type ArticleStatus = 'draft' | 'published'
 
-export const ARTICLE_STATUS_LABELS: Record<ArticleStatus, string> = {
-  draft: 'Brouillon',
-  published: 'Publié',
-}
+/** Libellés dans les catalogues (`enums.articleStatus`). */
+export const ARTICLE_STATUSES = ['draft', 'published'] as const
 
 export interface BlogUserBrief {
   id: string
@@ -20,6 +18,9 @@ export interface TagBrief {
 export interface GalleryPhotoCategory {
   id: string
   name: string
+  /** Version anglaise, remplie par traduction automatique. `null` = pas
+   *  encore traduite : le site vitrine affiche alors le français. */
+  name_en: string | null
   created_at: string
 }
 
@@ -30,6 +31,9 @@ export interface GalleryPhotoCategoryListResponse {
 export interface BlogTag {
   id: string
   name: string
+  /** Version anglaise, remplie par traduction automatique. `null` = pas
+   *  encore traduite : le site vitrine affiche alors le français. */
+  name_en: string | null
   created_at: string
 }
 
@@ -75,12 +79,29 @@ export interface ArticleListItem {
   updated_at: string
 }
 
+/**
+ * État de la version anglaise d'un article — codes stables du backend.
+ * `manual` est celui qui porte la règle : une traduction corrigée à la main
+ * n'est jamais réécrite par la machine.
+ */
+export const TRANSLATION_STATUSES = ['pending', 'auto', 'manual', 'failed'] as const
+export type TranslationStatus = (typeof TRANSLATION_STATUSES)[number]
+
 export interface Article extends ArticleListItem {
   establishment_id: string
   content: string
   created_by: BlogUserBrief
   updated_by: BlogUserBrief | null
   attachments: BlogAttachment[]
+  title_en: string | null
+  content_en: string | null
+  source_locale: string
+  translation_status: TranslationStatus
+}
+
+export interface ArticleTranslationPayload {
+  title_en: string
+  content_en: string
 }
 
 export interface ArticleListResponse {

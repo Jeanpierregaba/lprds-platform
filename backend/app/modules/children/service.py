@@ -9,9 +9,10 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core import storage
+from app.core import media, storage
 from app.core.config import settings
-from app.modules.auth.models import User
+from app.core.i18n import current_locale, t
+from app.modules.auth.models import User, UserRole
 from app.modules.children import io as children_io
 from app.modules.children.export import (
     render_children_csv,
@@ -39,6 +40,8 @@ from app.modules.children.schemas import (
 )
 from app.modules.establishments.models import Establishment
 from app.modules.organization import service as org_service
+from app.modules.rbac.dependencies import user_permission_codes
+from app.modules.rbac.models import PermissionCode
 from app.modules.organization.models import Department, Group, Section
 
 
@@ -52,7 +55,7 @@ async def create_child(
     if not establishment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Établissement introuvable",
+            detail=t("errors.common.establishment_not_found"),
         )
 
     await _validate_units(payload.department_id, payload.section_id,
@@ -182,7 +185,7 @@ async def update_child(
     if admission < birth:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date d'admission ne peut pas précéder la date de naissance",
+            detail=t("errors.children.admission_before_birth"),
         )
 
     if "guardians" in changes:
@@ -239,7 +242,7 @@ async def import_children(
     if len(content) > children_io.MAX_IMPORT_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Fichier trop volumineux (max 5 Mo)",
+            detail=t("errors.children.file_too_large_fixed"),
         )
 
     try:
@@ -253,7 +256,7 @@ async def import_children(
     if len(rows) > children_io.MAX_IMPORT_ROWS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Trop de lignes (max {children_io.MAX_IMPORT_ROWS})",
+            detail=t("errors.children.too_many_rows", max_rows=children_io.MAX_IMPORT_ROWS),
         )
 
     sections_by_name = await _sections_by_name(establishment_id, db)
@@ -268,9 +271,9 @@ async def import_children(
         report_lines.append(result)
 
     return ChildImportReportResponse(
-        crees=sum(1 for r in report_lines if r.statut == "créé"),
-        mis_a_jour=sum(1 for r in report_lines if r.statut == "mis à jour"),
-        rejetees=sum(1 for r in report_lines if r.statut == "rejeté"),
+        crees=sum(1 for r in report_lines if r.statut == "created"),
+        mis_a_jour=sum(1 for r in report_lines if r.statut == "updated"),
+        rejetees=sum(1 for r in report_lines if r.statut == "rejected"),
         lignes=report_lines,
     )
 
@@ -299,29 +302,33 @@ async def export_children(
     children = list((await db.execute(query)).scalars().all())
 
     today = date.today().isoformat()
+    locale = current_locale()
     if file_format == "xlsx":
-        content = await asyncio.to_thread(render_children_xlsx, children, False)
-        return content, f"enfants_{today}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content = await asyncio.to_thread(render_children_xlsx, children, False, locale)
+        return (content, t("children.export.filename", date=today),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     if file_format == "csv":
         content = await asyncio.to_thread(render_children_csv, children)
-        return content, f"enfants_{today}.csv", "text/csv; charset=utf-8"
+        return content, t("children.export.filename_csv", date=today), "text/csv; charset=utf-8"
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="format invalide — 'xlsx' ou 'csv'",
+        detail=t("errors.children.bad_format"),
     )
 
 
 async def import_template(file_format: str) -> tuple[bytes, str, str]:
     """Modèle vierge + ligne d'exemple (et feuille 'Aide' en XLSX)."""
+    locale = current_locale()
     if file_format == "xlsx":
-        content = await asyncio.to_thread(render_children_xlsx, [], True)
-        return content, "modele_enfants.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content = await asyncio.to_thread(render_children_xlsx, [], True, locale)
+        return (content, t("children.template.filename"),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     if file_format == "csv":
         content = await asyncio.to_thread(render_template_csv)
-        return content, "modele_enfants.csv", "text/csv; charset=utf-8"
+        return content, t("children.template.filename_csv"), "text/csv; charset=utf-8"
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail="format invalide — 'xlsx' ou 'csv'",
+        detail=t("errors.children.bad_format"),
     )
 
 
@@ -338,7 +345,7 @@ async def _import_one_row(
             row, sections_by_name
         )
     except children_io.RowError as exc:
-        return ChildImportRowResult(ligne=ligne, statut="rejeté", erreur=str(exc))
+        return ChildImportRowResult(ligne=ligne, statut="rejected", erreur=str(exc))
 
     try:
         matricule = row.get("matricule", "").strip()
@@ -346,13 +353,13 @@ async def _import_one_row(
             child_id = existing.get(matricule)
             if child_id is None:
                 return ChildImportRowResult(
-                    ligne=ligne, matricule=matricule, statut="rejeté",
+                    ligne=ligne, matricule=matricule, statut="rejected",
                     erreur="matricule inconnu dans cet établissement",
                 )
             await _apply_import_update(child_id, fields, is_active, establishment_id, db)
             await db.commit()
             return ChildImportRowResult(
-                ligne=ligne, matricule=matricule, statut="mis à jour",
+                ligne=ligne, matricule=matricule, statut="updated",
                 avertissements=warnings,
             )
         child = await _apply_import_create(fields, establishment_id, db)
@@ -362,7 +369,7 @@ async def _import_one_row(
         await db.refresh(child)
         existing[child.matricule] = child.id
         return ChildImportRowResult(
-            ligne=ligne, matricule=child.matricule, statut="créé",
+            ligne=ligne, matricule=child.matricule, statut="created",
             avertissements=warnings,
         )
     except (ValidationError, children_io.RowError) as exc:
@@ -371,13 +378,13 @@ async def _import_one_row(
         await db.rollback()
         return ChildImportRowResult(
             ligne=ligne, matricule=row.get("matricule") or None,
-            statut="rejeté", erreur=message,
+            statut="rejected", erreur=message,
         )
     except HTTPException as exc:
         await db.rollback()
         return ChildImportRowResult(
             ligne=ligne, matricule=row.get("matricule") or None,
-            statut="rejeté", erreur=exc.detail,
+            statut="rejected", erreur=exc.detail,
         )
 
 
@@ -406,14 +413,14 @@ async def _apply_import_update(
     if payload_data.get("birth_date") and payload_data["birth_date"] > date.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de naissance ne peut pas être dans le futur",
+            detail=t("errors.children.birth_future"),
         )
     if payload_data.get("admission_date"):
         birth = payload_data.get("birth_date", current.birth_date)
         if payload_data["admission_date"] < birth:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="La date d'admission ne peut pas précéder la date de naissance",
+                detail=t("errors.children.admission_before_birth"),
             )
     payload = ChildUpdateRequest(**payload_data)
     await update_child(child_id, payload, establishment_id, db)
@@ -498,37 +505,33 @@ async def _store_document(
     file: UploadFile,
     db: AsyncSession,
 ) -> ChildAttachmentResponse:
-    content_bytes = await file.read()
-    max_bytes = settings.children_max_attachment_mb * 1024 * 1024
-    if len(content_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.children_max_attachment_mb} Mo)",
-        )
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Fichier vide",
-        )
+    # ⚠️ Ce chemin était le plus strict des quatre : une LISTE BLANCHE de MIME
+    # exacts, sans même le sur-ensemble `image/*` des autres modules. Une photo
+    # d'iPhone était donc refusée MÊME correctement nommée `image/heic`, et un
+    # scan TIFF aussi — alors qu'un document d'inscription est très
+    # majoritairement une pièce d'identité photographiée au téléphone.
+    #
+    # `min_image_long_side` : un document doit rester LISIBLE. Ailleurs, une
+    # photo réduite reste utile ; ici, une pièce d'identité illisible ne se
+    # découvre qu'au moment où on en a besoin. Sous ce plancher, on refuse en
+    # expliquant plutôt que de stocker un document inexploitable.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.children_max_attachment_mb,
+        max_video_mb=settings.children_max_attachment_mb,
+        allow_video=False,
+        allow_pdf=True,
+        min_image_long_side=1600,
+    )
 
-    content_type = file.content_type or ""
-    if content_type not in settings.children_allowed_attachment_types_set:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Autorisés : {', '.join(sorted(settings.children_allowed_attachment_types_set))}"
-            ),
-        )
-
-    filename = file.filename or "document"
-    storage_key = await storage.save_file("children", filename, content_bytes)
+    storage_key = await storage.save_file("children", accepted.filename, accepted.content)
     attachment = ChildAttachment(
         child_id=child_id,
         uploaded_by_id=current_user.id,
-        filename=filename,
-        content_type=content_type,
-        size_bytes=len(content_bytes),
+        filename=accepted.filename,
+        content_type=accepted.content_type,
+        size_bytes=len(accepted.content),
         storage_key=storage_key,
     )
     db.add(attachment)
@@ -553,7 +556,7 @@ async def _get_document_or_404(
     if not attachment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document introuvable",
+            detail=t("errors.children.document_not_found"),
         )
     return attachment
 
@@ -623,6 +626,122 @@ async def _get_or_404(
     if not child:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Enfant introuvable",
+            detail=t("errors.common.child_not_found"),
         )
     return child
+
+
+# ── Photo de profil ────────────────────────────────────────────
+
+
+async def _child_for_photo(
+    child_id: uuid.UUID, user: User, db: AsyncSession, *, writing: bool
+) -> Child:
+    """La fiche, si cet utilisateur a le droit de toucher à sa photo.
+
+    ⚠️ Trois acteurs peuvent la DÉPOSER, sur décision explicite : l'admin de
+    l'établissement, un parent de l'enfant depuis son compte, et l'éducatrice
+    qui mène son groupe. C'est volontairement plus large que `children:write`
+    (qui exclut les parents) et plus étroit (un staff porteur du droit mais
+    étranger au groupe n'a rien à faire sur la photo d'un enfant qu'il
+    n'encadre pas).
+
+    ⚠️ La LECTURE est plus large que l'écriture, et ce n'est pas un oubli : un
+    staff qui a déjà `children:read` voit le nom, la date de naissance et les
+    notes médicales de l'enfant. Lui cacher la photo n'ajouterait aucune
+    protection, et rendrait le trombinoscope d'une section inutilisable pour
+    quiconque ne mène pas tous ses groupes.
+
+    Le superadmin reste exclu — il gère le SaaS, pas les enfants (minimisation
+    RGPD, comme partout ailleurs).
+    """
+    child = await db.scalar(
+        select(Child).where(
+            Child.id == child_id,
+            # Hors établissement → 404, jamais 403 : on ne révèle pas
+            # l'existence d'une fiche.
+            Child.establishment_id == user.establishment_id,
+        )
+    )
+    if not child:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=t("errors.children.not_found"),
+        )
+
+    if user.role == UserRole.ADMIN:
+        return child
+
+    if user.role == UserRole.PARENT:
+        if any(parent.id == user.id for parent in child.parents):
+            return child
+    elif user.role == UserRole.STAFF:
+        if child.group_id is not None:
+            group = await db.get(Group, child.group_id)
+            if group and group.educatrice_id == user.id:
+                return child
+        if not writing and str(PermissionCode.CHILDREN_READ) in user_permission_codes(user):
+            return child
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=t("errors.children.photo_forbidden"),
+    )
+
+
+async def set_child_photo(
+    child_id: uuid.UUID, user: User, file: UploadFile, db: AsyncSession
+) -> Child:
+    """Remplace la photo de profil (l'ancienne est supprimée du stockage)."""
+    child = await _child_for_photo(child_id, user, db, writing=True)
+
+    # Même porte que tous les téléversements : le type est lu dans les OCTETS,
+    # une image trop lourde est recompressée, un HEIC d'iPhone est converti.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.children_max_attachment_mb,
+        max_video_mb=settings.children_max_attachment_mb,
+        allow_video=False,
+        allow_pdf=False,
+        images_only=True,
+    )
+
+    ancienne = child.photo_storage_key
+    child.photo_storage_key = await storage.save_file(
+        "children/photos", accepted.filename, accepted.content
+    )
+    child.photo_filename = accepted.filename
+    child.photo_content_type = accepted.content_type
+    child.photo_size_bytes = len(accepted.content)
+    await db.flush()
+    # Après le flush : si l'écriture échoue, l'ancienne photo est toujours là.
+    if ancienne:
+        await storage.delete_file(ancienne)
+    return child
+
+
+async def get_child_photo(
+    child_id: uuid.UUID, user: User, db: AsyncSession
+) -> tuple[Child, Path]:
+    child = await _child_for_photo(child_id, user, db, writing=False)
+    if not child.photo_storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=t("errors.children.photo_not_found"),
+        )
+    return child, storage.resolve_path(child.photo_storage_key)
+
+
+async def delete_child_photo(
+    child_id: uuid.UUID, user: User, db: AsyncSession
+) -> None:
+    child = await _child_for_photo(child_id, user, db, writing=True)
+    if not child.photo_storage_key:
+        return  # idempotent : retirer une photo absente n'est pas une erreur
+    await storage.delete_file(child.photo_storage_key)
+    child.photo_storage_key = None
+    child.photo_filename = None
+    child.photo_content_type = None
+    child.photo_size_bytes = None
+    await db.flush()

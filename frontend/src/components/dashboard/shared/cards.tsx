@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -8,10 +9,21 @@ import type { ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils/cn'
+import { useRouter } from '@/i18n/navigation'
 
-/** Pastille Actif/Inactif (M8). */
+/**
+ * Pastille Actif/Inactif (M8).
+ *
+ * ⚠️ Les libellés étaient des VALEURS PAR DÉFAUT de paramètres
+ * (`activeLabel = 'Actif'`), et douze des treize appels ne passaient rien :
+ * tout l'espace admin affichait « Actif » au milieu de l'interface anglaise.
+ * Aucune des quatre gardes ne pouvait le voir — ce n'est ni du texte JSX, ni un
+ * message Zod, ni une clé manquante. Le composant traduit donc lui-même ; les
+ * props ne restent que pour un libellé plus précis que « actif » (cf. la
+ * bibliothèque, qui dit « disponible »).
+ */
 export function StatusPill({
-  active, activeLabel = 'Actif', inactiveLabel = 'Inactif', shrink = false,
+  active, activeLabel, inactiveLabel, shrink = false,
 }: {
   active: boolean
   activeLabel?: string
@@ -19,6 +31,7 @@ export function StatusPill({
   /** Version carte : anti-écrasement flex. */
   shrink?: boolean
 }) {
+  const tCommon = useTranslations('common')
   return (
     <span
       className={cn(
@@ -27,7 +40,7 @@ export function StatusPill({
         active ? 'bg-pale-green text-white' : 'bg-muted text-muted-foreground',
       )}
     >
-      {active ? activeLabel : inactiveLabel}
+      {active ? (activeLabel ?? tCommon('states.active')) : (inactiveLabel ?? tCommon('states.inactive'))}
     </span>
   )
 }

@@ -1,0 +1,517 @@
+{
+  "brand": {
+    "baseline": "Where little minds awaken",
+    "address": "Rue le Sauveur, fourth turning on the right, opposite the 3rd district police station, Djidjolé, Lomé — Togo",
+    "hours": {
+      "weekdays": "Monday — Friday",
+      "saturday": "Saturday (outdoor play area)",
+      "sunday": "Sunday (outdoor play area)"
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "sections": "Our Sections",
+    "gallery": "Gallery",
+    "news": "News",
+    "contact": "Contact",
+    "parentArea": "Parent Area",
+    "whatsapp": "Chat on WhatsApp",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "footer": {
+    "intro": "Since {year}, we have been helping children from 3 months to 6 years flourish, day after day. A safe, caring and stimulating place to grow up with confidence.",
+    "navigation": "Navigation",
+    "contact": "Contact",
+    "rights": "© {year} {name}. All rights reserved.",
+    "legal": "Legal notice",
+    "privacy": "Privacy policy"
+  },
+  "stats": {
+    "children": "Children in our care",
+    "professionals": "Qualified professionals",
+    "sections": "Sections, from 3 months to 6 years",
+    "satisfaction": "Happy parents"
+  },
+  "whyUs": {
+    "children": "Children entrusted to us by their families",
+    "professionals": "Dedicated, fully trained professionals",
+    "playground": "A spacious, well-equipped play area",
+    "safety": "A fully secure environment"
+  },
+  "sections": {
+    "creche_etoile": {
+      "title": "Nursery — Étoile Section",
+      "shortTitle": "Étoile",
+      "ageRange": "3 – 18 months",
+      "capacity": "10 children",
+      "ratio": "1 adult for every 5 babies",
+      "description": "A gentle, cosy start for the very first months of discovery.",
+      "activities": [
+        "Sensory play and gentle movement",
+        "Exploring textures and sounds",
+        "First steps in music, and time to unwind",
+        "Hands-on play and free exploration",
+        "An introduction to baby sign language"
+      ],
+      "schedule": {
+        "morning": "Individual welcome, care time, bottle feeds and sensory activities",
+        "midday": "Age-appropriate meal, quiet time and a long nap",
+        "afternoon": "A gentle wake-up, time outdoors and an afternoon snack"
+      }
+    },
+    "creche_nuage": {
+      "title": "Nursery — Nuage Section",
+      "shortTitle": "Nuage",
+      "ageRange": "18 – 24 months",
+      "capacity": "14 children",
+      "ratio": "1 adult for every 7 children",
+      "description": "The age of first adventures and budding independence.",
+      "activities": [
+        "Free movement and discovery trails",
+        "First artistic steps: painting, collage, modelling",
+        "Songs, nursery rhymes and hands-on play",
+        "Building blocks and imaginative play",
+        "Watching and exploring outdoors"
+      ],
+      "schedule": {
+        "morning": "Warm welcome, physical activity, morning circle, snack, discovery and movement",
+        "midday": "Meal together, nap-time routine",
+        "afternoon": "Crafts, outdoor activities, free play, stories and rhymes"
+      }
+    },
+    "creche_soleil": {
+      "title": "Nursery — Soleil Section",
+      "shortTitle": "Soleil",
+      "ageRange": "24 – 36 months",
+      "capacity": "14 children",
+      "ratio": "1 adult for every 7 children",
+      "description": "A gentle, joyful run-up to preschool.",
+      "activities": [
+        "Pre-writing skills and first encounters with the written word",
+        "Simple science experiments and playful observation",
+        "Drama, movement and role play",
+        "Creative and sensory workshops",
+        "Outdoor discoveries and short educational outings"
+      ],
+      "schedule": {
+        "morning": "Warm welcome, physical activity, morning circle, discovery and movement workshops",
+        "midday": "Meal with growing independence, nap-time routine",
+        "afternoon": "Creative workshops, outdoor activities, reading, rhymes and free exploration"
+      }
+    },
+    "garderie": {
+      "title": "After-school Care",
+      "shortTitle": "After-school",
+      "ageRange": "3 – 6 years",
+      "capacity": "10 children",
+      "ratio": "1 adult for every 10 children",
+      "description": "A place to flourish and be supported once the school day is done.",
+      "activities": [
+        "One-to-one homework support",
+        "Creative and hands-on workshops",
+        "Sport and group games",
+        "Cultural and playful discoveries",
+        "Group projects that build teamwork and independence"
+      ],
+      "schedule": {
+        "midday": "Lunch in the canteen, quiet time",
+        "afternoon": "Homework support, themed activities, snack and outdoor play"
+      }
+    },
+    "maternelle_ps": {
+      "title": "Preschool — Petite Section",
+      "shortTitle": "Petite Section",
+      "ageRange": "3 – 4 years",
+      "capacity": "20 children",
+      "ratio": "1 adult for every 10 children",
+      "description": "Petite Section is where school life begins: children discover the joy of learning through play, movement and conversation.",
+      "activities": [
+        "Language: speaking aloud, first rhymes, greetings, colours and objects",
+        "Fine and gross motor skills, balance games and movement trails",
+        "Arts: drawing, painting, modelling and music",
+        "First mathematical games: sorting, grouping, shapes and colours",
+        "Exploring the world: nature, animals, the seasons and the five senses",
+        "English"
+      ],
+      "schedule": {
+        "morning": "Individual welcome, free play, daily rituals, guided workshops and songs",
+        "midday": "Meal on their own, followed by a nap",
+        "afternoon": "Creative workshops, exploration and outdoor play"
+      }
+    },
+    "maternelle_ms": {
+      "title": "Preschool — Moyenne Section",
+      "shortTitle": "Moyenne Section",
+      "ageRange": "4 – 5 years",
+      "capacity": "16 children",
+      "ratio": "1 adult for every 8 children",
+      "description": "Learning takes root: children refine their language and movement, and begin to organise their thinking.",
+      "activities": [
+        "Language: vocabulary, full sentences, phonics and daily spoken English",
+        "Coordination, team games, balance and dance",
+        "Arts and expression: painting, crafts, movement and singing",
+        "Finding their bearings in time and space; sorting, comparing and numbers",
+        "Small sensory experiments, discovering plants and animals",
+        "English"
+      ],
+      "schedule": {
+        "morning": "Individual welcome, free play, daily rituals, guided workshops and songs",
+        "midday": "Meal on their own, nap or quiet time",
+        "afternoon": "Science workshops, art activities and outdoor exploration"
+      }
+    },
+    "maternelle_gs": {
+      "title": "Preschool — Grande Section",
+      "shortTitle": "Grande Section",
+      "ageRange": "5 – 6 years",
+      "capacity": "16 children",
+      "ratio": "1 adult for every 8 children",
+      "description": "Grande Section gently prepares the move to primary school: curiosity, care, self-confidence and a real appetite for learning.",
+      "activities": [
+        "Phonological awareness, letter recognition and first steps in reading",
+        "Sport, dance, fine motor skills and independence",
+        "Observational drawing, group creations, drama and music",
+        "Comparing, sequencing, counting to 20 and first sums",
+        "Structured English through games, songs and everyday life"
+      ],
+      "schedule": {
+        "morning": "Individual welcome, daily rituals, guided workshops and language work",
+        "midday": "Meal on their own, quiet time",
+        "afternoon": "Reading workshops, group projects and outdoor play"
+      }
+    }
+  },
+  "explorer": {
+    "filters": {
+      "all": "All sections",
+      "creche": "Nursery",
+      "garderie": "After-school",
+      "maternelle": "Preschool"
+    },
+    "schedule": {
+      "morning": "Morning",
+      "midday": "Midday",
+      "afternoon": "Afternoon"
+    },
+    "openDetail": "See details: {title}",
+    "activityCount": "{count, plural, one {# activity} other {# activities}}",
+    "close": "Close",
+    "age": "Age",
+    "capacity": "Capacity",
+    "ratio": "Staffing",
+    "activitiesHeading": "What we do",
+    "dayHeading": "A typical day"
+  },
+  "differences": {
+    "bilingue": {
+      "title": "A bilingual French / English programme",
+      "description": "An opening onto the world from the earliest age, through a natural grounding in both languages."
+    },
+    "montessori": {
+      "title": "Montessori teaching",
+      "description": "An approach that nurtures independence, curiosity and learning through experience."
+    },
+    "soins-personnalises": {
+      "title": "Personalised care",
+      "description": "Every child receives attention shaped around their own needs and their own pace of development."
+    },
+    "environnement-securise": {
+      "title": "A secure environment",
+      "description": "Our premises are designed around children's safety, with fully trained staff throughout."
+    },
+    "educatrices-formees": {
+      "title": "Fully trained educators",
+      "description": "A qualified, passionate team in continuous training, devoted to the wellbeing and progress of every child."
+    },
+    "routines-structurees": {
+      "title": "Structured routines",
+      "description": "Days balanced between learning, play and rest, for development that unfolds at the right pace."
+    },
+    "activites-extrascolaires": {
+      "title": "Enriching extracurricular activities",
+      "description": "Swimming, karate, fencing and Afro-contemporary dance, building coordination, confidence and discipline."
+    },
+    "espace-de-jeux": {
+      "title": "A spacious, well-equipped play area",
+      "description": "A safe, stimulating place where children learn by exploring and having fun."
+    }
+  },
+  "joinSteps": {
+    "visite": {
+      "title": "A visit (30 min)",
+      "description": "Look around. Ask your questions. Set your mind at rest."
+    },
+    "fiche-inscription": {
+      "title": "Registration form",
+      "description": "The essentials, plus whatever your child needs."
+    },
+    "demarrage-confirme": {
+      "title": "All confirmed",
+      "description": "Welcome to Les Petits Rayons de Soleil!"
+    }
+  },
+  "partners": {
+    "pediatre": {
+      "name": "Paediatrician",
+      "role": "On hand whenever needed for children's health and general wellbeing."
+    },
+    "psychologue": {
+      "name": "Educational psychologist",
+      "role": "Supports emotional and social development."
+    },
+    "psychomotricienne": {
+      "name": "Psychomotor therapist",
+      "role": "Observes and supports movement and physical coordination."
+    },
+    "orthophoniste": {
+      "name": "Speech and language therapist",
+      "role": "Keeps a close eye on language and communication development."
+    },
+    "maitre-nageur": {
+      "name": "Swimming instructor",
+      "role": "Introduces children to swimming in complete safety."
+    },
+    "professeur-musique": {
+      "name": "Music teacher",
+      "role": "Builds musical sensitivity and creativity."
+    },
+    "professeur-karate": {
+      "name": "Karate teacher",
+      "role": "Teaches discipline, confidence and coordination."
+    },
+    "professeure-danse": {
+      "name": "Dance teacher",
+      "role": "Encourages physical expression and a sense of rhythm."
+    },
+    "maitre-armes": {
+      "name": "Fencing master",
+      "role": "Sharpens concentration, reflexes and sporting spirit."
+    }
+  },
+  "home": {
+    "meta": {
+      "title": "{name} — Nursery, After-school Care & Preschool in Lomé",
+      "description": "A modern, caring nursery, after-school club and preschool in Lomé, Togo. A safe, joyful and stimulating place where every child explores and shines."
+    },
+    "hero": {
+      "eyebrow": "Nursery · After-school · Preschool",
+      "titleLine1": "Where every child explores,",
+      "titleLine2": "and shines",
+      "lead": "Your child deserves the best possible start: a caring, secure place to grow, learn, flourish and show everything they are capable of.",
+      "bookVisit": "Book a visit",
+      "discoverSections": "Explore our sections",
+      "imageAlt": "Happy children in the nursery playground"
+    },
+    "about": {
+      "eyebrow": "ABOUT US",
+      "title": "Why Les Petits Rayons de Soleil?",
+      "body": "A warm, secure setting, a team who love what they do, and a teaching approach built to support every child's discoveries, independence and growth — from nursery right through to Grande Section.",
+      "cta": "More about us",
+      "imageAlt": "An educator with a group of children"
+    },
+    "sections": {
+      "eyebrow": "OUR SECTIONS",
+      "title": "A path shaped for every age",
+      "body": "From nursery to Grande Section, each stage has its own pace, its own activities and its own dedicated team.",
+      "cardLabel": "Explore the {name} section — {age}",
+      "cta": "See all our sections"
+    },
+    "gallery": {
+      "eyebrow": "OUR GALLERY",
+      "title": "Life here, in pictures",
+      "body": "Workshops, games, meals together, peaceful naps — a glimpse of everyday life for our little sunbeams.",
+      "cta": "See the whole gallery",
+      "photoAlt": "Gallery photo"
+    },
+    "news": {
+      "title": "Our latest news",
+      "cta": "All our news",
+      "read": "Read"
+    }
+  },
+  "about": {
+    "meta": {
+      "title": "About — {name}",
+      "description": "Discover the story, the mission and the team behind Les Petits Rayons de Soleil, a nursery and preschool in Lomé."
+    },
+    "hero": {
+      "badge": "About",
+      "title": "Our story and our values",
+      "subtitle": "The story of Les Petits Rayons de Soleil, and the team who care for your children every day."
+    },
+    "history": {
+      "title": "Our story",
+      "imageAlt": "Children and educators in a caring environment",
+      "p1": "Les Petits Rayons de Soleil grew out of a love of early childhood and one simple wish: to give children a place where they could grow up in joy, safety and confidence.",
+      "p2": "Our school grows a little more each day, just like the smiles of the children who took their first steps here. Today, {name} has become known for the quality of its care, combining modern teaching, kindness and real educational commitment — while keeping the family spirit it started with.",
+      "p3": "Opening the preschool was the natural next step, so that we could stay alongside children throughout their development, right up to primary school.",
+      "p4": "Every day, our team puts its whole heart into building a place where children learn, explore and flourish — because here, growing up is a bright adventure."
+    },
+    "purpose": {
+      "title": "Our mission and our vision",
+      "missionTitle": "Our Mission",
+      "missionBody": "To give children a setting that feeds their curiosity and creativity, while building their ability to get along with others and explore the world. We walk beside each child on their own path, placing the emphasis on confidence, responsibility and personal discovery.",
+      "visionTitle": "Our Vision",
+      "visionBody": "To be a school where education reaches beyond academic learning, preparing children to become fulfilled, independent and open-minded people. An inspiring educational community, where parents and educators together build a richer future for every child."
+    },
+    "partners": {
+      "title": "Our partners",
+      "body": "For care that covers everything, {name} works alongside specialist professionals who see the children regularly and round out our teaching approach."
+    }
+  },
+  "contact": {
+    "meta": {
+      "title": "Contact — {name}",
+      "description": "A question, or thinking of enrolling? Get in touch with Les Petits Rayons de Soleil in Djidjolé, Lomé."
+    },
+    "hero": {
+      "badge": "Contact",
+      "title": "Get in touch",
+      "subtitle": "A question? Thinking of enrolling? Our team is here to help and to answer whatever you need to know."
+    },
+    "quick": {
+      "phone": "Phone",
+      "whatsapp": "WhatsApp",
+      "whatsappValue": "Message us directly",
+      "email": "Email",
+      "ariaLabel": "{label} — {value}"
+    },
+    "form": {
+      "title": "Send us a message",
+      "subtitle": "We normally reply within one to two working days."
+    },
+    "visit": {
+      "title": "Come and see us",
+      "cta": "View on the map"
+    },
+    "hours": {
+      "title": "Opening hours"
+    }
+  },
+  "legal": {
+    "meta": {
+      "title": "Legal notice — {name}"
+    },
+    "title": "Legal notice",
+    "publisherTitle": "Site publisher",
+    "publisherBody": "{name}, nursery, after-school care and preschool.",
+    "phoneLabel": "Phone",
+    "emailLabel": "Email",
+    "hostingTitle": "Hosting",
+    "hostingBody": "This site is hosted and operated as part of the {name} management platform.",
+    "ipTitle": "Intellectual property",
+    "ipBody": "All content on this site (text, images, logo) belongs to {name} unless stated otherwise, and may not be reproduced without prior permission."
+  },
+  "privacy": {
+    "meta": {
+      "title": "Privacy policy — {name}"
+    },
+    "title": "Privacy policy",
+    "dataTitle": "What we collect",
+    "dataBody": "The contact form on this site sends nothing to a server: it simply opens your own email program with a message ready to send to {email}. The public site itself stores no information at all.",
+    "parentTitle": "Parent Area",
+    "parentBody": "Enrolled families have their own secure area, governed by the terms provided at registration. The data handled there (reports, attendance, messages) is used strictly to follow your child's progress at the school.",
+    "contactTitle": "Contact",
+    "contactBody": "For any question about your personal data, write to us at {email} or call {phone}."
+  },
+  "contactForm": {
+    "ages": {
+      "placeholder": "Select (optional)",
+      "a": "3 – 18 months",
+      "b": "18 – 24 months",
+      "c": "24 – 36 months",
+      "d": "3 – 6 years",
+      "other": "Other"
+    },
+    "mail": {
+      "subject": "Enquiry — {name}",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "childAge": "Child's age"
+    },
+    "sent": {
+      "title": "Your email program has opened",
+      "body": "All that's left is to send the message. You can also write to us directly at",
+      "bodyEnd": "or reach us on WhatsApp.",
+      "again": "Send another message"
+    },
+    "fields": {
+      "name": "Full name *",
+      "namePlaceholder": "Your full name",
+      "email": "Email *",
+      "emailPlaceholder": "you@example.com",
+      "phone": "Phone",
+      "phonePlaceholder": "+228 00 00 00 00",
+      "childAge": "Child's age",
+      "message": "Message *",
+      "messagePlaceholder": "Tell us about enrolling your child, or ask us anything..."
+    },
+    "submit": "Send message"
+  },
+  "cta": {
+    "title": "Ready to begin the journey?",
+    "body": "Book a look around and meet the team. We'll answer any question you have.",
+    "visit": "Book a visit",
+    "whatsapp": "Chat on WhatsApp"
+  },
+  "newsPage": {
+    "meta": {
+      "title": "News — {name}",
+      "description": "Follow everyday life, events and teaching projects at Les Petits Rayons de Soleil."
+    },
+    "badge": "News",
+    "title": "All the latest from the school",
+    "subtitle": "Follow everyday life, events and teaching projects with our little sunbeams.",
+    "allCategories": "All news",
+    "searchPlaceholder": "Search...",
+    "empty": "No article matches your search.",
+    "featured": "Featured"
+  },
+  "galleryPage": {
+    "meta": {
+      "title": "Gallery — {name}",
+      "description": "Life here in pictures: workshops, outdoor play, mealtimes and celebrations at Les Petits Rayons de Soleil."
+    },
+    "badge": "Gallery",
+    "title": "Life here, in pictures",
+    "subtitle": "A glimpse of the happy everyday life of our little sunbeams, through our photos.",
+    "seeAll": "See all",
+    "uncategorised": "Uncategorised",
+    "emptyAll": "No photos published yet.",
+    "emptyCategory": "No photos in this category yet.",
+    "emptyHint": "Photos published by the school will appear here.",
+    "close": "Close",
+    "previous": "Previous image",
+    "next": "Next image"
+  },
+  "sectionsPage": {
+    "meta": {
+      "title": "Our Sections — {name}",
+      "description": "From nursery to Grande Section: discover our 7 age sections, what they do and what a typical day looks like."
+    },
+    "badge": "Our sections",
+    "title": "A path shaped for every age",
+    "subtitle": "From 3 months to 6 years, each section has its own pace, its own activities and a dedicated team to support your child."
+  },
+  "differencesSection": {
+    "eyebrow": "Why choose us",
+    "title": "What makes us different?",
+    "body": "Giving your child the best means letting them grow, discover and flourish in a caring, stimulating place designed from top to bottom around their development and their safety."
+  },
+  "joinSection": {
+    "eyebrow": "Join us",
+    "title": "Join us in 3 simple steps",
+    "body": "From the first visit to your child's first day: a simple enrolment process, with us beside you throughout.",
+    "step": "Step {n}",
+    "cta": "Book a visit"
+  },
+  "newsArticle": {
+    "fallbackNotice": "This article is not available in English yet — it is shown in French.",
+    "related": "Read next",
+    "allNews": "All news"
+  },
+  "step": "Step"
+}

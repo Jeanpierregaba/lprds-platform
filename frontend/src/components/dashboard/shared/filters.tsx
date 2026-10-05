@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 import { LayoutGrid, List, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -38,6 +40,8 @@ export type ViewMode = 'table' | 'cards'
  * reste compact dans les barres de filtres (le 44px strict casserait leur
  * hauteur d'alignement avec les selects h-9). */
 export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view: ViewMode) => void }) {
+  const tCommon = useTranslations('common')
+
   return (
     <div className="ml-auto flex items-center gap-1 rounded-md border border-border bg-accent p-0.5">
       <Button
@@ -45,7 +49,7 @@ export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view
         variant={view === 'table' ? 'default' : 'ghost'}
         size="icon-sm"
         className="h-10 w-10"
-        aria-label="Vue en liste"
+        aria-label={tCommon('views.list')}
         aria-pressed={view === 'table'}
         onClick={() => onChange('table')}
       >
@@ -56,7 +60,7 @@ export function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (view
         variant={view === 'cards' ? 'default' : 'ghost'}
         size="icon-sm"
         className="h-10 w-10"
-        aria-label="Vue en cartes"
+        aria-label={tCommon('views.cards')}
         aria-pressed={view === 'cards'}
         onClick={() => onChange('cards')}
       >

@@ -1,0 +1,139 @@
+{
+  "status": {
+    "connecting": "Connexion...",
+    "offline": "Hors ligne"
+  },
+  "tabs": {
+    "announcements": "Diffusions",
+    "conversations": "Conversations",
+    "conversation": "Conversation"
+  },
+  "announcements": {
+    "new": "Nouvelle diffusion",
+    "editTitle": "Modifier la diffusion",
+    "newTitle": "Nouvelle diffusion",
+    "includeInactive": "Inclure les diffusions désactivées",
+    "title": "Titre",
+    "content": "Contenu",
+    "recipients": "Destinataires",
+    "allParents": "Tous les parents de l’établissement",
+    "allParentsShort": "Tous les parents",
+    "noDepartment": "Aucun département dans l’établissement.",
+    "media": "Médias (facultatif, max {max})",
+    "save": "Enregistrer",
+    "publish": "Publier",
+    "needDepartment": "Cochez au moins un département, ou choisissez « Tous les parents ».",
+    "updated": "Diffusion mise à jour.",
+    "published": "Diffusion publiée.",
+    "mediaAdded": "{count} média(s) ajouté(s).",
+    "deactivated": "Diffusion désactivée.",
+    "reactivated": "Diffusion réactivée.",
+    "empty": "Aucune diffusion pour le moment.",
+    "inactive": "Inactive",
+    "department": "Département",
+    "edit": "Modifier",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver",
+    "deactivateTitle": "Désactiver cette diffusion ?",
+    "reactivateTitle": "Réactiver cette diffusion ?",
+    "deactivateBody": "Elle sera masquée à tous les parents (réversible).",
+    "reactivateBody": "Elle redeviendra visible par les parents concernés.",
+    "confirm": "Confirmer",
+    "mediaLimit": "Limite de {max} médias atteinte",
+    "attachFiles": "Joindre des fichiers",
+    "addMediaTitle": "Ajouter des médias",
+    "loadError": "Impossible de charger les diffusions.",
+    "loadErrorHint": "Vérifiez votre connexion puis réessayez.",
+    "readRatio": "{read}/{total} ont lu",
+    "newBadge": "Nouveau"
+  },
+  "conversations": {
+    "new": "Nouvelle",
+    "newTitle": "Nouvelle conversation",
+    "newHint": "Sélectionnez un parent pour démarrer une discussion privée.",
+    "firstMessage": "Premier message (facultatif)...",
+    "start": "Démarrer",
+    "cancel": "Annuler",
+    "retry": "Réessayer",
+    "back": "← Retour aux conversations",
+    "created": "Conversation créée.",
+    "empty": "Aucune conversation pour le moment.",
+    "noMessage": "Aucun message",
+    "selectOne": "Sélectionnez une conversation.",
+    "noMessageYet": "Aucun message pour l’instant.",
+    "replyPlaceholder": "Répondre au nom de l’administration...",
+    "attachAria": "Joindre des photos ou vidéos",
+    "attachTitle": "Joindre des photos ou vidéos (avec aperçu avant envoi)",
+    "loadMessagesError": "Impossible de charger les messages.",
+    "loadError": "Impossible de charger les conversations.",
+    "loadParentsError": "Impossible de charger les parents.",
+    "noActiveParent": "Aucun parent actif.",
+    "creating": "Création...",
+    "childCount": "{count, plural, one {# enfant} other {# enfants}}",
+    "listTitle": "Conversations"
+  },
+  "parentConversation": {
+    "placeholder": "Écrire à l’établissement..."
+  },
+  "bubble": {
+    "deleted": "Message supprimé",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "edited": "· modifié",
+    "editAria": "Modifier le message",
+    "editTitle": "Modifier (15 min)",
+    "deleteAria": "Supprimer le message",
+    "deleteTitle": "Supprimer",
+    "deleteConfirmTitle": "Supprimer ce message ?",
+    "deleteConfirmBody": "Le message sera remplacé par « Message supprimé » et ses pièces jointes seront définitivement effacées.",
+    "delete": "Supprimer",
+    "seen": "· Vu"
+  },
+  "media": {
+    "prev": "Média précédent",
+    "next": "Média suivant",
+    "removeAttachment": "Retirer cette pièce jointe",
+    "saveToGallery": "Enregistrer dans la galerie",
+    "download": "Télécharger",
+    "rejectedWithPdf": "Fichier(s) ignoré(s) — seules les photos, vidéos et PDF sont acceptés :",
+    "rejectedNoPdf": "Fichier(s) ignoré(s) — seules les photos et vidéos sont acceptées :",
+    "count": "{count}/{max} médias",
+    "slotsLeft": "{count, plural, one {Photos, vidéos ou PDF — # emplacement restant sur {max}.} other {Photos, vidéos ou PDF — # emplacements restants sur {max}.}}",
+    "viewerTitle": "Média {index} / {total}",
+    "loadingPreview": "Chargement de l’aperçu…",
+    "viewNamed": "Voir le média {name}",
+    "videoTooBig": "Vidéo(s) trop lourde(s) — max {max} Mo : {names}. Les photos sont allégées automatiquement, pas les vidéos.",
+    "tooMany": "Limite de {max} médias par envoi — {ignored} fichier(s) ignoré(s)."
+  },
+  "notifier": {
+    "school": "L’établissement",
+    "newAttachment": "Nouvelle pièce jointe",
+    "newMessage": "Nouveau message — {sender}"
+  },
+  "thread": {
+    "mediaFailed": "Message envoyé, mais les médias ont échoué — ajoutez-les via le trombone du message.",
+    "editWindowOver": "Délai d’édition dépassé — rechargez le fil.",
+    "newMessages": "{count, plural, one {# nouveau message} other {# nouveaux messages}}"
+  },
+  "parentPage": {
+    "title": "Messagerie",
+    "description": "Diffusions de l’établissement et conversation privée."
+  },
+  "adminPage": {
+    "title": "Messagerie",
+    "description": "Diffusions vers les parents et conversations privées."
+  },
+  "validation": {
+    "titleRequired": "Titre requis",
+    "bodyRequired": "Contenu requis"
+  },
+  "announcementScopeHint": "Rédigez le message en entier, puis cochez les départements concernés avant l'envoi.",
+  "departmentsLoadError": "Impossible de charger les départements — réessayez en rouvrant ce dialogue.",
+  "attachFiles": "Joindre des fichiers",
+  "send": "Envoyer",
+  "realtimeOn": "Temps réel actif",
+  "conversationEmpty": "Aucun message pour l'instant. Écrivez à l'établissement ci-dessous.",
+  "enterToSend": "Touche Entrée pour envoyer.",
+  "carouselHint": "Carrousel des médias de la diffusion — flèches ou clavier pour naviguer, Échap pour fermer.",
+  "previewUnavailable": "Aperçu indisponible"
+}

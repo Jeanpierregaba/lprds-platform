@@ -3,6 +3,7 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.i18n import t
 from app.modules.reports.models import (
     AcquisitionLevel,
     BehaviorTag,
@@ -91,9 +92,9 @@ class DailyReportContent(BaseModel):
     @model_validator(mode="after")
     def _check_nap(self) -> "DailyReportContent":
         if self.nap and self.nap_duration_minutes is None:
-            raise ValueError("La durée de la sieste est requise si sieste = oui")
+            raise ValueError(t("validation.nap_duration_required"))
         if not self.nap and self.nap_duration_minutes is not None:
-            raise ValueError("Pas de durée de sieste à renseigner si sieste = non")
+            raise ValueError(t("validation.nap_duration_forbidden"))
         return self
 
     @model_validator(mode="after")
@@ -105,7 +106,7 @@ class DailyReportContent(BaseModel):
         # activité réelle exigée (un ["  "] ne doit pas passer la validation).
         cleaned = [a.strip() for a in self.activities if a.strip()]
         if not cleaned:
-            raise ValueError("Au moins une activité est requise")
+            raise ValueError(t("validation.activity_required"))
         self.activities = cleaned
         return self
 
@@ -180,9 +181,10 @@ class AnnualReportContent(BaseModel):
 
 
 class ReportVocabularyResponse(BaseModel):
-    """Libellés français des listes déroulantes / cases à cocher — pour que le
-    frontend construise le formulaire sans dupliquer ce vocabulaire. Construite
-    explicitement en service.py (pas de valeurs par défaut ici)."""
+    """Libellés des listes déroulantes / cases à cocher, dans la langue de
+    l'appelant — pour que le frontend construise le formulaire sans dupliquer
+    ce vocabulaire. Construite en service.py depuis les catalogues i18n (pas
+    de valeurs par défaut ici) ; les clés restent les codes stables."""
 
     health_status: dict[str, str]
     meal_amount:   dict[str, str]

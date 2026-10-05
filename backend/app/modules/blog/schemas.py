@@ -34,15 +34,22 @@ class AttachmentResponse(BaseModel):
 # ── Étiquettes ──────────────────────────────────────────────────
 class TagCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    # Nom anglais imposé par le rédacteur. Absent = traduction automatique.
+    # Fourni, il vaut CORRECTION : il est gravé dans la mémoire de traduction,
+    # donc restitué partout où le même libellé français réapparaîtra.
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class TagUpdateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class TagResponse(BaseModel):
     id:         uuid.UUID
     name:       str
+    # `None` = pas encore traduit ; le site vitrine affiche alors le français.
+    name_en:    str | None = None
     created_at: datetime
 
 
@@ -61,6 +68,17 @@ class ArticleUpdateRequest(BaseModel):
     title:   str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = Field(default=None, min_length=1)
     tag_id:  uuid.UUID | None = None
+
+
+class ArticleTranslationRequest(BaseModel):
+    """Correction manuelle de la version anglaise.
+
+    Écrire ici bascule `translation_status` en `manual` : à partir de là, la
+    machine ne réécrit plus rien, même si le texte français change ensuite.
+    """
+
+    title_en:   str = Field(min_length=1, max_length=200)
+    content_en: str = Field(min_length=1)
 
 
 class ArticleListItem(BaseModel):
@@ -87,14 +105,32 @@ class ArticleResponse(ArticleListItem):
     updated_by:        UserBrief | None
     attachments:        list[AttachmentResponse] = []
 
+    # Vue de GESTION : les deux langues côte à côte, plus l'état de la
+    # traduction — c'est l'écran où un rédacteur relit et corrige l'anglais.
+    # La vue publique, elle, ne sert qu'UNE langue (cf. PublicArticleDetail).
+    title_en:            str | None = None
+    content_en:          str | None = None
+    source_locale:       str = "fr"
+    translation_status:  str
+
 
 # ── Consultation publique (site vitrine, sans authentification) ──
 class PublicArticleListItem(BaseModel):
+    """Vue publique — `title` est déjà dans la langue demandée.
+
+    Le site vitrine ne reçoit jamais les deux versions : il afficherait
+    forcément l'une des deux, et envoyer l'autre doublerait la charge utile
+    d'une page indexée par les moteurs de recherche.
+    """
+
     id:           uuid.UUID
     title:        str
     tag:          TagBrief | None
     cover_url:    str | None
     published_at: datetime | None
+    # Langue réellement servie — peut différer de celle demandée quand la
+    # traduction manque (repli FR), ce que le frontend signale au visiteur.
+    locale:       str = "fr"
 
 
 class PublicArticleListResponse(BaseModel):
@@ -110,20 +146,25 @@ class PublicArticleDetail(BaseModel):
     cover_url:     str | None
     published_at:  datetime | None
     attachments:   list[AttachmentResponse] = []
+    locale:        str = "fr"
 
 
 # ── Galerie du site vitrine ──────────────────────────────────────
 class GalleryCategoryCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    # Cf. TagCreateRequest : fourni, il vaut correction et nourrit la mémoire.
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class GalleryCategoryUpdateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=50)
+    name_en: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class GalleryCategoryResponse(BaseModel):
     id:         uuid.UUID
     name:       str
+    name_en:    str | None = None
     created_at: datetime
 
 

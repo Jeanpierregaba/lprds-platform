@@ -13,6 +13,7 @@ consomment le quota.
 from fastapi import HTTPException, status
 
 from app.core.redis import redis_client
+from app.core.i18n import t
 
 
 async def check_and_increment(key: str, *, max_attempts: int, window_seconds: int) -> None:
@@ -27,7 +28,7 @@ async def check_and_increment(key: str, *, max_attempts: int, window_seconds: in
         ttl = await redis_client.ttl(key)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Trop de tentatives. Réessayez dans {max(ttl, 1)} secondes.",
+            detail=t("errors.auth.rate_limited", seconds=max(ttl, 1)),
         )
 
 

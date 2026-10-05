@@ -11,6 +11,7 @@ les déclarer ici.
 """
 
 from app.core.database import Base
+from app.core.translation_models import TranslationMemory
 from app.modules.attendance.models import (
     AttendanceEvent,
     AttendanceSettings,
@@ -50,6 +51,7 @@ from app.modules.blog.models import Article, ArticleAttachment, BlogGalleryCateg
 
 __all__ = [
     "Base",
+    "TranslationMemory",
     "User",
     "UserRole",
     "Establishment",

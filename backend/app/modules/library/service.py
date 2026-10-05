@@ -20,6 +20,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSession
+from app.core.i18n import Locale, coerce_locale, current_locale, t
+from app.core.translation import (
+    TranslationUnavailable,
+    remember_correction,
+    translate_texts,
+)
 from app.modules.auth.models import User, UserRole
 from app.modules.children.models import Child
 from app.modules.library import email as library_email
@@ -86,13 +92,79 @@ async def _open_lending_count(db: AsyncSession, book_id: uuid.UUID) -> int:
     return count or 0
 
 
-def _book_response(book: Book, open_counts: dict[uuid.UUID, int]) -> BookResponse:
+async def translate_description(text: str, db: AsyncSession) -> str | None:
+    """Version anglaise d'une description de livre — best-effort.
+
+    Un échec rend `None` : la lecture retombe sur le français, et surtout
+    ENREGISTRER un livre ne dépend pas d'un service de traduction. Même
+    politique que le blog et les menus.
+
+    Publique (et non préfixée d'un souligné) parce qu'elle a un second
+    appelant : la tâche de reprise `library/tasks.py`, qui rattrape aussi bien
+    un échec passager que les fiches antérieures à la colonne `description_en`.
+    """
+    try:
+        [translated] = await translate_texts([text], db)
+    except TranslationUnavailable as exc:
+        logger.info("Description de livre non traduite : %s", exc)
+        return None
+    return translated[:1000] if translated and translated.strip() else None
+
+
+async def _apply_description(
+    book: Book, description: str | None, description_en: str | None, db: AsyncSession
+) -> None:
+    """Pose la description française et sa version anglaise.
+
+    Une correction explicite (`description_en`) part en mémoire de traduction ;
+    sinon on ne retraduit que si le FRANÇAIS a changé, ou s'il n'y a encore
+    aucune version anglaise. C'est la règle des créneaux de menu : une
+    correction vaut tant que sa source ne bouge pas.
+    """
+    changed = book.description != description
+    book.description = description
+    if description is None:
+        book.description_en = None
+        return
+    # Vidé explicitement = « retire la correction et repasse à la machine »,
+    # même contrat que l'écran de relecture des menus. Sans cette normalisation,
+    # un formulaire qui poste toujours son champ graverait une chaîne vide dans
+    # la mémoire de traduction.
+    if description_en is not None and not description_en.strip():
+        description_en = None
+        book.description_en = None
+        changed = True
+    if description_en is not None:
+        book.description_en = description_en
+        await remember_correction(db, description, description_en)
+    elif changed or book.description_en is None:
+        book.description_en = await translate_description(description, db)
+
+
+def _book_response(
+    book: Book,
+    open_counts: dict[uuid.UUID, int],
+    *,
+    localized: bool = False,
+) -> BookResponse:
+    """`localized=True` sert les PORTAILS (parent, éducateur) : la description
+    part dans la langue du lecteur, avec repli français quand elle manque.
+
+    La vue de GESTION garde le français — c'est ce que l'admin a écrit et ce
+    que son formulaire réaffiche ; lui renvoyer l'anglais lui ferait écraser la
+    source au premier enregistrement (même piège que les diffusions).
+    """
+    description = book.description
+    if localized and current_locale() != Locale.FR:
+        description = book.description_en or book.description
+
     return BookResponse(
         id=book.id,
         establishment_id=book.establishment_id,
         title=book.title,
         author=book.author,
-        description=book.description,
+        description=description,
+        description_en=None if localized else book.description_en,
         total_quantity=book.total_quantity,
         available_quantity=max(book.total_quantity - open_counts.get(book.id, 0), 0),
         is_active=book.is_active,
@@ -112,7 +184,7 @@ async def _get_book_or_404(
     )
     if not book:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Livre introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.library.book_not_found")
         )
     return book
 
@@ -210,7 +282,7 @@ async def _resolve_sections(
     if len(sections) != len(deduped):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Certaines sections n'existent pas dans cet établissement",
+            detail=t("errors.library.unknown_sections"),
         )
     return sections
 
@@ -225,9 +297,14 @@ async def create_book(
         establishment_id=establishment_id,
         title=payload.title.strip(),
         author=payload.author.strip(),
-        description=payload.description.strip() if payload.description else None,
         total_quantity=payload.total_quantity,
         sections=sections,
+    )
+    await _apply_description(
+        book,
+        payload.description.strip() if payload.description else None,
+        payload.description_en,
+        db,
     )
     db.add(book)
     await db.flush()
@@ -287,8 +364,13 @@ async def update_book(
     if changes.get("author") is not None:
         book.author = changes["author"].strip()
     # "" efface la description ; None = inchangé
-    if "description" in changes:
-        book.description = changes["description"].strip() if changes["description"] else None
+    if "description" in changes or "description_en" in changes:
+        description = (
+            (changes["description"].strip() or None)
+            if changes.get("description")
+            else (None if "description" in changes else book.description)
+        )
+        await _apply_description(book, description, changes.get("description_en"), db)
     if changes.get("total_quantity") is not None:
         book.total_quantity = changes["total_quantity"]
     if "section_ids" in changes and changes["section_ids"] is not None:
@@ -316,13 +398,13 @@ async def deactivate_book(
     if not book.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce livre est déjà désactivé",
+            detail=t("errors.library.already_deactivated"),
         )
     open_count = await _open_lending_count(db, book.id)
     if open_count > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Impossible de désactiver un livre dont des prêts sont en cours",
+            detail=t("errors.library.active_lendings"),
         )
     book.is_active = False
     await db.flush()
@@ -341,7 +423,7 @@ async def create_lending(
     if not book.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce livre est désactivé : impossible d'enregistrer un prêt",
+            detail=t("errors.library.book_deactivated"),
         )
 
     child = await db.scalar(
@@ -352,7 +434,7 @@ async def create_lending(
     )
     if not child:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found")
         )
 
     today = date.today()
@@ -360,7 +442,7 @@ async def create_lending(
     if borrowed_at > today:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de prêt ne peut pas être dans le futur",
+            detail=t("errors.library.borrow_date_future"),
         )
 
     settings = await get_or_create_library_settings(establishment_id, db)
@@ -371,14 +453,14 @@ async def create_lending(
     if due_date < borrowed_at:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de retour est antérieure à la date de prêt",
+            detail=t("errors.library.due_before_borrow"),
         )
 
     open_count = await _open_lending_count(db, book.id)
     if open_count >= book.total_quantity:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Aucun exemplaire disponible pour ce livre",
+            detail=t("errors.library.no_copy_available"),
         )
 
     lending = BookLending(
@@ -454,12 +536,12 @@ async def return_lending(
     )
     if not lending:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Prêt introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.library.lending_not_found")
         )
     if lending.returned_at is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ce prêt a déjà été retourné",
+            detail=t("errors.library.already_returned"),
         )
     lending.returned_at = date.today()
     await db.flush()
@@ -471,11 +553,13 @@ async def return_lending(
 async def _notify_parent(db: AsyncSession, parent: User, items: list[dict]) -> None:
     """Rappel au parent : email best-effort + message injecté dans sa conversation
     admin↔parent (via le chemin admin — la messagerie est hors-RBAC)."""
+    locale = coerce_locale(parent.locale)
     try:
         await library_email.send_due_reminder_email(
             to=parent.email,
             parent_first_name=parent.first_name,
             items=items,
+            locale=locale,
         )
     except Exception:  # noqa: BLE001 — best-effort (cf. docstring du module)
         logger.exception(
@@ -494,19 +578,29 @@ async def _notify_parent(db: AsyncSession, parent: User, items: list[dict]) -> N
         )
 
         conversation = await get_or_create_own_conversation(parent, db)
-        lines = [
-            "Rappel de la bibliothèque : des livres empruntés doivent être rendus."
-        ]
+        lines = [t("conversations.library_reminder.intro", locale)]
         for item in items:
             overdue_part = ""
             if item["status"] == "overdue":
-                overdue_part = (
-                    f" (retard : {item['overdue_days']} "
-                    f"jour{'s' if item['overdue_days'] > 1 else ''})"
+                days = item["overdue_days"]
+                # Accord porté par deux clés distinctes plutôt que par un
+                # « s » ajouté en Python : la règle de pluriel appartient à
+                # la langue, pas au code appelant.
+                suffix = "one" if days <= 1 else "many"
+                overdue_part = t(
+                    f"conversations.library_reminder.overdue_{suffix}",
+                    locale,
+                    days=days,
                 )
             lines.append(
-                f"• {item['book_title']} — {item['child_name']} — retour prévu "
-                f"le {item['due_date']}{overdue_part}"
+                t(
+                    "conversations.library_reminder.line",
+                    locale,
+                    book=item["book_title"],
+                    child=item["child_name"],
+                    due_date=item["due_date"],
+                    overdue=overdue_part,
+                )
             )
         await send_message(
             conversation=conversation, sender=admin, body="\n".join(lines), db=db
@@ -609,7 +703,7 @@ async def list_parent_books(
     )
     books = list(result.scalars().all())
     open_counts = await _open_lending_counts(db, [b.id for b in books])
-    items = [_book_response(b, open_counts) for b in books]
+    items = [_book_response(b, open_counts, localized=True) for b in books]
     return BookListResponse(total=total or 0, items=items)
 
 
@@ -675,5 +769,5 @@ async def list_educator_books(
     )
     books = list(result.scalars().all())
     open_counts = await _open_lending_counts(db, [b.id for b in books])
-    items = [_book_response(b, open_counts) for b in books]
+    items = [_book_response(b, open_counts, localized=True) for b in books]
     return BookListResponse(total=total or 0, items=items)

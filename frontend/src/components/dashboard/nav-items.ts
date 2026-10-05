@@ -4,7 +4,9 @@ import type { UserRole } from '@/types/auth'
 import type { PermissionCode } from '@/types/rbac'
 
 export interface NavItem {
-  label: string
+  /** Clé du catalogue `nav.*` — jamais un libellé en dur : ces entrées
+   *  traversent le rendu serveur, où aucun traducteur n'est disponible. */
+  labelKey: string
   href:  string
   icon:  LucideIcon
 }
@@ -12,43 +14,43 @@ export interface NavItem {
 // Extraits en constantes (plutôt qu'indexés depuis NAV_ITEMS.staff) : la
 // sidebar staff doit pouvoir les entourer des modules composés dynamiquement
 // sans passer par un accès par index sur tableau (noUncheckedIndexedAccess).
-export const STAFF_DASHBOARD_ITEM: NavItem = { label: 'Tableau de bord', href: '/dashboard/staff', icon: LayoutDashboard }
-export const STAFF_SETTINGS_ITEM: NavItem = { label: 'Paramètres', href: '/dashboard/staff/settings', icon: Settings }
+export const STAFF_DASHBOARD_ITEM: NavItem = { labelKey: 'dashboard', href: '/dashboard/staff', icon: LayoutDashboard }
+export const STAFF_SETTINGS_ITEM: NavItem = { labelKey: 'settings', href: '/dashboard/staff/settings', icon: Settings }
 
 export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   superadmin: [
-    { label: 'Tableau de bord', href: '/dashboard/super', icon: LayoutDashboard },
-    { label: 'Établissements', href: '/dashboard/super/establishments', icon: Building2 },
-    { label: 'Paramètres', href: '/dashboard/super/settings', icon: Settings },
+    { labelKey: 'dashboard', href: '/dashboard/super', icon: LayoutDashboard },
+    { labelKey: 'establishments', href: '/dashboard/super/establishments', icon: Building2 },
+    { labelKey: 'settings', href: '/dashboard/super/settings', icon: Settings },
   ],
   admin: [
-    { label: 'Tableau de bord', href: '/dashboard/admin', icon: LayoutDashboard },
-    { label: 'Enfants', href: '/dashboard/admin/children', icon: Baby },
-    { label: 'Parents', href: '/dashboard/admin/parents', icon: Users },
-    { label: 'Personnel', href: '/dashboard/admin/staff', icon: UserRound },
-    { label: 'Présences', href: '/dashboard/admin/attendance', icon: ClipboardCheck },
-    { label: 'Messagerie', href: '/dashboard/admin/messaging', icon: MessageCircle },
-    { label: 'Rapports', href: '/dashboard/admin/reports', icon: FileText },
-    { label: 'Menus', href: '/dashboard/admin/menus', icon: UtensilsCrossed },
-    { label: 'Bibliothèque', href: '/dashboard/admin/library', icon: BookOpen },
-    { label: 'Galerie', href: '/dashboard/admin/gallery', icon: Images },
-    { label: 'Blog', href: '/dashboard/admin/blog', icon: Newspaper },
-    { label: 'Organisation', href: '/dashboard/admin/organization', icon: Network },
-    { label: 'Rôles & permissions', href: '/dashboard/admin/roles', icon: ShieldCheck },
-    { label: 'Paramètres', href: '/dashboard/admin/settings', icon: Settings },
+    { labelKey: 'dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+    { labelKey: 'children', href: '/dashboard/admin/children', icon: Baby },
+    { labelKey: 'parents', href: '/dashboard/admin/parents', icon: Users },
+    { labelKey: 'staff', href: '/dashboard/admin/staff', icon: UserRound },
+    { labelKey: 'attendance', href: '/dashboard/admin/attendance', icon: ClipboardCheck },
+    { labelKey: 'messaging', href: '/dashboard/admin/messaging', icon: MessageCircle },
+    { labelKey: 'reports', href: '/dashboard/admin/reports', icon: FileText },
+    { labelKey: 'menus', href: '/dashboard/admin/menus', icon: UtensilsCrossed },
+    { labelKey: 'library', href: '/dashboard/admin/library', icon: BookOpen },
+    { labelKey: 'gallery', href: '/dashboard/admin/gallery', icon: Images },
+    { labelKey: 'blog', href: '/dashboard/admin/blog', icon: Newspaper },
+    { labelKey: 'organization', href: '/dashboard/admin/organization', icon: Network },
+    { labelKey: 'roles', href: '/dashboard/admin/roles', icon: ShieldCheck },
+    { labelKey: 'settings', href: '/dashboard/admin/settings', icon: Settings },
   ],
   // Statique et volontairement minimal — la sidebar staff est composée
   // dynamiquement (cf. STAFF_MODULE_ITEMS) selon les permissions RBAC
   // effectives du membre connecté, récupérées via GET /rbac/me.
   staff: [STAFF_DASHBOARD_ITEM, STAFF_SETTINGS_ITEM],
   parent: [
-    { label: 'Tableau de bord', href: '/dashboard/parent', icon: LayoutDashboard },
-    { label: 'Rapports', href: '/dashboard/parent/reports', icon: FileText },
-    { label: 'Messagerie', href: '/dashboard/parent/messaging', icon: MessageCircle },
-    { label: 'Galerie', href: '/dashboard/parent/gallery', icon: Images },
-    { label: 'Menus', href: '/dashboard/parent/menus', icon: UtensilsCrossed },
-    { label: 'Bibliothèque', href: '/dashboard/parent/library', icon: BookOpen },
-    { label: 'Paramètres', href: '/dashboard/parent/settings', icon: Settings },
+    { labelKey: 'dashboard', href: '/dashboard/parent', icon: LayoutDashboard },
+    { labelKey: 'reports', href: '/dashboard/parent/reports', icon: FileText },
+    { labelKey: 'messaging', href: '/dashboard/parent/messaging', icon: MessageCircle },
+    { labelKey: 'gallery', href: '/dashboard/parent/gallery', icon: Images },
+    { labelKey: 'menus', href: '/dashboard/parent/menus', icon: UtensilsCrossed },
+    { labelKey: 'library', href: '/dashboard/parent/library', icon: BookOpen },
+    { labelKey: 'settings', href: '/dashboard/parent/settings', icon: Settings },
   ],
 }
 
@@ -61,10 +63,10 @@ export const NAV_ITEMS: Record<UserRole, NavItem[]> = {
  * portent sur TOUT l'établissement et restent au choix de l'admin.
  */
 export const STAFF_BASELINE_ITEMS: NavItem[] = [
-  { label: 'Mon Groupe', href: '/dashboard/staff/my-group', icon: Baby },
-  { label: 'Présence', href: '/dashboard/staff/attendance', icon: ClipboardCheck },
-  { label: 'Mes médias', href: '/dashboard/staff/gallery', icon: Images },
-  { label: 'Bibliothèque', href: '/dashboard/staff/library', icon: BookOpen },
+  { labelKey: 'myGroup', href: '/dashboard/staff/my-group', icon: Baby },
+  { labelKey: 'myAttendance', href: '/dashboard/staff/attendance', icon: ClipboardCheck },
+  { labelKey: 'myMedia', href: '/dashboard/staff/gallery', icon: Images },
+  { labelKey: 'library', href: '/dashboard/staff/library', icon: BookOpen },
 ]
 
 /**
@@ -80,39 +82,39 @@ export const STAFF_MODULE_ITEMS: (NavItem & {
   /** true = TOUTES les permissions requises (défaut : AU MOINS UNE). */
   requireAll?: boolean
 })[] = [
-  { label: 'Enfants', href: '/dashboard/admin/children', icon: Baby, permissions: ['children:read'] },
-  { label: 'Parents', href: '/dashboard/admin/parents', icon: Users, permissions: ['parents:read'] },
-  { label: 'Personnel', href: '/dashboard/admin/staff', icon: UserRound, permissions: ['staff:read'] },
+  { labelKey: 'children', href: '/dashboard/admin/children', icon: Baby, permissions: ['children:read'] },
+  { labelKey: 'parents', href: '/dashboard/admin/parents', icon: Users, permissions: ['parents:read'] },
+  { labelKey: 'staff', href: '/dashboard/admin/staff', icon: UserRound, permissions: ['staff:read'] },
   {
-    label: 'Présences', href: '/dashboard/admin/attendance', icon: ClipboardCheck,
+    labelKey: 'attendance', href: '/dashboard/admin/attendance', icon: ClipboardCheck,
     permissions: ['attendance:read', 'attendance:scan', 'attendance:write'],
   },
   {
-    label: 'Rapports', href: '/dashboard/admin/reports', icon: FileText,
+    labelKey: 'reports', href: '/dashboard/admin/reports', icon: FileText,
     permissions: ['reports:read', 'reports:write', 'reports:validate'],
   },
   {
-    label: 'Menus', href: '/dashboard/admin/menus', icon: UtensilsCrossed,
+    labelKey: 'menus', href: '/dashboard/admin/menus', icon: UtensilsCrossed,
     permissions: ['menus:read', 'menus:write'],
   },
-  { label: 'Galerie', href: '/dashboard/admin/gallery', icon: Images, permissions: ['gallery:read'] },
+  { labelKey: 'gallery', href: '/dashboard/admin/gallery', icon: Images, permissions: ['gallery:read'] },
   {
-    label: 'Bibliothèque', href: '/dashboard/admin/library', icon: BookOpen,
+    labelKey: 'library', href: '/dashboard/admin/library', icon: BookOpen,
     permissions: ['library:read', 'library:write', 'library:lend'],
   },
-  { label: 'Blog', href: '/dashboard/admin/blog', icon: Newspaper, permissions: ['blog:write'] },
-  { label: 'Organisation', href: '/dashboard/admin/organization', icon: Network, permissions: ['organization:read'] },
+  { labelKey: 'blog', href: '/dashboard/admin/blog', icon: Newspaper, permissions: ['blog:write'] },
+  { labelKey: 'organization', href: '/dashboard/admin/organization', icon: Network, permissions: ['organization:read'] },
   // Paramètres des modules (onglets déplacés vers /dashboard/admin/settings) —
   // le staff délégué y garde accès en lien profond (?tab=), filtré ci-dessous.
   // PAS d'entrée « Paramètres rapports » : les types activés par département
   // sont réservés à l'admin (une éducatrice porte reports:write mais ne
   // configure pas les types actifs — cf. backend reports/router.py).
   {
-    label: 'Paramètres présences', href: '/dashboard/admin/settings?tab=presences', icon: Settings,
+    labelKey: 'attendanceSettings', href: '/dashboard/admin/settings?tab=presences', icon: Settings,
     permissions: ['attendance:write'],
   },
   {
-    label: 'Paramètres bibliothèque', href: '/dashboard/admin/settings?tab=bibliotheque', icon: Settings,
+    labelKey: 'librarySettings', href: '/dashboard/admin/settings?tab=bibliotheque', icon: Settings,
     permissions: ['library:read', 'library:write', 'library:lend'], requireAll: true,
   },
 ]

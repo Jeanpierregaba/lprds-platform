@@ -1,6 +1,7 @@
+import { BLOB_REQUEST } from '@/lib/api/blob-request'
 import { apiClient } from './client'
 import type {
-  AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
+  AbsenceInquiryResponse, AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
   AttendanceSettingsPayload, ChildDailyStatusListResponse, DepartmentAttendanceSettings, EventType,
   ManualEventPayload, PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
   AttendanceExportParams, UpdateEventPayload,
@@ -44,6 +45,9 @@ export const attendanceApi = {
   getStaffDaily: (params: { date: string }) =>
     apiClient.get<StaffDailyStatusListResponse>('/api/v1/attendance/daily/staff', { params }),
 
+  sendAbsenceInquiries: (params: { date: string; department_id?: string; section_id?: string; child_id?: string }) =>
+    apiClient.post<AbsenceInquiryResponse>('/api/v1/attendance/absent-notifications', null, { params }),
+
   getDepartmentSettings: (departmentId: string) =>
     apiClient.get<DepartmentAttendanceSettings>(`/api/v1/attendance/settings/departments/${departmentId}`, {
       validateStatus: (s) => s === 200 || s === 404,
@@ -82,7 +86,7 @@ export const attendanceApi = {
 
   // ── Export des présences (PDF / Excel) ──
   exportAttendance: (params: AttendanceExportParams) =>
-    apiClient.get<Blob>('/api/v1/attendance/export', { params, responseType: 'blob' }),
+    apiClient.get<Blob>('/api/v1/attendance/export', { ...BLOB_REQUEST, params }),
 
   // ── Correction manuelle (admin ou attendance:write) ──
   createManualEvent: (data: ManualEventPayload) =>

@@ -1,9 +1,12 @@
 'use client'
 
+import { useLocale, useTranslations } from 'next-intl'
+
 import { Download, Smartphone, WifiOff, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils/cn'
+import { notifyLocaleChanged } from '@/lib/pwa/sw-messages'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -45,7 +48,12 @@ const UPDATED_FLAG = 'lprds-sw-updated'
 // toujours l'installation via son menu). Effacé si l'app est installée.
 const INSTALL_DISMISSED_FLAG = 'lprds-install-dismissed'
 
+// Rendu de la balise `<b>` des libellés d'installation (next-intl `t.rich`).
+const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>
+
 export function PwaProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('common')
+  const locale = useLocale()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState<boolean>(false)
   const [offline, setOffline] = useState<boolean>(false)
@@ -63,17 +71,17 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Stockage indisponible (navigation privée) — on recharge quand même.
     }
-    toast.info(`Nouvelle version disponible (${reason}) — actualisation…`)
+    toast.info(t('newVersion', { reason }))
     // Court délai pour laisser le toast s'afficher avant le rechargement.
     window.setTimeout(() => window.location.reload(), 1500)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     // Toast de confirmation après un rechargement provoqué par une mise à jour.
     try {
       if (sessionStorage.getItem(UPDATED_FLAG)) {
         sessionStorage.removeItem(UPDATED_FLAG)
-        toast.success('Application mise à jour.')
+        toast.success(t('appUpdated'))
       }
     } catch {
       // Stockage indisponible — on ignore.
@@ -93,7 +101,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) return
         const { version } = (await res.json()) as { version?: string }
         if (version && version !== APP_VERSION) {
-          applyUpdate('mise à jour détectée')
+          applyUpdate(t('reasonVersion'))
           return
         }
       } catch {
@@ -127,7 +135,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     // Nouveau worker aux commandes (skipWaiting + claim côté SW) : la page
     // tourne encore sur l'ancien code → rechargement auto, sans geste manuel.
     const onControllerChange = () => {
-      if (hadController) applyUpdate('service worker renouvelé')
+      if (hadController) applyUpdate(t('reasonWorker'))
     }
 
     const onOnline = () => {
@@ -188,6 +196,22 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyUpdate])
 
+  /* L'accueil précaché suit la langue CHOISIE, pas celle de l'appareil.
+   *
+   * Effet distinct de l'enregistrement du worker ci-dessus, et volontairement
+   * dépendant de `locale` seul : il doit rejouer à chaque bascule de langue,
+   * alors que l'enregistrement ne doit avoir lieu qu'une fois.
+   *
+   * Posté ici plutôt que depuis `useLocaleSwitch()` : à ce stade la page est
+   * rendue dans la nouvelle langue, donc le cookie de langue est bel et bien
+   * posé — c'est lui qui décidera si `/` est encore redirigé. Depuis le geste
+   * de bascule, le message partirait avant l'écriture du cookie et le worker
+   * redemanderait l'accueil dans l'ANCIENNE langue.
+   */
+  useEffect(() => {
+    notifyLocaleChanged(locale)
+  }, [locale])
+
   const promptInstall = useCallback(async () => {
     if (!deferredPrompt) return
     setDeferredPrompt(null)
@@ -229,13 +253,13 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
             ) : (
               <Download className="size-4" aria-hidden="true" />
             )}
-            Installer l&rsquo;application
+            {t('pwa.install')}
           </button>
           <button
             type="button"
             onClick={dismissInstall}
-            aria-label="Masquer le bouton d'installation"
-            title="Masquer"
+            aria-label={t('pwa.dismiss')}
+            title={t('pwa.hide')}
             className={cn(
               'absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full',
               'bg-card text-muted-foreground shadow-soft ring-1 ring-border',
@@ -250,24 +274,22 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Installer l&rsquo;application</DialogTitle>
+            <DialogTitle>{t('pwa.install')}</DialogTitle>
             <DialogDescription>
-              {installFallback === 'ios'
-                ? 'Sur iPhone/iPad, l\u2019installation se fait depuis Safari :'
-                : 'Sur Mac, l\u2019installation se fait depuis Safari :'}
+              {t(installFallback === 'ios' ? 'pwa.iosIntro' : 'pwa.macIntro')}
             </DialogDescription>
           </DialogHeader>
           {installFallback === 'ios' ? (
             <ol className="list-decimal space-y-2 pl-5 text-sm">
-              <li>Ouvrez cette page dans <strong>Safari</strong>.</li>
-              <li>Touchez le bouton <strong>Partager</strong> (carré avec une flèche vers le haut).</li>
-              <li>Choisissez <strong>« Sur l&rsquo;écran d&rsquo;accueil »</strong> puis <strong>Ajouter</strong>.</li>
+              <li>{t.rich('pwa.iosStep1', { b: strong })}</li>
+              <li>{t.rich('pwa.iosStep2', { b: strong })}</li>
+              <li>{t.rich('pwa.iosStep3', { b: strong })}</li>
             </ol>
           ) : (
             <ol className="list-decimal space-y-2 pl-5 text-sm">
-              <li>Ouvrez cette page dans <strong>Safari</strong>.</li>
-              <li>Menu <strong>Fichier → Ajouter au Dock</strong> (ou Partager → Ajouter au Dock).</li>
-              <li>L&rsquo;application apparaît dans votre Dock comme une app.</li>
+              <li>{t.rich('pwa.macStep1', { b: strong })}</li>
+              <li>{t.rich('pwa.macStep2', { b: strong })}</li>
+              <li>{t.rich('pwa.macStep3', { b: strong })}</li>
             </ol>
           )}
         </DialogContent>
@@ -282,7 +304,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
           )}
         >
           <WifiOff className="size-4" aria-hidden="true" />
-          Vous êtes hors ligne — les contenus mis en cache restent disponibles.
+          {t('pwa.offline')}
         </div>
       )}
     </div>

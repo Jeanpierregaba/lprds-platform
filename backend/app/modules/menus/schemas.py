@@ -24,7 +24,17 @@ class DayMenu(BaseModel):
     gouter:    str | None = Field(default=None, min_length=1)
 
 
-class MenuWriteRequest(BaseModel):
+class WeekMenuDays(BaseModel):
+    """Les 5 jours ouvrés — forme partagée par la saisie et la relecture."""
+
+    monday:    DayMenu = Field(default_factory=DayMenu)
+    tuesday:   DayMenu = Field(default_factory=DayMenu)
+    wednesday: DayMenu = Field(default_factory=DayMenu)
+    thursday:  DayMenu = Field(default_factory=DayMenu)
+    friday:    DayMenu = Field(default_factory=DayMenu)
+
+
+class MenuWriteRequest(WeekMenuDays):
     """
     Corps de PATCH — remplace `content` en entier, comme pour les rapports :
     pas de fusion partielle implicite, le frontend recharge, édite localement,
@@ -32,11 +42,13 @@ class MenuWriteRequest(BaseModel):
     déjà la ressource dans l'URL.
     """
 
-    monday:    DayMenu = Field(default_factory=DayMenu)
-    tuesday:   DayMenu = Field(default_factory=DayMenu)
-    wednesday: DayMenu = Field(default_factory=DayMenu)
-    thursday:  DayMenu = Field(default_factory=DayMenu)
-    friday:    DayMenu = Field(default_factory=DayMenu)
+
+class MenuTranslationRequest(WeekMenuDays):
+    """
+    Version ANGLAISE relue à la main. Même forme et même contrat de
+    remplacement intégral que `MenuWriteRequest` : un créneau laissé vide perd
+    sa traduction et son marquage « corrigé », et repasse donc à la machine.
+    """
 
 
 class MenuCreateRequest(MenuWriteRequest):
@@ -66,6 +78,26 @@ class MenuResponse(BaseModel):
     updated_by: UserBrief | None
     created_at: datetime
     updated_at: datetime
+
+
+class MenuTranslationResponse(BaseModel):
+    """Les deux langues côte à côte — alimente l'écran de relecture.
+
+    `english` est la branche STOCKÉE, sans repli sur le français : l'écran de
+    relecture doit montrer les trous, c'est précisément ce qu'on y cherche.
+    """
+
+    week_start:      date
+    week_end:        date
+    department_id:   uuid.UUID
+    department_name: str | None = None
+
+    french:  WeekMenuDays
+    english: WeekMenuDays
+    # Créneaux relus à la main, en « jour.créneau » (ex. « monday.dejeuner ») —
+    # une liste plate se teste par appartenance côté frontend, sans avoir à
+    # retraverser un arbre à deux niveaux.
+    manual_slots: list[str] = Field(default_factory=list)
 
 
 class MenuListItem(BaseModel):

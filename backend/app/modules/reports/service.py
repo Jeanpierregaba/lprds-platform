@@ -1,9 +1,11 @@
 import asyncio
+import copy
 import calendar
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from enum import StrEnum
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, UploadFile, status
@@ -11,8 +13,10 @@ from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import storage
+from app.core import links, media, storage
 from app.core.config import settings
+from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
+from app.core.translation import TranslationUnavailable, translate_texts
 from app.modules.attendance.models import AttendanceEvent, AttendanceSettings, EventType, PersonType
 from app.modules.auth.email import EmailDeliveryError
 from app.modules.auth.models import User, UserRole
@@ -24,15 +28,15 @@ from app.modules.organization.models import Department, Group, Section
 from app.modules.notifications.service import notify_parents_report_validated
 from app.modules.reports.email import send_report_available_email
 from app.modules.reports.models import (
-    ACQUISITION_LEVEL_LABELS,
-    BEHAVIOR_TAG_LABELS,
-    CLASS_BEHAVIOR_LABELS,
-    EMOTION_MANAGEMENT_LABELS,
-    HEALTH_STATUS_LABELS,
-    MEAL_AMOUNT_LABELS,
-    MOOD_LABELS,
-    PEER_RELATION_LABELS,
+    AcquisitionLevel,
+    BehaviorTag,
+    ClassBehavior,
     DepartmentReportType,
+    EmotionManagement,
+    HealthStatus,
+    MealAmount,
+    Mood,
+    PeerRelation,
     Report,
     ReportAttachment,
     ReportRead,
@@ -63,10 +67,28 @@ from app.modules.reports.schemas import (
 
 logger = logging.getLogger(__name__)
 
-_FRENCH_MONTHS = [
-    "", "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-]
+def period_label(
+    report_type: ReportType | str,
+    period_start: date,
+    period_end: date,
+    locale: Locale | str | None = None,
+) -> str:
+    """Libellé de période, recalculé À LA LECTURE depuis les dates stockées.
+
+    La colonne `reports.period_label` conserve la version française posée à la
+    création ; elle n'est jamais ce qui s'affiche. Un libellé figé en base ne
+    pourrait pas suivre la langue du lecteur — or le même rapport est lu par
+    une éducatrice francophone et un parent anglophone.
+    """
+    month = t(f"date.month.{period_start.month}", locale)
+    if report_type == ReportType.ANNUEL:
+        return t("reports.period.annuel", locale, year=period_start.year)
+    if report_type == ReportType.BI_MENSUEL:
+        return t("reports.period.bi_mensuel", locale,
+                 first=period_start.day, last=period_end.day,
+                 month=month, year=period_start.year)
+    return t("reports.period.quotidien", locale,
+             day=period_start.day, month=month, year=period_start.year)
 
 
 # ── Paramètres département ───────────────────────────────────────
@@ -140,15 +162,15 @@ async def create_report(
         )
     )
     if not child:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found"))
     if not child.is_active:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Cette fiche enfant est désactivée"
+            status_code=status.HTTP_409_CONFLICT, detail=t("errors.common.child_inactive")
         )
     if child.department_id is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="L'enfant doit être rattaché à un département pour recevoir des rapports",
+            detail=t("errors.reports.child_no_department"),
         )
 
     group_id = child.group_id
@@ -156,13 +178,13 @@ async def create_report(
         if child.group_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cet enfant n'est affecté à aucun groupe",
+                detail=t("errors.reports.child_no_group"),
             )
         group = await db.get(Group, child.group_id)
         if not group or group.educatrice_id != author.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Vous ne pouvez remplir des rapports que pour les enfants de votre groupe",
+                detail=t("errors.reports.own_group_only"),
             )
 
     await _ensure_department_allows(child.department_id, payload.report_type, db)
@@ -171,7 +193,7 @@ async def create_report(
     if reference > date.today():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La date de référence ne peut pas être dans le futur",
+            detail=t("errors.reports.reference_date_future"),
         )
     period_start, period_end, period_label = _period_for(payload.report_type, reference)
 
@@ -185,7 +207,7 @@ async def create_report(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Un rapport {payload.report_type} existe déjà pour cette période",
+            detail=t("errors.reports.period_exists", report_type=payload.report_type),
         )
 
     content = dict(payload.content)
@@ -208,6 +230,8 @@ async def create_report(
         created_by_id=author.id,
     )
     db.add(report)
+    await db.flush()
+    await _translate_report(report, db)
     await db.flush()
     await db.refresh(report)
     return await _to_response(report, db)
@@ -327,10 +351,16 @@ async def update_report(
             ReportType(report.report_type), new_summary, new_content
         )
 
+    previous_content, previous_summary = report.content, report.summary
     for field, value in changes.items():
         setattr(report, field, value)
     report.summary = new_summary
     report.content = new_content
+    if previous_content != report.content or previous_summary != report.summary:
+        await _translate_report(
+            report, db,
+            previous_content=previous_content, previous_summary=previous_summary,
+        )
     await db.flush()
     await db.refresh(report)
     return await _to_response(report, db)
@@ -344,7 +374,7 @@ async def delete_report(
     if report.status != str(ReportStatus.DRAFT):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport encore en brouillon (jamais soumis) peut être supprimé",
+            detail=t("errors.reports.only_draft_deletable"),
         )
     await db.delete(report)
     await db.flush()
@@ -358,7 +388,7 @@ async def submit_report(
     if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport en brouillon ou rejeté peut être soumis",
+            detail=t("errors.reports.only_draft_submittable"),
         )
 
 
@@ -391,7 +421,7 @@ async def validate_report(
     if report.status != str(ReportStatus.SUBMITTED):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport soumis peut être validé",
+            detail=t("errors.reports.only_submitted_validatable"),
         )
 
 
@@ -416,7 +446,7 @@ async def reject_report(
     if report.status != str(ReportStatus.SUBMITTED):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport soumis peut être rejeté",
+            detail=t("errors.reports.only_submitted_rejectable"),
         )
     report.status = str(ReportStatus.REJECTED)
     report.rejected_reason = reason
@@ -437,7 +467,7 @@ async def list_my_reports(
     child_ids = {c.id for c in parent.assigned_children}
     if child_id:
         if child_id not in child_ids:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enfant introuvable")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.common.child_not_found"))
         child_ids = {child_id}
     if not child_ids:
         return ParentReportListResponse(total=0, items=[])
@@ -478,17 +508,23 @@ async def get_my_report_pdf(
     if report.report_type != str(ReportType.ANNUEL):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Le téléchargement PDF n'est disponible que pour le rapport annuel",
+            detail=t("errors.reports.pdf_annual_only"),
         )
     child = report.child
+    locale = coerce_locale(parent.locale)
     pdf_bytes = await asyncio.to_thread(
         render_annual_report_pdf,
         establishment_name=report.establishment.name,
         child_full_name=f"{child.first_names} {child.last_name}",
-        period_label=report.period_label,
-        content=report.content,
+        period_label=_label_of(report, locale),
+        # Le bulletin part dans la langue du PARENT : son contenu aussi.
+        content=_localized_content(report, locale)[0],
+        locale=locale,
     )
-    filename = f"bulletin-annuel-{report.period_start.year}-{child.last_name}.pdf"
+    filename = t(
+        "reports.pdf.filename", locale,
+        year=report.period_start.year, name=child.last_name,
+    )
     return pdf_bytes, filename
 
 
@@ -518,14 +554,24 @@ async def _ensure_department_allows(
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Le type de rapport « {report_type} » n'est pas activé pour ce département",
+            detail=t("errors.reports.type_not_enabled", report_type=report_type),
         )
 
 
+def _label_of(report: "Report", locale: Locale | str | None = None) -> str:
+    """Libellé de période d'un rapport chargé — raccourci sur `period_label()`."""
+    return period_label(
+        report.report_type, report.period_start, report.period_end, locale
+    )
+
+
 def _period_for(report_type: ReportType, reference: date) -> tuple[date, date, str]:
+    """(début, fin, libellé français). Le libellé n'alimente que la colonne
+    `reports.period_label` ; l'affichage passe par `period_label()`."""
     if report_type == ReportType.QUOTIDIEN:
-        label = f"{reference.day} {_FRENCH_MONTHS[reference.month]} {reference.year}"
-        return reference, reference, label
+        return reference, reference, period_label(
+            report_type, reference, reference, Locale.FR
+        )
 
     if report_type == ReportType.BI_MENSUEL:
         last_day = calendar.monthrange(reference.year, reference.month)[1]
@@ -533,12 +579,11 @@ def _period_for(report_type: ReportType, reference: date) -> tuple[date, date, s
             start, end = date(reference.year, reference.month, 1), date(reference.year, reference.month, 15)
         else:
             start, end = date(reference.year, reference.month, 16), date(reference.year, reference.month, last_day)
-        label = f"{start.day}–{end.day} {_FRENCH_MONTHS[reference.month]} {reference.year}"
-        return start, end, label
+        return start, end, period_label(report_type, start, end, Locale.FR)
 
     # ANNUEL
     start, end = date(reference.year, 1, 1), date(reference.year, 12, 31)
-    return start, end, f"Année {reference.year}"
+    return start, end, period_label(report_type, start, end, Locale.FR)
 
 
 async def _led_group_ids(staff_id: uuid.UUID, db: AsyncSession) -> set[uuid.UUID]:
@@ -557,23 +602,40 @@ async def _authorize_write(report: Report, current_user: User, db: AsyncSession)
             return
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Vous n'êtes pas autorisé à modifier ce rapport",
+        detail=t("errors.reports.cannot_edit"),
     )
 
 
 def _ensure_mutable(report: Report, current_user: User) -> None:
     """Garde-fou de statut pour toute modification (contenu ou médias).
 
-    L'admin peut modifier un rapport à tout moment — même soumis, validé et
-    déjà lu par le parent. Le staff (éducatrice de son groupe) reste limité
-    au brouillon et au rejeté, comme avant.
+    L'admin peut modifier un rapport à tout moment — même validé et déjà lu par
+    le parent. Le staff (éducatrice de son groupe) le peut tant que le rapport
+    n'est pas VALIDÉ : brouillon, rejeté, et soumis.
+
+    ⚠️ Le soumis a été ouvert sur décision explicite de l'utilisateur. La règle
+    d'origine s'arrêtait au rejeté, et une éducatrice qui avait soumis son
+    rapport ne pouvait plus y joindre les photos de la journée — remonté depuis
+    l'établissement. La limite se place donc à la VALIDATION, qui est le moment
+    où le parent découvre le rapport : avant, rien ne lui a échappé ; après,
+    modifier reviendrait à changer sous ses yeux ce qu'il a déjà lu, sans qu'il
+    en soit prévenu.
+
+    Contrepartie assumée : un validateur peut voir le contenu bouger pendant sa
+    relecture. C'est le prix du besoin réel (les photos arrivent après la
+    rédaction), et l'alternative — faire rejeter le rapport pour le reprendre —
+    coûtait un aller-retour à chaque photo oubliée.
     """
     if current_user.role == UserRole.ADMIN:
         return
-    if report.status not in (str(ReportStatus.DRAFT), str(ReportStatus.REJECTED)):
+    if report.status not in (
+        str(ReportStatus.DRAFT),
+        str(ReportStatus.REJECTED),
+        str(ReportStatus.SUBMITTED),
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Seul un rapport en brouillon ou rejeté peut être modifié",
+            detail=t("errors.reports.only_draft_editable"),
         )
 
 
@@ -593,7 +655,7 @@ async def _authorize_read(report: Report, current_user: User, db: AsyncSession) 
             in (str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED))
         ):
             return
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.reports.not_found"))
 
 
 async def _get_report_or_404(
@@ -605,7 +667,7 @@ async def _get_report_or_404(
         )
     )
     if not report:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.reports.not_found"))
     return report
 
 
@@ -617,7 +679,7 @@ async def _get_visible_report_or_404(report_id: uuid.UUID, parent: User, db: Asy
     )
     child_ids = {c.id for c in parent.assigned_children}
     if not report or report.child_id not in child_ids:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rapport introuvable")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.reports.not_found"))
     return report
 
 
@@ -645,7 +707,8 @@ async def _notify_parents(report: Report) -> None:
                 child_first_names=child.first_names,
                 child_last_name=child.last_name,
                 report_type=report.report_type,
-                period_label=report.period_label,
+                period_label=_label_of(report, coerce_locale(parent.locale)),
+                locale=coerce_locale(parent.locale),
             )
         except EmailDeliveryError:
             logger.exception(
@@ -674,11 +737,18 @@ async def _send_report_push_notifications(report: Report, db) -> int:
         subscriptions = sub_result.scalars().all()
 
         for sub in subscriptions:
+            # Le rendu se fait ici, par parent : le même rapport notifie
+            # plusieurs comptes, qui n'ont pas forcément la même langue.
+            locale = coerce_locale(parent.locale)
             success = await send_push_to_subscription(
                 sub,
-                "Rapport validé",
-                f"Un nouveau rapport '{report.period_label}' est disponible pour {child.first_names}.",
-                {"report_id": str(report.id), "child_id": str(child.id)},
+                t("push.report.title", locale),
+                t("push.report.body", locale,
+                  period=_label_of(report, locale), child=child.first_names),
+                # Le rapport PRÉCIS, pas la liste : son identifiant était
+                # déjà dans la charge utile, simplement inutilisé.
+                {"report_id": str(report.id), "child_id": str(child.id),
+                 "url": links.parent_report(report.id)},
             )
             if success:
                 sent += 1
@@ -816,7 +886,7 @@ def _to_list_item(report: Report) -> ReportListItem:
         report_type=ReportType(report.report_type),
         period_start=report.period_start,
         period_end=report.period_end,
-        period_label=report.period_label,
+        period_label=_label_of(report),
         status=report.status,
         created_by=_user_brief(report.created_by),
         submitted_at=report.submitted_at,
@@ -842,12 +912,223 @@ async def _to_response(report: Report, db: AsyncSession) -> ReportResponse:
     )
 
 
+# ── Traduction du contenu rédigé par l'éducatrice ────────────────
+# Seuls les champs de TEXTE LIBRE sont traduits. Les énumérations (humeurs,
+# comportements, niveaux d'acquisition) portent des codes stables, déjà rendus
+# dans la langue du lecteur par les catalogues et par `GET /reports/vocabulary`.
+_TRANSLATABLE_PATHS: dict[str, tuple[str, ...]] = {
+    str(ReportType.QUOTIDIEN): ("health_notes", "highlight", "activities"),
+    str(ReportType.BI_MENSUEL): (
+        "oral_written_language", "physical_activities", "artistic_activities",
+        "math_foundations", "world_exploration", "english", "teacher_observations",
+    ),
+    str(ReportType.ANNUEL): (
+        "oral_written_language.observation", "physical_activities.observation",
+        "artistic_activities.observation", "math_foundations.observation",
+        "world_exploration.observation", "english.observation",
+    ),
+}
+
+
+def _dig(tree: dict | None, path: str):
+    node = tree or {}
+    for part in path.split("."):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+    return node
+
+
+def _plant(tree: dict, path: str, value) -> None:
+    parts = path.split(".")
+    node = tree
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
+
+
+def _translatable_slots(report_type: str, content: dict, summary: str | None):
+    """Emplacements traduisibles : (chemin, index de liste ou None, texte).
+
+    Les activités du rapport quotidien sont une LISTE de chaînes : chaque
+    entrée est un emplacement à part, pour que l'ajout d'une activité ne
+    rejette pas la traduction des précédentes.
+    """
+    slots = []
+    for path in _TRANSLATABLE_PATHS.get(report_type, ()):
+        value = _dig(content, path)
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, str) and item.strip():
+                    slots.append((path, index, item))
+        elif isinstance(value, str) and value.strip():
+            slots.append((path, None, value))
+    if summary and summary.strip():
+        slots.append((_SUMMARY_PATH, None, summary))
+    return slots
+
+
+# Le résumé est une colonne à part, pas un champ de `content` ; on le fait
+# voyager dans le même lot pour n'émettre qu'un seul appel par rapport.
+_SUMMARY_PATH = "__summary__"
+
+
+async def _translate_report(
+    report: Report,
+    db: AsyncSession,
+    *,
+    previous_content: dict | None = None,
+    previous_summary: str | None = None,
+) -> None:
+    """Remplit la version anglaise — best-effort, jamais bloquant.
+
+    Tout le rapport part en UN appel : un bulletin annuel compte six
+    observations, un quotidien jusqu'à une dizaine d'entrées. La mémoire de
+    traduction ne renvoie au modèle que ce qui est réellement inédit.
+
+    En cas d'échec, on ne jette pas toute la version anglaise : les champs dont
+    le texte FRANÇAIS n'a pas changé gardent la leur — elle reste exacte. Ceux
+    dont le français a bougé sont écartés : afficher l'observation de la
+    période précédente sur un enfant serait pire qu'un repli en français.
+    C'est la règle des créneaux de menu, appliquée aux champs d'un rapport.
+    """
+    slots = _translatable_slots(report.report_type, report.content, report.summary)
+    if not slots:
+        report.content_en, report.summary_en = None, None
+        report.translation_pending = False
+        return
+
+    try:
+        translated = await translate_texts([text for _p, _i, text in slots], db)
+    except TranslationUnavailable as exc:
+        logger.info("Traduction du rapport %s non aboutie : %s", report.id, exc)
+        kept_content, kept_summary = _salvage_report_english(
+            report, previous_content, previous_summary
+        )
+        report.content_en, report.summary_en = kept_content, kept_summary
+        report.translation_pending = needs_translation(report)
+        return
+
+    content_en: dict = {}
+    summary_en: str | None = None
+    for (path, index, _source), value in zip(slots, translated):
+        if not value or not value.strip():
+            continue
+        if path == _SUMMARY_PATH:
+            summary_en = value
+        elif index is None:
+            _plant(content_en, path, value)
+        else:
+            existing = _dig(content_en, path)
+            if not isinstance(existing, list):
+                existing = [None] * (index + 1)
+            while len(existing) <= index:
+                existing.append(None)
+            existing[index] = value
+            _plant(content_en, path, existing)
+    report.content_en = content_en or None
+    report.summary_en = summary_en
+    report.translation_pending = needs_translation(report)
+
+
+def _salvage_report_english(
+    report: Report, previous_content: dict | None, previous_summary: str | None
+) -> tuple[dict | None, str | None]:
+    """Traductions encore valables après un échec : celles dont le français est
+    inchangé. Sans contenu précédent (création), il n'y a rien à récupérer."""
+    if previous_content is None:
+        return None, None
+    old_en = report.content_en or {}
+    kept: dict = {}
+    for path in _TRANSLATABLE_PATHS.get(report.report_type, ()):
+        old_fr, new_fr = _dig(previous_content, path), _dig(report.content, path)
+        old_tr = _dig(old_en, path)
+        if old_tr is None:
+            continue
+        if isinstance(new_fr, list) and isinstance(old_fr, list) and isinstance(old_tr, list):
+            survivors = [
+                old_tr[i] if i < len(old_tr) and i < len(old_fr) and old_fr[i] == item else None
+                for i, item in enumerate(new_fr)
+            ]
+            if any(survivors):
+                _plant(kept, path, survivors)
+        elif old_fr == new_fr:
+            _plant(kept, path, old_tr)
+    summary_kept = (
+        report.summary_en if previous_summary == report.summary else None
+    )
+    return kept or None, summary_kept
+
+
+def needs_translation(report: Report) -> bool:
+    """Un champ de texte libre au moins est rempli en français sans anglais.
+
+    Un rapport ne porte aucun statut de traduction : l'état se lit dans les
+    données. C'est plus juste pour un contenu qu'un admin peut retoucher champ
+    par champ à tout moment, y compris après validation.
+    """
+    slots = _translatable_slots(report.report_type, report.content, report.summary)
+    if not slots:
+        return False
+    content_en = report.content_en or {}
+    for path, index, _text in slots:
+        if path == _SUMMARY_PATH:
+            if not report.summary_en:
+                return True
+            continue
+        value = _dig(content_en, path)
+        if index is None:
+            if not (isinstance(value, str) and value.strip()):
+                return True
+        elif not (isinstance(value, list) and index < len(value) and value[index]):
+            return True
+    return False
+
+
+async def retranslate_report(report: Report, db: AsyncSession) -> None:
+    """Relance la traduction d'un rapport déjà stocké — tâche de reprise.
+
+    Le contenu sert aussi de `previous` : le français n'ayant pas changé, les
+    traductions déjà obtenues sont toutes conservées en cas de nouvel échec, et
+    la mémoire sert les champs inchangés sans appel au modèle.
+    """
+    await _translate_report(
+        report, db,
+        previous_content=report.content, previous_summary=report.summary,
+    )
+
+
+def _localized_content(report: Report, locale: Locale) -> tuple[dict, str | None]:
+    """Contenu dans la langue du LECTEUR, repli CHAMP PAR CHAMP.
+
+    Par champ et non par rapport : un bulletin dont une seule observation
+    manque en anglais doit afficher les cinq autres traduites, pas revenir
+    entièrement au français.
+    """
+    if locale is DEFAULT_LOCALE or not report.content_en:
+        return report.content, report.summary
+
+    merged = copy.deepcopy(report.content)
+    for path in _TRANSLATABLE_PATHS.get(report.report_type, ()):
+        value = _dig(report.content_en, path)
+        if isinstance(value, list):
+            source = _dig(merged, path)
+            if isinstance(source, list):
+                _plant(merged, path, [
+                    value[i] if i < len(value) and value[i] else item
+                    for i, item in enumerate(source)
+                ])
+        elif isinstance(value, str) and value.strip():
+            _plant(merged, path, value)
+    return merged, (report.summary_en or report.summary)
+
+
 def _to_parent_list_item(report: Report, *, is_read: bool) -> ParentReportListItem:
     return ParentReportListItem(
         id=report.id,
         child=_child_brief(report.child),
         report_type=ReportType(report.report_type),
-        period_label=report.period_label,
+        period_label=_label_of(report),
         validated_at=report.validated_at,
         is_read=is_read,
     )
@@ -857,15 +1138,17 @@ async def _to_parent_detail(
     report: Report, db: AsyncSession, *, is_read: bool
 ) -> ParentReportDetailResponse:
     attachments = await _attachments_for_report(report.id, db)
+    # Le parent lit dans SA langue, champ par champ (cf. `_localized_content`).
+    content, summary = _localized_content(report, current_locale())
     return ParentReportDetailResponse(
         id=report.id,
         child=_child_brief(report.child),
         report_type=ReportType(report.report_type),
         period_start=report.period_start,
         period_end=report.period_end,
-        period_label=report.period_label,
-        summary=report.summary,
-        content=report.content,
+        period_label=_label_of(report),
+        summary=summary,
+        content=content,
         validated_at=report.validated_at,
         is_read=is_read,
         attachments=attachments,
@@ -903,7 +1186,7 @@ def _validate_content(
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Contenu invalide pour un rapport {report_type} : {messages}",
+            detail=t("errors.reports.invalid_content", report_type=report_type, messages=messages),
         ) from exc
     return summary, validated.model_dump(mode="json")
 
@@ -952,17 +1235,6 @@ async def _prefill_attendance_times(
 
 
 # ── Pièces jointes (photos / vidéos) ─────────────────────────────
-def _is_allowed_media_type(content_type: str) -> bool:
-    """Tout MIME image/* ou video/* est accepté (sauf image/svg+xml, risque
-    XSS), en plus de la liste explicite configurée (reports_allowed_attachment_types)."""
-    if content_type in settings.reports_allowed_attachment_types_set:
-        return True
-    return (
-        (content_type.startswith("image/") or content_type.startswith("video/"))
-        and content_type != "image/svg+xml"
-    )
-
-
 async def add_report_attachment(
     report_id: uuid.UUID,
     establishment_id: uuid.UUID,
@@ -974,34 +1246,23 @@ async def add_report_attachment(
     await _authorize_write(report, current_user, db)
     _ensure_mutable(report, current_user)
 
-    content_bytes = await file.read()
-    max_bytes = settings.reports_max_attachment_mb * 1024 * 1024
-    if len(content_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Fichier trop volumineux (max {settings.reports_max_attachment_mb} Mo)",
-        )
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide"
-        )
-    content_type = file.content_type or ""
-    if not _is_allowed_media_type(content_type):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Type de fichier non autorisé : {content_type or 'inconnu'}. "
-                f"Seules les images et vidéos sont acceptées."
-            ),
-        )
+    # Le type réel est lu dans les octets, et une image trop lourde est
+    # recompressée au lieu d'être refusée — cf. `app/core/media.py`.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.reports_max_attachment_mb,
+        max_video_mb=settings.reports_max_attachment_mb,
+        allow_video=True,
+    )
 
-    storage_key = await storage.save_file("reports", file.filename or "fichier", content_bytes)
+    storage_key = await storage.save_file("reports", accepted.filename, accepted.content)
     attachment = ReportAttachment(
         report_id=report.id,
         uploaded_by_id=current_user.id,
-        filename=file.filename or "fichier",
-        content_type=content_type,
-        size_bytes=len(content_bytes),
+        filename=accepted.filename,
+        content_type=accepted.content_type,
+        size_bytes=len(accepted.content),
         storage_key=storage_key,
     )
     db.add(attachment)
@@ -1033,7 +1294,7 @@ async def delete_report_attachment(
     )
     if not attachment:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found")
         )
     await db.delete(attachment)
     await db.flush()
@@ -1069,7 +1330,7 @@ async def _get_attachment_or_404(
     )
     if not attachment:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Pièce jointe introuvable"
+            status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.attachment_not_found")
         )
     return attachment, storage.resolve_path(attachment.storage_key)
 
@@ -1098,14 +1359,36 @@ def _attachment_response(attachment: ReportAttachment) -> ReportAttachmentRespon
 
 
 # ── Vocabulaire (labels FR pour le frontend) ─────────────────────
-def get_vocabulary() -> ReportVocabularyResponse:
-    return ReportVocabularyResponse(
-        health_status={s.value: l for s, l in HEALTH_STATUS_LABELS.items()},
-        meal_amount={s.value: l for s, l in MEAL_AMOUNT_LABELS.items()},
-        mood={s.value: l for s, l in MOOD_LABELS.items()},
-        behavior_tag={s.value: l for s, l in BEHAVIOR_TAG_LABELS.items()},
-        class_behavior={s.value: l for s, l in CLASS_BEHAVIOR_LABELS.items()},
-        peer_relation={s.value: l for s, l in PEER_RELATION_LABELS.items()},
-        emotion_management={s.value: l for s, l in EMOTION_MANAGEMENT_LABELS.items()},
-        acquisition_level={s.value: l for s, l in ACQUISITION_LEVEL_LABELS.items()},
-    )
+# Groupes du vocabulaire : nom exposé par l'API → enum des codes. Les libellés
+# eux-mêmes vivent dans app/locales/{fr,en}.py — ce module ne connaît que les
+# codes, et le PDF du bulletin lit le même catalogue (cf. reports/pdf.py).
+VOCABULARY_GROUPS: dict[str, type[StrEnum]] = {
+    "health_status": HealthStatus,
+    "meal_amount": MealAmount,
+    "mood": Mood,
+    "behavior_tag": BehaviorTag,
+    "class_behavior": ClassBehavior,
+    "peer_relation": PeerRelation,
+    "emotion_management": EmotionManagement,
+    "acquisition_level": AcquisitionLevel,
+}
+
+
+def vocabulary_label(group: str, code: str, locale: Locale | str | None = None) -> str:
+    """Libellé d'UNE valeur de vocabulaire — point d'entrée unique, partagé
+    par l'API et la génération de documents."""
+    return t(f"reports.vocabulary.{group}.{code}", locale)
+
+
+def get_vocabulary(locale: Locale | str | None = None) -> ReportVocabularyResponse:
+    """Libellés des listes/cases du formulaire, dans la langue demandée.
+
+    Contrairement aux permissions RBAC (codes seuls, traduits côté frontend),
+    ce vocabulaire reste rendu ici : le PDF du bulletin annuel a besoin des
+    mêmes chaînes, et une seconde copie côté frontend finirait par diverger.
+    """
+    return ReportVocabularyResponse(**{
+        group: {code.value: vocabulary_label(group, code.value, locale)
+                for code in enum}
+        for group, enum in VOCABULARY_GROUPS.items()
+    })

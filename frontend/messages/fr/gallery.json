@@ -1,0 +1,34 @@
+{
+  "page": {
+    "title": "Galerie",
+    "description": "Photos et vidéos issues des rapports et de la messagerie.",
+    "count": "{count, plural, one {# média} other {# médias}}"
+  },
+  "filters": {
+    "allChildren": "Tous les enfants",
+    "allDepartments": "Tous les départements",
+    "allGroups": "Tous les groupes",
+    "allStaff": "Toute l’équipe",
+    "allSources": "Toutes les sources",
+    "allTypes": "Tous les types",
+    "allStaffPlaceholder": "Toute l’équipe",
+    "allGroupsPlaceholder": "Tous les groupes",
+    "dateFrom": "Date de début",
+    "dateTo": "Date de fin"
+  },
+  "empty": {
+    "parent": "Aucun média pour le moment.",
+    "staff": "Aucun média envoyé pour le moment.",
+    "staffHint": "Les photos/vidéos jointes à vos rapports apparaîtront ici.",
+    "admin": "Aucun média trouvé.",
+    "adminHint": "Essayez d’élargir vos filtres."
+  },
+  "lightbox": {
+    "announcement": "Diffusion : {title}",
+    "parent": "Parent : {name}",
+    "uploadedBy": "Envoyé par {name}"
+  },
+  "badges": {
+    "report": "Rapport"
+  }
+}

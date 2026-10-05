@@ -3836,6 +3836,15 @@ Aborting ». Le script étant en `set -e`, plus rien ne s'est construit, et la
 production est restée sur son ancienne version — bon mode d'échec, mais
 déploiement bloqué.
 
+⚠️ **La production ne tourne PAS sur les valeurs par défaut** : sa base est
+`adminlprds` / `lprds_database`, celles du compose sont celles de la préprod.
+Les omettre ne casse pas la base — Postgres ignore ces variables sur un volume
+peuplé — mais met le service à terre par un autre chemin : le healthcheck lance
+`pg_isready` avec ces mêmes valeurs, donc avec un rôle inexistant ; `db` ne
+devient jamais sain, et `backend`, `worker` et `beat` l'attendent. Écarter la
+modification locale du serveur SANS reporter ces deux variables dans le `.env`
+aurait donc coupé la production.
+
 `BACKEND_PORT` et `FRONTEND_PORT` sont donc paramétrables (défauts 8000 / 3000),
 et `.env.example` à la racine documente enfin les six variables du compose —
 il n'en existait aucun, ce qui est précisément ce qui pousse à éditer le fichier

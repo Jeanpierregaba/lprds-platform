@@ -77,7 +77,7 @@ class TranslationUnavailable(Exception):
 # utilisateur, jamais ici — un système stable est aussi ce qui se met en cache
 # côté API si le volume le justifiait un jour.
 _SYSTEM_PROMPT = """You translate content for the website of a French \
-preschool and daycare called « Les Petits Rayons de Soleil » (LPRDS).
+preschool and daycare called « Les Petits Rayons De Soleil » (LPRDS).
 
 Rules:
 - Translate from French to English (British spelling).

@@ -1,4 +1,4 @@
-# CLAUDE.md — LPRDS · Les Petits Rayons de Soleil
+# CLAUDE.md — LPRDS · Les Petits Rayons De Soleil
 
 > Fichier de contexte pour Claude Code. Lis ce fichier en entier avant toute action sur le projet.
 
@@ -293,6 +293,27 @@ La plateforme est installable comme une application native (mobile/desktop) :
 **manifest**, **service worker** (hors-ligne), **bouton d'installation** et
 **voile hors-ligne**. La **Phase 2 (notifications push Web)** est implémentée — cf. section
 « Phase 2 — Notifications Push (PWA) » en fin de fichier.
+
+⚠️ **Le nom de l'application a UNE seule source : `src/lib/brand.ts`.**
+
+Il en existait trois, et elles se contredisaient : le manifeste le lisait dans
+les catalogues de traduction, le titre du navigateur dans
+`NEXT_PUBLIC_APP_NAME`, et la barre iOS l'avait en dur. Le passage du manifeste
+à l'i18n a donc **changé le nom de l'application installée sans que personne ne
+l'ait demandé** — les navigateurs ont affiché « Examiner la modification du
+nom » aux utilisateurs, avec un bouton « Désinstaller » à côté. Un nom
+d'application n'est pas un libellé d'écran : le changer est un événement
+visible, et coûteux à refaire.
+
+C'est un **nom propre**, donc il n'a rien à faire dans un catalogue de
+traduction — au même titre que « LPRDS » dans l'ALLOWLIST des gardes de lint.
+`NEXT_PUBLIC_APP_NAME` n'est plus lu ; la variable reste sans effet dans les
+`.env` existants. Le jour où un second établissement déploiera la plateforme,
+c'est là qu'il faudra décider d'un paramètre — en une fois, pas en trois
+endroits.
+
+`short_name` reste « LPRDS » : les lanceurs tronquent l'étiquette sous l'icône
+au-delà d'une douzaine de caractères.
 
 - **Manifest** (`src/app/manifest.ts`) : `display: standalone`,
   `theme_color #F5AA2D` (Jaune Soleil), `background_color #FFFFFF`, icônes
@@ -3225,7 +3246,7 @@ une position Zod : aucune garde ne le voyait, et c'est pourtant la phrase que
 l'utilisateur lit quand quelque chose se passe mal. Trois annonçaient en
 français, dans une interface anglaise, qu'un fichier était trop volumineux.
 
-Les noms propres (« Les Petits Rayons de Soleil », « LPRDS ») sont en
+Les noms propres (« Les Petits Rayons De Soleil », « LPRDS ») sont en
 ALLOWLIST : ajouter tout nouveau nom propre plutôt que le traduire.
 
 Côté backend, `tests/e2e/test_i18n.py` impose la parité : mêmes clés dans les

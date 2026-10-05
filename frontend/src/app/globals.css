@@ -34,7 +34,7 @@
 }
 
 /*
- * Design system — Les Petits Rayons de Soleil
+ * Design system — Les Petits Rayons De Soleil
  * Source : DESIGN.md (palette, typographie, rayons d'angle, boutons, ombres).
  * Toutes les couleurs sont stockées en triplet HSL brut (sans hsl())
  * pour rester composables (opacité via /NN, ex. bg-primary/10).

@@ -24,7 +24,7 @@ export type MarketingTranslator = {
  *  La baseline, l'adresse et les libellés d'horaires, eux, sont dans les
  *  catalogues (cf. `buildBrandCopy`). */
 export const BRAND = {
-  name: 'Les Petits Rayons de Soleil',
+  name: 'Les Petits Rayons De Soleil',
   shortName: 'LPRDS',
   since: 2022,
   phone: '+228 98 60 29 20',

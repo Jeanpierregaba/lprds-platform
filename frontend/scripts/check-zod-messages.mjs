@@ -37,7 +37,7 @@ import ts from 'typescript'
 
 /** Noms propres et marques : jamais traduits, donc jamais signalés. */
 const ALLOWLIST = [
-  'Les Petits Rayons de Soleil',
+  'Les Petits Rayons De Soleil',
   'LPRDS',
 ]
 

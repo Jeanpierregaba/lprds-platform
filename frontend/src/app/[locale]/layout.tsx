@@ -9,6 +9,7 @@ import { routing } from '@/i18n/routing'
 import '../globals.css'
 
 import { Toaster } from '@/components/ui/sonner'
+import { APP_NAME, APP_SHORT_NAME } from '@/lib/brand'
 
 // Polices du design system — cf. DESIGN.md § 3 Typography Rules.
 // "Fredoka One" (display) a été fusionnée dans la famille variable "Fredoka"
@@ -40,14 +41,14 @@ export async function generateMetadata(
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
+    title: APP_NAME,
     description: t('appDescription'),
-    applicationName: process.env.NEXT_PUBLIC_APP_NAME ?? 'LPRDS',
+    applicationName: APP_NAME,
     manifest: '/manifest.webmanifest',
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
-      title: 'LPRDS',
+      title: APP_SHORT_NAME,
     },
     formatDetection: { telephone: false },
     icons: {

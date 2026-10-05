@@ -48,7 +48,7 @@ export function MobileNav() {
           <SheetTitle className="flex items-center">
             <Image
               src="/images/marketing/logo.png"
-              alt="Les Petits Rayons de Soleil"
+              alt="Les Petits Rayons De Soleil"
               width={148}
               height={90}
               className="h-9 w-auto"

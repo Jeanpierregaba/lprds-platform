@@ -249,7 +249,7 @@
     },
     "demarrage-confirme": {
       "title": "Démarrage confirmé",
-      "description": "Bienvenue chez Les Petits Rayons de Soleil !"
+      "description": "Bienvenue chez Les Petits Rayons De Soleil !"
     }
   },
   "partners": {
@@ -306,7 +306,7 @@
     },
     "about": {
       "eyebrow": "A PROPOS DE NOUS",
-      "title": "Pourquoi Les Petits Rayons de Soleil ?",
+      "title": "Pourquoi Les Petits Rayons De Soleil ?",
       "body": "Un cadre chaleureux et sécurisé, une équipe passionnée et une pédagogie pensée pour accompagner chaque enfant dans ses découvertes, son autonomie et son épanouissement, de la crèche à la Grande Section.",
       "cta": "En savoir plus sur nous",
       "imageAlt": "Éducatrice avec des enfants"
@@ -344,7 +344,7 @@
     "history": {
       "title": "Notre histoire",
       "imageAlt": "Enfants et éducatrices dans un environnement bienveillant",
-      "p1": "Les Petits Rayons de Soleil est née d’une passion pour la petite enfance et d’un rêve simple : offrir aux enfants un lieu où ils puissent grandir dans la joie, la sécurité et la confiance.",
+      "p1": "Les Petits Rayons De Soleil est née d’une passion pour la petite enfance et d’un rêve simple : offrir aux enfants un lieu où ils puissent grandir dans la joie, la sécurité et la confiance.",
       "p2": "Notre établissement grandit jour après jour, tout comme les sourires des enfants qui y ont fait leurs premiers pas. Aujourd’hui, {name} est devenue une référence d’accueil de qualité, alliant pédagogie moderne, bienveillance et engagement éducatif, tout en restant fidèle à son esprit familial.",
       "p3": "Notre évolution s’est naturellement poursuivie avec l’ouverture de l’école maternelle, afin d’accompagner les enfants dans la continuité de leur développement jusqu’à l’entrée à l’école primaire.",
       "p4": "Chaque jour, notre équipe met tout son cœur à créer un environnement où les enfants apprennent, explorent et s’épanouissent — car ici, grandir est une aventure lumineuse."
@@ -364,7 +364,7 @@
   "contact": {
     "meta": {
       "title": "Contact — {name}",
-      "description": "Une question, un projet d’inscription ? Contactez Les Petits Rayons de Soleil à Djidjolé, Lomé."
+      "description": "Une question, un projet d’inscription ? Contactez Les Petits Rayons De Soleil à Djidjolé, Lomé."
     },
     "hero": {
       "badge": "Contact",

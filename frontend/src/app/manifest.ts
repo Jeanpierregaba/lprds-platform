@@ -8,8 +8,8 @@ import frPwa from '../../messages/fr/pwa.json'
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale, type AppLocale } from '@/i18n/routing'
 import { prefersFrench } from '@/i18n/detect'
 import { marketingPath } from '@/i18n/slugs'
+import { APP_NAME, APP_SHORT_NAME } from '@/lib/brand'
 
-const SHORT_NAME = 'LPRDS'
 const THEME_COLOR = '#F5AA2D'
 const BACKGROUND_COLOR = '#FFFFFF'
 
@@ -67,8 +67,9 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
 
   return {
     id: '/',
-    name: pwa.name,
-    short_name: SHORT_NAME,
+    // ⚠️ Un nom propre, jamais un libellé traduit — cf. `lib/brand.ts`.
+    name: APP_NAME,
+    short_name: APP_SHORT_NAME,
     description: pwa.description,
     lang: locale,
     dir: 'ltr',

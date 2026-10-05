@@ -42,7 +42,7 @@ import ts from 'typescript'
  * retirés — « PDF / Excel » ne déclenche donc rien, « Format PDF » si.
  */
 const ALLOWLIST = [
-  'Les Petits Rayons de Soleil',
+  'Les Petits Rayons De Soleil',
   'LPRDS',
   'Africa/Porto-Novo',
   'PDF',

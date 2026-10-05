@@ -249,7 +249,7 @@
     },
     "demarrage-confirme": {
       "title": "All confirmed",
-      "description": "Welcome to Les Petits Rayons de Soleil!"
+      "description": "Welcome to Les Petits Rayons De Soleil!"
     }
   },
   "partners": {
@@ -306,7 +306,7 @@
     },
     "about": {
       "eyebrow": "ABOUT US",
-      "title": "Why Les Petits Rayons de Soleil?",
+      "title": "Why Les Petits Rayons De Soleil?",
       "body": "A warm, secure setting, a team who love what they do, and a teaching approach built to support every child's discoveries, independence and growth — from nursery right through to Grande Section.",
       "cta": "More about us",
       "imageAlt": "An educator with a group of children"
@@ -334,17 +334,17 @@
   "about": {
     "meta": {
       "title": "About — {name}",
-      "description": "Discover the story, the mission and the team behind Les Petits Rayons de Soleil, a nursery and preschool in Lomé."
+      "description": "Discover the story, the mission and the team behind Les Petits Rayons De Soleil, a nursery and preschool in Lomé."
     },
     "hero": {
       "badge": "About",
       "title": "Our story and our values",
-      "subtitle": "The story of Les Petits Rayons de Soleil, and the team who care for your children every day."
+      "subtitle": "The story of Les Petits Rayons De Soleil, and the team who care for your children every day."
     },
     "history": {
       "title": "Our story",
       "imageAlt": "Children and educators in a caring environment",
-      "p1": "Les Petits Rayons de Soleil grew out of a love of early childhood and one simple wish: to give children a place where they could grow up in joy, safety and confidence.",
+      "p1": "Les Petits Rayons De Soleil grew out of a love of early childhood and one simple wish: to give children a place where they could grow up in joy, safety and confidence.",
       "p2": "Our school grows a little more each day, just like the smiles of the children who took their first steps here. Today, {name} has become known for the quality of its care, combining modern teaching, kindness and real educational commitment — while keeping the family spirit it started with.",
       "p3": "Opening the preschool was the natural next step, so that we could stay alongside children throughout their development, right up to primary school.",
       "p4": "Every day, our team puts its whole heart into building a place where children learn, explore and flourish — because here, growing up is a bright adventure."
@@ -364,7 +364,7 @@
   "contact": {
     "meta": {
       "title": "Contact — {name}",
-      "description": "A question, or thinking of enrolling? Get in touch with Les Petits Rayons de Soleil in Djidjolé, Lomé."
+      "description": "A question, or thinking of enrolling? Get in touch with Les Petits Rayons De Soleil in Djidjolé, Lomé."
     },
     "hero": {
       "badge": "Contact",
@@ -460,7 +460,7 @@
   "newsPage": {
     "meta": {
       "title": "News — {name}",
-      "description": "Follow everyday life, events and teaching projects at Les Petits Rayons de Soleil."
+      "description": "Follow everyday life, events and teaching projects at Les Petits Rayons De Soleil."
     },
     "badge": "News",
     "title": "All the latest from the school",
@@ -473,7 +473,7 @@
   "galleryPage": {
     "meta": {
       "title": "Gallery — {name}",
-      "description": "Life here in pictures: workshops, outdoor play, mealtimes and celebrations at Les Petits Rayons de Soleil."
+      "description": "Life here in pictures: workshops, outdoor play, mealtimes and celebrations at Les Petits Rayons De Soleil."
     },
     "badge": "Gallery",
     "title": "Life here, in pictures",

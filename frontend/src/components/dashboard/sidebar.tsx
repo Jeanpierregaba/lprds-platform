@@ -24,7 +24,7 @@ export function Sidebar() {
       <div className="flex h-14 items-center border-b border-border px-4">
         <Image
           src="/images/marketing/logo.png"
-          alt="Les Petits Rayons de Soleil"
+          alt="Les Petits Rayons De Soleil"
           width={148}
           height={90}
           className="h-9 w-auto"

@@ -64,6 +64,9 @@ export interface Child {
   doctor_phone:         string | null
 
   is_active:  boolean
+  /** Une photo de profil est-elle posée ? (l'image elle-même passe par un
+   *  endpoint authentifié — cf. `childrenApi.downloadPhoto`). */
+  has_photo:  boolean
   created_at: string
   updated_at: string
 
@@ -82,6 +85,7 @@ export interface ChildListItem {
   department:     UnitBrief | null
   section:        UnitBrief | null
   is_active:      boolean
+  has_photo:      boolean
 }
 
 export interface ChildListResponse {

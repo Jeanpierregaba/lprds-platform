@@ -117,7 +117,7 @@ app/
 │   │   ├── service.py             # Logique départements / sections / groupes
 │   │   └── router.py              # /departments/*, /sections/*, /groups/*
 │   ├── children/
-│   │   ├── models.py              # Child, Guardian, AuthorizedPerson
+│   │   ├── models.py              # Child (+ photo de profil), Guardian, AuthorizedPerson
 │   │   ├── matricule.py           # Génération <CODE>-<5 alphanum>
 │   │   ├── schemas.py             # Pydantic v2 I/O schemas
 │   │   ├── service.py             # Logique métier enfants
@@ -978,6 +978,60 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 - **Parents/tuteurs = fiches de contact**, sans compte de connexion. La colonne
   `guardians.user_id` (nullable) est prévue pour brancher un compte le jour où le
   portail parent arrivera — sans migration de schéma.
+
+### Photo de profil — une règle d'accès qui n'existe nulle part ailleurs
+
+Quatre colonnes directes sur `children` (`photo_filename`, `photo_content_type`,
+`photo_size_bytes`, `photo_storage_key`, migration `ea688d161f50`) — relation
+strictement 1–1, même patron que l'image à la une d'un article. Demandée par un
+établissement : reconnaître un enfant d'un coup d'œil dans les listes, les
+présences et le trombinoscope, au lieu de lire un nom.
+
+```
+PUT    /api/v1/children/{id}/photo          # multipart — remplace la précédente
+GET    /api/v1/children/{id}/photo?thumb=   # authentifié, jamais en statique
+DELETE /api/v1/children/{id}/photo          # idempotent
+```
+
+⚠️ **Ces trois routes n'utilisent PAS `require_permission`.** Le droit dépend du
+LIEN à l'enfant, pas d'une permission RBAC — décision explicite de
+l'utilisateur. Peuvent déposer la photo : l'**admin** de l'établissement, un
+**parent** de l'enfant depuis son compte, et l'**éducatrice** qui mène son
+groupe. C'est à la fois plus large que `children:write` (un parent n'a aucune
+permission RBAC) et plus étroit (un staff porteur du droit mais étranger au
+groupe n'a rien à faire sur la photo d'un enfant qu'il n'encadre pas). La règle
+vit dans `_child_for_photo`, au même endroit pour les trois routes.
+
+⚠️ **La LECTURE est plus large que l'écriture**, et ce n'est pas un oubli : un
+staff qui a déjà `children:read` voit le nom, la date de naissance et les notes
+médicales. Lui cacher la photo n'ajouterait aucune protection, et rendrait le
+trombinoscope inutilisable pour quiconque ne mène pas tous les groupes d'une
+section. Le superadmin reste exclu, comme partout.
+
+- **`has_photo` est un BOOLÉEN, pas une URL** : l'image passe par un endpoint
+  authentifié. Exposer une URL donnerait l'illusion d'un lien utilisable tel
+  quel ; et sans ce drapeau, chaque case d'une liste lancerait une requête
+  vouée à une 404.
+- **Images seulement** (`images_only=True`) : le dossier d'inscription accepte
+  le PDF, pas l'avatar — rien ne saurait le dessiner dans un rond.
+- La vignette (`?thumb=true`) est ce que demandent les listes : l'original est
+  une photo de téléphone.
+
+### Trombinoscope — une grille de photos par SECTION, imprimable
+
+`/dashboard/admin/children/trombinoscope` — par section seulement pour
+l'instant, sur décision explicite. La section vit **dans l'URL** : une feuille
+imprimée se rejoue, se partage et se met en favori.
+
+La mise en page du tableau de bord porte des `print:hidden` (barre latérale,
+en-tête, image de fond) : à l'impression, seul le contenu compte.
+`break-inside-avoid` sur chaque case, sans quoi une photo se coupe en deux au
+saut de page.
+
+⚠️ Un `Select` dont les options arrivent en ASYNCHRONE affiche l'identifiant
+brut tant que le libellé n'est pas rendu explicitement — vu à l'écran, pas au
+type-check : le sélecteur annonçait « 77f4347a-7258-41de-… » au lieu de
+« Petite Section ».
 
 ### Import one-shot depuis l'export legacy (`backend/scripts/import_children.py`)
 
@@ -3548,6 +3602,8 @@ tests/
     │                                    #   par un admin renvoie bien « validated »
     ├── test_email_links.py              # les liens des emails mènent à une route
     │                                    #   qui existe (comparés à l'arbre frontend)
+    ├── test_child_photo.py              # photo d'enfant : qui peut la poser
+    │                                    #   (admin, parent, éducatrice du groupe)
     ├── test_media_thumbnails.py         # ?thumb : nettement plus léger, original
     │                                    #   intact, vidéo servie telle quelle, cache
     ├── test_media_uploads.py            # même photo acceptée quel que soit le MIME

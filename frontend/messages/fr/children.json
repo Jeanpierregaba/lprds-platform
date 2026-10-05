@@ -191,5 +191,25 @@
   "documents": {
     "tooLarge": "« {name} » dépasse {max} Mo.",
     "badType": "« {name} » : seuls les images et PDF sont acceptés."
+  },
+  "photo": {
+    "add": "Ajouter une photo",
+    "replace": "Changer la photo",
+    "remove": "Retirer",
+    "confirmRemove": "Confirmer le retrait",
+    "saved": "Photo enregistrée",
+    "removed": "Photo retirée",
+    "mustBeImage": "La photo de profil doit être une image",
+    "title": "Photo de profil"
+  },
+  "trombinoscope": {
+    "title": "Trombinoscope",
+    "description": "Une grille de photos par section, prête à imprimer.",
+    "chooseSection": "Choisir une section",
+    "print": "Imprimer",
+    "count": "{count, plural, one {# enfant} other {# enfants}}",
+    "loading": "Chargement…",
+    "empty": "Aucun enfant dans cette section.",
+    "open": "Trombinoscope"
   }
 }

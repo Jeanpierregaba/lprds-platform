@@ -132,6 +132,11 @@ MESSAGES: dict[str, str] = {
     "errors.blog.tag_exists": "Une étiquette porte déjà ce nom",
     "errors.blog.tag_not_found": "Étiquette introuvable",
     # ── children ──────────────────────────────────────────
+    "errors.children.photo_not_found": "Cet enfant n'a pas de photo",
+    "errors.children.photo_forbidden": (
+        "Seuls l'administration, les parents de l'enfant et l'éducatrice de son groupe peuvent gérer sa photo"
+    ),
+    "errors.children.photo_must_be_image": "La photo de profil doit être une image",
     "errors.children.document_not_found": "Document introuvable",
     "errors.children.file_too_large_fixed": "Fichier trop volumineux (max 5 Mo)",
     "errors.children.file_too_large": "Fichier trop volumineux (max {max_mb} Mo)",

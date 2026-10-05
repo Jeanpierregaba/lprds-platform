@@ -85,7 +85,7 @@ export function ChildMultiSelect({
               <button
                 key={c.id}
                 type="button"
-                onClick={() => add({ id: c.id, matricule: c.matricule, last_name: c.last_name, first_names: c.first_names })}
+                onClick={() => add({ id: c.id, matricule: c.matricule, last_name: c.last_name, first_names: c.first_names, has_photo: c.has_photo })}
                 className="flex w-full items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted"
               >
                 <span className="font-medium">{c.first_names} {c.last_name}</span>

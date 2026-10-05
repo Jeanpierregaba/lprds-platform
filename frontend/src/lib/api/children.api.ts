@@ -42,6 +42,25 @@ export const childrenApi = {
     return apiClient.post<ChildImportReportResponse>('/api/v1/children/import', form)
   },
 
+  // ── Photo de profil ─────────────────────────────────────────
+  //
+  // Déposable par l'admin, un parent de l'enfant ou l'éducatrice de son
+  // groupe — le backend tranche, l'écran n'a qu'à masquer le bouton pour
+  // éviter les impasses.
+  setPhoto: (childId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    // `PUT` : il n'y a qu'une photo, la reposer remplace la précédente.
+    return apiClient.put<Child>(`/api/v1/children/${childId}/photo`, form)
+  },
+
+  downloadPhoto: (childId: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/children/${childId}/photo`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
+
+  removePhoto: (childId: string) =>
+    apiClient.delete<void>(`/api/v1/children/${childId}/photo`),
+
   // ── Documents du dossier d'inscription ──────────────────────
   uploadDocument: (childId: string, file: File) => {
     const form = new FormData()

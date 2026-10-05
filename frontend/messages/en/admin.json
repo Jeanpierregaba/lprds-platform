@@ -190,7 +190,8 @@
     "readBadge": "Read",
     "staffGreeting": "Hello {name} ☀️",
     "myDrafts": "My drafts ({count})",
-    "reportsToValidateLink": "Reports to approve ({count})"
+    "reportsToValidateLink": "Reports to approve ({count})",
+    "allRead": "All caught up ✓"
   },
   "settings": {
     "title": "Settings",

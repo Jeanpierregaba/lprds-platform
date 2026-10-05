@@ -108,6 +108,21 @@ class Child(Base):
         cascade="all, delete-orphan",
     )
 
+    # ── Photo de profil ────────────────────────────────────────────
+    #
+    # ⚠️ Quatre colonnes DIRECTES plutôt qu'une table : la relation est
+    # strictement 1–1, exactement comme l'image à la une d'un article
+    # (`Article.cover_*`). Une table séparée n'apporterait qu'une jointure.
+    #
+    # Demandée par un établissement : reconnaître un enfant d'un coup d'œil
+    # dans les listes, les présences et le trombinoscope d'une section, au lieu
+    # de lire un nom. Déposée par l'admin, le parent de l'enfant ou
+    # l'éducatrice de son groupe — cf. `ensure_photo_access`.
+    photo_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    photo_content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    photo_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    photo_storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # Comptes parents assignés à cet enfant (M2M) — cf. module parents
     parents: Mapped[list["User"]] = relationship(
         secondary="parent_children",
@@ -121,6 +136,15 @@ class Child(Base):
         lazy="selectin",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def has_photo(self) -> bool:
+        """Lu tel quel par les schémas (`from_attributes`).
+
+        Les quatre colonnes de photo bougent ensemble ; `photo_storage_key` est
+        celle qui désigne le fichier, donc celle qui fait foi.
+        """
+        return self.photo_storage_key is not None
 
     def __repr__(self) -> str:
         return f"<Child {self.matricule} — {self.last_name} {self.first_names}>"

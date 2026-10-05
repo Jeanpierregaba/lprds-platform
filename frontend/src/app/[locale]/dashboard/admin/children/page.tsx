@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Baby, Download, Eye, FileSpreadsheet, FileUp, Loader2, Plus, QrCode, UserCheck, UserX } from 'lucide-react'
+import { Baby, Download, Eye, FileSpreadsheet, FileUp, Loader2, Plus, QrCode, UserCheck, UserX, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +31,7 @@ import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
 import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
 import { Link } from '@/i18n/navigation'
+import { ChildAvatar } from '@/components/children/child-avatar'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
@@ -180,6 +181,12 @@ export default function ChildrenListPage() {
               {t('list.import')}
             </Button>
             )}
+            {/* Lisible par quiconque voit déjà les fiches : le trombinoscope
+                ne montre rien de plus qu'une liste, en photos. */}
+            <Button variant="outline" render={<Link href="/dashboard/admin/children/trombinoscope" />}>
+              <Users className="mr-1.5 size-4" />
+              {t('trombinoscope.open')}
+            </Button>
             {canWrite && (
             <Button render={<Link href="/dashboard/admin/children/new" />}>
               <Plus className="mr-1.5 size-4" />
@@ -290,7 +297,14 @@ export default function ChildrenListPage() {
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="block font-medium">
+                  <Link href={`/dashboard/admin/children/${child.id}`} className="flex items-center gap-2.5 font-medium">
+                    <ChildAvatar
+                      childId={child.id}
+                      firstNames={child.first_names}
+                      lastName={child.last_name}
+                      hasPhoto={child.has_photo}
+                      size="sm"
+                    />
                     {child.first_names} {child.last_name}
                   </Link>
                 </Td>
@@ -464,9 +478,18 @@ function ChildCard({
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">
-            {child.first_names} {child.last_name}
-          </p>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <ChildAvatar
+              childId={child.id}
+              firstNames={child.first_names}
+              lastName={child.last_name}
+              hasPhoto={child.has_photo}
+              size="md"
+            />
+            <p className="min-w-0 break-words font-display text-xl font-semibold leading-tight">
+              {child.first_names} {child.last_name}
+            </p>
+          </div>
           <StatusPill active={child.is_active} shrink />
         </div>
         <p className="text-sm text-muted-foreground">

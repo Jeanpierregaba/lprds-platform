@@ -3,6 +3,7 @@ export interface ParentChildBrief {
   matricule: string
   last_name: string
   first_names: string
+  has_photo: boolean
 }
 
 export interface ParentListItem {

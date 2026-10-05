@@ -152,6 +152,15 @@ class ChildResponse(BaseModel):
     authorized_persons: list[AuthorizedPersonResponse]
     documents:          list[ChildAttachmentResponse] = []
 
+    # ⚠️ Un BOOLÉEN, pas une URL. L'image est servie par un endpoint
+    # authentifié (`GET /children/{id}/photo`) ; exposer une URL donnerait
+    # l'illusion d'un lien utilisable tel quel, alors qu'il exige un jeton.
+    # L'écran sait fabriquer l'appel, il lui manque juste de savoir s'il y a
+    # quelque chose à demander — sans quoi chaque case de liste lancerait une
+    # requête vouée à une 404.
+    has_photo: bool = False
+
+
 
 class ChildListItem(BaseModel):
     """Vue allégée : pas de données médicales dans les listes."""
@@ -167,6 +176,15 @@ class ChildListItem(BaseModel):
     department:     UnitBrief | None
     section:        UnitBrief | None
     is_active:      bool
+
+    # ⚠️ Un BOOLÉEN, pas une URL. L'image est servie par un endpoint
+    # authentifié (`GET /children/{id}/photo`) ; exposer une URL donnerait
+    # l'illusion d'un lien utilisable tel quel, alors qu'il exige un jeton.
+    # L'écran sait fabriquer l'appel, il lui manque juste de savoir s'il y a
+    # quelque chose à demander — sans quoi chaque case de liste lancerait une
+    # requête vouée à une 404.
+    has_photo: bool = False
+
 
 
 class ChildListResponse(BaseModel):

@@ -122,6 +122,11 @@ MESSAGES: dict[str, str] = {
     "errors.blog.tag_exists": "A tag already has this name",
     "errors.blog.tag_not_found": "Tag not found",
     # ── children ──────────────────────────────────────────
+    "errors.children.photo_not_found": "This child has no photo",
+    "errors.children.photo_forbidden": (
+        "Only the administration, the child's parents and their group's teacher can manage this photo"
+    ),
+    "errors.children.photo_must_be_image": "The profile photo must be an image",
     "errors.children.document_not_found": "Document not found",
     "errors.children.file_too_large_fixed": "File too large (max 5 MB)",
     "errors.children.file_too_large": "File too large (max {max_mb} MB)",

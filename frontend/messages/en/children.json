@@ -191,5 +191,25 @@
   "documents": {
     "tooLarge": "“{name}” is over {max} MB.",
     "badType": "“{name}”: only images and PDFs are accepted."
+  },
+  "photo": {
+    "add": "Add a photo",
+    "replace": "Change photo",
+    "remove": "Remove",
+    "confirmRemove": "Confirm removal",
+    "saved": "Photo saved",
+    "removed": "Photo removed",
+    "mustBeImage": "The profile photo must be an image",
+    "title": "Profile photo"
+  },
+  "trombinoscope": {
+    "title": "Class photo board",
+    "description": "A photo grid per section, ready to print.",
+    "chooseSection": "Choose a section",
+    "print": "Print",
+    "count": "{count, plural, one {# child} other {# children}}",
+    "loading": "Loading…",
+    "empty": "No children in this section.",
+    "open": "Photo board"
   }
 }

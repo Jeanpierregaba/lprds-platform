@@ -22,6 +22,8 @@ import { reportsApi } from '@/lib/api/reports.api'
 import { cn } from '@/lib/utils/cn'
 import { type Weekday } from '@/types/menus'
 import { Link } from '@/i18n/navigation'
+import { ChildAvatar } from '@/components/children/child-avatar'
+import { ChildPhotoButton } from '@/components/children/child-photo-editor'
 
 function formatLongDate() {
   return new Date().toLocaleDateString(intlLocale(), {
@@ -90,7 +92,7 @@ export default function ParentDashboardPage() {
   const weekdaysLabel = useLabel('weekdays')
   const user = useUser()
 
-  const { data: children = [], isLoading: loadingChildren } = useQuery({
+  const { data: children = [], isLoading: loadingChildren, refetch: refetchChildren } = useQuery({
     queryKey: ['parent', 'my-children'],
     queryFn: () => parentsApi.listMyChildren().then((r) => r.data),
   })
@@ -209,25 +211,50 @@ export default function ParentDashboardPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 + i * 0.06 }}
                 >
+                  <div className="relative">
                   <Link href="/dashboard/parent/reports">
                     <Card className="group relative overflow-hidden transition hover:-translate-y-0.5 hover:shadow-soft">
                       <div className={cn('pointer-events-none absolute inset-x-0 top-0 h-1.5', tint)} />
                       <CardContent className="flex items-center gap-4 pt-6">
-                        <span className={cn('flex size-12 shrink-0 items-center justify-center rounded-2xl font-display text-xl font-semibold text-white shadow-sm', tint)}>
-                          {initial}
-                        </span>
+                        {child.has_photo ? (
+                          <ChildAvatar
+                            childId={child.id}
+                            firstNames={child.first_names}
+                            lastName={child.last_name}
+                            hasPhoto
+                            size="lg"
+                            className="size-12 rounded-2xl shadow-sm"
+                          />
+                        ) : (
+                          /* Sans photo, on garde la pastille colorée d'origine :
+                             elle porte déjà la teinte propre à chaque enfant. */
+                          <span className={cn('flex size-12 shrink-0 items-center justify-center rounded-2xl font-display text-xl font-semibold text-white shadow-sm', tint)}>
+                            {initial}
+                          </span>
+                        )}
                         <span className="min-w-0">
                           <span className="block truncate font-display text-xl font-semibold leading-tight">
                             {child.first_names} {child.last_name}
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {unread > 0 ? t('home.unreadReportCount', { count: unread }) : 'Tout est lu ✓'}
+                            {unread > 0 ? t('home.unreadReportCount', { count: unread }) : t('home.allRead')}
                           </span>
                         </span>
                         <ArrowRight className="ml-auto size-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
                       </CardContent>
                     </Card>
                   </Link>
+                  {/* ⚠️ En dehors du lien : à l'intérieur, choisir un fichier
+                      ouvrirait aussi la page des rapports. Un parent dépose la
+                      photo de SON enfant depuis ici — c'est l'endroit où il la
+                      cherchera, plutôt qu'un écran de réglages. */}
+                  <ChildPhotoButton
+                    childId={child.id}
+                    hasPhoto={child.has_photo}
+                    onChanged={() => refetchChildren()}
+                    className="absolute right-3 top-3 z-10"
+                  />
+                  </div>
                 </motion.div>
               )
             })}

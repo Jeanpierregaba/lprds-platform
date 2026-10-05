@@ -190,7 +190,8 @@
     "readBadge": "Lu",
     "staffGreeting": "Bonjour {name} ☀️",
     "myDrafts": "Mes brouillons ({count})",
-    "reportsToValidateLink": "Rapports à valider ({count})"
+    "reportsToValidateLink": "Rapports à valider ({count})",
+    "allRead": "Tout est lu ✓"
   },
   "settings": {
     "title": "Paramètres",

@@ -36,6 +36,22 @@ export function isObviouslyRejectedDocument(file: File): boolean {
   return !(file.type.startsWith('image/') || file.type === 'application/pdf')
 }
 
+/** `accept` d'une photo de profil : une image, jamais un document. */
+export const ACCEPT_PHOTO = `image/*,${IMAGE_EXTENSIONS}`
+
+/**
+ * Vrai seulement si le fichier n'est EXPLICITEMENT pas une image.
+ *
+ * Même règle que ci-dessus : un type vide ne vaut pas refus. Le PDF, lui, est
+ * un refus franc ici — un dossier d'inscription l'accepte, un avatar non, et
+ * rien ne saurait le dessiner dans un rond.
+ */
+export function isObviouslyNotAnImage(file: File): boolean {
+  if (file.type === 'image/svg+xml') return true
+  if (!file.type) return false
+  return !file.type.startsWith('image/')
+}
+
 /** Un PDF n'est pas recompressé côté serveur : inutile de le téléverser pour
  *  se faire refuser. Une IMAGE, elle, sera allégée — on ne l'arrête jamais. */
 export function isPdfOverLimit(file: File, maxMb: number): boolean {

@@ -35,6 +35,7 @@ import {
   isPdfOverLimit,
 } from '@/lib/utils/uploads'
 import { formatBytes } from '@/lib/utils/locale-format'
+import { ChildPhotoEditor } from '@/components/children/child-photo-editor'
 
 type T = (key: string) => string
 
@@ -121,12 +122,26 @@ export default function ChildDetailPage() {
       <BackLink href="/dashboard/admin/children" label={t('form.back')} />
 
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{child.first_names} {child.last_name}</h1>
-            <StatusPill active={child.is_active} />
+        <div className="flex items-center gap-4">
+          <ChildPhotoEditor
+            childId={child.id}
+            firstNames={child.first_names}
+            lastName={child.last_name}
+            hasPhoto={child.has_photo}
+            /* Le backend tranche vraiment (l'éducatrice du groupe y a droit
+               sans `children:write`) ; ici on évite seulement l'impasse d'un
+               bouton voué à un 403 pour un staff sans lien avec l'enfant. */
+            canEdit={canWrite}
+            onChanged={invalidate}
+            size="lg"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">{child.first_names} {child.last_name}</h1>
+              <StatusPill active={child.is_active} />
+            </div>
+            <p className="font-mono text-sm text-white">{child.matricule}</p>
           </div>
-          <p className="font-mono text-sm text-white">{child.matricule}</p>
         </div>
 
         {canArchive && (

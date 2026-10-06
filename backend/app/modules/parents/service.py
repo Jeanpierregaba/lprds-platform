@@ -12,6 +12,7 @@ from app.modules.auth.email import (
     send_welcome_email,
 )
 from app.modules.auth.models import User, UserRole
+from app.modules.auth import service as auth_service
 from app.modules.auth.security import hash_password
 from app.modules.children.models import Child
 from app.modules.parents.schemas import (
@@ -195,6 +196,27 @@ async def reset_parent_password(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=t("errors.common.email_unavailable_password"),
         ) from exc
+
+
+async def resend_parent_invitation(
+    parent_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Renvoie l'email de bienvenue avec un mot de passe neuf.
+
+    Pour un parent qui ne retrouve pas l'email reçu à la création. Le mot de
+    passe d'ORIGINE est irrécupérable (bcrypt) : cf. `auth_service.resend_invitation`,
+    qui porte le geste et la politique d'échec pour les deux modules.
+
+    ⚠️ Un compte qui s'est DÉJÀ connecté a probablement choisi son propre mot de
+    passe : une relance le lui retire. Le refuser ici serait pourtant faux —
+    perdre son mot de passe après s'être connecté une fois est le cas le plus
+    banal qui soit. C'est donc l'écran qui AVERTIT, en lisant `last_login_at`,
+    déjà exposé par la réponse.
+    """
+    user = await _get_or_404(parent_id, establishment_id, db)
+    await auth_service.resend_invitation(user, db)
 
 
 # ── Helpers privés ──────────────────────────────────────────────

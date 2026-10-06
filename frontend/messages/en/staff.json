@@ -94,5 +94,12 @@
   "noRoleYet": "No role exists yet. Create one under Roles & permissions.",
   "detail": {
     "notFound": "Staff member not found."
+  },
+  "invite": {
+    "resend": "Resend invitation",
+    "confirmTitle": "Resend the invitation?",
+    "confirmNever": "This staff member has never signed in. They will receive the welcome email again, at the same address, with a NEW password — the original cannot be recovered, as the platform only keeps a hashed fingerprint of it.",
+    "confirmUsed": "⚠️ This staff member has already signed in, so they may have chosen their own password. Resending will replace it with a new one, and the old password will stop working. Only continue if they told you they can no longer sign in.",
+    "sent": "Invitation resent. A new password is on its way by email."
   }
 }

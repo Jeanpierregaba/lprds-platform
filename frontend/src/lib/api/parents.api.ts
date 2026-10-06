@@ -23,4 +23,11 @@ export const parentsApi = {
 
   resetPassword: (id: string, newPassword: string) =>
     apiClient.post<void>(`/api/v1/parents/${id}/reset-password`, { new_password: newPassword }),
+
+  /** Renvoie l'email de bienvenue avec un mot de passe NEUF.
+   *
+   * ⚠️ Aucun corps, et aucun mot de passe en réponse : il ne doit exister que
+   * dans l'email. Celui d'origine est irrécupérable (bcrypt côté serveur). */
+  resendInvitation: (id: string) =>
+    apiClient.post<void>(`/api/v1/parents/${id}/resend-invitation`),
 }

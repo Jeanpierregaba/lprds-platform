@@ -94,5 +94,12 @@
   "noRoleYet": "Aucun rôle n'existe encore. Créez-en depuis Rôles & permissions.",
   "detail": {
     "notFound": "Membre du personnel introuvable."
+  },
+  "invite": {
+    "resend": "Renvoyer l'invitation",
+    "confirmTitle": "Renvoyer l'invitation ?",
+    "confirmNever": "Ce membre du personnel ne s'est jamais connecté. Il recevra de nouveau l'email de bienvenue, à la même adresse, avec un NOUVEAU mot de passe — celui d'origine ne peut pas être retrouvé, la plateforme n'en conserve qu'une empreinte chiffrée.",
+    "confirmUsed": "⚠️ Ce membre du personnel s'est déjà connecté : il a donc peut-être choisi son propre mot de passe. La relance le remplacera par un nouveau, et l'ancien cessera de fonctionner. Ne poursuivez que s'il vous a dit ne plus pouvoir se connecter.",
+    "sent": "Invitation renvoyée. Un nouveau mot de passe part par email."
   }
 }

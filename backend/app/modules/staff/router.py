@@ -104,3 +104,17 @@ async def set_staff_status(
     return await service.set_staff_status(
         staff_id, payload.is_active, current_user.establishment_id, db
     )
+
+@router.post("/{staff_id}/resend-invitation", status_code=status.HTTP_204_NO_CONTENT)
+async def resend_staff_invitation(
+    staff_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.STAFF_WRITE)),
+) -> None:
+    """Renvoie l'email de bienvenue avec un mot de passe NEUF.
+
+    ⚠️ Pas de corps de requête, et surtout aucun mot de passe en réponse : il ne
+    doit exister que dans l'email. Le renvoyer ici le ferait traverser les
+    journaux d'accès et le reverse proxy.
+    """
+    await service.resend_staff_invitation(staff_id, current_user.establishment_id, db)

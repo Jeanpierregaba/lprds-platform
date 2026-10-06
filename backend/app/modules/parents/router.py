@@ -100,3 +100,17 @@ async def reset_parent_password(
     await service.reset_parent_password(
         parent_id, payload.new_password, current_user.establishment_id, db
     )
+
+@router.post("/{parent_id}/resend-invitation", status_code=status.HTTP_204_NO_CONTENT)
+async def resend_parent_invitation(
+    parent_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission(PermissionCode.PARENTS_WRITE)),
+) -> None:
+    """Renvoie l'email de bienvenue avec un mot de passe NEUF.
+
+    ⚠️ Pas de corps de requête, et surtout aucun mot de passe en réponse : il ne
+    doit exister que dans l'email. Le renvoyer ici le ferait traverser les
+    journaux d'accès et le reverse proxy.
+    """
+    await service.resend_parent_invitation(parent_id, current_user.establishment_id, db)

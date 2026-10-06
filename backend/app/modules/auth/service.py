@@ -280,6 +280,54 @@ async def set_user_locale(db: AsyncSession, user: User, locale: str) -> User:
     return user
 
 
+
+# ── Relance d'invitation ────────────────────────────────────────
+
+async def resend_invitation(user: User, db: AsyncSession) -> None:
+    """Renvoie l'email de bienvenue avec un mot de passe NEUF.
+
+    Demandé par un établissement : des parents ne retrouvent pas l'email de
+    création, ou affirment ne l'avoir jamais reçu.
+
+    ⚠️ **Le mot de passe d'origine ne peut PAS être renvoyé.** Seule son
+    empreinte bcrypt est conservée, et c'est une propriété voulue : si la
+    plateforme pouvait le relire, une fuite de base livrerait tous les comptes
+    parents en clair. La relance régénère donc un mot de passe conforme à la
+    politique. Du point de vue du destinataire, c'est bien l'invitation qu'il
+    n'avait pas : même adresse, même email, un mot de passe qui marche.
+
+    ⚠️ **Un échec SMTP annule la régénération** (503 + rollback via `get_db`),
+    exactement comme à la création. L'ordre inverse — changer le mot de passe
+    puis ne pas réussir à l'annoncer — mettrait le destinataire DEHORS d'un
+    compte auquel il avait peut-être encore accès. C'est le seul ordre sûr.
+
+    ⚠️ Le geste vit ICI et non dans chaque module : parents et personnel
+    partagent le flux (mot de passe temporaire + email de bienvenue), donc deux
+    copies seraient deux occasions de corriger la politique d'échec à moitié.
+    Chaque module reste responsable de sa propre résolution scopée (404
+    inter-établissement) avant d'appeler.
+    """
+    temp_password = generate_temp_password()
+    user.hashed_password = hash_password(temp_password)
+    await db.flush()
+
+    try:
+        await send_welcome_email(
+            email=user.email,
+            first_name=user.first_name,
+            role=user.role,
+            locale=coerce_locale(user.locale),
+            temp_password=temp_password,
+            establishment_name=user.establishment.name if user.establishment else "",
+        )
+    except EmailDeliveryError as exc:
+        logger.exception("Échec de la relance d'invitation à %s", user.email)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=t("errors.common.email_unavailable_account"),
+        ) from exc
+
+
 # ── Helpers privés ───────────────────────────────────────────────
 async def _get_user_by_email(email: str, db: AsyncSession) -> User | None:
     result = await db.execute(select(User).where(User.email == email))

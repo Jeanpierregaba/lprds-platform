@@ -82,5 +82,12 @@
   "resetHintParent": "Le nouveau mot de passe est envoyé par email au parent — il n'a pas à le redéfinir.",
   "detail": {
     "lastLogin": "Dernière connexion : {at}"
+  },
+  "invite": {
+    "resend": "Renvoyer l'invitation",
+    "confirmTitle": "Renvoyer l'invitation ?",
+    "confirmNever": "Ce parent ne s'est jamais connecté. Il recevra de nouveau l'email de bienvenue, à la même adresse, avec un NOUVEAU mot de passe — celui d'origine ne peut pas être retrouvé, la plateforme n'en conserve qu'une empreinte chiffrée.",
+    "confirmUsed": "⚠️ Ce parent s'est déjà connecté : il a donc peut-être choisi son propre mot de passe. La relance le remplacera par un nouveau, et l'ancien cessera de fonctionner. Ne poursuivez que s'il vous a dit ne plus pouvoir se connecter.",
+    "sent": "Invitation renvoyée. Le parent reçoit un nouveau mot de passe par email."
   }
 }

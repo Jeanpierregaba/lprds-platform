@@ -10,7 +10,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { KeyRound, Loader2, ShieldCheck, X } from 'lucide-react'
+import { KeyRound, Loader2, MailPlus, ShieldCheck, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,7 @@ export default function StaffDetailPage() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [resetOpen, setResetOpen] = useState(false)
+  const [resendOpen, setResendOpen] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -124,6 +125,17 @@ export default function StaffDetailPage() {
     }
   }
 
+  /** Renvoie l'email de bienvenue avec un mot de passe NEUF.
+   *
+   * ⚠️ Celui d'origine est irrécupérable (bcrypt) : la plateforme n'en garde
+   * que l'empreinte, et c'est voulu. Le dialogue DIT donc ce qui va se passer
+   * plutôt que de laisser croire à un simple renvoi. */
+  const resendInvitation = useMutation({
+    mutationFn: () => staffApi.resendInvitation(id),
+    onSuccess: () => { toast.success(t('invite.sent')); setResendOpen(false) },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
   if (isLoading) {
     return <DetailSkeleton />
   }
@@ -172,6 +184,24 @@ export default function StaffDetailPage() {
             </DialogContent>
           </Dialog>
 
+          <Button variant="outline" onClick={() => setResendOpen(true)} disabled={resendInvitation.isPending}>
+            {resendInvitation.isPending
+              ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+              : <MailPlus className="mr-1.5 size-4" />}
+            {t('invite.resend')}
+          </Button>
+          <ConfirmDialog
+            open={resendOpen}
+            onOpenChange={setResendOpen}
+            title={t('invite.confirmTitle')}
+            /* ⚠️ Le texte DÉPEND de `last_login_at` : relancer un compte qui
+               s'est déjà connecté lui retire le mot de passe qu'il s'est
+               choisi. Proposer le même bouton sans le dire ferait d'un
+               dépannage une mise dehors. */
+            description={staff.last_login_at ? t('invite.confirmUsed') : t('invite.confirmNever')}
+            confirmLabel={t('invite.resend')}
+            onConfirm={() => resendInvitation.mutate()}
+          />
           <Button variant={staff.is_active ? 'destructive' : 'outline'} onClick={() => setConfirmArchive(true)}>
             {staff.is_active ? t('status.deactivate') : t('status.reactivate')}
           </Button>

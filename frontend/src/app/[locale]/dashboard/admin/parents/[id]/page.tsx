@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { KeyRound, Loader2, Trash2 } from 'lucide-react'
+import { KeyRound, Loader2, MailPlus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,6 +60,7 @@ export default function ParentDetailPage() {
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
   const [resetOpen, setResetOpen] = useState(false)
+  const [resendOpen, setResendOpen] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [children, setChildren] = useState<ParentChildBrief[]>([])
   const [childrenError, setChildrenError] = useState<string | null>(null)
@@ -132,6 +133,17 @@ export default function ParentDetailPage() {
     }
   }
 
+  /** Renvoie l'email de bienvenue avec un mot de passe NEUF.
+   *
+   * ⚠️ Celui d'origine est irrécupérable (bcrypt) : la plateforme n'en garde
+   * que l'empreinte, et c'est voulu. Le dialogue DIT donc ce qui va se passer
+   * plutôt que de laisser croire à un simple renvoi. */
+  const resendInvitation = useMutation({
+    mutationFn: () => parentsApi.resendInvitation(id),
+    onSuccess: () => { toast.success(t('invite.sent')); setResendOpen(false) },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
   if (isLoading) {
     return <DetailSkeleton className="max-w-2xl space-y-4" />
   }
@@ -181,6 +193,29 @@ export default function ParentDetailPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
+
+          {canWrite && (
+          <>
+            <Button variant="outline" onClick={() => setResendOpen(true)} disabled={resendInvitation.isPending}>
+              {resendInvitation.isPending
+                ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+                : <MailPlus className="mr-1.5 size-4" />}
+              {t('invite.resend')}
+            </Button>
+            <ConfirmDialog
+              open={resendOpen}
+              onOpenChange={setResendOpen}
+              title={t('invite.confirmTitle')}
+              /* ⚠️ Le texte DÉPEND de `last_login_at` : relancer un compte qui
+                 s'est déjà connecté lui retire le mot de passe qu'il s'est
+                 choisi. Proposer le même bouton sans le dire ferait d'un
+                 dépannage une mise dehors. */
+              description={parent.last_login_at ? t('invite.confirmUsed') : t('invite.confirmNever')}
+              confirmLabel={t('invite.resend')}
+              onConfirm={() => resendInvitation.mutate()}
+            />
+          </>
           )}
 
           {canWrite && (

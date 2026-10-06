@@ -1146,6 +1146,62 @@ Champs saisis par le créateur : `first_name`, `last_name`, `nickname`, `phone`,
 imposé au premier login (cf. § Authentification), l'email l'y invite seulement.
 Les enfants assignés **doivent appartenir au même établissement** (404 sinon).
 
+### Relance d'invitation — et pourquoi « le même mot de passe » est impossible
+
+Demandé par un établissement : des parents ne retrouvent pas l'email reçu à la
+création, ou affirment ne l'avoir jamais eu.
+
+⚠️ **Le mot de passe d'origine ne peut PAS être renvoyé.** Seule son empreinte
+bcrypt est conservée — propriété voulue : si la plateforme pouvait le relire,
+une fuite de base livrerait tous les comptes parents en clair. Et le point
+décisif : même si on décidait de stocker désormais les mots de passe de façon
+déchiffrable, cela n'aiderait AUCUN des comptes déjà créés.
+
+`POST /parents/{id}/resend-invitation` et `POST /staff/{id}/resend-invitation`
+(`parents:write` / `staff:write`) régénèrent donc un mot de passe et renvoient
+**l'email de bienvenue**, pas celui de réinitialisation : du point de vue du
+destinataire, c'est bien l'invitation qu'il n'avait pas — même adresse, même
+message, un mot de passe qui marche.
+
+- **Le geste vit dans `auth/service.py::resend_invitation`**, pas dans chaque
+  module : parents et personnel partagent le flux, donc deux copies seraient
+  deux occasions de corriger la politique d'échec à moitié. Chaque module garde
+  sa résolution scopée (404 inter-établissement) avant d'appeler.
+- **Un échec SMTP annule la régénération** (503 + rollback), comme à la
+  création. L'ordre inverse mettrait DEHORS quelqu'un qui avait peut-être encore
+  accès, sans aucun moyen de le prévenir. Prouvé par sabotage : en avalant
+  l'exception, le test tombe.
+- **Aucun mot de passe dans la réponse HTTP** — il ne doit exister que dans
+  l'email, pas traverser les journaux d'accès ni le reverse proxy.
+- ⚠️ **L'écran avertit quand `last_login_at` est renseigné** : un compte déjà
+  utilisé a probablement son propre mot de passe, qu'une relance lui retire.
+  Refuser serait faux (perdre son mot de passe après s'être connecté est banal),
+  mais proposer le même bouton sans rien dire ferait d'un dépannage une mise
+  dehors. Le texte du dialogue dépend donc de ce champ.
+
+#### ⚠️ Le générateur produisait 15,4 % de mots de passe NON CONFORMES
+
+`generate_temp_password()` existait déjà (utilisé par `POST /auth/users`) et
+tirait chaque caractère dans l'alphabet entier. Mesuré sur 20 000 tirages :
+**15,4 % sans aucun chiffre**, 0,1 % sans majuscule — alors que
+`validate_password_strength` exige un de chaque. Un compte sur six recevait donc
+un mot de passe que la plateforme aurait refusé s'il avait voulu le CHOISIR. La
+connexion marchait (le login ne revalide pas la politique), donc rien ne le
+signalait. La majuscule et le chiffre sont maintenant garantis par construction,
+puis mélangés (Fisher-Yates avec `secrets`) pour ne pas figer leur position.
+Le paramètre `length`, déclaré et documenté, était en outre totalement ignoré.
+
+⚠️ **Le contrôle se fait en VOLUME, jamais sur un tirage unique.** La première
+version du test se contentait du mot de passe parti dans l'email : prouvé par
+sabotage, en retirant la garantie du chiffre il passait quand même, les dix
+caractères libres en contenant un dans ~84 % des cas. Un test qui réussit cinq
+fois sur six sur du code cassé ne prouve rien —
+`tests/e2e/test_resend_invitation.py` tire donc 500 mots de passe, et les trois
+sabotages (chiffre, majuscule, caractères ambigus) sont désormais attrapés.
+
+L'alphabet exclut `O/0` et `l/I/1` : ce mot de passe est RECOPIÉ À LA MAIN
+depuis un email, souvent sur un téléphone.
+
 ### Reset de mot de passe — « administré », spécifique aux parents
 `POST /parents/{id}/reset-password` avec `{new_password}` :
 - l'admin/staff **saisit** le nouveau mot de passe
@@ -4414,6 +4470,70 @@ navigateur, sur les quatre cas : avec et sans paramètre, des deux côtés.
 - Frontend : `pnpm lint && pnpm type-check && pnpm build`
 
 ---
+
+## ⚠️ Dette identifiée — audit du 05/10/2026, NON corrigée
+
+Audit complet du dépôt (63 000 lignes). Le projet est sain sur l'essentiel —
+**aucune route sans garde d'authentification** (vérifié par analyse de l'arbre
+syntaxique, les alias de dépendance rendant le grep trompeur), bornes de
+pagination uniformes sur les 22 routes, aucun `HTTPException.detail` en dur,
+aucun secret versionné, dépendances toutes épinglées, un seul `any` et aucun
+`TODO` côté frontend.
+
+### 🔴 Le module notifications push est INOPÉRANT — neuf défauts indépendants
+
+Vérifié en appelant l'endpoint, pas en lisant le code :
+
+```
+[corps réel envoyé par le frontend]   422  auth_key: Field required
+[noms corrigés + user_id]             422  auth_key: String should have at least 44 characters
+[contrainte contournée]               500  value too long for varchar(44)
+```
+
+| # | Défaut | Où |
+|---|---|---|
+| 1 | `_to_response` **n'existe nulle part**, appelé 3 fois | `notifications/service.py:43,54,80` |
+| 2 | `datetime` / `timezone` utilisés sans import | `notifications/service.py:41` |
+| 3 | `p256dh` est `VARCHAR(44)`, la vraie clé fait **87** caractères | `models.py:45` + migration `fe76c1320d23` |
+| 4 | `min_length=44` sur `auth_key`, dont la vraie valeur fait **22** | `notifications/schemas.py` |
+| 5 | Le frontend envoie `auth`, le schéma attend `auth_key` | `push-subscription.ts:127` |
+| 6 | Le frontend n'envoie pas `user_id`, que le schéma EXIGE | `push-subscription.ts:123` |
+| 7 | La réponse n'est **jamais vérifiée** : tout échec passe pour un succès | `push-subscription.ts:116,159` |
+| 8 | Désabonnement : le frontend appelle `/subscriptions`, la route est `/subscriptions/{id}` → 405, ligne orpheline | |
+| 9 | `btoa` produit du base64 **standard**, pas du base64url | `push-subscription.ts:124` |
+
+Le n°7 explique pourquoi personne n'a rien vu : l'interface annonçait
+« notifications activées » pendant que le serveur renvoyait 422.
+
+Deux anomalies mineures du même module : `establishment_id` n'est jamais
+renseigné malgré le commentaire qui l'annonce (sans effet sur l'envoi, qui passe
+par `User.establishment_id`), et `GET /notifications/test` **écrit une fausse
+souscription en base** pour l'utilisateur connecté, avec un message en français
+codé en dur.
+
+⚠️ **Cause racine unique : aucun test ne touche `/notifications`** — le seul
+module dans ce cas. Le code a été écrit, jamais exécuté. Toute reprise doit
+commencer par un test de bout en bout qui souscrit avec une clé RÉALISTE
+(65 octets), sinon la régression repassera inaperçue comme celle-ci.
+
+### 🟠 Points à traiter
+
+- **Aucune limite de débit sur `/auth/password-reset`** — seul `/auth/login` est
+  protégé. N'importe qui peut déclencher en boucle des envois vers une adresse
+  arbitraire. Redis est déjà branché, `rate_limit.check_and_increment` existe.
+- **`endpoint` en `VARCHAR(500)`** — suffisant pour Google et Mozilla, serré
+  pour Apple. À passer en `Text` dans la même migration que `p256dh`.
+- **Next 16 déprécie `middleware` au profit de `proxy`** (averti à chaque build).
+  Sans urgence, mais ce fichier porte l'authentification ET la détection de
+  langue : le migrer un jour de mise à jour majeure serait le mauvais moment.
+- **38 imports inutilisés, 2 redéfinitions** (`ruff --select F401,F811`).
+  Cosmétique, mais c'est ce bruit qui a laissé passer les imports manquants
+  ci-dessus.
+- **Pression mémoire du VPS** : 1,8 Go de swap sur 4 Go, deux environnements
+  complets plus LibreTranslate.
+
+Connus et documentés ailleurs, non traités : pas de RLS PostgreSQL, pas de
+journal d'audit sur les fiches enfants, pas de calendrier de jours fériés.
 
 ## URLs de développement
 

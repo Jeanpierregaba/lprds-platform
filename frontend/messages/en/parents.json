@@ -82,5 +82,12 @@
   "resetHintParent": "The new password is emailed to the parent — they do not have to set it again.",
   "detail": {
     "lastLogin": "Last sign-in: {at}"
+  },
+  "invite": {
+    "resend": "Resend invitation",
+    "confirmTitle": "Resend the invitation?",
+    "confirmNever": "This parent has never signed in. They will receive the welcome email again, at the same address, with a NEW password — the original cannot be recovered, as the platform only keeps a hashed fingerprint of it.",
+    "confirmUsed": "⚠️ This parent has already signed in, so they may have chosen their own password. Resending will replace it with a new one, and the old password will stop working. Only continue if they told you they can no longer sign in.",
+    "sent": "Invitation resent. The parent will receive a new password by email."
   }
 }

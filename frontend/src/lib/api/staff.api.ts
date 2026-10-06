@@ -20,6 +20,13 @@ export const staffApi = {
   resetPassword: (id: string, newPassword: string) =>
     apiClient.post<void>(`/api/v1/staff/${id}/reset-password`, { new_password: newPassword }),
 
+  /** Renvoie l'email de bienvenue avec un mot de passe NEUF.
+   *
+   * ⚠️ Aucun corps, et aucun mot de passe en réponse : il ne doit exister que
+   * dans l'email. Celui d'origine est irrécupérable (bcrypt côté serveur). */
+  resendInvitation: (id: string) =>
+    apiClient.post<void>(`/api/v1/staff/${id}/resend-invitation`),
+
   setStatus: (id: string, isActive: boolean) =>
     apiClient.patch<Staff>(`/api/v1/staff/${id}/status`, { is_active: isActive }),
 }

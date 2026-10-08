@@ -1865,9 +1865,10 @@ foulée, façon WhatsApp.
 - **Validation** : entièrement déléguée à `app/core/media.py` (cf. §
   « Téléversement de médias »). Le TYPE est lu dans les octets — plus de liste
   blanche de MIME — et une image trop lourde est **recompressée** au lieu
-  d'être refusée. Plafonds : `MESSAGING_MAX_ATTACHMENT_MB` (10 Mo) et
-  `MESSAGING_MAX_VIDEO_MB` (50 Mo, car 10 Mo rendrait tout envoi vidéo
-  impossible — et une vidéo n'est pas transcodée, donc son dépassement reste
+  d'être refusée. Plafonds : `MESSAGING_MAX_ATTACHMENT_MB` (30 Mo) et
+  `MESSAGING_MAX_VIDEO_MB` (50 Mo, inchangé : tripler la vidéo la ferait
+  dépasser le `client_max_body_size 60M` de nginx — cf. § « reverse proxy » —
+  et une vidéo n'est pas transcodée, donc son dépassement reste
   un refus). Images, vidéos et PDF sont admis dans les conversations privées
   comme dans les diffusions ; le SVG est refusé partout (XSS).
 - **Poussé en temps réel** comme un message : `{"type": "attachment", conversation_id, message_id, ...}`
@@ -2064,8 +2065,8 @@ deux fois.
 « Impossible de joindre le serveur » en voulant déposer une photo d'enfant. Ni
 l'application ni la base : **nginx renvoyait `413 Request Entity Too Large`
 au-delà de 1 Mo** — sa valeur par DÉFAUT — sur les deux environnements. Soit en
-dessous de toute photo de téléphone, et très en dessous des plafonds de la
-plateforme (10 Mo en messagerie, 50 Mo pour les rapports et le blog).
+ dessous de toute photo de téléphone, et très en dessous des plafonds de la
+plateforme (30 Mo en messagerie, 50 Mo pour les rapports et le blog).
 
 ⚠️ Le 413 n'arrive pas toujours jusqu'à l'écran : nginx ferme la connexion
 (`Connection: close`) pendant que le navigateur envoie encore, et celui-ci
@@ -3489,7 +3490,7 @@ STORAGE_LOCAL_PATH=./media
 # que le navigateur en dit : plus aucune liste blanche à tenir (les anciennes
 # *_ALLOWED_ATTACHMENT_TYPES sont ignorées, elles peuvent être effacées).
 # Une IMAGE au-dessus du plafond est recompressée ; une VIDÉO est refusée.
-MESSAGING_MAX_ATTACHMENT_MB=10
+MESSAGING_MAX_ATTACHMENT_MB=30
 MESSAGING_MAX_VIDEO_MB=50
 REPORTS_MAX_ATTACHMENT_MB=50
 BLOG_MAX_ATTACHMENT_MB=50

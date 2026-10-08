@@ -154,7 +154,7 @@ class Settings(BaseSettings):
     messaging_allowed_attachment_types: str = ""
     reports_allowed_attachment_types: str = ""
     blog_allowed_attachment_types: str = ""
-    messaging_max_attachment_mb: int = 10
+    messaging_max_attachment_mb: int = 30
     messaging_max_video_mb: int = 50
 
     # Pièces jointes (module rapports) — plafond plus élevé que la messagerie

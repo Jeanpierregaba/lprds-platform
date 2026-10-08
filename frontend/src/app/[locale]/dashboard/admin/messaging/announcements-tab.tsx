@@ -173,7 +173,7 @@ export function AnnouncementsTab() {
             <Plus className="mr-1.5 size-4" />
             {t('announcements.new')}
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? t('announcements.editTitle') : t('announcements.newTitle')}</DialogTitle>
               <DialogDescription>{t('announcementScopeHint')}</DialogDescription>

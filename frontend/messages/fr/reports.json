@@ -59,7 +59,8 @@
     "submitFailed": "Rapport créé en brouillon, mais la soumission a échoué : {error}",
     "filesIgnored": "Fichier(s) ignoré(s) : {names}",
     "changeChild": "Changer",
-    "noTypeForDepartment": "Aucun type de rapport activé pour le département « {department} ». Configurez-le depuis l’onglet Paramètres."
+    "noTypeForDepartment": "Aucun type de rapport activé pour le département « {department} ». Configurez-le depuis l’onglet Paramètres.",
+    "partialDraftHint": "Le brouillon peut être incomplet — tout sera exigé à la soumission."
   },
   "detail": {
     "saved": "Rapport enregistré.",
@@ -100,7 +101,8 @@
     "submitPublishesBody": "En tant qu'administrateur, votre validation est immédiate : le rapport devient visible par les parents de l'enfant, qui reçoivent un email et une notification. Il n'y a pas d'étape d'approbation ensuite.",
     "submitPublishesHint": "Validation immédiate : les parents seront notifiés.",
     "attachmentsLocked": "Ce rapport est validé : le parent l'a déjà reçu. Seule l'administration peut encore y ajouter ou retirer des médias.",
-    "removeAttachmentBody": "« {name} » sera définitivement retirée de ce rapport."
+    "removeAttachmentBody": "« {name} » sera définitivement retirée de ce rapport.",
+    "referenceDate": "Date de référence"
   },
   "content": {
     "schedule": "Horaires",

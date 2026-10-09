@@ -59,7 +59,8 @@
     "submitFailed": "Report saved as a draft, but submission failed: {error}",
     "filesIgnored": "File(s) skipped: {names}",
     "changeChild": "Change",
-    "noTypeForDepartment": "No report type is enabled for the “{department}” department. Enable one from the Settings tab."
+    "noTypeForDepartment": "No report type is enabled for the “{department}” department. Enable one from the Settings tab.",
+    "partialDraftHint": "Drafts can be incomplete — everything will be required on submission."
   },
   "detail": {
     "saved": "Report saved.",
@@ -100,7 +101,8 @@
     "submitPublishesBody": "As an administrator, your approval is immediate: the report becomes visible to the child's parents, who receive an email and a notification. There is no approval step afterwards.",
     "submitPublishesHint": "Immediate approval: the parents will be notified.",
     "attachmentsLocked": "This report has been approved and the parent has already received it. Only the administration can still add or remove media.",
-    "removeAttachmentBody": "“{name}” will be permanently removed from this report."
+    "removeAttachmentBody": "“{name}” will be permanently removed from this report.",
+    "referenceDate": "Reference date"
   },
   "content": {
     "schedule": "Times",

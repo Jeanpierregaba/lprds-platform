@@ -76,21 +76,27 @@ def test_reports_annuel_content(client):
     ck("  summary absent (optionnel)", rep["summary"], None)
     ck("  rating stocké", rep["content"]["math_foundations"]["rating"], "a_consolider")
 
-    # ── Validations ──
+    # ── Brouillon partiel : incomplet accepté à l'écriture, exigé à la soumission ──
     # Années différentes : la période annuelle = l'année civile entière,
-    # un doublon (409) sur 2026 masquerait sinon l'erreur 422 attendue.
-    ck("Domaine manquant (english) → 422", c.post("/reports", json={
+    # un doublon (409) sur 2026 masquerait sinon l'erreur attendue.
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "annuel", "reference_date": "2024-05-01",
        "content": {k: v for k, v in FULL_ANNUEL.items() if k != "english"}},
-       headers=educ).status_code, 422)
+       headers=educ)
+    ck("Domaine manquant (english) → brouillon accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
     ck("Rating invalide → 422", c.post("/reports", json={
        "child_id": cid, "report_type": "annuel", "reference_date": "2023-04-01",
        "content": {**FULL_ANNUEL, "english": domain("excellent", "top")}},
        headers=educ).status_code, 422)
-    ck("Observation vide → 422", c.post("/reports", json={
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "annuel", "reference_date": "2022-03-01",
        "content": {**FULL_ANNUEL, "english": domain("acquis", "")}},
-       headers=educ).status_code, 422)
+       headers=educ)
+    ck("Observation vide → brouillon accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
 
     # ── PDF : indisponible avant validation ──
     ck("Rapport encore draft → invisible au parent → 404", c.get(

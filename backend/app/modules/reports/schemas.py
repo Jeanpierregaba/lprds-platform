@@ -212,6 +212,10 @@ class ReportCreateRequest(BaseModel):
 class ReportUpdateRequest(BaseModel):
     summary: str | None = Field(default=None, min_length=1)
     content: dict | None = None
+    # Nouvelle date de référence : recalcule period_start/period_end/
+    # period_label. Réservé à l'admin (cf. service.update_report) — le
+    # déplacement d'un rapport dans le temps n'est pas un geste d'éducatrice.
+    reference_date: date | None = None
 
 
 class ReportRejectRequest(BaseModel):

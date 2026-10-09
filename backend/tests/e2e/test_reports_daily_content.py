@@ -105,16 +105,25 @@ def test_reports_daily_content(client):
     ck("Horaires fournis respectés (pas écrasés)", r2.status_code, 201)
     ck("  arrival_time = valeur fournie", r2.json()["content"]["arrival_time"], "07:15:00")
 
-    # ── Validations de cohérence ──
-    ck("Champ requis manquant (health_status) → 422", c.post("/reports", json={
+    # ── Brouillon partiel : l'incomplétude ne bloque plus l'enregistrement,
+    # mais la soumission l'exige. Seuls l'incohérent et le malformé restent
+    # refusés à l'écriture (cf. test_reports_draft_partial.py pour le contrat
+    # complet, tous types).
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-19",
        "content": {k: v for k, v in FULL_CONTENT.items() if k != "health_status"}},
-       headers=educ).status_code, 422)
-    ck("nap=true sans durée → 422", c.post("/reports", json={
+       headers=educ)
+    ck("Champ manquant (health_status) → brouillon accepté", r.status_code, 201)
+    ck("  soumission du brouillon incomplet → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-18",
        "content": {**FULL_CONTENT, "nap_duration_minutes": None}},
-       headers=educ).status_code, 422)
-    ck("nap=false avec durée → 422", c.post("/reports", json={
+       headers=educ)
+    ck("nap=true sans durée → brouillon accepté (inachevé, pas incohérent)", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
+    ck("nap=false avec durée → 422 (incohérent, pas inachevé)", c.post("/reports", json={
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-17",
        "content": {**FULL_CONTENT, "nap": False, "nap_duration_minutes": 60}},
        headers=educ).status_code, 422)
@@ -122,18 +131,23 @@ def test_reports_daily_content(client):
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-16",
        "content": {**FULL_CONTENT, "temperature_arrival": 99}},
        headers=educ).status_code, 422)
-    ck("moods vide → 422", c.post("/reports", json={
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-15",
-       "content": {**FULL_CONTENT, "moods": []}}, headers=educ).status_code, 422)
+       "content": {**FULL_CONTENT, "moods": []}}, headers=educ)
+    ck("moods vide → brouillon accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
     ck("Type/valeur d'enum invalide → 422", c.post("/reports", json={
        "child_id": cid, "report_type": "quotidien", "reference_date": "2026-07-14",
        "content": {**FULL_CONTENT, "health_status": "en_pleine_forme"}},
        headers=educ).status_code, 422)
 
     # ── Type annuel : contenu structuré (bulletin), cf. test_reports_annuel.py ──
-    ck("Annuel sans content → 422 (content structuré désormais requis)", c.post(
-       "/reports", json={"child_id": cid, "report_type": "annuel",
-       "reference_date": "2026-01-01"}, headers=educ).status_code, 422)
+    r = c.post("/reports", json={"child_id": cid, "report_type": "annuel",
+       "reference_date": "2026-01-01"}, headers=educ)
+    ck("Annuel sans content → brouillon vide accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
 
     # ── Modification (revalidation du contenu) ──
     bad_update = c.patch(f"/reports/{rid}", json={
@@ -142,10 +156,15 @@ def test_reports_daily_content(client):
     good_update = c.patch(f"/reports/{rid}", json={
         "content": {**rep["content"], "health_notes": "RAS, journée calme."}}, headers=educ)
     ck("Modification valide acceptée", good_update.status_code, 200)
-    ck("Activités vides → 422", c.patch(f"/reports/{rid}", json={
-        "content": {**rep["content"], "activities": []}}, headers=educ).status_code, 422)
-    ck("Activités blanches → 422", c.patch(f"/reports/{rid}", json={
-        "content": {**rep["content"], "activities": ["   "]}}, headers=educ).status_code, 422)
+    r = c.patch(f"/reports/{rid}", json={
+        "content": {**rep["content"], "activities": []}}, headers=educ)
+    ck("Activités vidées → accepté en brouillon", r.status_code, 200)
+    ck("  champ vide = champ absent du stocké", r.json()["content"].get("activities", []), [])
+    ck("  soumission → 422", c.post(f"/reports/{rid}/submit", headers=educ).status_code, 422)
+    r = c.patch(f"/reports/{rid}", json={
+        "content": {**rep["content"], "activities": ["   "]}}, headers=educ)
+    ck("Activités blanches → accepté en brouillon (rogne à vide)", r.status_code, 200)
+    ck("  soumission → 422", c.post(f"/reports/{rid}/submit", headers=educ).status_code, 422)
     r = c.patch(f"/reports/{rid}", json={
         "content": {**rep["content"], "activities": ["  Collage  ", "Peinture"]}},
         headers=educ)

@@ -1900,6 +1900,21 @@ parent (portail + email) une fois validé.
 `summary` reste accepté mais **optionnel** pour les 3 types (tout est porté
 par le contenu structuré).
 
+⚠️ **Le strict ne s'applique qu'au passage vers le parent** (`submit` et
+`validate`). L'enregistrement d'un brouillon (`POST /reports`, `PATCH`)
+accepte le PARTIEL — un champ manquant ou vide vaut « non rempli », jamais
+une erreur : obliger à tout remplir d'un coup interdisait d'enregistrer un
+travail en cours. Restent refusés à l'écriture l'incohérent (durée de sieste
+sans sieste — l'inverse, sieste sans durée, est juste inachevé) et le
+malformé (code d'enum inconnu, température hors 30–43 °C). Le brouillon
+stocké ne garde que les valeurs significatives (vide = absent, `False` et
+`0` conservés) ; la soumission/validation stocke au passage la version
+normalisée (doublons dédupliqués, espaces rognés).
+`tests/e2e/test_reports_draft_partial.py` verrouille le contrat, dont le
+trou refermé : un admin retouche un soumis SANS restriction de groupe, donc
+sans le contrôle strict à la validation il pourrait publier un rapport
+vidé.
+
 Cette validation est décidée **dans `_validate_content()`** (service.py), via
 une table `_CONTENT_SCHEMA_BY_TYPE = {ReportType: schéma}` — pas de
 discriminated union Pydantic globale (toujours pas justifié avec seulement 3
@@ -1982,8 +1997,10 @@ création d'un `quotidien`, le service interroge `attendance_events` (même
 enfant, même `reference_date`) et pré-remplit avec le premier scan `arrival` /
 dernier scan `departure` du jour, convertis dans le **fuseau horaire configuré**
 de l'établissement (`AttendanceSettings.timezone`, même mécanisme que le
-module Présences — UTC par défaut si non configuré). **Le client reste
-prioritaire** : une valeur fournie n'est jamais écrasée.
+module Présences — UTC par défaut si non configuré). Le « jour » interrogé
+est la journée LOCALE (`_local_day_bounds`, pas minuit UTC — un scan de
+00h30 heure locale tombait sinon dans la journée UTC précédente).
+**Le client reste prioritaire** : une valeur fournie n'est jamais écrasée.
 
 Côté formulaire, le remplissage est aussi **visible avant soumission** :
 `useAttendancePrefill` (`lib/reports/`, création + édition d'un brouillon)
@@ -2309,7 +2326,15 @@ draft ──submit──> submitted ──validate──> validated (publié au 
 
 - **Modifiable** : l'**admin à tout moment** — même `validated`, même déjà lu
   par le parent (le statut ne change pas, aucune re-notification ; le parent voit
-  le contenu corrigé à sa prochaine visite). Le **staff** le peut tant que le
+  le contenu corrigé à sa prochaine visite). Y compris les **dates** :
+  `PATCH {reference_date}` recalcule `period_start`/`period_end`/`period_label`
+  (n'importe quel jour de la période visée convient), avec les mêmes gardes
+  qu'à la création — pas de futur (422), pas de doublon sur la période cible
+  (409, le rapport lui-même exclu). **Les dates sont admin seul, à tout
+  statut** (403 pour le staff, même sur son brouillon) : déplacer un rapport
+  dans le temps change sa place dans le calendrier, ce n'est pas un geste
+  d'éducatrice. Côté écran, la date s'édite dans la carte d'en-tête du détail
+  (admin uniquement). Le **staff** le peut tant que le
   rapport n'est pas `validated` : `draft`, `rejected` **et `submitted`**. Les
   médias suivent exactement la même règle (`POST`/`DELETE .../attachments`), via
   l'unique garde `_ensure_mutable`.
@@ -2324,7 +2349,12 @@ draft ──submit──> submitted ──validate──> validated (publié au 
   relecture. Le staff ne peut toujours pas **resoumettre** un rapport déjà
   soumis — la décision reste au validateur.
 - **Soumissible** depuis `draft` ou `rejected` (`rejected_reason` est effacé au
-  moment de la resoumission — la prochaine décision de l'admin repart neuve).
+  moment de la resoumission — la prochaine décision de l'admin repart neuve),
+  **si et seulement si le contenu est COMPLET** (422 sinon, avec le détail
+  champ par champ) — y compris pour l'admin, dont la soumission publie
+  immédiatement. Côté écran, « Enregistrer » contourne la validation Zod
+  stricte (`getValues()`, le backend fait foi) quand « Soumettre » la garde ;
+  une mention sous les boutons le dit (`form.partialDraftHint`).
 - **Supprimable** (hard delete) **seulement en `draft` jamais soumis** — dès
   qu'un rapport a été soumis une fois, son historique est conservé.
 - **Qui peut créer/modifier/soumettre** (`reports:write`, cumulatif avec la
@@ -3789,6 +3819,7 @@ tests/
     ├── test_reports_daily_content.py    # contenu structuré quotidien + pièces jointes
     ├── test_reports_bimensuel_content.py
     ├── test_reports_annuel_content.py   # + génération PDF
+    ├── test_reports_draft_partial.py  # brouillon partiel accepté, soumission/validation strictes
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
     ├── test_email_links.py              # les liens des emails mènent à une route

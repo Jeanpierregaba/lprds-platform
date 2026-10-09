@@ -6,10 +6,12 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from enum import StrEnum
+from typing import Annotated
 from zoneinfo import ZoneInfo
 
+from annotated_types import MinLen
 from fastapi import HTTPException, UploadFile, status
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError, create_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -213,7 +215,9 @@ async def create_report(
     content = dict(payload.content)
     if payload.report_type == ReportType.QUOTIDIEN:
         await _prefill_attendance_times(content, child.id, reference, establishment_id, db)
-    summary, content = _validate_content(payload.report_type, payload.summary, content)
+    # Brouillon : partiel accepté — la complétude est exigée à la soumission,
+    # pas à l'enregistrement (cf. `_validate_draft_content`).
+    summary, content = _validate_draft_content(payload.report_type, payload.summary, content)
 
     report = Report(
         establishment_id=establishment_id,
@@ -338,16 +342,53 @@ async def update_report(
     report = await _get_report_or_404(report_id, establishment_id, db)
     await _authorize_write(report, current_user, db)
     # L'admin peut modifier un rapport à tout moment (même soumis, validé et
-    # déjà lu par le parent) ; le staff reste limité au brouillon / rejeté.
+    # déjà lu par le parent) ; le staff tant qu'il n'est pas validé
+    # (brouillon, rejeté ET soumis — cf. `_ensure_mutable`).
     _ensure_mutable(report, current_user)
 
     changes = payload.model_dump(exclude_unset=True)
+    new_reference = changes.pop("reference_date", None)
+    if new_reference is not None:
+        # Déplacer un rapport dans le temps change sa période (donc sa place
+        # dans le calendrier et l'unicité par période) : geste d'admin seul,
+        # à tout statut. L'éducatrice édite le contenu de ses rapports, pas
+        # leur place dans le temps.
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=t("errors.reports.dates_admin_only"),
+            )
+        if new_reference > date.today():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=t("errors.reports.reference_date_future"),
+            )
+        period_start, period_end, period_label = _period_for(
+            ReportType(report.report_type), new_reference
+        )
+        conflict = await db.scalar(
+            select(Report.id).where(
+                Report.child_id == report.child_id,
+                Report.report_type == report.report_type,
+                Report.period_start == period_start,
+                Report.id != report.id,
+            )
+        )
+        if conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=t("errors.reports.period_exists", report_type=report.report_type),
+            )
+        report.period_start = period_start
+        report.period_end = period_end
+        report.period_label = period_label
     # Revalider le contenu si l'un ou l'autre change — un summary modifié seul
     # doit rester cohérent avec le content déjà en base, et inversement.
     new_summary = changes.get("summary", report.summary)
     new_content = changes.get("content", report.content)
     if "summary" in changes or "content" in changes:
-        new_summary, new_content = _validate_content(
+        # Modification d'un brouillon : partiel accepté, comme à la création.
+        new_summary, new_content = _validate_draft_content(
             ReportType(report.report_type), new_summary, new_content
         )
 
@@ -391,6 +432,15 @@ async def submit_report(
             detail=t("errors.reports.only_draft_submittable"),
         )
 
+    # La complétude est exigée ICI, pas à l'enregistrement : un brouillon
+    # peut être partiel, mais rien d'incomplet ne part vers le parent — ni
+    # via la soumission staff, ni via la publication immédiate admin.
+    # On stocke au passage la version normalisée (doublons dédupliqués,
+    # espaces rognés), que la validation brouillon ne produit pas.
+    report.summary, report.content = _validate_content(
+        ReportType(report.report_type), report.summary,
+        _normalize_legacy_content(report.content or {}),
+    )
 
     now = datetime.now(timezone.utc)
     report.submitted_at = now
@@ -423,7 +473,12 @@ async def validate_report(
             status_code=status.HTTP_409_CONFLICT,
             detail=t("errors.reports.only_submitted_validatable"),
         )
-
+    # L'admin peut retoucher un soumis avant de le valider : on vérifie qu'il
+    # ne l'a pas vidé entre-temps — valider publie au parent, comme soumettre.
+    report.summary, report.content = _validate_content(
+        ReportType(report.report_type), report.summary,
+        _normalize_legacy_content(report.content or {}),
+    )
 
     report.status = str(ReportStatus.VALIDATED)
     report.validated_by_id = validator.id
@@ -1166,7 +1221,8 @@ _CONTENT_SCHEMA_BY_TYPE: dict[ReportType, type] = {
 def _validate_content(
     report_type: ReportType, summary: str | None, content: dict
 ) -> tuple[str | None, dict]:
-    """
+    """Complétude EXIGÉE : passage vers le parent (soumission, validation).
+
     `content` DOIT correspondre au schéma structuré du type (422 sinon) ;
     `summary` reste facultatif pour les 3 types, tout est porté par le
     contenu structuré. `schema_by_type` centralise le seul point à toucher
@@ -1191,6 +1247,136 @@ def _validate_content(
     return summary, validated.model_dump(mode="json")
 
 
+# ── Validation « brouillon » : partiel accepté ─────────────────────
+_draft_model_cache: dict[type, type] = {}
+
+
+def _draft_model(strict: type[BaseModel]) -> type[BaseModel]:
+    """Version « brouillon » d'un schéma de contenu : mêmes champs, mêmes
+    types, mais tous facultatifs.
+
+    Un brouillon est un travail en cours : exiger la complétude à
+    l'enregistrement obligerait à tout remplir d'un coup. Restent vérifiés à
+    l'écriture le TYPE, la PLAGE et le VOCABULAIRE de chaque valeur fournie
+    (code d'enum inconnu, température à 99 °C : 422 immédiat) — seule
+    l'exhaustivité est reportée. Concrètement : `MinLen` saute (vide = non
+    rempli, déjà écarté par `_strip_empties`), le reste des contraintes
+    (`Ge`/`Le`, items d'enum) est conservé.
+    Les contrôles de cohérence jugent un tout, pas un chantier : ils sont
+    remplacés par `_check_draft_coherence` (un seul sens survit, cf. ci-dessous).
+    La complétude est exigée à la SOUMISSION et à la VALIDATION.
+    """
+    if strict in _draft_model_cache:
+        return _draft_model_cache[strict]
+    fields = {}
+    for name, field in strict.model_fields.items():
+        annotation = field.annotation
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            annotation = _draft_model(annotation)
+        annotation = annotation | None
+        kept = [m for m in field.metadata if not isinstance(m, MinLen)]
+        if kept:
+            annotation = Annotated[annotation, *kept]
+        fields[name] = (annotation, None)
+    draft = create_model(f"{strict.__name__}Draft", **fields)
+    _draft_model_cache[strict] = draft
+    return draft
+
+
+def _strip_empties(value):
+    """Vide = non rempli : None, "", [], {} (récursif).
+
+    `False` et `0` sont des valeurs, pas du vide — on ne teste jamais la
+    fausseté, seulement ces quatre formes (sinon « sieste = non » ou une
+    durée de 0 minute disparaîtraient du brouillon).
+    """
+    if isinstance(value, dict):
+        return {
+            key: cleaned
+            for key, item in value.items()
+            if (cleaned := _strip_empties(item)) is not None
+            and cleaned != "" and cleaned != [] and cleaned != {}
+        }
+    if isinstance(value, list):
+        return [_strip_empties(item) for item in value]
+    return value
+
+
+def _check_draft_coherence(report_type: ReportType, content: dict) -> None:
+    """Seule règle de cohérence qui survit au brouillon, et dans UN sens :
+    une durée de sieste sans sieste est incohérente (422) ; une sieste sans
+    durée est juste inachevée — acceptée ici, exigée à la soumission."""
+    if report_type == ReportType.QUOTIDIEN:
+        if not content.get("nap") and content.get("nap_duration_minutes") is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=t("validation.nap_duration_forbidden"),
+            )
+
+
+def _normalize_legacy_content(content: dict) -> dict:
+    """Les rapports historiques stockent encore parfois les activités en
+    simple chaîne : le formulaire les normalise à la lecture, mais un appel
+    API direct avec l'ancien format resterait coincé (422 à la soumission,
+    sans pouvoir être corrigé autrement). On replie avant le contrôle
+    strict — normalisation sans perte, pas assouplissement."""
+    content = dict(content)
+    if isinstance(content.get("activities"), str):
+        content["activities"] = [content["activities"]]
+    return content
+
+
+def _tidy_draft_content(report_type: ReportType, content: dict) -> dict:
+    """Rangement SANS exigence : déduplique les cases cochées, rogne les
+    espaces des activités — exactement comme le contrôle strict, moins
+    l'exigence d'au moins une activité réelle (un brouillon peut n'en avoir
+    aucune). Le brouillon stocké reste propre, et la soumission n'a plus
+    qu'à vérifier la complétude."""
+    content = dict(content)
+    # Cases cochées : dédupliquées, comme le contrôle strict. Activités :
+    # rognées et vidées de leurs entrées blanches, mais jamais dédupliquées
+    # (le strict ne les déduplique pas non plus) et jamais exigées ici.
+    for key in (
+        ("moods", "behaviors")
+        if report_type == ReportType.QUOTIDIEN
+        else ("class_behaviors", "peer_relations", "emotion_management")
+        if report_type == ReportType.BI_MENSUEL
+        else ()
+    ):
+        if isinstance(content.get(key), list):
+            content[key] = list(dict.fromkeys(content[key]))
+    if report_type == ReportType.QUOTIDIEN and isinstance(content.get("activities"), list):
+        content["activities"] = [
+            item.strip() for item in content["activities"]
+            if isinstance(item, str) and item.strip()
+        ]
+    return content
+
+
+def _validate_draft_content(
+    report_type: ReportType, summary: str | None, content: dict
+) -> tuple[str | None, dict]:
+    """Enregistrement d'un brouillon (création/modification) : chaque valeur
+    fournie doit avoir le bon type, mais aucun champ n'est exigé. Le `detail`
+    reste une chaîne aplatie, comme pour le contrôle strict."""
+    cleaned = _strip_empties(dict(content or {}))
+    schema = _draft_model(_CONTENT_SCHEMA_BY_TYPE[report_type])
+    try:
+        validated = schema.model_validate(cleaned)
+    except ValidationError as exc:
+        messages = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}"
+            for e in exc.errors(include_url=False, include_context=False)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=t("errors.reports.invalid_content", report_type=report_type, messages=messages),
+        ) from exc
+    _check_draft_coherence(report_type, cleaned)
+    dumped = validated.model_dump(mode="json", exclude_none=True)
+    return summary, _tidy_draft_content(report_type, dumped)
+
+
 async def _prefill_attendance_times(
     content: dict,
     child_id: uuid.UUID,
@@ -1213,7 +1399,13 @@ async def _prefill_attendance_times(
     )
     tz = ZoneInfo(settings_row.timezone) if settings_row else ZoneInfo("UTC")
 
-    start = datetime(reference.year, reference.month, reference.day, tzinfo=timezone.utc)
+    # Fenêtre UTC de la journée LOCALE (même calcul que
+    # `attendance.service._local_day_bounds`, source de vérité du bucket
+    # « jour ») : découper à minuit UTC ratait les scans proches de minuit
+    # (ex. 00h30 à Porto-Novo = 23h30 UTC la veille) et aspirait ceux du
+    # lendemain. Le pré-remplissage suivait un autre « jour » que le reste.
+    start_local = datetime(reference.year, reference.month, reference.day, tzinfo=tz)
+    start = start_local.astimezone(timezone.utc)
     end = start + timedelta(days=1)
     result = await db.execute(
         select(AttendanceEvent).where(

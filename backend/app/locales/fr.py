@@ -298,6 +298,9 @@ MESSAGES: dict[str, str] = {
         "Type de fichier non autorisé : {content_type}. Seules les images et vidéos sont acceptées."
     ),
     "errors.reports.period_exists": "Un rapport {report_type} existe déjà pour cette période",
+    "errors.reports.dates_admin_only": (
+        "Seul un administrateur peut modifier les dates d'un rapport"
+    ),
     "errors.reports.cannot_edit": "Vous n'êtes pas autorisé à modifier ce rapport",
     "errors.reports.own_group_only": (
         "Vous ne pouvez remplir des rapports que pour les enfants de votre groupe"

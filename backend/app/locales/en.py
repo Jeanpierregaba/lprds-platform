@@ -266,6 +266,9 @@ MESSAGES: dict[str, str] = {
         "File type not allowed: {content_type}. Only images and videos are accepted."
     ),
     "errors.reports.period_exists": "A {report_type} report already exists for this period",
+    "errors.reports.dates_admin_only": (
+        "Only an administrator can change a report's dates"
+    ),
     "errors.reports.cannot_edit": "You are not allowed to change this report",
     "errors.reports.own_group_only": (
         "You can only fill in reports for children in your own group"

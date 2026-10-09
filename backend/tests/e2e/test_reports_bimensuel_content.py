@@ -25,6 +25,7 @@ def test_reports_bimensuel_content(client):
     sec = c.post("/sections", json={"department_id": did, "name": "PS"}, headers=adm).json()
     sid = sec["id"]
     c.post(f"/reports/settings/departments/{did}/types/bi_mensuel", headers=adm)
+    c.post(f"/reports/settings/departments/{did}/types/annuel", headers=adm)
 
     c.post("/staff", json={"first_name": "E", "last_name": "T", "nickname": "Tata",
            "phone": "+229", "email": "educ@a.fr", "password": "Staff2026",
@@ -71,23 +72,32 @@ def test_reports_bimensuel_content(client):
     ck("  peer_relations dédupliqués", rep["content"]["peer_relations"],
        ["sociable", "kind_to_peers"])
 
-    # ── Validations ──
-    ck("Champ texte manquant (english) → 422", c.post("/reports", json={
+    # ── Brouillon partiel : incomplet accepté à l'écriture, exigé à la soumission ──
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "bi_mensuel", "reference_date": "2026-06-20",
        "content": {k: v for k, v in FULL_BIMENSUEL.items() if k != "english"}},
-       headers=educ).status_code, 422)
-    ck("class_behaviors vide → 422", c.post("/reports", json={
+       headers=educ)
+    ck("Champ texte manquant (english) → brouillon accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "bi_mensuel", "reference_date": "2026-06-05",
        "content": {**FULL_BIMENSUEL, "class_behaviors": []}},
-       headers=educ).status_code, 422)
+       headers=educ)
+    ck("class_behaviors vide → brouillon accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
     ck("Valeur d'enum invalide → 422", c.post("/reports", json={
        "child_id": cid, "report_type": "bi_mensuel", "reference_date": "2026-05-20",
        "content": {**FULL_BIMENSUEL, "peer_relations": ["timide"]}},
        headers=educ).status_code, 422)
-    ck("Texte vide (chaîne vide) → 422", c.post("/reports", json={
+    r = c.post("/reports", json={
        "child_id": cid, "report_type": "bi_mensuel", "reference_date": "2026-05-05",
        "content": {**FULL_BIMENSUEL, "teacher_observations": ""}},
-       headers=educ).status_code, 422)
+       headers=educ)
+    ck("Texte vide (chaîne vide) → brouillon accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)
 
     # ── Photos/vidéos (mécanisme générique, déjà validé pour quotidien) ──
     r = c.post(f"/reports/{rid}/attachments",
@@ -97,6 +107,8 @@ def test_reports_bimensuel_content(client):
     ck("Pièce jointe listée", len(detail["attachments"]), 1)
 
     # ── Annuel, désormais structuré aussi (cf. test_reports_annuel_content.py) ──
-    ck("Annuel sans content structuré → 422", c.post(
-       "/reports", json={"child_id": cid, "report_type": "annuel",
-       "reference_date": "2026-01-01"}, headers=educ).status_code, 422)
+    r = c.post("/reports", json={"child_id": cid, "report_type": "annuel",
+       "reference_date": "2026-01-01"}, headers=educ)
+    ck("Annuel sans content structuré → brouillon vide accepté", r.status_code, 201)
+    ck("  soumission → 422", c.post(
+       f"/reports/{r.json()['id']}/submit", headers=educ).status_code, 422)

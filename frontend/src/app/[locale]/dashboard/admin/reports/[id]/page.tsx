@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { FileVideo, Loader2, Paperclip, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -68,6 +69,9 @@ export default function ReportDetailPage() {
   const [attachmentToRemove, setAttachmentToRemove] = useState<ReportAttachment | null>(null)
   const [confirmPublish, setConfirmPublish] = useState(false)
   const [selectedAttachment, setSelectedAttachment] = useState<ReportAttachment | null>(null)
+  // Date de référence (édition admin seule) : toute date de la période visée
+  // convient — le backend recalcule début/fin/libellé selon le type.
+  const [dateValue, setDateValue] = useState('')
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const canValidate = permissions.has('reports:validate')
   const user = useUser()
@@ -94,6 +98,7 @@ export default function ReportDetailPage() {
     if (report.report_type === 'quotidien') dailyForm.reset(fromDailyContent(report.content))
     else if (report.report_type === 'bi_mensuel') bimensuelForm.reset(fromBiMensuelContent(report.content))
     else if (report.report_type === 'annuel') annualForm.reset(fromAnnualContent(report.content))
+    setDateValue(report.period_start)
   }, [report?.id])
 
   /* Retour à la liste TELLE QU'ON L'A LAISSÉE — bon onglet, bonne pastille,
@@ -121,12 +126,14 @@ export default function ReportDetailPage() {
   })
 
   const onSave = () => {
+    // Brouillon : valeurs brutes, sans validation stricte (cf. page de
+    // création) — seul l'incohérent et le malformé sont refusés par l'API.
     if (report?.report_type === 'quotidien') {
-      dailyForm.handleSubmit((content) => saveMutation.mutate(toDailyContent(content) as unknown as Record<string, unknown>))()
+      saveMutation.mutate(toDailyContent(dailyForm.getValues()) as unknown as Record<string, unknown>)
     } else if (report?.report_type === 'bi_mensuel') {
-      bimensuelForm.handleSubmit((content) => saveMutation.mutate(content as unknown as Record<string, unknown>))()
+      saveMutation.mutate(bimensuelForm.getValues() as unknown as Record<string, unknown>)
     } else if (report?.report_type === 'annuel') {
-      annualForm.handleSubmit((content) => saveMutation.mutate(content as unknown as Record<string, unknown>))()
+      saveMutation.mutate(annualForm.getValues() as unknown as Record<string, unknown>)
     }
   }
 
@@ -182,6 +189,15 @@ export default function ReportDetailPage() {
       toast.success(t('detail.deleted'))
       router.push(backHref)
     },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
+
+  // Déplacement dans le temps (admin seul, tout statut) : change la période
+  // du rapport. 409 si un rapport du même type occupe déjà la période cible,
+  // 422 si la date est future — le backend fait foi, on affiche son message.
+  const dateMutation = useMutation({
+    mutationFn: (reference_date: string) => reportsApi.update(id, { reference_date }),
+    onSuccess: () => { toast.success(t('detail.saved')); invalidate() },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -254,6 +270,30 @@ export default function ReportDetailPage() {
         </CardHeader>
         <CardContent className="space-y-1 text-sm text-muted-foreground">
           <p>{t('detail.createdBy', { name: report.created_by.nickname || `${report.created_by.first_name} ${report.created_by.last_name}` })} · {formatDateTime(report.created_at)}</p>
+          {isAdmin && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Label htmlFor="reference_date">{t('detail.referenceDate')}</Label>
+              <Input
+                id="reference_date"
+                type="date"
+                className="h-10 w-auto"
+                value={dateValue}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDateValue(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10"
+                disabled={dateMutation.isPending || !dateValue || dateValue === report.period_start}
+                onClick={() => dateValue && dateMutation.mutate(dateValue)}
+              >
+                {dateMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                {tCommon('actions.save')}
+              </Button>
+            </div>
+          )}
           {report.validated_by && report.validated_at && (
             <p>{t('detail.validatedBy', { name: report.validated_by.nickname || `${report.validated_by.first_name} ${report.validated_by.last_name}` })} · {formatDateTime(report.validated_at)}</p>
           )}
@@ -333,6 +373,9 @@ export default function ReportDetailPage() {
                   </>
                 )}
               </div>
+              {isSubmittable && (
+                <p className="pt-1 text-xs text-muted-foreground">{t('form.partialDraftHint')}</p>
+              )}
             </div>
           ) : vocabulary ? (
             <ContentView reportType={report.report_type} content={report.content} vocabulary={vocabulary} />

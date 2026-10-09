@@ -173,6 +173,8 @@ export interface ReportCreatePayload {
 export interface ReportUpdatePayload {
   summary?: string
   content?: Record<string, unknown>
+  // Déplace le rapport dans le temps (recalcule la période) — admin seul.
+  reference_date?: string
 }
 
 // ── Portail parent ────────────────────────────────────────────────

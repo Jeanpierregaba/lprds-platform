@@ -208,6 +208,21 @@ export default function NewReportPage() {
   }
 
   const runSubmit = (action: 'draft' | 'submit') => {
+    if (action === 'draft') {
+      // Brouillon : AUCUNE validation stricte côté formulaire — le backend
+      // accepte le partiel (seuls l'incohérent et le malformé sont refusés).
+      // Passer par `handleSubmit` ici obligerait à tout remplir d'un coup,
+      // et c'est exactement ce qu'on ne veut plus. La complétude reste
+      // exigée à la soumission, par le formulaire comme par l'API.
+      if (!reportType) return
+      const values = reportType === 'quotidien'
+        ? toDailyContent(dailyForm.getValues())
+        : reportType === 'bi_mensuel'
+          ? bimensuelForm.getValues()
+          : annualForm.getValues()
+      onCreate(values as unknown as Record<string, unknown>, 'draft')
+      return
+    }
     if (reportType === 'quotidien') {
       dailyForm.handleSubmit((content) => onCreate(toDailyContent(content) as unknown as Record<string, unknown>, action))()
     } else if (reportType === 'bi_mensuel') {
@@ -415,6 +430,7 @@ export default function NewReportPage() {
                     />
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground">{t('form.partialDraftHint')}</p>
               </form>
             )
           )}

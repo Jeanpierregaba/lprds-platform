@@ -16,6 +16,7 @@ from app.modules.children.models import Child
 from app.modules.messaging.models import (
     Announcement,
     AnnouncementRead,
+    AnnouncementSignature,
     Attachment,
     Conversation,
     Message,
@@ -26,7 +27,10 @@ from app.modules.parents.models import parent_children
 from app.modules.messaging.schemas import (
     AnnouncementCreateRequest,
     AnnouncementListResponse,
+    AnnouncementRecipient,
+    AnnouncementRecipientListResponse,
     AnnouncementResponse,
+    AnnouncementSignRequest,
     AnnouncementUpdateRequest,
     AttachmentResponse,
     ConversationListResponse,
@@ -114,6 +118,7 @@ async def create_announcement(
         created_by_id=admin.id,
         title=payload.title,
         body=payload.body,
+        requires_signature=payload.requires_signature,
     )
     await _translate_announcement(announcement, db)
     db.add(announcement)
@@ -138,7 +143,7 @@ async def create_announcement(
     audience = await _audience_parent_ids(establishment_id, department_ids or None, db)
     response = _announcement_response(
         announcement, read_count=0, total_parents=len(audience),
-        department_ids=department_ids,
+        signature_count=0, department_ids=department_ids,
     )
     await publish_event(
         _announcements_channel(establishment_id),
@@ -213,30 +218,41 @@ async def list_announcements(
 
     if current_user.role == UserRole.PARENT:
         read_ids = await _read_announcement_ids(current_user.id, db)
+        signed = await _signatures_of_parent(current_user.id, db)
         items = [
             _announcement_response(
                 a, is_read=a.id in read_ids, attachments=attachments_map.get(a.id),
                 localized=True,
                 department_ids=departments_map.get(a.id, []),
+                is_signed=a.id in signed, signed_at=signed.get(a.id),
             )
             for a in announcements
         ]
     else:
-        counts = await _read_counts({a.id for a in announcements}, db)
-        # Total d'audience par périmètre (broadcast vs chaque ciblage), mis en
-        # cache car plusieurs diffusions partagent souvent le même périmètre.
-        totals: dict[tuple, int] = {}
+        ids = {a.id for a in announcements}
+        counts = await _read_counts(ids, db)
+        # Signatures : on récupère les PAIRES (diffusion, parent) en une
+        # requête, pas un simple compte — il faut les croiser avec l'audience
+        # courante ci-dessous.
+        signatures = await _signature_parent_ids(ids, db)
+        # Audience par périmètre (broadcast vs chaque ciblage), mise en cache
+        # car plusieurs diffusions partagent souvent le même périmètre.
+        audiences: dict[tuple, set[uuid.UUID]] = {}
         items = []
         for a in announcements:
             scope = departments_map.get(a.id, [])
             key = tuple(sorted(scope))
-            if key not in totals:
-                totals[key] = await _count_audience_parents(
+            if key not in audiences:
+                audiences[key] = await _audience_parent_ids(
                     establishment_id, scope or None, db
                 )
             items.append(
                 _announcement_response(
-                    a, read_count=counts.get(a.id, 0), total_parents=totals[key],
+                    a, read_count=counts.get(a.id, 0),
+                    total_parents=len(audiences[key]),
+                    signature_count=len(
+                        signatures.get(a.id, set()) & audiences[key]
+                    ),
                     attachments=attachments_map.get(a.id), department_ids=scope,
                 )
             )
@@ -260,17 +276,21 @@ async def get_announcement(
         if scope and not (set(scope) & await _parent_department_ids(current_user.id, db)):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=t("errors.messaging.announcement_not_found"))
         read_ids = await _read_announcement_ids(current_user.id, db)
+        signed = await _signatures_of_parent(current_user.id, db)
         return _announcement_response(
             announcement, is_read=announcement.id in read_ids, attachments=attachments,
             localized=True,
             department_ids=scope,
+            is_signed=announcement.id in signed,
+            signed_at=signed.get(announcement.id),
         )
 
-    total_parents = await _count_audience_parents(establishment_id, scope or None, db)
+    audience = await _audience_parent_ids(establishment_id, scope or None, db)
     counts = await _read_counts({announcement.id}, db)
     return _announcement_response(
         announcement, read_count=counts.get(announcement.id, 0),
-        total_parents=total_parents, attachments=attachments, department_ids=scope,
+        total_parents=len(audience), attachments=attachments, department_ids=scope,
+        signature_count=await _signature_count(announcement.id, audience, db),
     )
 
 
@@ -315,6 +335,13 @@ async def update_announcement(
             )
         # Cohérence du compteur X/Y : les lectures de parents sortis du
         # périmètre sont supprimées (sinon read_count > total).
+        #
+        # ⚠️ Les SIGNATURES, elles, ne sont jamais supprimées : une lecture est
+        # un simple constat, une attestation est une preuve — on ne détruit pas
+        # la seconde parce que le périmètre a bougé après coup. La cohérence du
+        # compteur est obtenue autrement : `_signature_count` ne compte que les
+        # signataires de l'audience COURANTE, donc il ne dépasse jamais le
+        # total, et la ligne reste en base.
         audience = await _audience_parent_ids(
             establishment_id, validated or None, db
         )
@@ -331,11 +358,12 @@ async def update_announcement(
     await db.refresh(announcement)
 
     scope = await _announcement_department_ids(announcement.id, db)
-    total_parents = await _count_audience_parents(establishment_id, scope or None, db)
+    audience = await _audience_parent_ids(establishment_id, scope or None, db)
     counts = await _read_counts({announcement.id}, db)
     return _announcement_response(
-        announcement, read_count=counts.get(announcement.id, 0), total_parents=total_parents,
-        department_ids=scope,
+        announcement, read_count=counts.get(announcement.id, 0),
+        total_parents=len(audience), department_ids=scope,
+        signature_count=await _signature_count(announcement.id, audience, db),
     )
 
 
@@ -370,6 +398,184 @@ async def mark_announcement_read(
             "announcement_id": str(announcement_id),
             "read_count": read_count,
         },
+    )
+
+
+async def sign_announcement(
+    announcement_id: uuid.UUID,
+    payload: AnnouncementSignRequest,
+    parent: User,
+    db: AsyncSession,
+) -> AnnouncementResponse:
+    """Le parent atteste avoir lu la diffusion.
+
+    ⚠️ **Signer n'est pas idempotent, contrairement à marquer comme lu.** Un
+    second appel renvoie 409 au lieu de rafraîchir la ligne : réécrire
+    `signed_at` déplacerait la date d'une attestation déjà donnée, c'est-à-dire
+    exactement ce qu'une attestation ne doit pas faire. Marquer lu, à
+    l'inverse, est un constat qu'on peut reposer sans rien altérer.
+
+    ⚠️ **Signer marque AUSSI comme lu.** Sans ça, un parent qui signe depuis la
+    liste sans ouvrir le détail resterait « non lu mais signé » — un état
+    absurde, et le compteur de lecture dirait moins que celui des signatures.
+    """
+    announcement = await _get_announcement_or_404(
+        announcement_id, parent.establishment_id, db
+    )
+    # Hors périmètre, ou diffusion désactivée → 404 : dans les deux cas elle
+    # n'existe pas pour ce parent (elle a disparu de son portail), et on ne
+    # révèle jamais l'existence de ce qu'on ne montre pas.
+    scope = await _announcement_department_ids(announcement_id, db)
+    if not announcement.is_active or (
+        scope and not (set(scope) & await _parent_department_ids(parent.id, db))
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=t("errors.messaging.announcement_not_found"),
+        )
+    if not announcement.requires_signature:
+        # Signer une diffusion qui ne demande rien n'a pas de sens : le
+        # registre afficherait une attestation que personne n'a sollicitée.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=t("errors.messaging.signature_not_required"),
+        )
+
+    existing = await db.scalar(
+        select(AnnouncementSignature).where(
+            AnnouncementSignature.announcement_id == announcement_id,
+            AnnouncementSignature.parent_id == parent.id,
+        )
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=t("errors.messaging.already_signed"),
+        )
+
+    signature = AnnouncementSignature(
+        announcement_id=announcement_id,
+        parent_id=parent.id,
+        signed_name=payload.signed_name.strip(),
+        account_name=f"{parent.first_name} {parent.last_name}".strip(),
+    )
+    db.add(signature)
+    # La lecture d'abord posée si elle manquait (cf. docstring) — on réutilise
+    # le chemin existant plutôt que d'insérer la ligne à la main, pour que les
+    # deux restent d'accord si la règle de lecture change un jour.
+    await mark_announcement_read(announcement_id, parent, db)
+    await db.flush()
+    await db.refresh(signature)
+
+    audience = await _audience_parent_ids(
+        parent.establishment_id, scope or None, db
+    )
+    # Poussé au seul canal ADMIN : la signature d'un parent ne concerne pas
+    # les autres parents, exactement comme l'accusé de lecture.
+    await publish_event(
+        _admin_channel(parent.establishment_id),
+        {
+            "type": "announcement_signed",
+            "announcement_id": str(announcement_id),
+            "signature_count": await _signature_count(announcement_id, audience, db),
+        },
+    )
+
+    attachments = (await _attachments_for_announcements([announcement_id], db)).get(
+        announcement_id
+    )
+    return _announcement_response(
+        announcement, is_read=True, attachments=attachments, localized=True,
+        department_ids=scope, is_signed=True, signed_at=signature.signed_at,
+    )
+
+
+async def list_announcement_recipients(
+    announcement_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> AnnouncementRecipientListResponse:
+    """Registre d'une diffusion : TOUS les parents de l'audience, avec ce que
+    chacun en a fait — rien, lu, signé.
+
+    ⚠️ La liste part de l'AUDIENCE, pas des accusés de lecture. Une liste des
+    seuls lecteurs (ou des seuls signataires) répondrait à la lettre de la
+    question « qui a lu / qui a signé » en taisant la réponse utile : qui n'a
+    rien fait. C'est de ceux-là que l'établissement a besoin, puisque ce sont
+    les seuls à relancer.
+
+    Tri par ÉTAT puis par nom : les parents sans aucune trace en premier, les
+    signataires en dernier. L'ordre alphabétique seul obligerait à parcourir
+    toute la liste pour retrouver les retardataires.
+    """
+    announcement = await _get_announcement_or_404(
+        announcement_id, establishment_id, db
+    )
+    scope = await _announcement_department_ids(announcement_id, db)
+    audience = await _audience_parent_ids(establishment_id, scope or None, db)
+    if not audience:
+        return AnnouncementRecipientListResponse(
+            total=0, read_count=0, signature_count=0,
+            requires_signature=announcement.requires_signature, items=[],
+        )
+
+    parents = (
+        await db.execute(select(User).where(User.id.in_(audience)))
+    ).scalars().all()
+
+    reads = dict(
+        (
+            await db.execute(
+                select(AnnouncementRead.parent_id, AnnouncementRead.read_at).where(
+                    AnnouncementRead.announcement_id == announcement_id,
+                    AnnouncementRead.parent_id.in_(audience),
+                )
+            )
+        ).all()
+    )
+    signatures = {
+        row.parent_id: row
+        for row in (
+            await db.execute(
+                select(AnnouncementSignature).where(
+                    AnnouncementSignature.announcement_id == announcement_id,
+                    AnnouncementSignature.parent_id.in_(audience),
+                )
+            )
+        ).scalars().all()
+    }
+
+    items = [
+        AnnouncementRecipient(
+            parent=UserBrief(
+                id=user.id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                nickname=user.nickname,
+            ),
+            email=user.email,
+            read_at=reads.get(user.id),
+            signed_at=signatures[user.id].signed_at if user.id in signatures else None,
+            signed_name=(
+                signatures[user.id].signed_name if user.id in signatures else None
+            ),
+        )
+        for user in parents
+    ]
+    items.sort(
+        key=lambda r: (
+            2 if r.signed_at else (1 if r.read_at else 0),
+            r.parent.last_name.casefold(),
+            r.parent.first_name.casefold(),
+        )
+    )
+
+    return AnnouncementRecipientListResponse(
+        total=len(items),
+        read_count=sum(1 for r in items if r.read_at),
+        signature_count=sum(1 for r in items if r.signed_at),
+        requires_signature=announcement.requires_signature,
+        items=items,
     )
 
 
@@ -780,6 +986,60 @@ async def _read_counts(
     return dict(result.all())
 
 
+async def _signatures_of_parent(
+    parent_id: uuid.UUID, db: AsyncSession
+) -> dict[uuid.UUID, datetime]:
+    """Diffusions signées par CE parent, et quand — la date est affichée en
+    confirmation (« signé le … »), sans quoi il n'a aucune trace de son geste."""
+    result = await db.execute(
+        select(
+            AnnouncementSignature.announcement_id, AnnouncementSignature.signed_at
+        ).where(AnnouncementSignature.parent_id == parent_id)
+    )
+    return dict(result.all())
+
+
+async def _signature_parent_ids(
+    announcement_ids: set[uuid.UUID], db: AsyncSession
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Signataires par diffusion, en UNE requête.
+
+    On ramène les identifiants et pas un `COUNT` parce que le compteur doit
+    être croisé avec l'audience courante (cf. `_signature_count`) : un
+    agrégat SQL ne saurait pas écarter un signataire sorti du périmètre.
+    """
+    if not announcement_ids:
+        return {}
+    result = await db.execute(
+        select(
+            AnnouncementSignature.announcement_id, AnnouncementSignature.parent_id
+        ).where(AnnouncementSignature.announcement_id.in_(announcement_ids))
+    )
+    by_announcement: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for ann_id, parent_id in result.all():
+        by_announcement.setdefault(ann_id, set()).add(parent_id)
+    return by_announcement
+
+
+async def _signature_count(
+    announcement_id: uuid.UUID, audience: set[uuid.UUID], db: AsyncSession
+) -> int:
+    """Numérateur du « X/Y ont signé », borné à l'audience COURANTE.
+
+    Une signature posée par un parent ensuite sorti du périmètre reste en base
+    (on ne détruit pas une attestation) mais ne compte plus : sinon le
+    compteur pourrait dépasser son total après un reciblage.
+    """
+    if not audience:
+        return 0
+    return len(
+        (await _signature_parent_ids({announcement_id}, db)).get(
+            announcement_id, set()
+        )
+        & audience
+    )
+
+
 async def _count_active_parents(establishment_id: uuid.UUID, db: AsyncSession) -> int:
     return await db.scalar(
         select(func.count()).select_from(User).where(
@@ -918,6 +1178,9 @@ def _announcement_response(
     attachments: list[AttachmentResponse] | None = None,
     department_ids: list[uuid.UUID] | None = None,
     localized: bool = False,
+    signature_count: int | None = None,
+    is_signed: bool | None = None,
+    signed_at: datetime | None = None,
 ) -> AnnouncementResponse:
     """`localized=True` sert le texte dans la langue du LECTEUR (vue parent).
 
@@ -953,6 +1216,10 @@ def _announcement_response(
         total_parents=total_parents,
         is_read=is_read,
         attachments=attachments or [],
+        requires_signature=announcement.requires_signature,
+        signature_count=signature_count,
+        is_signed=is_signed,
+        signed_at=signed_at,
     )
 
 

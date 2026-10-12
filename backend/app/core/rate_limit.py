@@ -16,7 +16,17 @@ from app.core.redis import redis_client
 from app.core.i18n import t
 
 
-async def check_and_increment(key: str, *, max_attempts: int, window_seconds: int) -> None:
+async def check_and_increment(
+    key: str,
+    *,
+    max_attempts: int,
+    window_seconds: int,
+    message_key: str = "errors.auth.rate_limited",
+) -> None:
+    """`message_key` existe parce que toutes les bornes ne protègent pas de la
+    même chose : « trop de tentatives » décrit une attaque par force brute,
+    pas une relance d'invitation qu'on vient de déclencher deux fois d'affilée.
+    Le mécanisme est le même, la phrase ne doit pas l'être."""
     current = await redis_client.incr(key)
     if current == 1:
         # Première tentative de la fenêtre : (re)pose le TTL. Fait après
@@ -28,7 +38,7 @@ async def check_and_increment(key: str, *, max_attempts: int, window_seconds: in
         ttl = await redis_client.ttl(key)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=t("errors.auth.rate_limited", seconds=max(ttl, 1)),
+            detail=t(message_key, seconds=max(ttl, 1)),
         )
 
 

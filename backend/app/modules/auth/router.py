@@ -83,9 +83,11 @@ async def create_user(
 @router.post("/password-reset", status_code=status.HTTP_204_NO_CONTENT)
 async def request_reset(
     payload: PasswordResetRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    await service.request_password_reset(payload, db)
+    client_ip = request.client.host if request.client else "unknown"
+    await service.request_password_reset(payload, db, client_ip)
 
 @router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
 async def confirm_reset(

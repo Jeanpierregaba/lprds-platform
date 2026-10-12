@@ -45,7 +45,27 @@
     "loadError": "Could not load announcements.",
     "loadErrorHint": "Check your connection, then try again.",
     "readRatio": "{read}/{total} have read it",
-    "newBadge": "New"
+    "newBadge": "New",
+    "requireLabel": "Ask parents to sign",
+    "requireHint": "Parents will type their name to attest they have read it. Signatures already collected are kept even if you untick this.",
+    "signatureRatio": "{signed}/{total} have signed",
+    "signatureBadge": "To sign",
+    "register": "Register",
+    "registerTitle": "Who read it, who signed it",
+    "registerHint": "Recipients with no trace at all come first: those are the ones left to chase.",
+    "registerEmpty": "No recipient within the scope of this announcement.",
+    "registerLoadError": "Could not load the register.",
+    "stateNothing": "Nothing",
+    "stateRead": "Read",
+    "stateSigned": "Signed",
+    "signedAs": "Signed “{name}”",
+    "signaturePrompt": "The school asks you to attest that you have read this announcement.",
+    "signatureNameLabel": "Type your first and last name",
+    "signatureNamePlaceholder": "First and last name",
+    "signatureAttest": "I attest that I have read this announcement.",
+    "sign": "Sign",
+    "signed": "You signed on {date}",
+    "signatureSaved": "Signature saved."
   },
   "conversations": {
     "new": "New",
@@ -125,7 +145,9 @@
   },
   "validation": {
     "titleRequired": "Title required",
-    "bodyRequired": "Content required"
+    "bodyRequired": "Content required",
+    "signatureNameRequired": "Type your first and last name (2 characters minimum)",
+    "signatureAttestRequired": "Tick the box to attest you have read it"
   },
   "announcementScopeHint": "Write the whole message first, then tick the departments it concerns before sending.",
   "departmentsLoadError": "Could not load the departments — reopen this dialog to try again.",

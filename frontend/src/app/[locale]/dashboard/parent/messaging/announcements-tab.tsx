@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
+import { AnnouncementSignature } from '@/components/messaging/announcement-signature'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import type { Announcement, AnnouncementListResponse } from '@/types/messaging'
@@ -90,6 +91,7 @@ export function AnnouncementsTab() {
             key={a.id}
             announcement={a}
             onOpen={() => handleOpen(a)}
+            onSigned={invalidate}
           />
         ))
       )}
@@ -97,7 +99,13 @@ export function AnnouncementsTab() {
   )
 }
 
-function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement; onOpen: () => void }) {
+function AnnouncementCard({
+  announcement, onOpen, onSigned,
+}: {
+  announcement: Announcement
+  onOpen: () => void
+  onSigned: () => void
+}) {
   const t = useTranslations('messaging')
 
   return (
@@ -116,7 +124,14 @@ function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>
-          {!announcement.is_read && <Badge variant="default" className="shrink-0">{t('announcements.newBadge')}</Badge>}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {announcement.requires_signature && !announcement.is_signed && (
+              <Badge variant="outline" className="whitespace-nowrap border-primary/60 text-primary">
+                {t('announcements.signatureBadge')}
+              </Badge>
+            )}
+            {!announcement.is_read && <Badge variant="default">{t('announcements.newBadge')}</Badge>}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -125,6 +140,8 @@ function AnnouncementCard({ announcement, onOpen }: { announcement: Announcement
         <div onClick={(e) => e.stopPropagation()}>
           <AnnouncementMediaGrid attachments={announcement.attachments} />
         </div>
+
+        <AnnouncementSignature announcement={announcement} onSigned={onSigned} />
       </CardContent>
     </Card>
   )

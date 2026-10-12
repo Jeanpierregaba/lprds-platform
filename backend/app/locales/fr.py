@@ -74,6 +74,9 @@ MESSAGES: dict[str, str] = {
     "errors.auth.user_not_found_or_inactive": "Utilisateur introuvable ou inactif",
     "errors.auth.cannot_create_role": "Vous n'êtes pas autorisé à créer un compte {role}",
     "errors.auth.rate_limited": "Trop de tentatives. Réessayez dans {seconds} secondes.",
+    "errors.auth.invitation_resend_too_soon": (
+        "Une invitation vient d'être envoyée à ce compte. Réessayez dans {seconds} secondes."
+    ),
     # ── attendance ────────────────────────────────────────
     "errors.attendance.no_department_schedule": "Aucun horaire configuré pour ce département",
     "errors.attendance.no_staff_schedule": (
@@ -201,6 +204,10 @@ MESSAGES: dict[str, str] = {
     "errors.messaging.no_file": "Aucun fichier fourni",
     "errors.messaging.conversation_not_found": "Conversation introuvable",
     "errors.messaging.announcement_not_found": "Diffusion introuvable",
+    "errors.messaging.already_signed": "Vous avez déjà signé cette diffusion",
+    "errors.messaging.signature_not_required": (
+        "Cette diffusion ne demande pas de signature"
+    ),
     "errors.messaging.edit_window_over": "Délai d'édition dépassé (15 minutes)",
     "errors.messaging.file_too_large": "Fichier trop volumineux (max {max_mb} Mo)",
     "errors.messaging.announcement_media_limit": (
@@ -225,6 +232,9 @@ MESSAGES: dict[str, str] = {
     "errors.notifications.no_vapid_key": "Clé VAPID non configurée",
     "errors.notifications.no_vapid_keys": (
         "Clés VAPID non configurées — impossible d'envoyer de push"
+    ),
+    "errors.notifications.no_subscription": (
+        "Aucun abonnement push pour ce compte sur cet appareil"
     ),
     # ── organization ──────────────────────────────────────
     "errors.organization.child_not_in_group": "Cet enfant n'appartient pas à ce groupe",
@@ -335,6 +345,10 @@ MESSAGES: dict[str, str] = {
         "Un nouveau rapport « {period} » est disponible pour {child}."
     ),
     "push.new_attachment": "Nouvelle pièce jointe",
+    "push.test.title": "Notification d'essai",
+    "push.test.body": (
+        "Si vous lisez ceci, les notifications fonctionnent sur cet appareil."
+    ),
     # ── dates (libellés longs : emails, messages, documents) ──
     "date.long": "{weekday} {day} {month} {year}",
     "date.weekday.0": "lundi",

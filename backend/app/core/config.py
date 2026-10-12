@@ -76,6 +76,37 @@ class Settings(BaseSettings):
     login_rate_limit_max_attempts: int = 5
     login_rate_limit_window_seconds: int = 300
 
+    # Anti-abus sur /auth/password-reset — route PUBLIQUE, donc le seul
+    # endpoint capable d'envoyer un email à une adresse arbitraire sans
+    # aucune authentification.
+    #
+    # DEUX compteurs, et il les faut tous les deux : par email, un seul
+    # expéditeur peut inonder une boîte ; par IP, un seul expéditeur peut
+    # arroser mille adresses sans jamais retoucher la même. Le premier ne
+    # voit pas le second.
+    #
+    # Ils sont décomptés AVANT toute lecture en base, sans quoi un 429 ne
+    # tomberait que sur les adresses connues — ce qui rendrait la réponse
+    # variable et rouvrirait l'énumération de comptes que ce endpoint ferme
+    # justement en répondant toujours 204.
+    #
+    # Jamais remis à zéro « sur succès », contrairement à /auth/login : ici
+    # le succès EST l'envoi de l'email, c'est-à-dire exactement ce qu'on
+    # cherche à borner.
+    password_reset_rate_limit_per_email: int = 3
+    password_reset_rate_limit_per_ip: int = 10
+    password_reset_rate_limit_window_seconds: int = 3600
+
+    # Relance d'invitation (parents, personnel) : une temporisation par
+    # compte visé, pas un quota.
+    #
+    # Le risque n'est pas l'abus — le geste exige parents:write / staff:write
+    # — mais le DOUBLE CLIC : la seconde relance régénère un mot de passe et
+    # périme donc le premier email, que le destinataire est peut-être en
+    # train de lire. Deux invitations dont la première ne marche plus est le
+    # pire résultat possible pour un dépannage.
+    invitation_resend_cooldown_seconds: int = 60
+
     # CORS — origines supplémentaires, séparées par des virgules.
     # frontend_url est toujours autorisée (cf. cors_origins).
     cors_extra_origins: str = ""

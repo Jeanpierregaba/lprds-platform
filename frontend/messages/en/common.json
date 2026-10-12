@@ -108,6 +108,23 @@
     "macStep3": "The app then appears in your Dock like any other app.",
     "offline": "You are offline — cached content is still available."
   },
+  "notifications": {
+    "settingsTitle": "Notifications",
+    "settingsHint": "Get alerted on this device, even when the app is closed.",
+    "settingsScope": "Notifications cover new messages, school announcements and published reports. The setting applies to THIS device: turn it on for each device where you want to be alerted.",
+    "enable": "Turn on for this device",
+    "disable": "Turn off for this device",
+    "statusEnabled": "On for this device",
+    "statusDisabled": "Off for this device",
+    "enabled": "Notifications turned on for this device.",
+    "disabled": "Notifications turned off for this device.",
+    "unsupported": "This browser does not support notifications. On iPhone and iPad, install the app to your home screen first.",
+    "blocked": "Notifications are blocked for this site.",
+    "blockedHint": "The browser will not ask again: permission is restored from its site settings.",
+    "test": "Send a test",
+    "testSent": "Test notification sent.",
+    "testFailed": "The test did not go through. This device’s subscription may no longer be valid: turn it off, then on again."
+  },
   "signOut": "Sign out",
   "views": {
     "list": "List view",

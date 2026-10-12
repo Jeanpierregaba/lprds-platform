@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LanguageSettingsCard } from '@/components/dashboard/language-settings-card'
+import { NotificationsSettingsCard } from '@/components/dashboard/notifications-settings-card'
 import { authApi } from '@/lib/api/auth.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
@@ -85,6 +86,10 @@ export function ProfileSettingsTab() {
       {/* Entre l'identité (ce que je suis) et le mot de passe (ma sécurité) :
           la langue est une préférence, elle se règle avant d'en venir là. */}
       <LanguageSettingsCard />
+
+      {/* Deux préférences voisines : la langue gouverne ce que les
+          notifications DISENT, celle-ci gouverne si elles arrivent. */}
+      <NotificationsSettingsCard />
 
       <Card>
         <CardHeader>

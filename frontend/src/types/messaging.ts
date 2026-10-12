@@ -30,6 +30,31 @@ export interface Announcement {
   total_parents:    number | null
   is_read:          boolean | null
   attachments:      Attachment[]
+  /** La diffusion exige une signature des parents (coché à la création). */
+  requires_signature: boolean
+  /** Vue admin : combien de parents de l'audience ont signé. */
+  signature_count:  number | null
+  /** Vue parent : SA signature, et quand il l'a donnée. */
+  is_signed:        boolean | null
+  signed_at:        string | null
+}
+
+/** Un destinataire et ce qu'il a fait de la diffusion : rien, lu, signé. */
+export interface AnnouncementRecipient {
+  parent:      UserBrief
+  email:       string
+  read_at:     string | null
+  signed_at:   string | null
+  /** Le nom tel que TAPÉ par le parent (peut différer de celui du compte). */
+  signed_name: string | null
+}
+
+export interface AnnouncementRecipientListResponse {
+  total:              number
+  read_count:         number
+  signature_count:    number
+  requires_signature: boolean
+  items:              AnnouncementRecipient[]
 }
 
 export interface AnnouncementListResponse {
@@ -42,6 +67,7 @@ export interface AnnouncementCreatePayload {
   body:  string
   /** [] = tous les parents. */
   department_ids: string[]
+  requires_signature: boolean
 }
 
 export interface AnnouncementUpdatePayload {
@@ -50,6 +76,8 @@ export interface AnnouncementUpdatePayload {
   is_active?: boolean
   /** null/omise = périmètre inchangé ; [] = retour au broadcast. */
   department_ids?: string[] | null
+  /** Repasser à false cesse de DEMANDER : les signatures restent acquises. */
+  requires_signature?: boolean
 }
 
 export interface Message {
@@ -98,6 +126,12 @@ export interface WSAnnouncementReadEvent {
   read_count:      number
 }
 
+export interface WSAnnouncementSignedEvent {
+  type:            'announcement_signed'
+  announcement_id: string
+  signature_count: number
+}
+
 export type WSMessageEvent = Message & { type: 'message' }
 
 export interface WSReadReceiptEvent {
@@ -114,6 +148,7 @@ export type WSAnnouncementAttachmentEvent = Attachment & { type: 'announcement_a
 export type MessagingWSEvent =
   | WSAnnouncementEvent
   | WSAnnouncementReadEvent
+  | WSAnnouncementSignedEvent
   | WSMessageEvent
   | (Message & { type: 'message_updated' })
   | { type: 'message_deleted'; conversation_id: string; message_id: string }

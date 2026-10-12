@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2, Megaphone, Paperclip, Plus } from 'lucide-react'
+import { Loader2, Megaphone, Paperclip, Plus, Users } from 'lucide-react'
 import { MAX_ANNOUNCEMENT_MEDIA, MediaPicker } from '@/components/messaging/media-picker'
 
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ import {
 import { messagingApi } from '@/lib/api/messaging.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
+import { AnnouncementRecipientsDialog } from '@/components/messaging/announcement-recipients-dialog'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
@@ -58,6 +59,8 @@ export function AnnouncementsTab() {
   // broadcast=true → department_ids=[] (tous les parents).
   const [broadcast, setBroadcast] = useState(true)
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
+  // Signature exigée : coché avant l'envoi, comme le ciblage.
+  const [requiresSignature, setRequiresSignature] = useState(false)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['messaging', 'announcements', { includeInactive }],
@@ -88,6 +91,26 @@ export function AnnouncementsTab() {
           }
         }
       )
+    } else if (event.type === 'announcement_signed') {
+      queryClient.setQueriesData<{ total: number; items: Announcement[] } | undefined>(
+        { queryKey: ['messaging', 'announcements'] },
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            items: old.items.map((a) =>
+              a.id === event.announcement_id
+                ? { ...a, signature_count: event.signature_count }
+                : a
+            ),
+          }
+        }
+      )
+      // Le registre, lui, est nominatif : on le refait charger plutôt que de
+      // deviner QUI vient de signer depuis un simple compteur.
+      queryClient.invalidateQueries({
+        queryKey: ['messaging', 'announcements', event.announcement_id, 'recipients'],
+      })
     } else if (event.type === 'announcement_attachment') {
       invalidate()
     }
@@ -102,6 +125,7 @@ export function AnnouncementsTab() {
     setAttachFiles([])
     setBroadcast(true)
     setSelectedDeptIds([])
+    setRequiresSignature(false)
     reset({ title: '', body: '' })
     setDialogOpen(true)
   }
@@ -112,6 +136,7 @@ export function AnnouncementsTab() {
     const scoped = a.department_ids ?? []
     setBroadcast(scoped.length === 0)
     setSelectedDeptIds(scoped)
+    setRequiresSignature(a.requires_signature)
     reset({ title: a.title, body: a.body })
     setDialogOpen(true)
   }
@@ -128,11 +153,15 @@ export function AnnouncementsTab() {
     try {
       let announcement: Announcement
       if (editing) {
-        await messagingApi.updateAnnouncement(editing.id, { ...values, department_ids })
+        await messagingApi.updateAnnouncement(editing.id, {
+          ...values, department_ids, requires_signature: requiresSignature,
+        })
         announcement = editing
         toast.success(t('announcements.updated'))
       } else {
-        const created = await messagingApi.createAnnouncement({ ...values, department_ids })
+        const created = await messagingApi.createAnnouncement({
+          ...values, department_ids, requires_signature: requiresSignature,
+        })
         announcement = created.data
         toast.success(t('announcements.published'))
       }
@@ -238,6 +267,24 @@ export function AnnouncementsTab() {
               </div>
 
               <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-md border px-3 py-2">
+                  <Checkbox
+                    id="announcement-requires-signature"
+                    checked={requiresSignature}
+                    onCheckedChange={(v) => setRequiresSignature(v === true)}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="announcement-requires-signature" className="text-sm font-normal">
+                      {t('announcements.requireLabel')}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('announcements.requireHint')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label>{t('announcements.media', { max: MAX_ANNOUNCEMENT_MEDIA })}</Label>
                 <MediaPicker files={attachFiles} onChange={setAttachFiles} />
               </div>
@@ -306,6 +353,7 @@ function AnnouncementCard({
   const queryClient = useQueryClient()
   const scoped = announcement.department_ids ?? []
   const [attachOpen, setAttachOpen] = useState(false)
+  const [recipientsOpen, setRecipientsOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
   const [attachFiles, setAttachFiles] = useState<File[]>([])
   const remaining = MAX_ANNOUNCEMENT_MEDIA - announcement.attachments.length
@@ -345,6 +393,14 @@ function AnnouncementCard({
                 {t('announcements.readRatio', { read: announcement.read_count, total: announcement.total_parents })}
               </Badge>
             )}
+            {announcement.requires_signature && announcement.signature_count != null
+              && announcement.total_parents != null && (
+              <Badge className="whitespace-nowrap font-normal">
+                {t('announcements.signatureRatio', {
+                  signed: announcement.signature_count, total: announcement.total_parents,
+                })}
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -355,6 +411,18 @@ function AnnouncementCard({
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onEdit}>{t('announcements.edit')}</Button>
+          {/* Le registre vaut pour TOUTE diffusion, signature demandée ou non :
+              « qui a lu » est la question la plus fréquente, et elle ne dépend
+              pas du drapeau. */}
+          <Button variant="outline" size="sm" onClick={() => setRecipientsOpen(true)}>
+            <Users className="mr-1.5 size-3.5" />
+            {t('announcements.register')}
+          </Button>
+          <AnnouncementRecipientsDialog
+            announcementId={announcement.id}
+            open={recipientsOpen}
+            onOpenChange={setRecipientsOpen}
+          />
           <Button
             variant="outline"
             size="sm"

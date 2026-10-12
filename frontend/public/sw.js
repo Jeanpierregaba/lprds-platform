@@ -13,7 +13,7 @@
  * pré-cachés, sinon les clients gardent l'ancienne version de ce worker.
  */
 
-const CACHE_VERSION = '2026.14'
+const CACHE_VERSION = '2026.15'
 const SHELL = 'lprds-shell@' + CACHE_VERSION
 
 /* ⚠️ L'ESPACE CONNECTÉ N'EST JAMAIS MIS EN CACHE.
@@ -107,7 +107,16 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {}
-  const title = data.title || 'Nouvelle notification'
+  /* ⚠️ Repli en NOM PROPRE, jamais en français.
+   *
+   * Le worker n'a pas de catalogue de traduction : toute phrase écrite ici
+   * s'afficherait dans une seule langue, chez tout le monde. « Nouvelle
+   * notification » arrivait donc tel quel sur un appareil anglophone. Le
+   * backend rend déjà titre et corps dans la langue du DESTINATAIRE (cf.
+   * notifications/service.py) ; ce repli ne sert qu'à une charge utile
+   * malformée, et un nom propre est la seule chose qu'on puisse y mettre sans
+   * choisir une langue à la place du lecteur. */
+  const title = data.title || 'LPRDS'
   const body = data.body || ''
   const icon = data.icon || '/icons/icon-192.png'
   const tag = data.tag || 'lprds-notification'

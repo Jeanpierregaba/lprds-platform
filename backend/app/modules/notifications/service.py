@@ -1,83 +1,122 @@
-import base64
+"""Abonnements aux notifications push Web et envoi des messages.
+
+⚠️ **Ce module n'avait jamais été exécuté.** Écrit de bout en bout, importé,
+démarrant sans broncher — et incapable d'enregistrer un seul abonnement :
+`_to_response` n'existait nulle part tout en étant appelé trois fois,
+`datetime`/`timezone` étaient utilisés sans import, et les colonnes étaient
+trop courtes pour les clés qu'un navigateur produit réellement. Rien ne le
+signalait : l'envoi est best-effort, donc son échec est journalisé au fond du
+module et n'atteint jamais un écran.
+
+La cause racine est unique et vaut pour tout le dépôt : aucun test ne touchait
+`/notifications` — le seul module dans ce cas. D'où
+`tests/e2e/test_notifications.py`, qui souscrit avec des clés de la VRAIE
+taille (65 et 16 octets), seule façon d'attraper la classe de défaut n°3.
+"""
+
+import asyncio
 import json
+import logging
 import uuid
 from typing import Optional
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, coerce_locale, t
-from app.core import redis
 from app.modules.auth.models import User, UserRole
-from app.modules.messaging.models import Announcement, Conversation, Message
-from app.modules.reports.models import Report, ReportStatus
 from app.modules.notifications.models import PushSubscription
-from app.modules.notifications.schemas import (
-    PushSubscriptionResponse,
-    PushSubscriptionDelete,
-)
+from app.modules.notifications.schemas import PushSubscriptionResponse
+
+logger = logging.getLogger(__name__)
+
+
+def _to_response(subscription: PushSubscription) -> PushSubscriptionResponse:
+    return PushSubscriptionResponse.model_validate(subscription)
 
 
 async def save_subscription(
+    *,
     endpoint: str,
     p256dh: str,
     auth_key: str,
-    user_id: uuid.UUID,
-    db,
+    user: User,
+    db: AsyncSession,
 ) -> PushSubscriptionResponse:
-    """Enregistre ou remplace la souscription push pour un utilisateur."""
-    # Vérifier s'il en existe déjà pour cet utilisateur
+    """Enregistre l'abonnement de CET appareil, ou met à jour le sien.
+
+    ⚠️ La clé est le couple (compte, endpoint), jamais le compte seul. Un
+    endpoint identifie un navigateur sur un appareil : la version précédente
+    remplaçait l'unique ligne du compte, si bien que s'abonner sur son
+    téléphone DÉSABONNAIT son ordinateur — en silence, et sans que rien ne
+    distingue ce cas d'un abonnement qui n'a jamais marché.
+
+    `establishment_id` est repris du compte et jamais reçu du client : la
+    colonne existait, le commentaire l'annonçait, personne ne la remplissait.
+    """
     existing = await db.scalar(
-        select(PushSubscription).where(PushSubscription.user_id == user_id)
+        select(PushSubscription).where(
+            PushSubscription.user_id == user.id,
+            PushSubscription.endpoint == endpoint,
+        )
     )
     if existing:
-        # Mise à jour de l'abonnement existant
-        existing.endpoint = endpoint
+        # Un navigateur peut faire tourner ses clés sur un même endpoint
+        # (`pushsubscriptionchange`) : on met la ligne à jour au lieu d'en
+        # empiler une seconde, qui recevrait des envois voués à l'échec.
         existing.p256dh = p256dh
         existing.auth_key = auth_key
-        existing.updated_at = datetime.now(timezone.utc)
+        existing.establishment_id = user.establishment_id
         await db.flush()
-        return await _to_response(existing)
-    else:
-        # Nouvelle souscription
-        subscription = PushSubscription(
-            user_id=user_id,
-            endpoint=endpoint,
-            p256dh=p256dh,
-            auth_key=auth_key,
-        )
-        db.add(subscription)
-        await db.flush()
-        return await _to_response(subscription)
+        return _to_response(existing)
 
-
-async def delete_subscription(subscription_id: uuid.UUID, db) -> bool:
-    """Supprime une souscription push."""
-    result = await db.execute(
-        select(PushSubscription).where(PushSubscription.id == subscription_id)
+    subscription = PushSubscription(
+        user_id=user.id,
+        establishment_id=user.establishment_id,
+        endpoint=endpoint,
+        p256dh=p256dh,
+        auth_key=auth_key,
     )
-    subscription = result.scalar_one_or_none()
-    if subscription:
-        await db.delete(subscription)
-        await db.flush()
-        return True
-    return False
+    db.add(subscription)
+    await db.flush()
+    return _to_response(subscription)
 
 
-async def get_subscriptions_by_establishment(
-    establishment_id: uuid.UUID, db
-) -> list[PushSubscriptionResponse]:
-    """Récupère toutes les souscriptions push pour un établissement."""
-    result = await db.execute(
+async def delete_subscription(
+    *,
+    user_id: uuid.UUID,
+    endpoint: str,
+    db: AsyncSession,
+) -> bool:
+    """Retire l'abonnement de cet appareil pour ce compte. Idempotent.
+
+    Le retrait se fait par ENDPOINT et non par identifiant de ligne : c'est la
+    seule valeur que le navigateur sait toujours redonner
+    (`pushManager.getSubscription()`), alors qu'un identifiant conservé côté
+    client disparaît avec le stockage local. Et il est borné au compte
+    appelant, pour qu'un identifiant deviné ne désabonne pas quelqu'un d'autre.
+    """
+    subscription = await db.scalar(
         select(PushSubscription).where(
-            PushSubscription.establishment_id == establishment_id
+            PushSubscription.user_id == user_id,
+            PushSubscription.endpoint == endpoint,
         )
     )
-    subscriptions = result.scalars().all()
-    return [await _to_response(s) for s in subscriptions]
+    if subscription is None:
+        return False
+    await db.delete(subscription)
+    await db.flush()
+    return True
+
+
+async def list_user_subscriptions(
+    user_id: uuid.UUID, db: AsyncSession
+) -> list[PushSubscription]:
+    result = await db.execute(
+        select(PushSubscription).where(PushSubscription.user_id == user_id)
+    )
+    return list(result.scalars().all())
 
 
 async def send_push_to_subscription(
@@ -85,11 +124,34 @@ async def send_push_to_subscription(
     title: str,
     body: str,
     data: Optional[dict] = None,
+    *,
+    db: AsyncSession | None = None,
 ) -> bool:
-    """Envoie un push à une souscription donnée en utilisant pywebpush."""
-    from pywebpush import webpush, WebPushException
+    """Envoie un push à un abonnement donné. Best-effort : jamais d'erreur HTTP.
 
-    try:
+    `db` sert uniquement à FAIRE LE MÉNAGE : un endpoint révoqué (navigateur
+    désinstallé, abonnement expiré, données du site effacées) répond 404 ou
+    410 et le fera indéfiniment. Sans ce retrait, chaque diffusion rejouerait
+    l'appel pour rien, et le compte paraîtrait abonné à jamais. Les autres
+    codes — un 503 du service de push, une panne réseau — sont PASSAGERS et ne
+    doivent surtout rien supprimer.
+
+    ⚠️ L'envoi est synchrone (pywebpush fait une requête HTTP bloquante) et
+    passe donc par un thread : sans cela, une diffusion à trente parents
+    bloquerait la boucle asyncio le temps de trente allers-retours réseau.
+    """
+    if not settings.vapid_private_key:
+        # Dit une fois au démarrage par `_warn_dormant_features` ; répété ici
+        # au niveau debug pour que le diagnostic d'un envoi muet soit possible
+        # sans relire le journal de démarrage.
+        logger.debug("Push ignoré (aucune clé VAPID configurée)")
+        return False
+
+    from pywebpush import WebPushException, webpush
+
+    payload = json.dumps({"title": title, "body": body, **(data or {})})
+
+    def _envoyer() -> None:
         webpush(
             subscription_info={
                 "endpoint": subscription.endpoint,
@@ -98,26 +160,37 @@ async def send_push_to_subscription(
                     "auth": subscription.auth_key,
                 },
             },
-            data=json.dumps({"title": title, "body": body, **(data or {})}),
+            data=payload,
             vapid_private_key=settings.vapid_private_key,
-            vapid_claims={
-                "sub": settings.vapid_subject,
-            },
+            vapid_claims={"sub": settings.vapid_subject},
         )
+
+    try:
+        await asyncio.to_thread(_envoyer)
         return True
-    except WebPushException as e:
-        # Log l'erreur mais ne bloquez pas l'API
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(
-            "Échec envoi push subscription %s: %s", subscription.id, str(e)
+    except WebPushException as exc:
+        statut = getattr(getattr(exc, "response", None), "status_code", None)
+        if statut in (404, 410) and db is not None:
+            logger.info(
+                "Abonnement push %s révoqué par le service (%s) : retiré",
+                subscription.id, statut,
+            )
+            await db.delete(subscription)
+            await db.flush()
+        else:
+            logger.warning(
+                "Échec d'envoi push sur l'abonnement %s : %s",
+                subscription.id, exc,
+            )
+        return False
+    except Exception:
+        # pywebpush laisse aussi passer des erreurs de transport brutes. Un
+        # push raté ne doit jamais faire échouer la publication qui l'a
+        # déclenché (même politique que la messagerie, cf. CLAUDE.md).
+        logger.exception(
+            "Échec inattendu d'envoi push sur l'abonnement %s", subscription.id
         )
         return False
-
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-# ... plus tard dans le fichier ...
 
 async def send_push_to_establishment_parents(
     establishment_id: uuid.UUID,
@@ -176,7 +249,7 @@ async def send_push_to_establishment_parents(
             text = t(body_key or "", locale, **(body_params or {}))
         for sub in subscriptions:
             success = await send_push_to_subscription(
-                sub, t(title_key, locale), text, data
+                sub, t(title_key, locale), text, data, db=db
             )
             if success:
                 sent += 1
@@ -217,55 +290,9 @@ async def send_push_to_establishment_admins(
 
         for sub in subscriptions:
             success = await send_push_to_subscription(
-                sub, t(title_key, locale), text, data
+                sub, t(title_key, locale), text, data, db=db
             )
             if success:
                 sent += 1
 
     return sent
-
-
-async def notify_parents_report_validated(
-    report_id: uuid.UUID,
-    db,
-) -> int:
-    """Envoie des notifications push aux parents lorsqu'un rapport est validé.
-    À appeler depuis _notify_parents() ou submit_report() après validation."""
-    from app.modules.reports.service import _notify_parents as _notify_parents_original
-
-    # D'abord envoyer les emails (comportement existant)
-    email_sent = await _notify_parents_original(report_id, db)  # type: ignore
-
-    # Ensuite envoyer les push notifications
-    from app.modules.reports.models import Report
-
-    report = await db.scalar(
-        select(Report).where(Report.id == report_id)
-    )
-    if not report:
-        return 0
-
-    child = report.child
-    establishment_id = child.establishment_id
-
-    # On envoie aux parents assignés à cet enfant
-    sent = 0
-    for parent in child.parents:
-        if not parent.is_active:
-            continue
-        sub_result = await db.execute(
-            select(PushSubscription).where(PushSubscription.user_id == parent.id)
-        )
-        subscriptions = sub_result.scalars().all()
-
-        for sub in subscriptions:
-            success = await send_push_to_subscription(
-                sub,
-                "Nouveau rapport disponible",
-                f"Un nouveau rapport '{report.period_label}' est disponible pour {child.first_names}.",
-                {"report_id": str(report_id), "child_id": str(child.id)},
-            )
-            if success:
-                sent += 1
-
-    return sent + email_sent  # type: ignore

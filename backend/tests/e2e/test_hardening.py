@@ -88,3 +88,56 @@ def test_reports_content_error_is_a_plain_string(client):
     ck("`detail` est une chaîne (pas une liste)", isinstance(detail, str), True)
     ck("Le message reste exploitable (mentionne le champ en cause)",
        "health_status" in detail, True)
+
+
+def test_password_reset_rate_limiting(client):
+    """⚠️ `/auth/password-reset` est PUBLIQUE : c'est le seul endpoint capable
+    d'envoyer un email à une adresse arbitraire sans aucune authentification.
+
+    Deux contrôles, et le second est le plus important : le 429 doit tomber
+    **de la même façon sur une adresse inconnue**. Si la borne n'était posée
+    qu'une fois l'utilisateur trouvé, le code de réponse deviendrait un signal
+    d'existence de compte — et rouvrirait l'énumération que le 204 invariant
+    ferme précisément.
+    """
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+    c.post("/staff", json={"first_name": "E", "last_name": "T", "nickname": "Educ",
+           "phone": "+229", "email": "educ@a.fr", "password": "Staff2026",
+           "staff_type": "educateur"}, headers=adm)
+
+    # 3 demandes par email (défaut), la 4e est refusée.
+    for i in range(3):
+        r = c.post("/auth/password-reset", json={"email": "educ@a.fr"})
+        ck(f"demande {i + 1} acceptée", r.status_code, 204)
+
+    bloque = c.post("/auth/password-reset", json={"email": "educ@a.fr"},
+                    headers={"Accept-Language": "fr-FR"})
+    ck("4e demande sur la même adresse → 429", bloque.status_code, 429)
+    ck("  le délai restant est dit", "secondes" in bloque.json()["detail"], True)
+
+    # Une adresse INCONNUE suit exactement le même régime : 204 sous le quota,
+    # 429 au-delà. Aucun des deux codes ne révèle si le compte existe.
+    for i in range(3):
+        ck(f"adresse inconnue, demande {i + 1} : 204 comme pour un compte réel",
+           c.post("/auth/password-reset",
+                  json={"email": "inconnu@nulle-part.fr"}).status_code, 204)
+    ck("adresse inconnue au-delà du quota : 429, comme un compte réel",
+       c.post("/auth/password-reset",
+              json={"email": "inconnu@nulle-part.fr"}).status_code, 429)
+
+
+def test_password_reset_quota_par_ip_independant_de_l_email(client):
+    """La borne par email ne suffit pas : un envoyeur qui change d'adresse à
+    chaque coup ne la rencontre jamais. Le quota par IP est ce qui borne
+    l'arrosage de mille adresses différentes."""
+    c = client
+    for i in range(10):  # password_reset_rate_limit_per_ip par défaut
+        ck(f"adresse {i} : sous le quota IP",
+           c.post("/auth/password-reset",
+                  json={"email": f"cible{i}@nulle-part.fr"}).status_code, 204)
+
+    ck("11e adresse DIFFÉRENTE depuis la même IP → 429",
+       c.post("/auth/password-reset",
+              json={"email": "cible-de-trop@nulle-part.fr"}).status_code, 429)

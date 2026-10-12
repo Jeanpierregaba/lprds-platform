@@ -631,6 +631,52 @@ Configurable via `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` (défaut 5) et
   dure du module (révocation de tokens ci-dessus), pas besoin d'un second
   système.
 
+### Anti-abus sur `/auth/password-reset` (Redis) — DEUX compteurs
+
+C'est le seul endpoint de la plateforme capable d'envoyer un email à une
+adresse **arbitraire sans aucune authentification**. Il était sans borne.
+
+```
+pwreset_email:<email>   3 demandes / heure    (password_reset_rate_limit_per_email)
+pwreset_ip:<ip>        10 demandes / heure    (password_reset_rate_limit_per_ip)
+```
+
+**Il faut les deux, et chacun couvre l'angle mort de l'autre** : la borne par
+email empêche d'inonder UNE boîte, celle par IP empêche d'arroser mille
+adresses différentes — qu'un compteur par email ne rencontre jamais, puisque
+chaque adresse repart de zéro.
+
+⚠️ **Les deux sont décomptés AVANT la lecture en base.** Les poser après, ou ne
+les appliquer qu'à un utilisateur trouvé, ferait du 429 un **signal
+d'existence de compte** : 204 sur une adresse inconnue, 429 sur une adresse
+connue, et l'énumération que ce endpoint ferme précisément en répondant
+toujours 204 serait rouverte par sa propre protection. Sous test, et prouvé par
+sabotage : déplacées dans le `if user`, le contrôle sur l'adresse inconnue
+tombe.
+
+⚠️ **Jamais remis à zéro « sur succès »**, contrairement à `/auth/login` : ici
+le succès EST l'envoi de l'email, c'est-à-dire exactement ce qu'on borne.
+
+### Temporisation sur la relance d'invitation
+
+`invitation_resend_cooldown_seconds` (60 s), par compte visé. Ce n'est pas un
+quota d'abus — le geste exige `parents:write` / `staff:write` — mais une
+protection contre le **DOUBLE CLIC** : la seconde relance régénère un mot de
+passe, donc **périme l'email de la première**, que le destinataire est
+peut-être en train de lire. Deux invitations dont la plus ancienne ne marche
+plus est le pire résultat possible pour un dépannage.
+
+⚠️ **La borne est LEVÉE si l'envoi échoue** (`rate_limit.reset`) : rien n'a été
+délivré, le mot de passe est annulé par le rollback, et laisser le verrou posé
+interdirait de réessayer dès que le SMTP est revenu — soit exactement au moment
+où l'admin a besoin que ça marche. Les deux comportements sont sous test, et
+prouvés par sabotage dans les deux sens.
+
+⚠️ `check_and_increment` accepte un `message_key` parce que toutes les bornes ne
+protègent pas de la même chose : « trop de tentatives » décrit une attaque par
+force brute, pas une relance déclenchée deux fois d'affilée. Le mécanisme est le
+même, la phrase ne doit pas l'être.
+
 ### Protection des routes (backend)
 ```python
 # Route publique — aucune dépendance
@@ -1173,6 +1219,9 @@ message, un mot de passe qui marche.
   l'exception, le test tombe.
 - **Aucun mot de passe dans la réponse HTTP** — il ne doit exister que dans
   l'email, pas traverser les journaux d'accès ni le reverse proxy.
+- **Une temporisation de 60 s par compte visé** empêche le double clic de
+  périmer l'email qu'on vient d'envoyer — cf. § « Temporisation sur la relance
+  d'invitation ». Levée si l'envoi échoue.
 - ⚠️ **L'écran avertit quand `last_login_at` est renseigné** : un compte déjà
   utilisé a probablement son propre mot de passe, qu'une relance lui retire.
   Refuser serait faux (perdre son mot de passe après s'être connecté est banal),
@@ -3501,6 +3550,12 @@ FRONTEND_URL=http://localhost:3000
 # Anti brute-force /auth/login — cf. section Authentification
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS=5
 LOGIN_RATE_LIMIT_WINDOW_SECONDS=300
+# Anti-abus /auth/password-reset — cf. section Authentification. DEUX compteurs.
+PASSWORD_RESET_RATE_LIMIT_PER_EMAIL=3
+PASSWORD_RESET_RATE_LIMIT_PER_IP=10
+PASSWORD_RESET_RATE_LIMIT_WINDOW_SECONDS=3600
+# Relance d'invitation : temporisation par compte visé (double clic).
+INVITATION_RESEND_COOLDOWN_SECONDS=60
 # Origines CORS supplémentaires (séparées par des virgules).
 # FRONTEND_URL est toujours autorisée — inutile de la répéter ici.
 CORS_EXTRA_ORIGINS=
@@ -3849,7 +3904,14 @@ tests/
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
     │                                 #   retrait PJ, pagination curseur before_id
-    ├── test_hardening.py                # rate limiting /auth/login, format d'erreur uniforme
+    ├── test_notifications.py            # abonnements push avec des clés de la VRAIE
+    │                                    #   taille (65 et 16 octets), un appareil n'écrase
+    │                                    #   pas l'autre, retrait idempotent borné au compte,
+    │                                    #   410 purge / 503 conserve, diffusion poussée
+    │                                    #   dans la langue du DESTINATAIRE
+    ├── test_hardening.py                # rate limiting /auth/login ET /auth/password-reset
+    │                                    #   (par email ET par IP, 429 invariant sur une
+    │                                    #   adresse inconnue), format d'erreur uniforme
     └── test_schema_drift.py             # modèles ↔ schéma migré (cf. « Registre central »)
 ```
 
@@ -3897,10 +3959,17 @@ Deux raisons se cumulaient, et aucune ne se voyait :
    qui n'existe pas dans `py_vapid`. Deux copies, deux erreurs différentes,
    aucune jamais exécutée. D'où `backend/scripts/generate_vapid_keys.py` : une
    commande qu'on exécute se fait démentir, un commentaire qu'on recopie non.
-2. **Le développement local, lui, AVAIT ses clés.** Tout fonctionnait sur le
-   poste de développement ; seul le serveur était muet. C'est le même piège que
-   le `worker`/`beat` ajoutés au seul compose local : la vérification locale
-   réussit, et c'est ce qui referme le piège.
+2. **Le développement local, lui, AVAIT des clés** — et c'est ce qui a fait
+   croire que la fonctionnalité marchait quelque part. ⚠️ **Elles sont
+   pourtant inutilisables** : vérifié le 12/10/2026, `VAPID_PUBLIC_KEY` du
+   `backend/.env` de développement fait **44 caractères (33 octets, préfixe
+   0x03)**, c'est-à-dire un point de courbe COMPRESSÉ. Le navigateur exige la
+   forme non compressée (65 octets, préfixe 0x04, 87 caractères) pour
+   `applicationServerKey` : `pushManager.subscribe()` y échoue donc toujours.
+   La production, elle, porte bien une clé de 87 caractères.
+   **À régénérer en local** avec `scripts/generate_vapid_keys.py`, qui produit
+   la bonne forme — sans quoi la prochaine vérification locale conclura à tort
+   que le correctif ne marche pas.
 
 `_warn_dormant_features()` (`app/main.py`, appelé au `lifespan`) annonce donc au
 démarrage ce qui dort — push sans clés VAPID, traduction inactive — en nommant
@@ -4372,9 +4441,11 @@ Types    : PascalCase interfaces, SCREAMING_SNAKE pour les constantes
 - **Révocation de tokens** active (blacklist `jti` dans Redis, fail-closed en 503)
 - **Jamais de mot de passe en clair dans un email** — c'est pourquoi la création
   d'admin via établissement n'envoie pas d'email
-- **Rate limiting** actif sur `/auth/login` (compteur Redis par (IP, email) —
-  cf. § « Anti brute-force »). Toujours absent sur `/auth/password-reset` et sur
-  l'envoi de messages/fichiers : à implémenter, Redis est déjà branché
+- **Rate limiting** actif sur `/auth/login` (par (IP, email)), sur
+  `/auth/password-reset` (par email ET par IP) et sur la relance d'invitation
+  (temporisation par compte visé) — cf. les trois sections dédiées. Toujours
+  absent sur l'envoi de messages/fichiers : à implémenter, Redis est déjà
+  branché
 
 ### Performance
 - Utiliser `select` SQLAlchemy pour les requêtes (pas `session.query()`)
@@ -4413,11 +4484,51 @@ La Phase 2 étend le PWA (Phase 1 complete) en ajoutant les notifications push W
 - **Rate-limiting** : les tentatives de push échouent silencieusement (best-effort), jamais d'erreur HTTP remontée
 
 ### Module backend `app/modules/notifications/`
-Nouveau module créé avec :
-- `models.py` — modèle `PushSubscription` (user_id FK, establishment_id, endpoint, p256dh, auth_key)
-- `schemas.py` — schémas Pydantic `PushSubscriptionCreate`, `PushSubscriptionResponse`, `PushSubscriptionDelete`
-- `service.py` — fonctions CRUD + `send_push_to_subscription()`, `send_push_to_establishment_parents()`, `send_push_to_establishment_admins()`, `_send_report_push_notifications()`
-- `router.py` — endpoints `POST /subscriptions`, `DELETE /subscriptions/{id}`, `GET /vapid-public-key`, `GET /test`
+- `models.py` — `PushSubscription` (user_id FK, establishment_id, endpoint, p256dh, auth_key)
+- `schemas.py` — `PushSubscriptionCreate` / `Delete` / `Response`
+- `service.py` — `save_subscription()`, `delete_subscription()`,
+  `list_user_subscriptions()`, `send_push_to_subscription()`,
+  `send_push_to_establishment_parents()`, `send_push_to_establishment_admins()`
+- `router.py` — `POST /subscriptions`, `POST /subscriptions/unsubscribe`,
+  `GET /vapid-public-key`, `POST /test`
+
+```
+POST /api/v1/notifications/subscriptions              # abonne CET appareil — 201
+POST /api/v1/notifications/subscriptions/unsubscribe  # {endpoint} — 204, idempotent
+GET  /api/v1/notifications/vapid-public-key           # public ; 503 si non configurée
+POST /api/v1/notifications/test                       # essai sur ses abonnements RÉELS
+```
+
+#### ⚠️ Un abonnement identifie un APPAREIL, pas un compte
+
+La clé est le couple `(user_id, endpoint)` — contrainte unique
+`uq_push_subscription_user_endpoint`. La première version remplaçait l'unique
+ligne du compte : s'abonner sur son téléphone **désabonnait son ordinateur**,
+en silence, et rien ne distinguait ce cas d'un abonnement qui n'avait jamais
+marché. Un réabonnement du même endpoint (rotation de clés par le navigateur,
+`pushsubscriptionchange`) met la ligne à jour au lieu d'en empiler une seconde,
+qui doublerait chaque notification.
+
+C'est aussi pourquoi le retrait désigne l'appareil par son **endpoint** et non
+par un identifiant de ligne : l'endpoint est la seule valeur que le navigateur
+sait toujours redonner (`pushManager.getSubscription()`), là où un identifiant
+gardé côté client disparaît avec le stockage local. Et c'est un **POST**, pas un
+DELETE : en paramètre d'URL l'endpoint entrerait dans les journaux d'accès du
+reverse proxy, et un corps sur un DELETE n'est garanti par aucun intermédiaire.
+
+#### ⚠️ Un endpoint révoqué est RETIRÉ, une panne passagère ne l'est pas
+
+`send_push_to_subscription` reçoit la session et supprime la ligne sur **404 ou
+410** : ces deux codes sont définitifs (navigateur désinstallé, données du site
+effacées) et la ligne ne recevra plus jamais rien — sans ce ménage, chaque
+diffusion rejouerait l'appel indéfiniment et le compte paraîtrait abonné à
+jamais. Tout autre code (503 du service de push, coupure réseau) est **passager**
+et ne supprime rien : désabonner quelqu'un parce que Google a eu une mauvaise
+minute serait pire que le problème. Les deux branches sont sous test.
+
+L'envoi passe par `asyncio.to_thread` : `pywebpush` fait une requête HTTP
+**bloquante**, donc une diffusion à trente parents tenait la boucle asyncio le
+temps de trente allers-retours réseau.
 
 ### Intégration dans les modules existants
 - **Messagerie** (`app/modules/messaging/service.py`) :
@@ -4432,13 +4543,48 @@ Nouveau module créé avec :
   - `_send_report_push_notifications()` : nouvelle fonction d'envoi push
 
 ### Intégration frontend
-- `frontend/src/lib/push-subscription.ts` — hook `usePushSubscription` gérant :
-  - Détection support navigateur
-  - Demande de permission `Notification.requestPermission()`
-  - Récupération de la clé VAPID publique via `GET /api/v1/notifications/vapid-public-key`
-  - Abonnement `navigator.serviceWorker.pushManager.subscribe()`
-  - Envoi de l'abonnement au backend `POST /api/v1/notifications/subscriptions`
-  - Désabonnement `DELETE /api/v1/notifications/subscriptions`
+- `lib/api/notifications.api.ts` — les quatre appels, via **`apiClient`** et
+  jamais `fetch` à la main. L'ancienne version posait elle-même l'en-tête
+  `Authorization` depuis le store (donc aucun rafraîchissement de jeton) et
+  surtout **ne lisait jamais `res.ok`** : un `await fetch(...)` sans contrôle
+  fait passer un 422 pour un succès. Axios lève sur 4xx/5xx — l'erreur ne peut
+  plus être ignorée par omission.
+- `lib/push-subscription.ts` — hook `usePushSubscription` : état de l'appareil
+  (support, permission, abonné), `subscribe()`, `unsubscribe()`, `sendTest()`.
+- `components/dashboard/notifications-settings-card.tsx` — l'écran d'activation,
+  monté dans `ProfileSettingsTab`, donc présent dans les **quatre** espaces, à
+  côté du réglage de langue (l'un gouverne ce que les notifications DISENT,
+  l'autre si elles arrivent).
+
+⚠️ **Sans cet écran, le module restait inatteignable.** `usePushSubscription`
+existait, documenté, exporté — et **appelé par rien**. C'est la raison de fond
+pour laquelle neuf défauts de ce module ont vécu depuis la mise en service :
+aucune interface ne tentait jamais de s'abonner, donc personne ne les
+rencontrait. Un module sans point d'entrée ne tombe pas en panne, il n'existe
+pas.
+
+⚠️ **La permission n'est plus demandée au MONTAGE.** Un `useEffect` appelait
+`Notification.requestPermission()` à chaque affichage : une demande sans geste
+de l'utilisateur, que Chrome pénalise et que Safari ignore hors geste. Et le
+coût d'un prompt mal placé est **définitif** — un refus accidentel ne se défait
+que dans les réglages du navigateur. Au montage on se contente de LIRE l'état ;
+la demande part du clic.
+
+⚠️ **`btoa` produit du base64 STANDARD** (`+`, `/`, `=`), là où le protocole Web
+Push attend du base64**url**. Les clés envoyées étaient donc illisibles pour le
+service de push — défaut parfaitement invisible, puisque la réponse du backend
+n'était de toute façon jamais vérifiée.
+
+⚠️ **Le réglage est par APPAREIL, et le texte le DIT.** C'est contre-intuitif
+pour qui pense régler « son compte » : un parent qui active les notifications
+sur son téléphone n'en recevra pas sur son ordinateur, et sans cette phrase il
+conclurait à une panne. C'est le navigateur qui détient l'abonnement, pas nous.
+
+Le bouton d'essai n'est pas un gadget : un abonnement peut être révoqué côté
+service de push sans que le navigateur en sache rien, et **il n'existe aucun
+moyen de le détecter autrement qu'en envoyant**. Le serveur retire alors la
+ligne morte (410), donc l'essai est aussi ce qui remet l'affichage d'accord avec
+la réalité.
 - `frontend/public/sw.js` — handlers `push` et `notificationclick` :
   - Sur `push` : montre une notification avec titre/corps/icône depuis le payload JSON
   - Sur `notificationclick` : focalise la fenêtre d'application existante ou ouvre `/`
@@ -4503,7 +4649,11 @@ navigateur, sur les quatre cas : avec et sans paramètre, des deux côtés.
 
 ---
 
-## ⚠️ Dette identifiée — audit du 05/10/2026, NON corrigée
+## Dette identifiée — audit du 05/10/2026
+
+Les deux points les plus lourds (module notifications push, absence de limite
+de débit sur `/auth/password-reset`) ont été traités le **12/10/2026** ; le
+reste de la liste est à jour de ce qui subsiste.
 
 Audit complet du dépôt (63 000 lignes). Le projet est sain sur l'essentiel —
 **aucune route sans garde d'authentification** (vérifié par analyse de l'arbre
@@ -4512,9 +4662,11 @@ pagination uniformes sur les 22 routes, aucun `HTTPException.detail` en dur,
 aucun secret versionné, dépendances toutes épinglées, un seul `any` et aucun
 `TODO` côté frontend.
 
-### 🔴 Le module notifications push est INOPÉRANT — neuf défauts indépendants
+### ✅ Le module notifications push — neuf défauts, corrigés le 12/10/2026
 
-Vérifié en appelant l'endpoint, pas en lisant le code :
+Il était INOPÉRANT depuis la mise en service : aucun abonnement n'a jamais pu
+être enregistré, donc aucune notification n'est jamais partie. Constaté en
+appelant l'endpoint, pas en lisant le code :
 
 ```
 [corps réel envoyé par le frontend]   422  auth_key: Field required
@@ -4522,45 +4674,93 @@ Vérifié en appelant l'endpoint, pas en lisant le code :
 [contrainte contournée]               500  value too long for varchar(44)
 ```
 
-| # | Défaut | Où |
+| # | Défaut | Correction |
 |---|---|---|
-| 1 | `_to_response` **n'existe nulle part**, appelé 3 fois | `notifications/service.py:43,54,80` |
-| 2 | `datetime` / `timezone` utilisés sans import | `notifications/service.py:41` |
-| 3 | `p256dh` est `VARCHAR(44)`, la vraie clé fait **87** caractères | `models.py:45` + migration `fe76c1320d23` |
-| 4 | `min_length=44` sur `auth_key`, dont la vraie valeur fait **22** | `notifications/schemas.py` |
-| 5 | Le frontend envoie `auth`, le schéma attend `auth_key` | `push-subscription.ts:127` |
-| 6 | Le frontend n'envoie pas `user_id`, que le schéma EXIGE | `push-subscription.ts:123` |
-| 7 | La réponse n'est **jamais vérifiée** : tout échec passe pour un succès | `push-subscription.ts:116,159` |
-| 8 | Désabonnement : le frontend appelle `/subscriptions`, la route est `/subscriptions/{id}` → 405, ligne orpheline | |
-| 9 | `btoa` produit du base64 **standard**, pas du base64url | `push-subscription.ts:124` |
+| 1 | `_to_response` **n'existait nulle part**, appelé 3 fois | défini, et synchrone (il n'avait rien d'asynchrone) |
+| 2 | `datetime` / `timezone` utilisés sans import | `updated_at` est laissé à l'`onupdate` du modèle |
+| 3 | `p256dh` en `VARCHAR(44)`, la vraie clé fait **87** caractères | `String(128)` + migration `a3f70c91d8be` |
+| 4 | `min_length=44` sur `auth_key`, dont la vraie valeur fait **22** | bornes 16–32 et 80–128, encadrant les tailles réelles |
+| 5 | Le frontend envoyait `auth`, le schéma attendait `auth_key` | `auth_key` des deux côtés |
+| 6 | Le frontend n'envoyait pas `user_id`, que le schéma EXIGEAIT | champ supprimé : le compte vient du JETON |
+| 7 | La réponse n'était **jamais vérifiée** : tout échec passait pour un succès | `apiClient` (axios lève sur 4xx/5xx) |
+| 8 | Désabonnement : le frontend appelait `/subscriptions`, la route était `/subscriptions/{id}` → 405 | `POST /subscriptions/unsubscribe` par endpoint |
+| 9 | `btoa` produisait du base64 **standard**, pas du base64url | `toBase64Url()` |
 
 Le n°7 explique pourquoi personne n'a rien vu : l'interface annonçait
 « notifications activées » pendant que le serveur renvoyait 422.
 
-Deux anomalies mineures du même module : `establishment_id` n'est jamais
-renseigné malgré le commentaire qui l'annonce (sans effet sur l'envoi, qui passe
-par `User.establishment_id`), et `GET /notifications/test` **écrit une fausse
-souscription en base** pour l'utilisateur connecté, avec un message en français
-codé en dur.
+Quatre défauts supplémentaires, trouvés en reprenant le module — et aucun n'est
+mineur :
 
-⚠️ **Cause racine unique : aucun test ne touche `/notifications`** — le seul
-module dans ce cas. Le code a été écrit, jamais exécuté. Toute reprise doit
-commencer par un test de bout en bout qui souscrit avec une clé RÉALISTE
-(65 octets), sinon la régression repassera inaperçue comme celle-ci.
+- **Rien n'appelait `usePushSubscription`.** Le hook était exporté et utilisé
+  nulle part : il n'existait AUCUN écran d'activation. C'est la cause de fond —
+  un module sans point d'entrée ne tombe pas en panne, il n'existe pas, et
+  personne ne rencontre jamais ses neuf défauts.
+- **Un abonnement écrasait l'autre** : la ligne était unique par COMPTE, donc
+  s'abonner sur son téléphone désabonnait son ordinateur (cf. la section
+  dédiée).
+- **`updated_at` sans `eager_defaults`** : le modèle porte `onupdate=func.now()`,
+  donc la mise à jour d'un abonnement existant tombait sur le
+  `MissingGreenlet` → 500 documenté au § Performance. Le seul chemin qui y
+  menait était justement celui qui ne marchait pas.
+- **`GET /notifications/test` ÉCRIVAIT une fausse souscription** en base
+  (endpoint factice, clés bricolées) quand le compte n'en avait pas, puis
+  tentait de pousser dessus — laissant derrière lui une ligne vouée à l'échec,
+  et répondant « envoyé : faux » sans dire si le problème venait des clés, de
+  l'abonnement ou du service de push. Un outil de diagnostic qui salit la base
+  qu'il diagnostique n'en est pas un. Il était en outre déclaré en **GET** tout
+  en écrivant : une requête que n'importe quel préchargeur peut émettre. C'est
+  désormais un POST, qui n'écrit rien et envoie sur les abonnements réels (404
+  s'il n'y en a pas).
+
+`establishment_id`, annoncé par un commentaire et jamais renseigné, l'est
+maintenant depuis le compte.
+
+⚠️ **Cause racine unique : aucun test ne touchait `/notifications`** — le seul
+module dans ce cas. Le code avait été écrit, jamais EXÉCUTÉ.
+`tests/e2e/test_notifications.py` (9 tests) part de là, avec deux partis pris
+sans lesquels il ne prouverait rien :
+
+1. **des clés de la VRAIE taille** — `p256dh` est un point de courbe non
+   compressé de 65 octets (87 caractères en base64url), `auth` un secret de
+   16 octets (22 caractères). Des clés « plausibles » de longueur arbitraire
+   passeraient à côté des défauts 3 et 4, qui sont précisément des erreurs de
+   TAILLE : l'ancien plancher de validation tombait ENTRE les deux valeurs
+   légitimes ;
+2. **seul `pywebpush` est substitué** — aucun service de push n'est joignable
+   depuis un test, mais la validation, la base, le scope par compte et le rendu
+   par langue sont ceux de production.
+
+Vérifié en vrai navigateur, sur l'écran : la carte s'affiche dans les
+paramètres, la branche « activé/désactivé » comme la branche « bloqué par le
+navigateur », et un refus de permission bascule l'affichage sans rien casser.
+Le chemin restant — un abonnement RÉUSSI de bout en bout — demande un
+navigateur qui accorde la permission et joigne un service de push ; il n'a pas
+été rejoué ici.
+
+Les cinq gardes ont été prouvées par sabotage (cf.
+[[lint-guards-must-fail-first]]) : plancher d'`auth_key` remis à 44 → 8 tests
+sur 9 tombent ; colonne `p256dh` remise à `varchar(44)` → le 500 d'origine
+reparaît à l'identique ; clé d'unicité réduite au compte → le test des deux
+appareils tombe ; suppression sur tout échec au lieu des seuls 404/410 → le
+test de la panne passagère tombe ; retrait non borné au compte appelant → le
+test d'isolation tombe.
 
 ### 🟠 Points à traiter
 
-- **Aucune limite de débit sur `/auth/password-reset`** — seul `/auth/login` est
-  protégé. N'importe qui peut déclencher en boucle des envois vers une adresse
-  arbitraire. Redis est déjà branché, `rate_limit.check_and_increment` existe.
-- **`endpoint` en `VARCHAR(500)`** — suffisant pour Google et Mozilla, serré
-  pour Apple. À passer en `Text` dans la même migration que `p256dh`.
+- ✅ **Limite de débit sur `/auth/password-reset`** — faite le 12/10/2026, cf. la
+  section dédiée ci-dessous.
+- ✅ **`endpoint` en `VARCHAR(500)`** — passé en `Text` dans la migration
+  `a3f70c91d8be`, avec les deux colonnes de clés.
 - **Next 16 déprécie `middleware` au profit de `proxy`** (averti à chaque build).
   Sans urgence, mais ce fichier porte l'authentification ET la détection de
   langue : le migrer un jour de mise à jour majeure serait le mauvais moment.
-- **38 imports inutilisés, 2 redéfinitions** (`ruff --select F401,F811`).
+- **Imports inutilisés et redéfinitions** (`ruff --select F401,F811`).
   Cosmétique, mais c'est ce bruit qui a laissé passer les imports manquants
-  ci-dessus.
+  ci-dessus — `notifications/service.py` en portait neuf, plus un
+  `from sqlalchemy.ext.asyncio import AsyncSession` en DOUBLE au milieu du
+  fichier, sous un commentaire « ... plus tard dans le fichier ... ». Traité
+  pour ce module, pas pour le reste du dépôt.
 - **Pression mémoire du VPS** : 1,8 Go de swap sur 4 Go, deux environnements
   complets plus LibreTranslate.
 

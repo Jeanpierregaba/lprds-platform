@@ -9,6 +9,5 @@
   "insufficientRights": "Droits insuffisants",
   "notFound": "Introuvable",
   "pushUnsupported": "Les notifications push ne sont pas prises en charge par ce navigateur.",
-  "pushDenied": "Permission de notification refusée.",
-  "vapidFailed": "Impossible de récupérer la clé VAPID."
+  "pushDenied": "Permission de notification refusée."
 }

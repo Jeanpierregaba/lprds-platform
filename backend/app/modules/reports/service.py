@@ -27,7 +27,6 @@ from app.modules.rbac.models import PermissionCode
 from app.modules.children.models import Child
 from app.modules.organization import service as org_service
 from app.modules.organization.models import Department, Group, Section
-from app.modules.notifications.service import notify_parents_report_validated
 from app.modules.reports.email import send_report_available_email
 from app.modules.reports.models import (
     AcquisitionLevel,
@@ -780,7 +779,6 @@ async def _send_report_push_notifications(report: Report, db) -> int:
     from app.modules.notifications.service import send_push_to_subscription
 
     child = report.child
-    establishment_id = child.establishment_id
 
     sent = 0
     for parent in child.parents:
@@ -804,6 +802,10 @@ async def _send_report_push_notifications(report: Report, db) -> int:
                 # déjà dans la charge utile, simplement inutilisé.
                 {"report_id": str(report.id), "child_id": str(child.id),
                  "url": links.parent_report(report.id)},
+                # Comme dans les boucles de notifications/service.py : un
+                # endpoint révoqué est retiré au lieu d'être rejoué à chaque
+                # rapport validé.
+                db=db,
             )
             if success:
                 sent += 1

@@ -145,3 +145,62 @@ def test_le_generateur_respecte_toujours_la_politique():
     # Lisibilité : il est RECOPIÉ À LA MAIN depuis un email, souvent sur mobile.
     ambigus = [c for mdp in tirages for c in mdp if c in "O0lI1"]
     ck("aucun caractère ambigu (O/0, l/I/1)", ambigus, [])
+
+
+def test_le_double_clic_ne_perime_pas_la_premiere_invitation(client, emails_captures):
+    """⚠️ Le vrai danger de cette fonctionnalité n'est pas l'abus — le geste
+    exige `parents:write` — mais le DOUBLE CLIC.
+
+    La seconde relance régénère un mot de passe, donc PÉRIME l'email de la
+    première, que le destinataire est peut-être en train de lire. Deux
+    invitations dont la plus ancienne ne marche plus est le pire résultat
+    possible pour un dépannage : on a « aidé » quelqu'un en lui donnant deux
+    messages dont il ne sait pas lequel est bon.
+    """
+    su = login(client, "tech@lespetitsrayonsdesoleil.fr", "Geek-Ot@ku#2002")
+    adm = onboard(client, su, "RLN3", "admin@rln3.fr")
+    parent_id = _cree_parent(client, adm, "3")
+
+    emails_captures.clear()
+    ck("première relance acceptée",
+       client.post(f"/parents/{parent_id}/resend-invitation", headers=adm).status_code, 204)
+    premier = emails_captures[-1]["temp_password"]
+
+    r = client.post(f"/parents/{parent_id}/resend-invitation",
+                    headers={**adm, "Accept-Language": "fr-FR"})
+    ck("la relance immédiate suivante est refusée", r.status_code, 429)
+    ck("  le délai restant est dit", "secondes" in r.json()["detail"], True)
+    ck("  et le message parle d'invitation, pas de force brute",
+       "invitation" in r.json()["detail"].lower(), True)
+
+    ck("aucun second email n'est parti", len(emails_captures), 1)
+    ck("le mot de passe du PREMIER email fonctionne toujours",
+       client.post("/auth/login", json={"email": "parent3@relance.fr",
+                                        "password": premier}).status_code, 200)
+
+
+def test_un_echec_smtp_ne_bloque_pas_la_relance_suivante(client, monkeypatch):
+    """La temporisation protège un email DÉLIVRÉ. Si l'envoi a échoué, rien
+    n'a été délivré et le mot de passe est annulé par le rollback : laisser le
+    verrou posé interdirait de réessayer dès que le SMTP est revenu — soit
+    exactement au moment où l'admin a besoin que ça marche."""
+    su = login(client, "tech@lespetitsrayonsdesoleil.fr", "Geek-Ot@ku#2002")
+    adm = onboard(client, su, "RLN4", "admin@rln4.fr")
+    parent_id = _cree_parent(client, adm, "4")
+
+    async def smtp_en_panne(**kwargs):
+        raise EmailDeliveryError("SMTP indisponible")
+
+    monkeypatch.setattr(auth_service, "send_welcome_email", smtp_en_panne)
+    ck("échec SMTP → 503",
+       client.post(f"/parents/{parent_id}/resend-invitation", headers=adm).status_code, 503)
+
+    envoyes = []
+
+    async def smtp_revenu(**kwargs):
+        envoyes.append(kwargs)
+
+    monkeypatch.setattr(auth_service, "send_welcome_email", smtp_revenu)
+    ck("on peut réessayer tout de suite, sans attendre la temporisation",
+       client.post(f"/parents/{parent_id}/resend-invitation", headers=adm).status_code, 204)
+    ck("et l'email part bien", len(envoyes), 1)

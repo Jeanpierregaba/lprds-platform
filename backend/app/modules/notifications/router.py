@@ -1,126 +1,137 @@
-import uuid
+"""Endpoints des abonnements push — self-service, hors RBAC.
+
+Un utilisateur ne gère que SES propres abonnements : aucune permission
+`notifications:*` n'existe, `get_current_user` suffit (même principe que
+`PATCH /auth/me/locale`). `GET /vapid-public-key` est la seule route publique
+du module — elle n'expose que la clé PUBLIQUE, qui est faite pour l'être.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.i18n import t
 from app.core.config import settings
+from app.core.database import get_db
+from app.core.i18n import coerce_locale, t
 from app.modules.auth.dependencies import get_current_user
-from app.modules.auth.models import User, UserRole
-from app.modules.notifications.models import PushSubscription
+from app.modules.auth.models import User
 from app.modules.notifications.schemas import (
     PushSubscriptionCreate,
-    PushSubscriptionResponse,
     PushSubscriptionDelete,
+    PushSubscriptionResponse,
 )
 from app.modules.notifications.service import (
-    save_subscription,
     delete_subscription,
+    list_user_subscriptions,
+    save_subscription,
     send_push_to_subscription,
-    get_subscriptions_by_establishment,
-    send_push_to_establishment_parents,
-    send_push_to_establishment_admins,
-    notify_parents_report_validated,
 )
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-@router.post("/subscriptions", response_model=PushSubscriptionResponse, status_code=201)
+@router.post(
+    "/subscriptions",
+    response_model=PushSubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_subscription(
     payload: PushSubscriptionCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PushSubscriptionResponse:
-    """Enregistre la souscription push de l'utilisateur connecté."""
-    # Vérifier que l'utilisateur appartient bien à l'établissement du token
+    """Enregistre l'abonnement de cet appareil pour le compte connecté."""
     if current_user.establishment_id is None:
+        # Un abonnement sert à recevoir les événements d'un établissement
+        # (diffusion, message, rapport) : sans rattachement, il n'y a rien à
+        # pousser. C'est le cas du superadmin, qui n'en a pas.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=t("errors.notifications.no_establishment"),
         )
-    # Définir l'établissement depuis le user courant
-    subscription = await save_subscription(
+    return await save_subscription(
         endpoint=payload.endpoint,
         p256dh=payload.p256dh,
         auth_key=payload.auth_key,
-        user_id=current_user.id,
+        user=current_user,
         db=db,
     )
-    return subscription
 
 
-@router.delete("/subscriptions/{subscription_id}", status_code=204)
+@router.post("/subscriptions/unsubscribe", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_subscription(
-    subscription_id: uuid.UUID,
+    payload: PushSubscriptionDelete,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Supprime la souscription push de l'utilisateur connecté."""
-    # On ne permet la suppression que de ses propres abonnements
-    result = await db.execute(
-        select(PushSubscription).where(
-            PushSubscription.id == subscription_id,
-            PushSubscription.user_id == current_user.id,
-        )
+    """Retire l'abonnement de cet appareil. **Idempotent** — 204 même s'il
+    n'existait plus.
+
+    ⚠️ Un POST et non un DELETE, pour une raison concrète : le retrait désigne
+    l'appareil par son `endpoint`, qui est long et identifiant. Le mettre en
+    paramètre d'URL le ferait entrer dans les journaux d'accès du reverse
+    proxy ; un corps de requête sur un DELETE, lui, n'est garanti par aucun
+    intermédiaire. Le POST est le seul des trois à ne rien supposer.
+
+    Idempotent parce que l'appelant vient le plus souvent de se désabonner
+    côté navigateur : lui renvoyer 404 ferait passer un nettoyage réussi pour
+    une erreur.
+    """
+    await delete_subscription(
+        user_id=current_user.id, endpoint=payload.endpoint, db=db
     )
-    subscription = result.scalar_one_or_none()
-    if not subscription:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=t("errors.notifications.subscription_not_found"),
-        )
-    await delete_subscription(subscription_id, db)
 
 
-@router.get("/vapid-public-key", include_in_schema=False)
+@router.get("/vapid-public-key")
 async def vapid_public_key() -> dict:
-    """Expose la clé publique VAPID au frontend pour la souscription."""
+    """Clé publique VAPID, nécessaire au navigateur pour s'abonner."""
     if not settings.vapid_public_key:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=t("errors.notifications.no_vapid_key"),
         )
     return {"vapidPublicKey": settings.vapid_public_key}
 
 
-@router.get("/test", include_in_schema=False)
+@router.post("/test", include_in_schema=False)
 async def test_push(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Test d'envoi push (démonstration uniquement)."""
-    if not settings.vapid_private_key or settings.vapid_private_key.startswith(
-        "change-me"
-    ):
+    """Envoie une notification d'essai sur les abonnements RÉELS du compte.
+
+    ⚠️ La version précédente ÉCRIVAIT un faux abonnement en base quand le
+    compte n'en avait pas — endpoint factice, clés bricolées — puis tentait de
+    pousser dessus. Elle laissait donc derrière elle une ligne qui ne pouvait
+    qu'échouer indéfiniment, et répondait « envoyé : faux » sans dire si le
+    problème venait des clés, de l'abonnement ou du service de push. Un outil
+    de diagnostic qui salit la base qu'il diagnostique n'en est pas un.
+
+    Elle était en outre déclarée en GET tout en écrivant : une requête que
+    n'importe quel préchargeur de navigateur peut émettre.
+    """
+    if not settings.vapid_private_key:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=t("errors.notifications.no_vapid_keys"),
         )
 
-    # Trouver ou créer une souscription de test
-    sub_result = await db.execute(
-        select(PushSubscription).where(PushSubscription.user_id == current_user.id)
-    )
-    subscription = sub_result.scalar_one_or_none()
-
-    if not subscription:
-        # Créer une souscription de test avec endpoint factice
-        subscription = PushSubscription(
-            user_id=current_user.id,
-            endpoint="https://fcm.googleapis.com/fcm/send/test-token",
-            p256dh="BNdJLW5vcmUc48O_GUzBVA9kqMSx8Vr8AUAAAAFmLWJ5dGVzdGF0aW9u",
-            auth_key="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    subscriptions = await list_user_subscriptions(current_user.id, db)
+    if not subscriptions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=t("errors.notifications.no_subscription"),
         )
-        db.add(subscription)
-        await db.flush()
 
-    success = await send_push_to_subscription(
-        subscription,
-        "Test Notification",
-        "Ceci est un test de notification push — Phase 2 PWA",
-        {"test": True},
-    )
+    locale = coerce_locale(current_user.locale)
+    sent = 0
+    for subscription in subscriptions:
+        if await send_push_to_subscription(
+            subscription,
+            t("push.test.title", locale),
+            t("push.test.body", locale),
+            {"url": "/"},
+            db=db,
+        ):
+            sent += 1
 
-    return {"sent": success, "subscription_id": str(subscription.id)}
+    return {"subscriptions": len(subscriptions), "sent": sent}

@@ -108,6 +108,23 @@
     "macStep3": "L’application apparaît dans votre Dock comme une app.",
     "offline": "Vous êtes hors ligne — les contenus mis en cache restent disponibles."
   },
+  "notifications": {
+    "settingsTitle": "Notifications",
+    "settingsHint": "Recevez une alerte sur cet appareil, même l’application fermée.",
+    "settingsScope": "Les notifications concernent les nouveaux messages, les diffusions de l’établissement et les rapports publiés. Le réglage vaut pour CET appareil : activez-le sur chacun de ceux où vous voulez être prévenu.",
+    "enable": "Activer sur cet appareil",
+    "disable": "Désactiver sur cet appareil",
+    "statusEnabled": "Activées sur cet appareil",
+    "statusDisabled": "Désactivées sur cet appareil",
+    "enabled": "Notifications activées sur cet appareil.",
+    "disabled": "Notifications désactivées sur cet appareil.",
+    "unsupported": "Ce navigateur ne gère pas les notifications. Sur iPhone et iPad, il faut d’abord installer l’application sur l’écran d’accueil.",
+    "blocked": "Les notifications sont bloquées pour ce site.",
+    "blockedHint": "Le navigateur ne redemandera pas : l’autorisation se rétablit dans ses réglages de site.",
+    "test": "Envoyer un essai",
+    "testSent": "Notification d’essai envoyée.",
+    "testFailed": "L’essai n’a pas abouti. L’abonnement de cet appareil n’est peut-être plus valide : désactivez puis réactivez."
+  },
   "signOut": "Se déconnecter",
   "views": {
     "list": "Vue en liste",

@@ -70,6 +70,9 @@ MESSAGES: dict[str, str] = {
     "errors.auth.user_not_found_or_inactive": "User not found or inactive",
     "errors.auth.cannot_create_role": "You are not allowed to create a {role} account",
     "errors.auth.rate_limited": "Too many attempts. Try again in {seconds} seconds.",
+    "errors.auth.invitation_resend_too_soon": (
+        "An invitation was just sent to this account. Try again in {seconds} seconds."
+    ),
     # ── attendance ────────────────────────────────────────
     "errors.attendance.no_department_schedule": "No schedule configured for this department",
     "errors.attendance.no_staff_schedule": (
@@ -204,6 +207,9 @@ MESSAGES: dict[str, str] = {
     "errors.notifications.no_establishment": "No establishment linked to this account",
     "errors.notifications.no_vapid_key": "VAPID key not configured",
     "errors.notifications.no_vapid_keys": "VAPID keys not configured — push cannot be sent",
+    "errors.notifications.no_subscription": (
+        "No push subscription for this account on this device"
+    ),
     # ── organization ──────────────────────────────────────
     "errors.organization.child_not_in_group": "This child does not belong to this group",
     "errors.organization.educatrice_busy": (
@@ -301,6 +307,10 @@ MESSAGES: dict[str, str] = {
     "push.report.title": "Report approved",
     "push.report.body": "A new “{period}” report is available for {child}.",
     "push.new_attachment": "New attachment",
+    "push.test.title": "Test notification",
+    "push.test.body": (
+        "If you can read this, notifications work on this device."
+    ),
     # ── dates (libellés longs : emails, messages, documents) ──
     "date.long": "{weekday} {day} {month} {year}",
     "date.weekday.0": "Monday",

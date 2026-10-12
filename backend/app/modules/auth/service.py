@@ -216,7 +216,25 @@ async def create_user(
 async def request_password_reset(
     payload: PasswordResetRequest,
     db: AsyncSession,
+    client_ip: str,
 ) -> None:
+    # Deux bornes, décomptées AVANT la lecture en base — cf. le commentaire de
+    # `password_reset_rate_limit_*` dans app/core/config.py. Les décompter
+    # après, ou n'en poser qu'une sur l'email trouvé, ferait du 429 un signal
+    # d'existence du compte et rouvrirait l'énumération que le 204 invariant
+    # ferme.
+    email_key = payload.email.strip().lower()
+    await rate_limit.check_and_increment(
+        f"pwreset_email:{email_key}",
+        max_attempts=settings.password_reset_rate_limit_per_email,
+        window_seconds=settings.password_reset_rate_limit_window_seconds,
+    )
+    await rate_limit.check_and_increment(
+        f"pwreset_ip:{client_ip}",
+        max_attempts=settings.password_reset_rate_limit_per_ip,
+        window_seconds=settings.password_reset_rate_limit_window_seconds,
+    )
+
     user = await _get_user_by_email(payload.email, db)
     # On répond toujours OK — pas d'énumération d'emails
     if user and user.is_active:
@@ -306,7 +324,23 @@ async def resend_invitation(user: User, db: AsyncSession) -> None:
     copies seraient deux occasions de corriger la politique d'échec à moitié.
     Chaque module reste responsable de sa propre résolution scopée (404
     inter-établissement) avant d'appeler.
+
+    ⚠️ **Une temporisation par compte visé**
+    (`invitation_resend_cooldown_seconds`) : le danger ici n'est pas l'abus —
+    le geste exige `parents:write` / `staff:write` — mais le DOUBLE CLIC. La
+    seconde relance régénère un mot de passe, donc PÉRIME le premier email,
+    que le destinataire est peut-être en train de lire. Deux invitations dont
+    la plus ancienne ne marche plus est le pire résultat possible pour un
+    dépannage.
     """
+    cooldown_key = f"invitation_resend:{user.id}"
+    await rate_limit.check_and_increment(
+        cooldown_key,
+        max_attempts=1,
+        window_seconds=settings.invitation_resend_cooldown_seconds,
+        message_key="errors.auth.invitation_resend_too_soon",
+    )
+
     temp_password = generate_temp_password()
     user.hashed_password = hash_password(temp_password)
     await db.flush()
@@ -322,6 +356,10 @@ async def resend_invitation(user: User, db: AsyncSession) -> None:
         )
     except EmailDeliveryError as exc:
         logger.exception("Échec de la relance d'invitation à %s", user.email)
+        # Aucun email n'est parti et le mot de passe est annulé par le rollback :
+        # la temporisation n'a plus rien à protéger, et laisser le verrou posé
+        # interdirait de réessayer dès que le SMTP est revenu.
+        await rate_limit.reset(cooldown_key)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=t("errors.common.email_unavailable_account"),

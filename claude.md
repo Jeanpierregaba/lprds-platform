@@ -1855,6 +1855,29 @@ sens : on n'atteste pas à la place de quelqu'un parce qu'il a fait défiler un
   nominatif, le client l'invalide plutôt que de deviner QUI a signé depuis un
   compteur.
 
+**Diffusions repliables (accordéon)** — chaque carte porte un chevron qui
+plie son contenu. ⚠️ **L'état par défaut n'est pas le même des deux côtés, et
+ce n'est pas une incohérence** : l'admin SURVEILLE une liste (qui a lu, qui a
+signé, quel périmètre) et a écrit ces textes lui-même — tout est replié ; le
+parent vient les LIRE — une diffusion non lue, ou dont la signature est
+attendue, reste dépliée, le reste est replié. Un même défaut pour les deux
+aurait forcé l'un ou l'autre à cliquer partout, et replier d'office une
+diffusion jamais lue ferait disparaître derrière un chevron exactement ce qu'il
+ne faut pas manquer.
+- Les **badges restent visibles replié** (« À signer », « Nouveau », périmètre,
+  X/Y) : c'est ce qui permet de repérer, dans une liste fermée, ce qui demande
+  encore quelque chose. Côté admin, la **rangée d'actions** aussi — « Registre »
+  et « Modifier » sont les gestes courants, les cacher ajouterait un clic pour
+  gagner la hauteur de quatre boutons. C'est le TEXTE et les MÉDIAS qui
+  encombrent.
+- ⚠️ **L'en-tête est passé à DEUX rangées** (titre + chevron, puis badges). Le
+  groupe de badges est en `shrink-0` — il ne doit jamais être tronqué — donc sur
+  la même ligne il prend la largeur en premier : à 375 px le titre tombait à
+  **53 px**, « Réunion / de / rentrée », un mot par ligne. `min-w-0 flex-1` sur
+  le titre n'y change rien, puisque c'est le VOISIN qui refuse de rétrécir —
+  piège vécu, corrigé seulement à la seconde tentative. Mesuré à l'écran
+  (255 px sur une ligne après correction), invisible au type-check.
+
 **Registre (`GET .../recipients`, admin)** : la liste part de l'**audience**,
 pas des accusés de lecture, et elle est triée par ÉTAT puis par nom — sans
 trace d'abord, signataires en dernier. Une liste des lecteurs et une liste des

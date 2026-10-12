@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Megaphone } from 'lucide-react'
@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { AnnouncementSignature } from '@/components/messaging/announcement-signature'
+import { AnnouncementToggle } from '@/components/messaging/announcement-toggle'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import type { Announcement, AnnouncementListResponse } from '@/types/messaging'
@@ -107,6 +108,16 @@ function AnnouncementCard({
   onSigned: () => void
 }) {
   const t = useTranslations('messaging')
+  // ⚠️ Ce qui est replié par défaut, c'est ce qui est DÉJÀ TRAITÉ. Tout replier
+  // ferait disparaître une diffusion jamais lue derrière un chevron, et une
+  // signature attendue avec elle — or c'est précisément ce qu'il ne faut pas
+  // manquer. L'état initial se calcule donc à partir de la diffusion, pas d'un
+  // réglage global.
+  const [open, setOpen] = useState(
+    !announcement.is_read ||
+    (announcement.requires_signature && !announcement.is_signed)
+  )
+  const bodyId = `announcement-body-${announcement.id}`
 
   return (
     // Marquage au clic uniquement (jamais au survol : un survol n'est pas
@@ -116,15 +127,27 @@ function AnnouncementCard({
       onClick={onOpen}
     >
       <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+        {/* Deux rangées, même raison que côté admin : un groupe de badges en
+            `shrink-0` sur la ligne du titre lui laisse une poignée de pixels
+            sur un téléphone. */}
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
             <CardTitle className="break-words text-base">{announcement.title}</CardTitle>
             <CardDescription>
               {announcement.created_by.nickname || `${announcement.created_by.first_name} ${announcement.created_by.last_name}`}
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <AnnouncementToggle
+            open={open}
+            onToggle={() => setOpen((v) => !v)}
+            controls={bodyId}
+          />
+        </div>
+        {/* Les badges restent visibles REPLIÉ : c'est ce qui permet de repérer,
+            dans une liste fermée, ce qui demande encore quelque chose. */}
+        {(announcement.requires_signature && !announcement.is_signed) || !announcement.is_read ? (
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             {announcement.requires_signature && !announcement.is_signed && (
               <Badge variant="outline" className="whitespace-nowrap border-primary/60 text-primary">
                 {t('announcements.signatureBadge')}
@@ -132,17 +155,19 @@ function AnnouncementCard({
             )}
             {!announcement.is_read && <Badge variant="default">{t('announcements.newBadge')}</Badge>}
           </div>
-        </div>
+        ) : null}
       </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{announcement.body}</p>
+      {open && (
+        <CardContent id={bodyId} className="space-y-3">
+          <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{announcement.body}</p>
 
-        <div onClick={(e) => e.stopPropagation()}>
-          <AnnouncementMediaGrid attachments={announcement.attachments} />
-        </div>
+          <div onClick={(e) => e.stopPropagation()}>
+            <AnnouncementMediaGrid attachments={announcement.attachments} />
+          </div>
 
-        <AnnouncementSignature announcement={announcement} onSigned={onSigned} />
-      </CardContent>
+          <AnnouncementSignature announcement={announcement} onSigned={onSigned} />
+        </CardContent>
+      )}
     </Card>
   )
 }

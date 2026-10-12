@@ -27,6 +27,7 @@ import { messagingApi } from '@/lib/api/messaging.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { AnnouncementRecipientsDialog } from '@/components/messaging/announcement-recipients-dialog'
+import { AnnouncementToggle } from '@/components/messaging/announcement-toggle'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
@@ -353,6 +354,13 @@ function AnnouncementCard({
   const queryClient = useQueryClient()
   const scoped = announcement.department_ids ?? []
   const [attachOpen, setAttachOpen] = useState(false)
+  // ⚠️ Replié par défaut ici, déplié par défaut côté parent : les deux écrans
+  // ne servent pas le même geste. L'admin SURVEILLE une liste (qui a lu, qui a
+  // signé, quel périmètre) et a écrit ces textes lui-même ; le parent, lui,
+  // vient les LIRE. Un même défaut pour les deux aurait forcé l'un ou l'autre
+  // à cliquer sur tout.
+  const [open, setOpen] = useState(false)
+  const bodyId = `announcement-admin-body-${announcement.id}`
   const [recipientsOpen, setRecipientsOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
   const [attachFiles, setAttachFiles] = useState<File[]>([])
@@ -373,15 +381,28 @@ function AnnouncementCard({
   return (
     <Card className={!announcement.is_active ? 'opacity-70' : undefined}>
       <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">{announcement.title}</CardTitle>
+        {/* ⚠️ Deux rangées, pas une. Le groupe de badges est en `shrink-0` (il
+            ne doit jamais être tronqué) : sur la même ligne, il prend la
+            largeur en premier et le titre se casse MOT PAR MOT — « Réunion /
+            de / rentrée » sur 53 px à 375 px. `min-w-0 flex-1` seul n'y
+            change rien, puisque c'est le voisin qui refuse de rétrécir. Les
+            badges passent donc sous le titre, alignés à droite dès `sm`. Vu à
+            375 px, invisible au type-check. */}
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="break-words text-base">{announcement.title}</CardTitle>
             <CardDescription>
               {announcement.created_by.nickname || `${announcement.created_by.first_name} ${announcement.created_by.last_name}`}
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <AnnouncementToggle
+            open={open}
+            onToggle={() => setOpen((v) => !v)}
+            controls={bodyId}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-2 sm:justify-end">
             {!announcement.is_active && <Badge variant="outline">{t('announcements.inactive')}</Badge>}
             <Badge variant="outline" className="break-words font-normal">
               {scoped.length === 0
@@ -401,13 +422,23 @@ function AnnouncementCard({
                 })}
               </Badge>
             )}
-          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="whitespace-pre-wrap text-sm">{announcement.body}</p>
+        {/* Les ACTIONS restent visibles replié : « Registre » et « Modifier »
+            sont les gestes courants de cet écran, les cacher derrière un
+            chevron ajouterait un clic à chaque fois pour ne gagner que la
+            hauteur de quatre boutons. C'est le TEXTE et les MÉDIAS qui
+            encombrent la liste. */}
+        {open && (
+          <div id={bodyId} className="space-y-3">
+            <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
+              {announcement.body}
+            </p>
 
-        <AnnouncementMediaGrid attachments={announcement.attachments} />
+            <AnnouncementMediaGrid attachments={announcement.attachments} />
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onEdit}>{t('announcements.edit')}</Button>

@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { AnnouncementSignature } from '@/components/messaging/announcement-signature'
 import { AnnouncementToggle } from '@/components/messaging/announcement-toggle'
+import { AnnouncementCollapse } from '@/components/messaging/announcement-collapse'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import type { Announcement, AnnouncementListResponse } from '@/types/messaging'
@@ -157,8 +158,8 @@ function AnnouncementCard({
           </div>
         ) : null}
       </CardHeader>
-      {open && (
-        <CardContent id={bodyId} className="space-y-3">
+      <AnnouncementCollapse open={open} id={bodyId}>
+        <CardContent className="space-y-3">
           <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{announcement.body}</p>
 
           <div onClick={(e) => e.stopPropagation()}>
@@ -167,7 +168,7 @@ function AnnouncementCard({
 
           <AnnouncementSignature announcement={announcement} onSigned={onSigned} />
         </CardContent>
-      )}
+      </AnnouncementCollapse>
     </Card>
   )
 }

@@ -2,10 +2,11 @@
 
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Eye } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs } from '@/components/ui/tabs'
+import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -18,11 +19,15 @@ function formatDateTime(iso: string) {
 }
 
 /**
- * Registre d'une diffusion : toute l'audience, état par parent.
+ * Registre d'une diffusion : toute l'audience, filtrable par état.
  *
- * ⚠️ La liste part de l'AUDIENCE, pas des accusés de lecture — et l'ordre
- * vient du serveur (sans trace d'abord, signataires en dernier). Re-trier ici
- * par nom ferait perdre exactement l'information utile : qui reste à relancer.
+ * ⚠️ Les trois onglets PARTITIONNENT l'audience — « Lu » veut dire lu ET non
+ * signé. Sans cela leurs compteurs ne feraient pas le total, et un signataire
+ * apparaîtrait deux fois. Les ratios globaux (« X/Y ont lu ») restent affichés
+ * au-dessus, eux cumulent.
+ *
+ * ⚠️ L'onglet ouvert par défaut est « Rien » : c'est la seule liste qui appelle
+ * une action. Les deux autres constatent, celle-là désigne qui relancer.
  *
  * Chargé à l'OUVERTURE seulement (`enabled: open`) : c'est une liste
  * nominative, inutile de la rapatrier pour chaque diffusion affichée.
@@ -45,6 +50,13 @@ export function AnnouncementRecipientsDialog({
   })
 
   const items = data?.items ?? []
+  const nothing = items.filter((r) => !r.read_at && !r.signed_at)
+  const read = items.filter((r) => r.read_at && !r.signed_at)
+  const signed = items.filter((r) => r.signed_at)
+  // L'onglet des signatures n'a de sens que si on en a demandé — ou s'il en
+  // reste d'une période où le drapeau était posé (on n'efface jamais une
+  // attestation, cf. service).
+  const showSigned = (data?.requires_signature ?? false) || signed.length > 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,13 +88,55 @@ export function AnnouncementRecipientsDialog({
                 </Badge>
               )}
             </div>
-            <ul className="divide-y">
-              {items.map((r) => <RecipientRow key={r.parent.id} recipient={r} />)}
-            </ul>
+
+            {/* ⚠️ `min-w-0` indispensable : `DialogContent` est une GRILLE, et
+                la piste se dimensionne sur le plus grand `min-content` de ses
+                enfants. Les pastilles d'onglets sont insécables, donc sans ce
+                `min-w-0` elles élargissent la piste — et c'est TOUT le contenu
+                du dialogue qui déborde avec elles (mesuré à 375 px : 402 px de
+                contenu dans un dialogue de 343, description et dates coupées).
+                La liste d'onglets, elle, défile déjà horizontalement. */}
+            <Tabs defaultValue="nothing" className="min-w-0">
+              <PillsTabsList fit={false}>
+                {/* Pas d'icône sur ces trois pastilles : à 375 px, les trois
+                    ensemble dépassaient la largeur du dialogue et la dernière
+                    se retrouvait hors champ, derrière un défilement horizontal
+                    que rien n'annonce. Le libellé et le compteur suffisent, la
+                    couleur active fait le reste. */}
+                <PillsTrigger value="nothing" active="orange">
+                  {t('announcements.stateNothing')} ({nothing.length})
+                </PillsTrigger>
+                <PillsTrigger value="read" active="sky">
+                  {t('announcements.stateRead')} ({read.length})
+                </PillsTrigger>
+                {showSigned && (
+                  <PillsTrigger value="signed" active="primary">
+                    {t('announcements.stateSigned')} ({signed.length})
+                  </PillsTrigger>
+                )}
+              </PillsTabsList>
+
+              <TabPanel value="nothing"><RecipientList items={nothing} /></TabPanel>
+              <TabPanel value="read"><RecipientList items={read} /></TabPanel>
+              {showSigned && <TabPanel value="signed"><RecipientList items={signed} /></TabPanel>}
+            </Tabs>
           </>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function RecipientList({ items }: { items: AnnouncementRecipient[] }) {
+  const t = useTranslations('messaging')
+
+  if (items.length === 0) {
+    return <p className="py-2 text-sm text-muted-foreground">{t('announcements.registerEmptyState')}</p>
+  }
+  return (
+    <ul className="divide-y">
+      {items.map((r) => <RecipientRow key={r.parent.id} recipient={r} />)}
+    </ul>
   )
 }
 
@@ -104,27 +158,9 @@ function RecipientRow({ recipient }: { recipient: AnnouncementRecipient }) {
           </p>
         )}
       </div>
-      <div className="shrink-0 text-right">
-        {signed_at ? (
-          <Badge className="whitespace-nowrap">
-            <CheckCircle2 className="mr-1 size-3.5" />
-            {t('announcements.stateSigned')}
-          </Badge>
-        ) : read_at ? (
-          <Badge variant="secondary" className="whitespace-nowrap">
-            <Eye className="mr-1 size-3.5" />
-            {t('announcements.stateRead')}
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="whitespace-nowrap text-muted-foreground">
-            <Circle className="mr-1 size-3.5" />
-            {t('announcements.stateNothing')}
-          </Badge>
-        )}
-        <p className="mt-1 text-xs text-muted-foreground">
-          {signed_at ? formatDateTime(signed_at) : read_at ? formatDateTime(read_at) : null}
-        </p>
-      </div>
+      <p className="shrink-0 text-right text-xs text-muted-foreground">
+        {signed_at ? formatDateTime(signed_at) : read_at ? formatDateTime(read_at) : null}
+      </p>
     </li>
   )
 }

@@ -35,7 +35,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   )
 
   return (
-    <div className="flex min-h-screen w-full bg-accent print:block print:min-h-0 print:bg-white">
+    // ⚠️ `h-dvh`, pas `min-h-screen`. L'image de fond est posée en `fill` dans
+    // `main` et la zone de contenu a son PROPRE défilement (`.dashboard-view`,
+    // `h-full overflow-y-auto`) : ce montage ne tient que si la coque est
+    // BORNÉE à la hauteur de la fenêtre. Avec un simple minimum, elle grandit
+    // avec le contenu, le défilement repasse au document entier, et l'image —
+    // dimensionnée sur `main` — grandit puis se recadre avec lui. Mesuré :
+    // déplier une diffusion la faisait passer de 1210 à 1322 px, d'où le fond
+    // qui « bouge » sans que personne n'ait touché à l'image.
+    // `dvh` et non `vh` : sur mobile, la barre d'adresse qui se rétracte change
+    // la hauteur utile, et `vh` l'ignore (bas de page coupé).
+    <div className="flex h-dvh w-full bg-accent print:block print:h-auto print:min-h-0 print:bg-white">
       {/* `print:hidden` : à l'impression (trombinoscope d'une section), seul le
           contenu compte — la navigation et l'image de fond ne feraient que
           consommer de l'encre et voler une demi-page. */}

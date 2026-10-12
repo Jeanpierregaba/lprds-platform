@@ -28,6 +28,7 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { AnnouncementMediaGrid } from '@/components/messaging/announcement-media-grid'
 import { AnnouncementRecipientsDialog } from '@/components/messaging/announcement-recipients-dialog'
 import { AnnouncementToggle } from '@/components/messaging/announcement-toggle'
+import { AnnouncementCollapse } from '@/components/messaging/announcement-collapse'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
@@ -430,15 +431,17 @@ function AnnouncementCard({
             chevron ajouterait un clic à chaque fois pour ne gagner que la
             hauteur de quatre boutons. C'est le TEXTE et les MÉDIAS qui
             encombrent la liste. */}
-        {open && (
-          <div id={bodyId} className="space-y-3">
+        <AnnouncementCollapse open={open} id={bodyId}>
+          {/* `pb-3` porté ici : la marge doit disparaître AVEC le contenu,
+              sinon la carte garde un blanc en bas une fois repliée. */}
+          <div className="space-y-3 pb-3">
             <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
               {announcement.body}
             </p>
 
             <AnnouncementMediaGrid attachments={announcement.attachments} />
           </div>
-        )}
+        </AnnouncementCollapse>
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onEdit}>{t('announcements.edit')}</Button>

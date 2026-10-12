@@ -287,6 +287,25 @@ public/
 └── images/                        # Assets marketing (dont images du site)
 ```
 
+### ⚠️ La coque du dashboard est BORNÉE à la hauteur de la fenêtre
+
+`dashboard/layout.tsx` : `h-dvh`, jamais `min-h-screen`. L'image de fond est
+posée en `fill` dans `main`, et la zone de contenu a son PROPRE défilement
+(`.dashboard-view`, `h-full overflow-y-auto`) — ce montage ne tient que si la
+coque est bornée. Avec un simple MINIMUM, elle grandit avec le contenu : le
+défilement repasse au document entier et l'image, dimensionnée sur `main`,
+grandit puis se recadre avec lui.
+
+Signalé comme « l'image de fond bouge », et c'en était bien la cause : déplier
+une diffusion faisait passer l'image de **1210 à 1322 px** de haut, donc
+`object-cover` la recadrait. Le défaut était là bien avant l'accordéon — toute
+page assez longue le produisait — mais plier et déplier une carte le rend
+visible à volonté.
+
+`dvh` et non `vh` : sur mobile, la barre d'adresse qui se rétracte change la
+hauteur utile, et `vh` l'ignore (bas de page coupé). L'impression garde
+`print:h-auto` — une feuille n'a pas de hauteur de fenêtre.
+
 ### PWA — coque d'application installable (Phase 1)
 
 La plateforme est installable comme une application native (mobile/desktop) :
@@ -1870,6 +1889,14 @@ ne faut pas manquer.
   et « Modifier » sont les gestes courants, les cacher ajouterait un clic pour
   gagner la hauteur de quatre boutons. C'est le TEXTE et les MÉDIAS qui
   encombrent.
+- **Le repli est ANIMÉ** (`announcement-collapse.tsx`, Framer Motion) : on anime
+  `height: auto`, jamais une hauteur en pixels — le contenu d'une diffusion n'a
+  aucune taille connue d'avance (texte libre, grille de médias, bloc de
+  signature). `overflow-hidden` pendant toute la transition, sans quoi le
+  contenu déborde par-dessus la diffusion suivante ; `initial={false}` pour
+  qu'une carte déjà ouverte au chargement ne se déroule pas toute seule ; et
+  `prefers-reduced-motion` est honoré — le mouvement devient instantané, il ne
+  disparaît pas.
 - ⚠️ **L'en-tête est passé à DEUX rangées** (titre + chevron, puis badges). Le
   groupe de badges est en `shrink-0` — il ne doit jamais être tronqué — donc sur
   la même ligne il prend la largeur en premier : à 375 px le titre tombait à
@@ -1880,7 +1907,19 @@ ne faut pas manquer.
 
 **Registre (`GET .../recipients`, admin)** : la liste part de l'**audience**,
 pas des accusés de lecture, et elle est triée par ÉTAT puis par nom — sans
-trace d'abord, signataires en dernier. Une liste des lecteurs et une liste des
+trace d'abord, signataires en dernier. L'écran la présente en **trois onglets**
+(Rien / Lu / Signé) qui **partitionnent** l'audience : « Lu » signifie lu ET non
+signé, sinon les compteurs ne feraient pas le total et un signataire
+apparaîtrait deux fois. Les ratios cumulés (« X/Y ont lu ») restent affichés
+au-dessus. L'onglet ouvert par défaut est « Rien » — la seule liste qui appelle
+une action. L'onglet des signatures disparaît si la diffusion n'en demande pas
+(et reste affiché s'il en reste d'une période où le drapeau était posé).
+⚠️ `DialogContent` est une **grille** : sa piste se dimensionne sur le plus
+grand `min-content` de ses enfants, et les pastilles d'onglets sont insécables.
+Sans `min-w-0` sur la racine des onglets, c'est TOUT le dialogue qui déborde —
+mesuré à 375 px, 402 px de contenu dans un dialogue de 343, description et dates
+coupées. Les trois pastilles sont en outre **sans icône** : avec, la troisième
+passait hors champ derrière un défilement horizontal que rien n'annonce. Une liste des lecteurs et une liste des
 signataires répondraient à la lettre de la demande en taisant la réponse
 utile : **qui n'a rien fait**, c'est-à-dire les seuls à relancer. Côté écran, le
 bouton « Registre » est proposé sur TOUTE diffusion, signature demandée ou non :

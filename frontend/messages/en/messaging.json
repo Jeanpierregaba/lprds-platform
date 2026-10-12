@@ -67,7 +67,8 @@
     "signed": "You signed on {date}",
     "signatureSaved": "Signature saved.",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "registerEmptyState": "No recipient in this state."
   },
   "conversations": {
     "new": "New",

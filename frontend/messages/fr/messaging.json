@@ -67,7 +67,8 @@
     "signed": "Vous avez signé le {date}",
     "signatureSaved": "Signature enregistrée.",
     "expand": "Déplier",
-    "collapse": "Replier"
+    "collapse": "Replier",
+    "registerEmptyState": "Aucun destinataire dans cet état."
   },
   "conversations": {
     "new": "Nouvelle",

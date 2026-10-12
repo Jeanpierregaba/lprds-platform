@@ -184,6 +184,10 @@ MESSAGES: dict[str, str] = {
     "errors.messaging.no_file": "No file provided",
     "errors.messaging.conversation_not_found": "Conversation not found",
     "errors.messaging.announcement_not_found": "Announcement not found",
+    "errors.messaging.already_signed": "You have already signed this announcement",
+    "errors.messaging.signature_not_required": (
+        "This announcement does not require a signature"
+    ),
     "errors.messaging.edit_window_over": "The editing window has passed (15 minutes)",
     "errors.messaging.file_too_large": "File too large (max {max_mb} MB)",
     "errors.messaging.announcement_media_limit": (

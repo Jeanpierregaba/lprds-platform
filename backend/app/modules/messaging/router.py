@@ -14,7 +14,9 @@ from app.modules.messaging.dependencies import get_admin, get_admin_or_parent, g
 from app.modules.messaging.schemas import (
     AnnouncementCreateRequest,
     AnnouncementListResponse,
+    AnnouncementRecipientListResponse,
     AnnouncementResponse,
+    AnnouncementSignRequest,
     AnnouncementUpdateRequest,
     AttachmentResponse,
     ConversationListResponse,
@@ -91,6 +93,40 @@ async def mark_announcement_read(
     parent: User = Depends(get_parent),
 ) -> None:
     await service.mark_announcement_read(announcement_id, parent, db)
+
+
+@router.post(
+    "/announcements/{announcement_id}/sign", response_model=AnnouncementResponse
+)
+async def sign_announcement(
+    announcement_id: uuid.UUID,
+    payload: AnnouncementSignRequest,
+    db: AsyncSession = Depends(get_db),
+    parent: User = Depends(get_parent),
+) -> AnnouncementResponse:
+    """Le parent atteste avoir lu la diffusion (nom recopié + horodatage).
+
+    409 s'il a déjà signé — une attestation ne se rejoue pas ; 422 si la
+    diffusion n'exige aucune signature.
+    """
+    return await service.sign_announcement(announcement_id, payload, parent, db)
+
+
+@router.get(
+    "/announcements/{announcement_id}/recipients",
+    response_model=AnnouncementRecipientListResponse,
+)
+async def list_announcement_recipients(
+    announcement_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin),
+) -> AnnouncementRecipientListResponse:
+    """Registre de la diffusion : toute l'audience, état par parent (rien /
+    lu / signé). Réservé à l'admin — c'est la liste nominative de qui a vu
+    quoi."""
+    return await service.list_announcement_recipients(
+        announcement_id, admin.establishment_id, db
+    )
 
 
 @router.post(

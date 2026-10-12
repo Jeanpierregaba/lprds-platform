@@ -45,7 +45,27 @@
     "loadError": "Impossible de charger les diffusions.",
     "loadErrorHint": "Vérifiez votre connexion puis réessayez.",
     "readRatio": "{read}/{total} ont lu",
-    "newBadge": "Nouveau"
+    "newBadge": "Nouveau",
+    "requireLabel": "Demander une signature aux parents",
+    "requireHint": "Les parents devront recopier leur nom pour attester leur lecture. Les signatures déjà recueillies sont conservées même si vous décochez.",
+    "signatureRatio": "{signed}/{total} ont signé",
+    "signatureBadge": "À signer",
+    "register": "Registre",
+    "registerTitle": "Qui a lu, qui a signé",
+    "registerHint": "Les destinataires sans aucune trace apparaissent en premier : ce sont eux qu'il reste à relancer.",
+    "registerEmpty": "Aucun destinataire dans le périmètre de cette diffusion.",
+    "registerLoadError": "Impossible de charger le registre.",
+    "stateNothing": "Rien",
+    "stateRead": "Lu",
+    "stateSigned": "Signé",
+    "signedAs": "Signé « {name} »",
+    "signaturePrompt": "L'établissement vous demande d'attester que vous avez lu cette diffusion.",
+    "signatureNameLabel": "Recopiez vos nom et prénom",
+    "signatureNamePlaceholder": "Nom et prénom",
+    "signatureAttest": "J'atteste avoir lu cette diffusion.",
+    "sign": "Signer",
+    "signed": "Vous avez signé le {date}",
+    "signatureSaved": "Signature enregistrée."
   },
   "conversations": {
     "new": "Nouvelle",
@@ -125,7 +145,9 @@
   },
   "validation": {
     "titleRequired": "Titre requis",
-    "bodyRequired": "Contenu requis"
+    "bodyRequired": "Contenu requis",
+    "signatureNameRequired": "Recopiez vos nom et prénom (2 caractères minimum)",
+    "signatureAttestRequired": "Cochez la case pour attester votre lecture"
   },
   "announcementScopeHint": "Rédigez le message en entier, puis cochez les départements concernés avant l'envoi.",
   "departmentsLoadError": "Impossible de charger les départements — réessayez en rouvrant ce dialogue.",

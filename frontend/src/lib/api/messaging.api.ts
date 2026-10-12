@@ -1,7 +1,8 @@
 import { BLOB_REQUEST, UPLOAD_REQUEST } from '@/lib/api/file-transfer'
 import { apiClient } from './client'
 import type {
-  Announcement, AnnouncementCreatePayload, AnnouncementListResponse, AnnouncementUpdatePayload,
+  Announcement, AnnouncementCreatePayload, AnnouncementListResponse,
+  AnnouncementRecipientListResponse, AnnouncementUpdatePayload,
   Attachment, Conversation, ConversationListResponse, ConversationStartPayload, Message, MessageListResponse,
 } from '@/types/messaging'
 
@@ -75,6 +76,15 @@ export const messagingApi = {
 
   // ── Portail parent ───────────────────────────────────────────
   markAnnouncementRead: (id: string) => apiClient.post<void>(`/api/v1/messaging/announcements/${id}/read`),
+
+  /** Le parent atteste avoir lu : 409 s'il a déjà signé (une attestation ne
+   *  se rejoue pas), 422 si la diffusion n'en demande pas. */
+  signAnnouncement: (id: string, signedName: string) =>
+    apiClient.post<Announcement>(`/api/v1/messaging/announcements/${id}/sign`, { signed_name: signedName }),
+
+  /** Registre admin : toute l'audience, état par parent (rien / lu / signé). */
+  listAnnouncementRecipients: (id: string) =>
+    apiClient.get<AnnouncementRecipientListResponse>(`/api/v1/messaging/announcements/${id}/recipients`),
 
   getMyConversation: () => apiClient.get<Conversation>('/api/v1/messaging/conversations/me'),
 

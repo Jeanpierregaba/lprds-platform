@@ -204,6 +204,10 @@ MESSAGES: dict[str, str] = {
     "errors.messaging.no_file": "Aucun fichier fourni",
     "errors.messaging.conversation_not_found": "Conversation introuvable",
     "errors.messaging.announcement_not_found": "Diffusion introuvable",
+    "errors.messaging.already_signed": "Vous avez déjà signé cette diffusion",
+    "errors.messaging.signature_not_required": (
+        "Cette diffusion ne demande pas de signature"
+    ),
     "errors.messaging.edit_window_over": "Délai d'édition dépassé (15 minutes)",
     "errors.messaging.file_too_large": "Fichier trop volumineux (max {max_mb} Mo)",
     "errors.messaging.announcement_media_limit": (

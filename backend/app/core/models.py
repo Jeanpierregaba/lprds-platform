@@ -30,6 +30,7 @@ from app.modules.library.models import Book, BookLending, LibrarySettings, book_
 from app.modules.messaging.models import (
     Announcement,
     AnnouncementRead,
+    AnnouncementSignature,
     Attachment,
     Conversation,
     Message,
@@ -74,6 +75,7 @@ __all__ = [
     "StaffAttendanceSchedule",
     "Announcement",
     "AnnouncementRead",
+    "AnnouncementSignature",
     "announcement_departments",
     "Conversation",
     "Message",

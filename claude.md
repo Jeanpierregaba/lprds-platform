@@ -481,6 +481,7 @@ postgresql+asyncpg://adminlprds:lprds@localhost:5432/lprds_database
 - `department_attendance_settings` / `attendance_settings` — horaires + fuseau
 - `staff_attendance_schedules` — horaires personnalisés par membre du personnel (surcharge l'horaire général)
 - `announcements` / `announcement_reads` — diffusions admin → parents + accusés de lecture
+- `announcement_signatures` — attestations de lecture signées par les parents
 - `conversations` / `messages` — messagerie privée admin ↔ parent (1 conv/parent)
 - `attachments` — pièces jointes (messages OU diffusions, jamais les deux)
 - `department_report_types` — types de rapport activés par département
@@ -1744,6 +1745,11 @@ GET    /api/v1/messaging/announcements                     # admin ou parent (vu
 GET    /api/v1/messaging/announcements/{id}
 PATCH  /api/v1/messaging/announcements/{id}                # admin — dont désactivation (soft)
 POST   /api/v1/messaging/announcements/{id}/read           # parent
+POST   /api/v1/messaging/announcements/{id}/sign           # parent — atteste sa lecture
+                                                           #   {signed_name} ; 409 si déjà signé,
+                                                           #   422 si la diffusion n'en demande pas
+GET    /api/v1/messaging/announcements/{id}/recipients     # admin — registre : TOUTE l'audience,
+                                                           #   état par parent (rien / lu / signé)
 
 GET    /api/v1/messaging/conversations/me                  # parent — auto-créée si absente
 GET    /api/v1/messaging/conversations/me/messages         # ?skip= &limit= &before_id= (curseur stable)
@@ -1796,6 +1802,66 @@ d'endpoints proprement.
 `AnnouncementResponse` porte des champs qui n'apparaissent JAMAIS ensemble :
 - vue **parent** : `is_read` (son statut personnel)
 - vue **admin** : `read_count` / `total_parents` (« combien de parents ont vu »)
+
+### Diffusions — signature des parents (attestation de lecture)
+
+Une diffusion peut EXIGER une signature (`announcements.requires_signature`,
+coché à la création comme le ciblage par départements, migration
+`c5e9a74b0812`). Les parents concernés recopient leur nom et cochent une
+attestation ; l'admin dispose d'un registre nominatif.
+
+⚠️ **Signer n'est pas lire, et ce n'est pas la même table.** Ouvrir une
+diffusion est PASSIF — l'affichage suffit à poser l'accusé de lecture ; signer
+est un acte DÉCLARÉ. Dériver l'un de l'autre viderait l'attestation de son
+sens : on n'atteste pas à la place de quelqu'un parce qu'il a fait défiler un
+écran. D'où `announcement_signatures`, à côté de `announcement_reads`.
+
+- **Le drapeau est par diffusion, pas global.** Proposer le geste partout
+  banaliserait l'attestation et rendrait le compteur illisible : on ne
+  distinguerait plus « personne n'a signé » de « ce n'était pas demandé ».
+  Signer une diffusion qui ne le demande pas → **422**.
+- **Pas idempotent, contrairement au `read`** : resigner renvoie **409**.
+  Réécrire `signed_at` déplacerait la date d'un engagement déjà pris — c'est
+  exactement ce qu'une attestation ne doit pas faire. Marquer lu, à l'inverse,
+  est un constat qu'on repose sans rien altérer.
+- **Signer marque AUSSI comme lu** (le service réutilise
+  `mark_announcement_read`, pas une insertion à la main) : sans ça, « non lu
+  mais signé » devient possible et le compteur de lecture dit moins que celui
+  des signatures.
+- **Deux noms conservés** : `signed_name` (ce que le parent a TAPÉ) et
+  `account_name` (le nom du compte à cet instant, figé — un parent peut être
+  renommé ensuite). Une saisie qui diffère du compte n'est **jamais refusée** :
+  noms composés, nom d'épouse, ordre inversé, accents — un contrôle automatique
+  rejetterait des signatures légitimes. L'écart est simplement VISIBLE au
+  registre, et l'admin seul peut en juger.
+- **Ni IP ni agent utilisateur** : peu de valeur probante ajoutée, beaucoup de
+  données personnelles à conserver (RGPD).
+- **Retirer le drapeau n'efface jamais une signature** : il gouverne ce qu'on
+  DEMANDE, pas ce qui a été donné. Sous test, dans les deux sens (on peut le
+  remettre, et le parent déjà signataire n'a rien à refaire).
+- ⚠️ **Au reciblage, les lectures hors périmètre sont élaguées — les signatures
+  NON.** La cohérence du « X/Y ont signé » est obtenue autrement :
+  `_signature_count` ne compte que les signataires de l'audience COURANTE, donc
+  il ne dépasse jamais son total, et la ligne reste en base. C'est pourquoi
+  `_signature_parent_ids` ramène des identifiants et pas un `COUNT` — un agrégat
+  SQL ne saurait pas écarter un signataire sorti du périmètre.
+  ⚠️ Le test de ce point recible vers un département **peuplé** : la première
+  version visait un département vide, donc le court-circuit `if not audience:
+  return 0` suffisait à le faire passer. Prouvé par sabotage — sans
+  l'intersection, il passait quand même.
+- **Temps réel** : `{"type": "announcement_signed", announcement_id,
+  signature_count}` sur le **seul canal admin**, comme `announcement_read` (la
+  signature d'un parent ne concerne pas les autres). Le registre étant
+  nominatif, le client l'invalide plutôt que de deviner QUI a signé depuis un
+  compteur.
+
+**Registre (`GET .../recipients`, admin)** : la liste part de l'**audience**,
+pas des accusés de lecture, et elle est triée par ÉTAT puis par nom — sans
+trace d'abord, signataires en dernier. Une liste des lecteurs et une liste des
+signataires répondraient à la lettre de la demande en taisant la réponse
+utile : **qui n'a rien fait**, c'est-à-dire les seuls à relancer. Côté écran, le
+bouton « Registre » est proposé sur TOUTE diffusion, signature demandée ou non :
+« qui a lu » est la question la plus fréquente et ne dépend pas du drapeau.
 
 ### Diffusions — ciblage par départements (1 à N, coché avant l'envoi)
 
@@ -3902,6 +3968,10 @@ tests/
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend,
     │                                     #   borne de pagination alignée sur le reste de l'API
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
+    ├── test_announcement_signature.py # signature d'une diffusion : 409 sur une seconde
+    │                                 #   signature, 422 sans drapeau, registre à trois états
+    │                                 #   (le parent sans trace en tête), drapeau retiré sans
+    │                                 #   effacer, compteur borné à l'audience courante
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
     │                                 #   retrait PJ, pagination curseur before_id
     ├── test_notifications.py            # abonnements push avec des clés de la VRAIE

@@ -33,6 +33,8 @@ class AnnouncementCreateRequest(BaseModel):
     # Départements ciblés : UNE liste cochée AVANT l'envoi (1 à N). Vide =
     # broadcast à tous les parents de l'établissement.
     department_ids: list[uuid.UUID] = []
+    # Exige une signature des parents destinataires. Faux par défaut.
+    requires_signature: bool = False
 
 
 class AnnouncementUpdateRequest(BaseModel):
@@ -47,6 +49,9 @@ class AnnouncementUpdateRequest(BaseModel):
     # None = périmètre inchangé ; liste fournie (éventuellement vide) =
     # REMPLACE le ciblage (vide = retour au broadcast).
     department_ids: list[uuid.UUID] | None = None
+    # ⚠️ Repasser à `false` cesse de DEMANDER la signature ; les signatures
+    # déjà recueillies ne sont jamais effacées (cf. service).
+    requires_signature: bool | None = None
 
 
 class AnnouncementResponse(BaseModel):
@@ -71,11 +76,54 @@ class AnnouncementResponse(BaseModel):
     total_parents: int | None = None
     is_read:       bool | None = None
     attachments:   list[AttachmentResponse] = []
+    # Signature — exposé aux deux côtés, parce que le drapeau gouverne
+    # l'affichage chez l'un comme chez l'autre.
+    requires_signature: bool = False
+    # Vue admin : combien de parents de l'audience ont signé.
+    signature_count: int | None = None
+    # Vue parent : SA signature. `signed_at` porte la date affichée en
+    # confirmation (« signé le … ») — sans elle, le parent n'a aucune trace
+    # de ce qu'il a attesté.
+    is_signed:  bool | None = None
+    signed_at:  datetime | None = None
 
 
 class AnnouncementListResponse(BaseModel):
     total: int
     items: list[AnnouncementResponse]
+
+
+class AnnouncementSignRequest(BaseModel):
+    """Le parent recopie son nom : c'est ce qui distingue l'attestation de
+    l'accusé de lecture, qu'un simple affichage suffit à poser."""
+
+    signed_name: str = Field(min_length=2, max_length=200)
+
+
+class AnnouncementRecipient(BaseModel):
+    """Un parent de l'audience, et ce qu'il a fait de la diffusion.
+
+    Trois états se lisent dans les deux dates : rien (non lu), `read_at`
+    seul (lu), `signed_at` renseigné (signé). L'admin a besoin des trois —
+    celui qui l'intéresse le plus étant justement le premier, qu'une liste
+    des seuls lecteurs ne montrerait pas.
+    """
+
+    parent:       UserBrief
+    email:        str
+    read_at:      datetime | None = None
+    signed_at:    datetime | None = None
+    # Le nom TEL QUE TAPÉ par le parent, à côté de celui du compte : un écart
+    # est exposé, jamais refusé (cf. modèle).
+    signed_name:  str | None = None
+
+
+class AnnouncementRecipientListResponse(BaseModel):
+    total:              int
+    read_count:         int
+    signature_count:    int
+    requires_signature: bool
+    items:              list[AnnouncementRecipient]
 
 
 # ── Conversations & messages ──────────────────────────────────────

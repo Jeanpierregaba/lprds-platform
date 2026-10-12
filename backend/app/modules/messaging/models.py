@@ -4,7 +4,10 @@ Messagerie admin ↔ parents. Deux volets :
     l'établissement OU pour un à plusieurs départements ciblés (table
     d'association announcement_departments ; aucune ligne = tout
     l'établissement). L'audience d'un parent = les départements de ses
-    enfants (via parent_children + children.department_id).
+    enfants (via parent_children + children.department_id). Une diffusion
+    peut en outre EXIGER une signature (requires_signature) : les parents
+    attestent alors leur lecture par un acte déclaré, distinct de l'accusé
+    de lecture (cf. AnnouncementSignature).
   • Conversation / Message — discussion privée : UNE conversation par parent
     (pas par admin — « l'administration » est collective), n'importe quel admin
     peut y répondre. Un seul niveau de lu/non-lu par message (lu "par l'autre
@@ -97,6 +100,15 @@ class Announcement(Base):
     title_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     body_en: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Signature exigée des parents : coché par l'admin AVANT l'envoi, comme le
+    # ciblage par départements. Faux par défaut — une note de goûter n'est pas
+    # un document à signer, et un bouton de signature partout rendrait le
+    # compteur « X/Y ont signé » illisible (on ne distinguerait plus « personne
+    # n'a signé » de « ce n'était pas demandé »).
+    requires_signature: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
+
     # Désactivation (soft) : jamais de suppression d'une diffusion déjà envoyée.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -140,6 +152,55 @@ class AnnouncementRead(Base):
         nullable=False, index=True,
     )
     read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AnnouncementSignature(Base):
+    """Signature d'un parent attestant avoir lu une diffusion.
+
+    ⚠️ **Une table distincte des accusés de lecture, et jamais dérivée d'eux.**
+    Ouvrir une diffusion est un geste PASSIF (le simple affichage marque lu) ;
+    signer est un acte DÉCLARÉ. Les confondre viderait l'attestation de son
+    sens : on ne peut pas attester à la place de quelqu'un parce qu'il a fait
+    défiler un écran.
+
+    Deux noms sont conservés, et c'est volontaire :
+      • `signed_name` — ce que le parent a TAPÉ ;
+      • `account_name` — le nom porté par le compte à l'instant de la
+        signature, figé ici parce qu'un parent peut être renommé ensuite.
+    On ne REFUSE pas une saisie qui diffère du compte (noms composés, nom
+    d'épouse, accents, ordre inversé : un contrôle automatique rejetterait des
+    signatures parfaitement légitimes) — l'écart reste simplement visible côté
+    admin, qui est seul à pouvoir en juger.
+
+    Pas d'adresse IP ni d'agent utilisateur : ils ajouteraient peu à la valeur
+    probante et beaucoup de données personnelles à conserver (RGPD).
+    """
+
+    __tablename__ = "announcement_signatures"
+    __table_args__ = (
+        UniqueConstraint(
+            "announcement_id", "parent_id", name="uq_announcement_signature"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    announcement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("announcements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    parent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    signed_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    account_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    signed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 

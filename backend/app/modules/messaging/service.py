@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -9,9 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import links, media, storage
 from app.core.config import settings
-from app.core.i18n import DEFAULT_LOCALE, Locale, current_locale, t
+from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
 from app.modules.auth.models import User, UserRole
+from app.modules.establishments.models import Establishment
+from app.modules.messaging.email import send_announcement_email
 from app.modules.children.models import Child
 from app.modules.messaging.models import (
     Announcement,
@@ -160,8 +163,12 @@ async def create_announcement(
         # ouvre l'accueil et le destinataire doit retrouver l'information.
         {"type": "announcement", "announcement_id": str(announcement.id),
          "department_ids": [str(d) for d in department_ids],
-         "url": links.url_path(links.PARENT_MESSAGING,
-                               tab=links.TAB_ANNOUNCEMENTS)},
+         # Même destination que le bouton de l'email : la diffusion PRÉCISE,
+         # pas l'onglet qui en contient trente.
+         "url": links.url_path(
+             links.PARENT_MESSAGING,
+             **links.parent_announcement_query(announcement.id),
+         )},
         parent_ids=audience,
         # Le titre part dans la langue de CHAQUE parent : une diffusion touche
         # tout l'établissement, et la notification est souvent la seule chose
@@ -171,7 +178,107 @@ async def create_announcement(
             str(Locale.EN): announcement.title_en or announcement.title,
         },
     )
+
+    # Email à l'audience — le seul canal qui n'exige du parent ni abonnement,
+    # ni application installée, ni onglet ouvert (cf. `messaging/email.py`).
+    await _notify_audience_by_email(announcement, audience, db)
     return response
+
+
+#: Tâches d'envoi en cours — gardées le temps de leur exécution.
+#: ⚠️ `asyncio` ne retient qu'une référence FAIBLE sur une tâche : sans cet
+#: ensemble, le ramasse-miettes peut l'emporter en plein vol, et des parents
+#: ne reçoivent rien sans la moindre trace.
+_taches_email: set[asyncio.Task] = set()
+
+
+async def _notify_audience_by_email(
+    announcement: Announcement,
+    audience: set[uuid.UUID],
+    db: AsyncSession,
+) -> None:
+    """Prévient par email les parents destinataires de la diffusion.
+
+    ⚠️ **L'audience est celle qui vient d'être calculée pour le compteur**, donc
+    exactement les départements ciblés (ou tous les parents en broadcast). La
+    recalculer ici serait une seconde implémentation de la règle de ciblage,
+    libre de diverger — et un email parti à un département non concerné est
+    précisément ce qu'un ciblage sert à éviter.
+
+    ⚠️ **L'envoi part EN FOND, la requête ne l'attend pas.** `fastapi-mail`
+    ouvre une connexion SMTP par message : à une demi-seconde l'unité, une
+    diffusion à 150 parents tiendrait la publication plus d'une minute, et le
+    reverse proxy la couperait (60 s par défaut) — l'admin verrait une erreur
+    sur une diffusion pourtant publiée. Les destinataires sont donc lus ICI,
+    pendant que la session existe, et l'envoi se fait ensuite sans base.
+    """
+    if not audience:
+        return
+
+    parents = (
+        await db.execute(
+            select(User).where(User.id.in_(audience), User.is_active.is_(True))
+        )
+    ).scalars().all()
+    establishment_name = (
+        await db.execute(
+            select(Establishment.name).where(
+                Establishment.id == announcement.establishment_id
+            )
+        )
+    ).scalar_one_or_none() or ""
+
+    destinataires = []
+    for parent in parents:
+        locale = coerce_locale(parent.locale)
+        # Le titre dans la langue du DESTINATAIRE, comme le corps du push : un
+        # parent anglophone ne doit pas recevoir un sujet français.
+        title, _ = _localized_announcement(announcement, locale)
+        destinataires.append((parent.email, parent.first_name, title, locale))
+    if not destinataires:
+        return
+
+    tache = asyncio.create_task(
+        _envoyer_emails_diffusion(
+            destinataires,
+            announcement_id=announcement.id,
+            establishment_name=establishment_name,
+            requires_signature=announcement.requires_signature,
+        )
+    )
+    _taches_email.add(tache)
+    tache.add_done_callback(_taches_email.discard)
+
+
+async def _envoyer_emails_diffusion(
+    destinataires: list[tuple[str, str, str, Locale]],
+    *,
+    announcement_id: uuid.UUID,
+    establishment_name: str,
+    requires_signature: bool,
+) -> None:
+    """Best-effort PAR DESTINATAIRE : un SMTP qui refuse une adresse ne doit pas
+    priver les suivants de leur notification.
+
+    Plus aucune session de base ici — tout ce qu'il faut a été lu avant, pendant
+    la requête. Rien n'est remonté : la diffusion est publiée et consultable
+    sans cet email.
+    """
+    for email, first_name, title, locale in destinataires:
+        try:
+            await send_announcement_email(
+                to=email,
+                parent_first_name=first_name,
+                announcement_id=announcement_id,
+                title=title,
+                establishment_name=establishment_name,
+                requires_signature=requires_signature,
+                locale=locale,
+            )
+        except Exception:  # SMTP, rendu de template, réseau…
+            logger.exception(
+                "Échec d'envoi de la notification de diffusion à %s", email
+            )
 
 
 async def list_announcements(

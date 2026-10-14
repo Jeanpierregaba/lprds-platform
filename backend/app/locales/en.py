@@ -297,6 +297,7 @@ MESSAGES: dict[str, str] = {
     "emails.reset_password.subject": "Reset your LPRDS password",
     "emails.parent_password_reset.subject": "Your LPRDS password has been reset",
     "emails.report_available.subject": "A new report is available — {child}",
+    "emails.announcement.subject": "New announcement — {title}",
     "emails.absence_inquiry.subject_one": "{child} absent — {date}",
     "emails.absence_inquiry.subject_many": "Absences on {date}",
     "emails.library_reminder.subject": "Library books due back",

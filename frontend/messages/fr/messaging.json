@@ -65,7 +65,10 @@
     "signatureAttest": "J'atteste avoir lu cette diffusion.",
     "sign": "Signer",
     "signed": "Vous avez signé le {date}",
-    "signatureSaved": "Signature enregistrée."
+    "signatureSaved": "Signature enregistrée.",
+    "expand": "Déplier",
+    "collapse": "Replier",
+    "registerEmptyState": "Aucun destinataire dans cet état."
   },
   "conversations": {
     "new": "Nouvelle",

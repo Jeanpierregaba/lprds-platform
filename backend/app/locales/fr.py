@@ -329,6 +329,7 @@ MESSAGES: dict[str, str] = {
     "emails.reset_password.subject": "Réinitialisation de votre mot de passe LPRDS",
     "emails.parent_password_reset.subject": "Votre mot de passe LPRDS a été réinitialisé",
     "emails.report_available.subject": "Nouveau rapport disponible — {child}",
+    "emails.announcement.subject": "Nouvelle diffusion — {title}",
     "emails.absence_inquiry.subject_one": "Absence de {child} — {date}",
     "emails.absence_inquiry.subject_many": "Absences du {date}",
     "emails.library_reminder.subject": "Retour de livres à la bibliothèque",

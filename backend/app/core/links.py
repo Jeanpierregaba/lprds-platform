@@ -73,6 +73,20 @@ TAB_PARENT_CONVERSATION = "conversation"
 TAB_ADMIN_CONVERSATIONS = "conversations"
 
 
+def parent_announcement_query(announcement_id: object) -> dict[str, str]:
+    """Paramètres menant à UNE diffusion précise du portail parent.
+
+    Une diffusion n'a pas de page à elle : elle vit dans la liste de l'onglet
+    des diffusions, qui peut en compter des dizaines. Le paramètre
+    `announcement` dit LAQUELLE — l'écran la déplie et l'amène sous les yeux.
+
+    ⚠️ Un seul constructeur pour l'email ET le push, qui ne diffèrent que par
+    l'hôte (`url` contre `url_path`). Deux copies finiraient par mener à deux
+    endroits, et seul l'un des deux serait vérifié.
+    """
+    return {"tab": TAB_ANNOUNCEMENTS, "announcement": str(announcement_id)}
+
+
 def parent_report(report_id: object) -> str:
     """Chemin du rapport PRÉCIS dans le portail parent."""
     return PARENT_REPORT.format(report_id=report_id)

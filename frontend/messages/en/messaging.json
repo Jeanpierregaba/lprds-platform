@@ -65,7 +65,10 @@
     "signatureAttest": "I attest that I have read this announcement.",
     "sign": "Sign",
     "signed": "You signed on {date}",
-    "signatureSaved": "Signature saved."
+    "signatureSaved": "Signature saved.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "registerEmptyState": "No recipient in this state."
   },
   "conversations": {
     "new": "New",

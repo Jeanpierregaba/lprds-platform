@@ -146,6 +146,7 @@ app/
 │   │   ├── service.py             # Diffusions + conversations, publie sur Redis
 │   │   ├── dependencies.py        # get_admin / get_parent / get_admin_or_parent
 │   │   ├── ws_auth.py             # Authentification WebSocket (jeton en query string)
+│   │   ├── email.py + templates/  # Notification de diffusion (best-effort)
 │   │   ├── ws_manager.py          # Relais pub/sub Redis ↔ WebSocket
 │   │   └── router.py              # REST /messaging/* + WS /messaging/ws
 │   ├── reports/
@@ -1924,6 +1925,77 @@ signataires répondraient à la lettre de la demande en taisant la réponse
 utile : **qui n'a rien fait**, c'est-à-dire les seuls à relancer. Côté écran, le
 bouton « Registre » est proposé sur TOUTE diffusion, signature demandée ou non :
 « qui a lu » est la question la plus fréquente et ne dépend pas du drapeau.
+
+### Diffusions — notification par email (le canal qui n'exige rien du parent)
+
+Une diffusion ne disposait que de DEUX canaux, et aucun n'atteint un parent qui
+n'a rien fait : le WebSocket suppose un onglet ouvert à cet instant précis, le
+push suppose un abonnement **par APPAREIL**, que le parent doit accorder
+lui-même dans ses réglages — sur iOS, après avoir installé l'application depuis
+l'écran d'accueil. Un parent qui n'a jamais ouvert cette carte n'était donc
+prévenu de **rien** : il découvrait la diffusion à sa prochaine visite
+spontanée. D'autant plus lourd depuis qu'une diffusion peut EXIGER une
+signature — l'admin lisait « 2/18 ont signé » sans que les seize autres aient
+été sollicités ailleurs que dans l'application.
+
+`messaging/email.py` + `templates/{fr,en}/announcement_available.html`, même
+patron que la notification de rapport.
+
+- **L'audience est celle qui vient d'être calculée pour le compteur**, pas une
+  requête refaite : la recalculer serait une seconde implémentation de la règle
+  de ciblage, libre de diverger — et un email parti à un département non
+  concerné est exactement ce qu'un ciblage sert à éviter. C'est aussi la seule
+  fuite de ce module qu'aucun écran ne montrerait, puisqu'elle se produit dans
+  la boîte de quelqu'un d'autre.
+- **Les comptes désactivés sont écartés** : ils ne peuvent plus se connecter,
+  donc le lien mènerait à un espace qu'ils ne peuvent pas ouvrir.
+- ⚠️ **Le CORPS de la diffusion n'est pas repris, seulement son titre.** Un
+  email part en clair chez un fournisseur de messagerie et y reste ; une
+  diffusion peut nommer des enfants. Le titre voyage déjà comme corps du push,
+  donc ce choix n'expose rien de nouveau, et le lien mène au texte complet
+  derrière une authentification. Sous test.
+- **Le bouton mène à LA diffusion**, pas à l'onglet qui en contient trente :
+  `links.parent_announcement_query()` ajoute `announcement=<id>` à côté de
+  `tab=announcements`, et **le push emprunte le même constructeur** (ils ne
+  diffèrent que par l'hôte, `url` contre `url_path`). Deux copies finiraient par
+  mener à deux endroits, dont un seul serait vérifié.
+  Côté écran, le portail parent déplie la diffusion visée, **l'amène sous les
+  yeux** (`scrollIntoView`) et la cercle d'un liseré. Déplier ne suffit pas :
+  la diffusion peut être la trentième de la liste, donc hors écran — le parent
+  verrait s'ouvrir la plus récente et conclurait que le lien l'a mal mené. Le
+  défilement ne joue qu'UNE fois (l'invalidation du cache après le marquage
+  « lu » le rejouerait à chaque rafraîchissement).
+- **Le texte dépend du drapeau de signature** : une attestation attendue
+  demande un GESTE, et un email annonçant « une information est disponible » ne
+  le dit pas. Le bouton devient « Lire et signer ».
+- **Langue du DESTINATAIRE**, titre traduit compris (`title_en`) : une diffusion
+  touche tout l'établissement, anglophones inclus, et l'admin qui publie n'a pas
+  à connaître la langue de chacun.
+- **Best-effort PAR destinataire** : un SMTP qui refuse une adresse ne prive pas
+  les suivants de leur notification, et l'échec n'est jamais remonté en erreur
+  HTTP — la diffusion est déjà publiée et consultable. À l'opposé du mot de
+  passe temporaire, qui EST son seul canal de délivrance et bloque donc la
+  création.
+- ⚠️ **L'envoi part EN FOND ; la publication ne l'attend pas.** `fastapi-mail`
+  ouvre une connexion SMTP par message : à une demi-seconde l'unité, une
+  diffusion à 150 parents tiendrait la requête plus d'une minute et le reverse
+  proxy la couperait — l'admin verrait une erreur sur une diffusion pourtant
+  publiée. Les destinataires sont donc LUS pendant la requête (la session
+  existe encore), l'envoi se fait ensuite sans base. Les tâches sont gardées
+  dans un ensemble : `asyncio` ne retient qu'une référence FAIBLE, et une tâche
+  ramassée en plein vol ne laisserait aucune trace.
+  Conséquence sur les tests : « la publication répond 201 » ne prouve plus rien
+  (elle répondrait 201 même si la tâche explosait). Ce qui est vérifié, c'est
+  que le SECOND parent reçoit son email quand le premier échoue.
+- ⚠️ Le push, lui, reste envoyé DANS la requête (abonnement par abonnement) —
+  comportement antérieur, non touché ici, mais c'est le même risque de latence
+  sur un gros établissement.
+- Les contrôles sont prouvés par sabotage. ⚠️ Celui des comptes désactivés ne
+  tombe qu'en retirant les DEUX filtres `is_active` (audience et requête
+  d'envoi) : chacun suffit seul, c'est une redondance assumée.
+- ⚠️ **Rien n'est envoyé au `PATCH`** d'une diffusion, volontairement : une
+  correction de coquille ne doit pas réécrire à tout l'établissement. Seule la
+  publication notifie.
 
 ### Diffusions — ciblage par départements (1 à N, coché avant l'envoi)
 
@@ -4030,6 +4102,9 @@ tests/
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend,
     │                                     #   borne de pagination alignée sur le reste de l'API
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
+    ├── test_announcement_email.py    # notification email d'une diffusion :
+    │                                 #   ciblage respecté, lien vers LA diffusion,
+    │                                 #   échec SMTP non bloquant, langue du destinataire
     ├── test_announcement_signature.py # signature d'une diffusion : 409 sur une seconde
     │                                 #   signature, 422 sans drapeau, registre à trois états
     │                                 #   (le parent sans trace en tête), drapeau retiré sans
@@ -4743,7 +4818,7 @@ s'ouvre.
 | Rapport validé | Parent | `/dashboard/parent/reports/{id}` — le rapport lui-même |
 | Message privé | Parent | `/dashboard/parent/messaging?tab=conversation` |
 | Message privé | Admin | `/dashboard/admin/messaging?tab=conversations&conversation={id}` |
-| Diffusion | Parent | `/dashboard/parent/messaging?tab=announcements` |
+| Diffusion | Parent | `/dashboard/parent/messaging?tab=announcements&announcement={id}` |
 
 Les trois valeurs d'onglet sont nommées dans `links.py` (`TAB_*`) et doivent
 rester celles des `TabPanel` du frontend ; les deux pages les lisent via

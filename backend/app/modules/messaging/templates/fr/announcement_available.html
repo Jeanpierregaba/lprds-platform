@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#2563eb">Nouvelle diffusion disponible</h2>
+  <p>Bonjour {{ parent_first_name }},</p>
+  {% if establishment_name %}
+  <p><strong>{{ establishment_name }}</strong> vient de publier une diffusion sur votre
+     espace famille {{ platform_name }} :</p>
+  {% else %}
+  <p>Une nouvelle diffusion vient d'être publiée sur votre espace famille
+     {{ platform_name }} :</p>
+  {% endif %}
+  <p style="border-left:3px solid #2563eb;padding-left:12px;margin:16px 0;font-size:17px">
+    <strong>{{ title }}</strong>
+  </p>
+  {% if requires_signature %}
+  <p>Cette diffusion vous demande de <strong>signer pour attester que vous l'avez
+     lue</strong>. Merci de le faire depuis votre espace.</p>
+  {% endif %}
+  <a href="{{ announcement_url }}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px">
+    {% if requires_signature %}Lire et signer la diffusion{% else %}Lire la diffusion{% endif %}
+  </a>
+  <p style="color:#6b7280;font-size:13px;margin-top:24px">
+    Le contenu de la diffusion n'est consultable que depuis votre espace, après connexion.
+  </p>
+</body>
+</html>

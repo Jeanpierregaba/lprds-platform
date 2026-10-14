@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#2563eb">A new announcement is available</h2>
+  <p>Hello {{ parent_first_name }},</p>
+  {% if establishment_name %}
+  <p><strong>{{ establishment_name }}</strong> has just posted an announcement on your
+     {{ platform_name }} family area:</p>
+  {% else %}
+  <p>A new announcement has just been posted on your {{ platform_name }} family area:</p>
+  {% endif %}
+  <p style="border-left:3px solid #2563eb;padding-left:12px;margin:16px 0;font-size:17px">
+    <strong>{{ title }}</strong>
+  </p>
+  {% if requires_signature %}
+  <p>This announcement asks you to <strong>sign to confirm that you have read
+     it</strong>. Please do so from your area.</p>
+  {% endif %}
+  <a href="{{ announcement_url }}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px">
+    {% if requires_signature %}Read and sign the announcement{% else %}Read the announcement{% endif %}
+  </a>
+  <p style="color:#6b7280;font-size:13px;margin-top:24px">
+    The announcement itself can only be viewed from your area, after signing in.
+  </p>
+</body>
+</html>

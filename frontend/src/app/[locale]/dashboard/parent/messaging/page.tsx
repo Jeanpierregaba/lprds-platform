@@ -36,7 +36,11 @@ export default function ParentMessagingPage() {
   /* Destination d'une notification push : cet écran ouvre les DIFFUSIONS par
    * défaut, donc une notification de message privé menait à l'onglet d'à côté
    * (cf. `app/core/links.py`). */
-  const tab = useSearchParams().get('tab') === 'conversation' ? 'conversation' : 'announcements'
+  const params = useSearchParams()
+  const tab = params.get('tab') === 'conversation' ? 'conversation' : 'announcements'
+  /* `announcement` désigne LAQUELLE : le bouton d'un email de diffusion mène
+   * ici, et la liste peut en compter des dizaines. */
+  const focusId = params.get('announcement')
   const t = useTranslations('messaging')
   return (
     <PageMotion>
@@ -59,7 +63,7 @@ export default function ParentMessagingPage() {
         </PillsTabsList>
 
         <TabPanel value="announcements">
-          <AnnouncementsTab />
+          <AnnouncementsTab focusId={focusId} />
         </TabPanel>
         <TabPanel value="conversation">
           <ConversationTab />

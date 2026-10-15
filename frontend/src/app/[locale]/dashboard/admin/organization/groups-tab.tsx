@@ -29,6 +29,7 @@ import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { StatusPill } from '@/components/dashboard/shared/cards'
 import type { Group } from '@/types/organization'
+import { displayName } from '@/lib/utils/display-name'
 
 type T = (key: string) => string
 
@@ -251,7 +252,7 @@ export function GroupsTab() {
                   render={({ field }) => (
                     <Select
                       items={Object.fromEntries(
-                        (educatrices?.items ?? []).map((e) => [e.id, e.nickname || `${e.first_name} ${e.last_name}`])
+                        (educatrices?.items ?? []).map((e) => [e.id, displayName(e)])
                       )}
                       value={field.value}
                       onValueChange={field.onChange}
@@ -262,7 +263,7 @@ export function GroupsTab() {
                       <SelectContent>
                         {educatrices?.items.map((e) => (
                           <SelectItem key={e.id} value={e.id}>
-                            {e.nickname || `${e.first_name} ${e.last_name}`}
+                            {displayName(e)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -325,7 +326,7 @@ export function GroupsTab() {
                 <Td className="font-medium">{group.name}</Td>
                 <Td className="text-muted-foreground">{sectionLabel(group.section_id)}</Td>
                 <Td className="text-muted-foreground">
-                  {group.educatrice.nickname || `${group.educatrice.first_name} ${group.educatrice.last_name}`}
+                  {displayName(group.educatrice)}
                 </Td>
                 <Td>
                   {canWrite && (

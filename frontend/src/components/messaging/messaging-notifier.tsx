@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import { useUser } from '@/lib/stores/auth.store'
 import { usePathname } from '@/i18n/navigation'
+import { displayName } from '@/lib/utils/display-name'
 
 /**
  * Notification à la réception d'un message privé (temps réel applicatif —
@@ -51,7 +52,7 @@ export function MessagingNotifier() {
 
     const senderName =
       event.sender.nickname ||
-      `${event.sender.first_name} ${event.sender.last_name ?? ''}`.trim() ||
+      displayName(event.sender) ||
       t('notifier.school')
     const excerpt = event.body?.trim().slice(0, 120) || t('notifier.newAttachment')
     // Dédupé par conversation : sous une rafale, un seul toast vivant,

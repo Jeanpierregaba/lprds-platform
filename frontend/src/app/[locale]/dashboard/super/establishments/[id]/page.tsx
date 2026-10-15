@@ -10,9 +10,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { displayName } from '@/lib/utils/display-name'
+import type { User } from '@/types/auth'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +51,9 @@ type InfoForm = z.infer<ReturnType<typeof makeinfoSchema>>
 const makeadminSchema = (t: T, tAuth: T) => z.object({
   first_name: z.string().min(1, t('establishments.validation.firstName')).max(100),
   last_name:  z.string().min(1, t('establishments.validation.name')).max(100),
+  // Requis comme pour les parents et le personnel : c'est ce nom que la
+  // plateforme affiche partout.
+  nickname:   z.string().min(1, t('establishments.validation.nickname')).max(100),
   email:      z.string().email(t('establishments.validation.email')),
   phone:      z.string().max(20).optional().or(z.literal('')),
   password: passwordField(tAuth),
@@ -122,6 +127,23 @@ export default function EstablishmentDetailPage() {
       toast.error(getApiErrorMessage(err))
     }
   }
+
+  /** Surnom d'un admin existant — le seul chemin pour les comptes créés avant
+   *  que le champ n'existe (leur fiche ne se saisit qu'à la création, et un
+   *  compte admin ne se recrée pas : quota de 3, retrait = désactivation). */
+  const [editingAdmin, setEditingAdmin] = useState<User | null>(null)
+  const [nicknameDraft, setNicknameDraft] = useState('')
+
+  const updateAdminMutation = useMutation({
+    mutationFn: (payload: { userId: string; nickname: string }) =>
+      establishmentsApi.updateAdmin(id, payload.userId, { nickname: payload.nickname }),
+    onSuccess: () => {
+      toast.success(t('establishments.nicknameSaved'))
+      setEditingAdmin(null)
+      invalidate()
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  })
 
   const removeAdminMutation = useMutation({
     mutationFn: (userId: string) => establishmentsApi.removeAdmin(id, userId),
@@ -296,6 +318,14 @@ export default function EstablishmentDetailPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="a_nickname">{t('establishments.nickname')}</Label>
+                      <Input id="a_nickname" placeholder={t('establishments.nicknamePlaceholder')}
+                             {...registerAdmin('nickname')} aria-invalid={!!adminErrors.nickname} />
+                      {adminErrors.nickname
+                        ? <p className="text-sm text-destructive">{adminErrors.nickname.message}</p>
+                        : <p className="text-xs text-muted-foreground">{t('establishments.nicknameHint')}</p>}
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="a_email">{t('establishments.email')}</Label>
                       <Input id="a_email" type="email" {...registerAdmin('email')} aria-invalid={!!adminErrors.email} />
                       {adminErrors.email && <p className="text-sm text-destructive">{adminErrors.email.message}</p>}
@@ -311,7 +341,7 @@ export default function EstablishmentDetailPage() {
                     </div>
                     <DialogFooter>
                       <Button type="submit" disabled={isAddingAdmin}>
-                        {isAddingAdmin ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.adding')}</> : 'Ajouter'}
+                        {isAddingAdmin ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.adding')}</> : tCommon('actions.add')}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -336,21 +366,37 @@ export default function EstablishmentDetailPage() {
                   ) : (
                     admins.map((admin) => (
                       <TableRow key={admin.id}>
-                        <TableCell className="font-medium">{admin.first_name} {admin.last_name}</TableCell>
+                        <TableCell className="font-medium">
+                          {displayName(admin)}
+                          {admin.nickname && (
+                            // L'état civil reste visible pour le superadmin :
+                            // c'est lui qui gère les comptes, pas la crèche.
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {admin.first_name} {admin.last_name}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{admin.email}</TableCell>
                         <TableCell className="text-muted-foreground">{admin.phone ?? '—'}</TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Button
+                            variant="ghost" size="icon-sm"
+                            aria-label={t('establishments.editNickname')}
+                            onClick={() => { setEditingAdmin(admin); setNicknameDraft(admin.nickname ?? '') }}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
                           {canRemoveAdmin ? (
                             <AlertDialog>
                               <AlertDialogTrigger
                                 render={<Button variant="ghost" size="icon-sm" />}
-                                aria-label={t('establishments.removeAdmin', { name: `${admin.first_name} ${admin.last_name}` })}
+                                aria-label={t('establishments.removeAdmin', { name: displayName(admin) })}
                               >
                                 <Trash2 className="size-4 text-destructive" />
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>{t('establishments.removeAdminTitle', { name: `${admin.first_name} ${admin.last_name}` })}</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('establishments.removeAdminTitle', { name: displayName(admin) })}</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     {t('establishments.removeAdminBody')}
                                   </AlertDialogDescription>
@@ -366,7 +412,7 @@ export default function EstablishmentDetailPage() {
                           ) : (
                             <Tooltip>
                               <TooltipTrigger render={<span tabIndex={0} className="inline-block" />}>
-                                <Button variant="ghost" size="icon-sm" disabled aria-label={t('establishments.removeAdmin', { name: `${admin.first_name} ${admin.last_name}` })}>
+                                <Button variant="ghost" size="icon-sm" disabled aria-label={t('establishments.removeAdmin', { name: displayName(admin) })}>
                                   <Trash2 className="size-4 text-destructive" />
                                 </Button>
                               </TooltipTrigger>
@@ -383,6 +429,36 @@ export default function EstablishmentDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </motion.div>
+          <Dialog open={!!editingAdmin} onOpenChange={(ouvert) => { if (!ouvert) setEditingAdmin(null) }}>
+        <DialogContent className="min-w-0 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('establishments.editNickname')}</DialogTitle>
+            <DialogDescription>{t('establishments.nicknameHint')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit_nickname">{t('establishments.nickname')}</Label>
+            <Input
+              id="edit_nickname"
+              value={nicknameDraft}
+              placeholder={t('establishments.nicknamePlaceholder')}
+              onChange={(e) => setNicknameDraft(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              disabled={!nicknameDraft.trim() || updateAdminMutation.isPending}
+              onClick={() => editingAdmin && updateAdminMutation.mutate({
+                userId: editingAdmin.id, nickname: nicknameDraft.trim(),
+              })}
+            >
+              {updateAdminMutation.isPending
+                ? <><Loader2 className="mr-2 size-4 animate-spin" /> {tCommon('states.saving')}</>
+                : tCommon('actions.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+</motion.div>
   )
 }

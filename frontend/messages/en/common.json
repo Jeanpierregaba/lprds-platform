@@ -133,5 +133,19 @@
   "uploads": {
     "added": "{count, plural, one {# file added.} other {# files added.}}",
     "partial": "{failed, plural, one {# of {total} files could not be sent.} other {# of {total} files could not be sent.}}"
+  },
+  "credentials": {
+    "title": "Credentials to pass on",
+    "description": "Copy this message and send it however you like. It contains the account password.",
+    "message": "Hello {name},\n\nHere are your credentials for the {platform} platform:\n\nLink: {link}\nEmail: {email}\nPassword: {password}\n\nRemember to change your password from your settings after signing in for the first time.",
+    "copy": "Copy message",
+    "copied": "Message copied",
+    "copyFailed": "The browser refused to copy automatically. The text is selected: copy it by hand.",
+    "warning": "The password is only shown here. The platform keeps nothing but a hash of it and can never display it again.",
+    "open": "Copy credentials",
+    "optionalPassword": "Password (optional)",
+    "optionalPasswordHint": "Fill it in to be able to copy the credentials message. Left empty, a password is generated and will only exist in the email.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   }
 }

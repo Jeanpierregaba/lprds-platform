@@ -31,6 +31,9 @@ const makeSchema = (t: T, tAuth: T) => z.object({
 
   admin_first_name: z.string().min(1, t('establishments.validation.firstName')).max(100),
   admin_last_name:  z.string().min(1, t('establishments.validation.name')).max(100),
+  // Requis comme pour les parents et le personnel : c'est le nom que la
+  // plateforme affiche partout, l'état civil n'en est que le repli.
+  admin_nickname:   z.string().min(1, t('establishments.validation.nickname')).max(100),
   admin_email:      z.string().email(t('establishments.validation.email')),
   admin_phone:      z.string().max(20).optional().or(z.literal('')),
   admin_password: passwordField(tAuth),
@@ -57,6 +60,7 @@ export default function NewEstablishmentPage() {
         admin: {
           first_name: values.admin_first_name,
           last_name:  values.admin_last_name,
+          nickname:   values.admin_nickname,
           email:      values.admin_email,
           phone:      values.admin_phone || undefined,
           password:   values.admin_password,
@@ -145,6 +149,15 @@ export default function NewEstablishmentPage() {
                   <Input id="admin_last_name" {...register('admin_last_name')} aria-invalid={!!errors.admin_last_name} />
                   {errors.admin_last_name && <p className="text-sm text-destructive">{errors.admin_last_name.message}</p>}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="admin_nickname">{t('establishments.nickname')}</Label>
+                <Input id="admin_nickname" placeholder={t('establishments.nicknamePlaceholder')}
+                       {...register('admin_nickname')} aria-invalid={!!errors.admin_nickname} />
+                {errors.admin_nickname
+                  ? <p className="text-sm text-destructive">{errors.admin_nickname.message}</p>
+                  : <p className="text-xs text-muted-foreground">{t('establishments.nicknameHint')}</p>}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

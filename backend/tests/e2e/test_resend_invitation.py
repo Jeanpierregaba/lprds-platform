@@ -204,3 +204,79 @@ def test_un_echec_smtp_ne_bloque_pas_la_relance_suivante(client, monkeypatch):
     ck("on peut réessayer tout de suite, sans attendre la temporisation",
        client.post(f"/parents/{parent_id}/resend-invitation", headers=adm).status_code, 204)
     ck("et l'email part bien", len(envoyes), 1)
+
+
+def test_la_relance_accepte_un_mot_de_passe_fourni(client, emails_captures):
+    """Le mot de passe GÉNÉRÉ n'est lisible par personne — ni par l'admin, ni
+    par son écran : il n'existe que dans l'email parti, et le retourner dans la
+    réponse HTTP est ce que ce module refuse. Fournir le mot de passe est donc
+    le seul moyen de pouvoir transmettre les accès par un AUTRE canal que
+    l'email — précisément le canal qui échoue quand on en a besoin.
+
+    Ce qui est vérifié ici : le mot de passe fourni est bien celui qui vaut
+    pour la connexion, c'est lui qui part dans l'email, et **rien** ne revient
+    dans la réponse.
+    """
+    su = login(client, "tech@lespetitsrayonsdesoleil.fr", "Geek-Ot@ku#2002")
+    adm = onboard(client, su, "RLNF", "admin@rlnf.fr")
+    parent_id = _cree_parent(client, adm, suffixe="-fourni")
+    email = "parent-fourni@relance.fr"
+
+    emails_captures.clear()
+    r = client.post(f"/parents/{parent_id}/resend-invitation", headers=adm,
+                    json={"password": "Dicte2026"})
+    ck("relance acceptée", r.status_code, 204)
+    ck("la réponse ne porte AUCUN corps", r.text, "")
+    ck("un email est bien reparti", len(emails_captures), 1)
+    ck("c'est le mot de passe FOURNI qui part dans l'email",
+       emails_captures[0]["temp_password"], "Dicte2026")
+    ck("l'ancien ne marche plus",
+       client.post("/auth/login", json={"email": email,
+                                        "password": "Initial2026"}).status_code, 401)
+    ck("le mot de passe fourni ouvre la session",
+       client.post("/auth/login", json={"email": email,
+                                        "password": "Dicte2026"}).status_code, 200)
+
+
+def test_un_mot_de_passe_fourni_FAIBLE_est_refuse(client, emails_captures):
+    """La politique vaut aussi ici : laisser passer « 123456 » parce que c'est
+    un admin qui le saisit ouvrirait une porte que tout le reste de la
+    plateforme ferme (`StrongPassword`). Et l'ancien mot de passe doit survivre
+    au refus — un 422 ne met personne dehors."""
+    su = login(client, "tech@lespetitsrayonsdesoleil.fr", "Geek-Ot@ku#2002")
+    adm = onboard(client, su, "RLNW", "admin@rlnw.fr")
+    parent_id = _cree_parent(client, adm, suffixe="-faible")
+
+    emails_captures.clear()
+    r = client.post(f"/parents/{parent_id}/resend-invitation", headers=adm,
+                    json={"password": "court"})
+    ck("mot de passe faible refusé", r.status_code, 422)
+    ck("aucun email n'est parti", len(emails_captures), 0)
+    ck("l'ancien mot de passe fonctionne toujours",
+       client.post("/auth/login", json={"email": "parent-faible@relance.fr",
+                                        "password": "Initial2026"}).status_code, 200)
+
+
+def test_le_personnel_aussi_accepte_un_mot_de_passe_fourni(client, emails_captures):
+    """Les deux modules partagent le geste (`auth_service.resend_invitation`) :
+    une seule des deux routes câblée, et l'écran du personnel proposerait une
+    copie d'accès qui ne correspondrait à rien."""
+    su = login(client, "tech@lespetitsrayonsdesoleil.fr", "Geek-Ot@ku#2002")
+    adm = onboard(client, su, "RLNS", "admin@rlns.fr")
+    r = client.post("/staff", headers=adm, json={
+        "first_name": "Ta", "last_name": "Ta", "nickname": "Tata",
+        "phone": "+22900000000", "email": "staff-fourni@relance.fr",
+        "password": "Initial2026", "staff_type": "educateur",
+    })
+    ck("personnel créé", r.status_code, 201)
+    staff_id = r.json()["id"]
+
+    emails_captures.clear()
+    ck("relance acceptée", client.post(
+        f"/staff/{staff_id}/resend-invitation", headers=adm,
+        json={"password": "Dicte2026"}).status_code, 204)
+    ck("c'est le mot de passe FOURNI qui part",
+       emails_captures[0]["temp_password"], "Dicte2026")
+    ck("il ouvre la session",
+       client.post("/auth/login", json={"email": "staff-fourni@relance.fr",
+                                        "password": "Dicte2026"}).status_code, 200)

@@ -152,7 +152,7 @@ export default function ParentDashboardPage() {
           {formatLongDate()}
         </p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
-          {t('home.parentGreeting', { name: user?.first_name ?? '' })}
+          {t('home.parentGreeting', { name: user?.nickname || user?.first_name || '' })}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-white/80">
           {t('home.parentIntro', { who: children.length > 1 ? t('home.parentIntroManyChildren') : t('home.parentIntroOneChild') })}

@@ -17,6 +17,7 @@ from app.core.i18n import (
     format_long_date,
     t,
 )
+from app.core.people import display_name as display_name_of
 from app.modules.attendance import email as attendance_email
 from app.modules.attendance.models import (
     AttendanceEvent,
@@ -344,7 +345,7 @@ async def verify_qr(
         )
 
     staff = await _get_active_staff_or_404(person_id, establishment_id, db)
-    display_name = staff.nickname or f"{staff.first_name} {staff.last_name}".strip()
+    display_name = display_name_of(staff)
     events_formatted = await _events_for_day(
         establishment_id, PersonType.STAFF, today, db, tz
     )
@@ -983,7 +984,7 @@ async def _build_export_rows(
                     status_, late = "exempt", None
                 else:
                     status_, late = _compute_status(arrival, weekday, expected, tz, grace)
-                name = member.nickname or f"{member.first_name} {member.last_name}".strip()
+                name = display_name_of(member)
                 rows.append(AttendanceExportRow(
                     person_type="staff",
                     name=name,
@@ -1199,7 +1200,7 @@ async def send_absence_inquiries(
             message_sent = False
         notified.append(
             AbsentNotifiedParent(
-                parent_name=(parent.nickname or f"{parent.first_name} {parent.last_name}".strip()),
+                parent_name=display_name_of(parent),
                 children_names=cnames,
                 email_sent=email_sent,
                 message_sent=message_sent,

@@ -13,6 +13,7 @@ import { childrenApi } from '@/lib/api/children.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { GALLERY_SOURCES, type GalleryMediaParams } from '@/types/gallery'
+import { displayName } from '@/lib/utils/display-name'
 
 export const ALL = '__all__'
 
@@ -87,7 +88,7 @@ export function GalleryFilters({
   const childItems = { [ALL]: t('filters.allChildren'), ...Object.fromEntries((children ?? []).map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
   const deptItems = { [ALL]: t('filters.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }
   const groupItems = { [ALL]: t('filters.allGroups'), ...Object.fromEntries((groups ?? []).map((g) => [g.id, g.name])) }
-  const staffItems = { [ALL]: t('filters.allStaff'), ...Object.fromEntries((staff ?? []).map((s) => [s.id, `${s.first_name} ${s.last_name}`])) }
+  const staffItems = { [ALL]: t('filters.allStaff'), ...Object.fromEntries((staff ?? []).map((s) => [s.id, displayName(s)])) }
 
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS)
 

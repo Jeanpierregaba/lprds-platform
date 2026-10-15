@@ -25,10 +25,12 @@ import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
-import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
+import { ConfirmDialog, ResendInvitationDialog } from '@/components/dashboard/shared/dialogs'
+import { CredentialsDialog } from '@/components/dashboard/shared/credentials-dialog'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 import { passwordField } from '@/lib/validation/password'
+import { displayName } from '@/lib/utils/display-name'
 
 type T = (key: string) => string
 
@@ -122,12 +124,23 @@ export default function ParentDetailPage() {
     reset: resetResetForm,
   } = useForm<ResetForm>({ resolver: zodResolver(makeResetSchema(t, tAuth)) })
 
+  /** Accès à transmettre, après une réinitialisation ou une relance.
+   *
+   * ⚠️ Le mot de passe vient de la SAISIE de l'admin, jamais d'une réponse
+   * d'API : la plateforme n'en garde qu'une empreinte et ne peut pas le
+   * rendre. C'est ce qui permet de le copier sans qu'aucun secret ne circule
+   * en retour. */
+  const [acces, setAcces] = useState<{ name: string; email: string; password: string } | null>(null)
+
   const onResetPassword = async (values: ResetForm) => {
     try {
       await parentsApi.resetPassword(id, values.new_password)
       toast.success(t('form.resetDone'))
       resetResetForm()
       setResetOpen(false)
+      if (parent) {
+        setAcces({ name: parent.first_name, email: parent.email, password: values.new_password })
+      }
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
@@ -139,8 +152,16 @@ export default function ParentDetailPage() {
    * que l'empreinte, et c'est voulu. Le dialogue DIT donc ce qui va se passer
    * plutôt que de laisser croire à un simple renvoi. */
   const resendInvitation = useMutation({
-    mutationFn: () => parentsApi.resendInvitation(id),
-    onSuccess: () => { toast.success(t('invite.sent')); setResendOpen(false) },
+    mutationFn: (password?: string) => parentsApi.resendInvitation(id, password),
+    onSuccess: (_data, password) => {
+      toast.success(t('invite.sent'))
+      setResendOpen(false)
+      // Sans mot de passe saisi, il n'y a RIEN à copier : celui que le serveur
+      // a généré n'existe que dans l'email parti.
+      if (password && parent) {
+        setAcces({ name: parent.first_name, email: parent.email, password })
+      }
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -156,10 +177,18 @@ export default function ParentDetailPage() {
     <PageMotion className="max-w-2xl space-y-4">
       <BackLink href="/dashboard/admin/parents" label={t('form.back')} />
 
+      {acces && (
+        <CredentialsDialog
+          open
+          onOpenChange={(ouvert) => { if (!ouvert) setAcces(null) }}
+          {...acces}
+        />
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{parent.nickname || `${parent.first_name} ${parent.last_name}`}</h1>
+            <h1 className="text-2xl font-bold">{displayName(parent)}</h1>
             <StatusPill active={parent.is_active} />
           </div>
           <p className="text-sm text-white">
@@ -203,17 +232,18 @@ export default function ParentDetailPage() {
                 : <MailPlus className="mr-1.5 size-4" />}
               {t('invite.resend')}
             </Button>
-            <ConfirmDialog
+            <ResendInvitationDialog
               open={resendOpen}
               onOpenChange={setResendOpen}
               title={t('invite.confirmTitle')}
+              confirmLabel={t('invite.resend')}
               /* ⚠️ Le texte DÉPEND de `last_login_at` : relancer un compte qui
                  s'est déjà connecté lui retire le mot de passe qu'il s'est
                  choisi. Proposer le même bouton sans le dire ferait d'un
                  dépannage une mise dehors. */
-              description={parent.last_login_at ? t('invite.confirmUsed') : t('invite.confirmNever')}
-              confirmLabel={t('invite.resend')}
-              onConfirm={() => resendInvitation.mutate()}
+              warning={parent.last_login_at ? t('invite.confirmUsed') : t('invite.confirmNever')}
+              pending={resendInvitation.isPending}
+              onConfirm={(password) => resendInvitation.mutate(password)}
             />
           </>
           )}

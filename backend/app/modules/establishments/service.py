@@ -13,6 +13,7 @@ from app.modules.establishments.models import (
 )
 from app.modules.establishments.schemas import (
     EstablishmentAdminCreate,
+    EstablishmentAdminUpdate,
     EstablishmentCreateRequest,
     EstablishmentDetailResponse,
     EstablishmentListResponse,
@@ -156,14 +157,16 @@ async def add_admin(
     return admin
 
 
-async def remove_admin(
+async def _active_admin_or_404(
     establishment_id: uuid.UUID,
     user_id: uuid.UUID,
     db: AsyncSession,
-) -> None:
-    """Retire un admin en désactivant son compte."""
-    await _get_or_404(establishment_id, db)
+) -> User:
+    """Un admin ACTIF de CET établissement, ou 404 — jamais 403.
 
+    Résolution commune au retrait et à la modification : deux copies de la
+    même règle d'isolation finiraient par n'en durcir qu'une.
+    """
     result = await db.execute(
         select(User).where(
             User.id == user_id,
@@ -177,6 +180,41 @@ async def remove_admin(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=t("errors.establishments.admin_not_found"),
         )
+    return admin
+
+
+async def update_admin(
+    establishment_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: EstablishmentAdminUpdate,
+    db: AsyncSession,
+) -> User:
+    """Change le SURNOM d'un admin existant, et rien d'autre.
+
+    ⚠️ Un compte admin ne se recrée pas : le quota est de trois, et le
+    « retrait » désactive au lieu de supprimer. Sans cette route, tout admin
+    créé avant l'ajout du champ resterait nommé par son état civil pour
+    toujours — c'est-à-dire exactement le défaut signalé.
+
+    L'état civil, l'email et le mot de passe n'y sont PAS : ce sont des gestes
+    aux conséquences différentes (identité, connexion), et les ouvrir ici en
+    passant les mêlerait à un simple nom d'usage.
+    """
+    await _get_or_404(establishment_id, db)
+    admin = await _active_admin_or_404(establishment_id, user_id, db)
+    admin.nickname = payload.nickname
+    await db.flush()
+    return admin
+
+
+async def remove_admin(
+    establishment_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Retire un admin en désactivant son compte."""
+    await _get_or_404(establishment_id, db)
+    admin = await _active_admin_or_404(establishment_id, user_id, db)
 
     # Un établissement sans admin ne serait plus gérable
     remaining = await _count_active_admins(establishment_id, db)
@@ -215,6 +253,7 @@ def _build_admin(payload: EstablishmentAdminCreate, establishment_id: uuid.UUID)
         role=UserRole.ADMIN,
         first_name=payload.first_name,
         last_name=payload.last_name,
+        nickname=payload.nickname,
         phone=payload.phone,
         establishment_id=establishment_id,
         # Le superadmin transmet le mot de passe hors plateforme :

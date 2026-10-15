@@ -103,6 +103,7 @@ class ScannerBrief(BaseModel):
     id:         uuid.UUID
     first_name: str
     last_name:  str
+    nickname:   str | None = None
 
 
 class AttendanceEventResponse(BaseModel):

@@ -23,6 +23,7 @@ import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { ParentListItem } from '@/types/parents'
 import { Link } from '@/i18n/navigation'
+import { displayName } from '@/lib/utils/display-name'
 
 const PAGE_SIZE = 20
 
@@ -136,7 +137,7 @@ export default function ParentsListPage() {
               <TableRow key={p.id} className={cn(!p.is_active && 'opacity-70')}>
                 <Td>
                   <Link href={`/dashboard/admin/parents/${p.id}`} className="block font-medium">
-                    {p.nickname ?? `${p.first_name} ${p.last_name}`}
+                    {displayName(p)}
                   </Link>
                 </Td>
                 <Td>
@@ -233,13 +234,13 @@ function ParentCard({
     <>
       <ClickableCard
         href={detailHref}
-        label={t('list.openAccount', { name: parent.nickname ?? `${parent.first_name} ${parent.last_name}` })}
+        label={t('list.openAccount', { name: displayName(parent) })}
         inactive={!parent.is_active}
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">
-            {parent.nickname ?? `${parent.first_name} ${parent.last_name}`}
+            {displayName(parent)}
           </p>
           <StatusPill active={parent.is_active} shrink />
         </div>
@@ -283,7 +284,7 @@ function ParentCard({
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
         title={t('status.confirmTitle')}
-        description={t('status.confirmBody', { name: parent.nickname ?? `${parent.first_name} ${parent.last_name}` })}
+        description={t('status.confirmBody', { name: displayName(parent) })}
         confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)

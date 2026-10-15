@@ -12,6 +12,7 @@ from app.core import links, media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
+from app.core.people import display_name as display_name_of
 from app.modules.auth.models import User, UserRole
 from app.modules.establishments.models import Establishment
 from app.modules.messaging.email import send_announcement_email
@@ -869,7 +870,10 @@ async def send_message(
     # Push notification au DESTINATAIRE (best-effort, comme les emails de
     # rapport — jamais bloquant) : aux admins si l'expéditeur est le parent,
     # au seul parent de la conversation si l'expéditeur est un admin.
-    sender_label = f"{sender.nickname or sender.first_name} {sender.last_name or ''}".strip()
+    # ⚠️ Le surnom SEUL quand il existe : cette copie-ci lui accolait le nom de
+    # famille (« Tata Victoire Dupont ») là où les quatre autres rendaient
+    # « Tata Victoire ». Même personne, deux noms selon la notification.
+    sender_label = display_name_of(sender)
     preview = body.strip()[:120] or t("push.new_attachment")
     if sender.role == UserRole.ADMIN:
         await send_push_to_establishment_parents(

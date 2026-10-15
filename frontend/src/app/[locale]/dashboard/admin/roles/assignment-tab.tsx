@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { rbacApi } from '@/lib/api/rbac.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { displayName } from '@/lib/utils/display-name'
 
 export function AssignmentTab() {
   const t = useTranslations('rbac')
@@ -112,7 +113,7 @@ export function AssignmentTab() {
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{staff.first_name} {staff.last_name}</div>
+                      <div className="truncate font-medium">{displayName(staff)}</div>
                       <div className="truncate text-xs text-muted-foreground" title={staff.email}>{staff.email}</div>
                     </div>
                     {staff.staff_type && (
@@ -133,7 +134,7 @@ export function AssignmentTab() {
           <CardTitle className="text-base">{t('assignment.assignedTitle')}</CardTitle>
           <CardDescription>
             {selectedStaff
-              ? `${selectedStaff.first_name} ${selectedStaff.last_name}`
+              ? displayName(selectedStaff)
               : t('assignment.selectStaff')}
           </CardDescription>
         </CardHeader>

@@ -1,0 +1,136 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
+import { Check, Copy, TriangleAlert } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { APP_NAME } from '@/lib/brand'
+import { localePath } from '@/i18n/metadata'
+
+/**
+ * Le message d'accès, prêt à coller dans WhatsApp — et son bouton « Copier ».
+ *
+ * Demandé par l'établissement : transmettre les identifiants AUTREMENT que par
+ * email. Ce n'est pas un confort — l'email est le canal qui échoue (adresse
+ * qu'un fournisseur écarte, boîte abandonnée, message jamais retrouvé), et un
+ * compte dont les accès n'arrivent pas est un compte inutilisable.
+ *
+ * ⚠️ **Le mot de passe vient de l'ÉCRAN, jamais du serveur.** Sur les trois
+ * chemins concernés c'est l'admin qui l'a saisi : il est déjà dans l'état du
+ * formulaire, donc aucun secret ne circule en retour d'API et la règle « aucun
+ * mot de passe dans une réponse HTTP » reste entière. C'est aussi pourquoi la
+ * relance d'invitation demande désormais un mot de passe pour proposer la
+ * copie : celui qu'elle génère, personne ne peut le relire.
+ *
+ * ⚠️ **Rien n'est persisté** : pas de `localStorage`, pas de cache de requête.
+ * Le message vit dans cet état de composant et disparaît à la fermeture. Un
+ * mot de passe retrouvé trois semaines plus tard dans le stockage d'un
+ * navigateur partagé serait une fuite, pas une commodité.
+ *
+ * Le texte est affiché dans un champ sélectionnable EN PLUS du bouton : le
+ * presse-papiers exige un contexte sécurisé et une permission, et il peut
+ * refuser. Sans le texte sous les yeux, un refus laisserait l'admin sans
+ * recours.
+ */
+export function CredentialsDialog({
+  open, onOpenChange, name, email, password,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  name: string
+  email: string
+  password: string
+}) {
+  const t = useTranslations('common.credentials')
+  const locale = useLocale()
+  const [copied, setCopied] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const champ = useRef<HTMLTextAreaElement>(null)
+
+  // Le lien doit porter le préfixe de langue du message : un destinataire
+  // anglophone renvoyé sur `/auth/login` lirait un écran français.
+  const link =
+    typeof window === 'undefined'
+      ? ''
+      : `${window.location.origin}${localePath('/auth/login', locale)}`
+
+  const message = t('message', { name, platform: APP_NAME, link, email, password })
+
+  // « Copié » retombe tout seul : un état figé laisse croire que le second
+  // clic n'a rien fait.
+  useEffect(() => {
+    if (!copied) return
+    const minuteur = setTimeout(() => setCopied(false), 2500)
+    return () => clearTimeout(minuteur)
+  }, [copied])
+
+  useEffect(() => {
+    if (!open) { setCopied(false); setFailed(false) }
+  }, [open])
+
+  const copier = async () => {
+    try {
+      await navigator.clipboard.writeText(message)
+      setCopied(true)
+      setFailed(false)
+      return
+    } catch {
+      // ⚠️ `navigator.clipboard` peut être REFUSÉ sans que rien ne soit cassé :
+      // hors contexte sécurisé, dans une vue intégrée, ou sur une permission
+      // déniée (constaté à l'écran, `clipboard-write: denied`). On sélectionne
+      // alors le texte et on tente la commande historique, qui ne demande
+      // aucune permission tant qu'on est dans un geste de l'utilisateur.
+      champ.current?.select()
+      try {
+        if (document.execCommand('copy')) {
+          setCopied(true)
+          setFailed(false)
+          return
+        }
+      } catch {
+        // Rien à ajouter : le texte reste sélectionné et le message le dit.
+      }
+      setFailed(true)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="min-w-0 sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('title')}</DialogTitle>
+          <DialogDescription>{t('description')}</DialogDescription>
+        </DialogHeader>
+
+        <textarea
+          ref={champ}
+          readOnly
+          value={message}
+          rows={9}
+          aria-label={t('title')}
+          onFocus={(e) => e.currentTarget.select()}
+          className="w-full resize-none rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed"
+        />
+
+        <p className="flex items-start gap-2 text-xs text-muted-foreground">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+          {t('warning')}
+        </p>
+
+        {failed && <p className="text-xs text-destructive">{t('copyFailed')}</p>}
+
+        <DialogFooter>
+          <Button type="button" onClick={copier}>
+            {copied
+              ? <><Check className="mr-1.5 size-4" /> {t('copied')}</>
+              : <><Copy className="mr-1.5 size-4" /> {t('copy')}</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

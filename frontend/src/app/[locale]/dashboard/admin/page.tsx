@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils/cn'
 import { WEEKDAYS, type Weekday } from '@/types/menus'
 import type { DailyStatus } from '@/types/attendance'
 import { Link } from '@/i18n/navigation'
+import { displayName } from '@/lib/utils/display-name'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -527,7 +528,7 @@ export default function AdminDashboardPage() {
                         className="flex items-center justify-between rounded-xl px-2 py-1.5 text-sm transition hover:bg-sky/10"
                       >
                         <span className="font-medium">
-                          {c.parent.nickname || `${c.parent.first_name} ${c.parent.last_name}`}
+                          {displayName(c.parent)}
                         </span>
                         <span className="rounded-full bg-sky px-2.5 py-0.5 text-xs font-bold text-white">
                           {c.unread_count}

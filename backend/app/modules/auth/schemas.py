@@ -51,6 +51,9 @@ class UserCreateRequest(BaseModel):
     email:      EmailStr
     first_name: str = Field(min_length=1, max_length=100)
     last_name:  str = Field(min_length=1, max_length=100)
+    # Facultatif ici seulement : cette route historique crée tous les rôles, et
+    # `POST /staff` / `POST /parents` l'exigent déjà pour les leurs.
+    nickname:   str | None = Field(default=None, min_length=1, max_length=100)
     phone:      str | None = Field(default=None, max_length=20)
     role:       UserRole
     establishment_id: uuid.UUID | None = None
@@ -63,6 +66,11 @@ class UserResponse(BaseModel):
     email:            str
     first_name:       str
     last_name:        str
+    # ⚠️ Son absence ici était la cause de fond : `GET /auth/me` ne le renvoyait
+    # pas, donc aucun écran ne pouvait nommer l'utilisateur connecté par son
+    # surnom — ni l'en-tête, ni le profil, ni la liste des admins d'un
+    # établissement. Le champ existait en base depuis toujours.
+    nickname:         str | None = None
     phone:            str | None
     role:             UserRole
     establishment_id: uuid.UUID | None

@@ -22,6 +22,7 @@ import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { REPORT_STATUS_BADGE_CLASS, type ReportListItem, type ReportStatus, type ReportType } from '@/types/reports'
 import { Link } from '@/i18n/navigation'
 import { reportDetailHref, useReportListParams } from './list-params'
+import { displayName } from '@/lib/utils/display-name'
 
 const PAGE_SIZE = 20
 
@@ -159,7 +160,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
                   </Td>
                   <Td className="text-muted-foreground">
                     <Link href={detailHref(r.id)} className="block">
-                      {r.created_by.nickname || `${r.created_by.first_name} ${r.created_by.last_name}`}
+                      {displayName(r.created_by)}
                     </Link>
                   </Td>
                   <Td className="text-muted-foreground">
@@ -229,7 +230,7 @@ function ReportsCardGrid({
                 <span className="text-sm text-muted-foreground">{r.period_label}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {t('list.byAndUpdated', { name: r.created_by.nickname || `${r.created_by.first_name} ${r.created_by.last_name}`, date: formatDate(r.updated_at) })}
+                {t('list.byAndUpdated', { name: displayName(r.created_by), date: formatDate(r.updated_at) })}
               </p>
               <div className="flex flex-wrap gap-2 pt-3">
                 <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={detailHref(r.id)} />}>

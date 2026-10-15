@@ -10,6 +10,7 @@ from app.modules.rbac.models import PermissionCode
 from app.modules.staff import service
 from app.modules.staff.models import StaffType
 from app.modules.staff.schemas import (
+    InvitationResendRequest,
     StaffCreateRequest,
     StaffListResponse,
     StaffPasswordResetRequest,
@@ -108,13 +109,22 @@ async def set_staff_status(
 @router.post("/{staff_id}/resend-invitation", status_code=status.HTTP_204_NO_CONTENT)
 async def resend_staff_invitation(
     staff_id: uuid.UUID,
+    payload: InvitationResendRequest | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(PermissionCode.STAFF_WRITE)),
 ) -> None:
     """Renvoie l'email de bienvenue avec un mot de passe NEUF.
 
-    ⚠️ Pas de corps de requête, et surtout aucun mot de passe en réponse : il ne
-    doit exister que dans l'email. Le renvoyer ici le ferait traverser les
-    journaux d'accès et le reverse proxy.
+    ⚠️ **Aucun mot de passe en réponse**, et c'est la règle qui n'a pas bougé :
+    un secret généré par la plateforme ne traverse pas une réponse HTTP. Le
+    corps est optionnel — si l'admin FOURNIT le mot de passe, il sait déjà ce
+    qu'il a saisi (son écran peut donc le lui faire copier pour le transmettre
+    par un autre canal), et rien ne circule en retour. Sans corps, le mot de
+    passe est généré et n'existe que dans l'email, comme avant.
     """
-    await service.resend_staff_invitation(staff_id, current_user.establishment_id, db)
+    await service.resend_staff_invitation(
+        staff_id,
+        current_user.establishment_id,
+        db,
+        password=payload.password if payload else None,
+    )

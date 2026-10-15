@@ -24,6 +24,7 @@ import { MessageBubble } from '@/components/messaging/message-bubble'
 import { MediaPicker } from '@/components/messaging/media-picker'
 import { cn } from '@/lib/utils'
 import type { Conversation, ConversationListResponse } from '@/types/messaging'
+import { displayName } from '@/lib/utils/display-name'
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'short', timeStyle: 'short' })
@@ -146,7 +147,7 @@ export function ConversationsTab({
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium">
-                      {conv.parent.nickname || `${conv.parent.first_name} ${conv.parent.last_name}`}
+                      {displayName(conv.parent)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {conv.last_message_at ? formatDateTime(conv.last_message_at) : t('conversations.noMessage')}
@@ -237,7 +238,7 @@ export function ConversationsTab({
                     )}
                   >
                     <span className="truncate font-medium">
-                      {parent.nickname || `${parent.first_name} ${parent.last_name}`}
+                      {displayName(parent)}
                     </span>
                     <Badge variant="outline" className="shrink-0 font-normal">
                       {t('conversations.childCount', { count: parent.children_count })}
@@ -335,7 +336,7 @@ function ConversationThread({
     <div className="flex h-full flex-col">
       <div className="border-b border-border p-4">
         <p className="font-medium">
-          {conversation.parent.nickname || `${conversation.parent.first_name} ${conversation.parent.last_name}`}
+          {displayName(conversation.parent)}
         </p>
       </div>
 

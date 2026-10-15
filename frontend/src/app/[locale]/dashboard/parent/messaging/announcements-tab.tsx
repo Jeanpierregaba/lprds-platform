@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils/cn'
 import { messagingApi } from '@/lib/api/messaging.api'
 import { useMessagingEvent } from '@/lib/messaging/socket-context'
 import type { Announcement, AnnouncementListResponse } from '@/types/messaging'
+import { displayName } from '@/lib/utils/display-name'
 
 const key = ['parent', 'announcements'] as const
 
@@ -177,7 +178,7 @@ function AnnouncementCard({
           <div className="min-w-0 flex-1">
             <CardTitle className="break-words text-base">{announcement.title}</CardTitle>
             <CardDescription>
-              {announcement.created_by.nickname || `${announcement.created_by.first_name} ${announcement.created_by.last_name}`}
+              {displayName(announcement.created_by)}
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>

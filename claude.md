@@ -2659,6 +2659,44 @@ draft ──submit──> submitted ──validate──> validated (publié au 
     rôle validateur serait inutilisable (la validation elle-même est sans
     restriction de groupe). Les brouillons/rejetés d'autrui restent invisibles.
 
+### ⚠️ Le périmètre d'une éducatrice suit le groupe ACTUEL de l'enfant
+
+Signalé par un établissement, sur le **bi-mensuel** : « Un rapport bi_mensuel
+existe déjà pour cette période » alors qu'aucun rapport n'était visible nulle
+part. Le rapport existait — l'unicité porte sur `(child_id, report_type,
+period_start)` — mais la lecture testait `reports.group_id`, **figé à la
+création**. Deux rapports fantômes en découlaient :
+
+1. un **admin** rédige pour un enfant pas encore affecté à un groupe :
+   `group_id` reste NULL, et plus aucune éducatrice ne verra ce rapport, même
+   après l'affectation de l'enfant ;
+2. un enfant **change de groupe** : ses rapports de la période en cours restent
+   accrochés à l'ancien.
+
+Dans les deux cas, l'éducatrice se heurtait à un 409 pour un rapport qu'elle ne
+pouvait ni voir, ni ouvrir, ni reprendre — seul un admin pouvait le débloquer.
+⚠️ **C'est le bi-mensuel qui le révèle** : sa période couvre une quinzaine, donc
+une affectation tardive ou un changement de groupe tombe DANS la période d'un
+rapport déjà écrit. Un quotidien n'offre qu'une journée pour ça, et l'annuel au
+plus un rapport par an.
+
+`_led_scope_clause` (liste) et `_staff_leads_report_child` (gardes unitaires)
+testent donc le groupe du rapport **OU** le groupe actuel de l'enfant. La photo
+est conservée en plus du groupe actuel, volontairement : une éducatrice garde
+accès à ce qu'elle a écrit pour un enfant qui a depuis quitté son groupe.
+
+⚠️ Au passage, la branche « validateur délégué » de `_authorize_read` était
+**imbriquée** dans `if report.group_id` : un rapport soumis sans groupe n'était
+ouvrable par aucun validateur. Elle est désormais au même niveau.
+
+⚠️ **Le message du 409 nomme la période et l'état du rapport qui bloque** —
+« Un rapport bi-mensuel existe déjà pour la période « 1–15 octobre 2026 »
+(brouillon) ». Sans ça le blocage reste illisible : une date de référence du 3
+ou du 14 octobre désigne la même quinzaine, et la liste s'ouvre sur la pastille
+« Soumis » quand le rapport qui bloque est presque toujours un BROUILLON. Le
+code brut du type (`bi_mensuel`) y était en outre interpolé tel quel, d'où
+`reports.status.*` et l'usage de `reports.types.*` dans les deux catalogues.
+
 ### ⚠️ Après une validation, on revient LÀ D'OÙ L'ON VIENT
 
 Signalé par un établissement : après avoir validé un rapport bi-mensuel, l'admin
@@ -4104,6 +4142,9 @@ tests/
     ├── test_reports_bimensuel_content.py
     ├── test_reports_annuel_content.py   # + génération PDF
     ├── test_reports_draft_partial.py  # brouillon partiel accepté, soumission/validation strictes
+    ├── test_reports_group_scope.py       # un rapport sans groupe, un enfant qui
+    │                                     #   change de groupe : visible de l'éducatrice
+    │                                     #   au lieu d'un 409 sur un rapport fantôme
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
     ├── test_email_links.py              # les liens des emails mènent à une route

@@ -198,17 +198,19 @@ async def create_report(
         )
     period_start, period_end, period_label = _period_for(payload.report_type, reference)
 
-    existing = await db.scalar(
-        select(Report.id).where(
+    existing_status = await db.scalar(
+        select(Report.status).where(
             Report.child_id == child.id,
             Report.report_type == str(payload.report_type),
             Report.period_start == period_start,
         )
     )
-    if existing:
+    if existing_status:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=t("errors.reports.period_exists", report_type=payload.report_type),
+            detail=_period_exists_detail(
+                payload.report_type, period_start, period_end, existing_status
+            ),
         )
 
     content = dict(payload.content)
@@ -270,14 +272,14 @@ async def list_reports(
         if led_group_ids and can_validate_all:
             filters.append(
                 or_(
-                    Report.group_id.in_(led_group_ids),
+                    _led_scope_clause(led_group_ids),
                     Report.status.in_(
                         [str(ReportStatus.SUBMITTED), str(ReportStatus.VALIDATED)]
                     ),
                 )
             )
         elif led_group_ids:
-            filters.append(Report.group_id.in_(led_group_ids))
+            filters.append(_led_scope_clause(led_group_ids))
         elif can_validate_all:
             filters.append(
                 Report.status.in_(
@@ -365,18 +367,23 @@ async def update_report(
         period_start, period_end, period_label = _period_for(
             ReportType(report.report_type), new_reference
         )
-        conflict = await db.scalar(
-            select(Report.id).where(
+        conflict_status = await db.scalar(
+            select(Report.status).where(
                 Report.child_id == report.child_id,
                 Report.report_type == report.report_type,
                 Report.period_start == period_start,
                 Report.id != report.id,
             )
         )
-        if conflict:
+        if conflict_status:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=t("errors.reports.period_exists", report_type=report.report_type),
+                detail=_period_exists_detail(
+                    ReportType(report.report_type),
+                    period_start,
+                    period_end,
+                    conflict_status,
+                ),
             )
         report.period_start = period_start
         report.period_end = period_end
@@ -619,6 +626,31 @@ def _label_of(report: "Report", locale: Locale | str | None = None) -> str:
     )
 
 
+def _period_exists_detail(
+    report_type: ReportType,
+    period_start: date,
+    period_end: date,
+    existing_status: str,
+) -> str:
+    """Message du 409 d'unicité — il NOMME la période et l'état du rapport qui
+    bloque.
+
+    « Un rapport bi_mensuel existe déjà pour cette période » ne disait ni
+    laquelle, ni où le trouver : une date de référence du 3 ou du 14 octobre
+    désigne la même quinzaine, et la liste s'ouvre sur la pastille « Soumis »
+    alors que le rapport qui bloque est le plus souvent un BROUILLON. D'où un
+    blocage qui se lit comme un bug — « aucun rapport n'existe pour cette
+    période » — alors qu'il en existe un, une pastille à côté. Le code brut du
+    type (`bi_mensuel`) y était en outre interpolé tel quel.
+    """
+    return t(
+        "errors.reports.period_exists",
+        report_type=t(f"reports.types.{report_type}"),
+        period=period_label(report_type, period_start, period_end),
+        report_status=t(f"reports.status.{existing_status}"),
+    )
+
+
 def _period_for(report_type: ReportType, reference: date) -> tuple[date, date, str]:
     """(début, fin, libellé français). Le libellé n'alimente que la colonne
     `reports.period_label` ; l'affichage passe par `period_label()`."""
@@ -647,13 +679,58 @@ async def _led_group_ids(staff_id: uuid.UUID, db: AsyncSession) -> set[uuid.UUID
     return set(result.scalars().all())
 
 
+def _led_scope_clause(led_group_ids: set[uuid.UUID]):
+    """Rapports qu'une éducatrice menant `led_group_ids` doit voir.
+
+    ⚠️ **Le groupe du rapport est une PHOTO prise à la création** ; le
+    périmètre d'une éducatrice, lui, est le groupe ACTUEL de l'enfant. Tester
+    la seule photo rendait des rapports définitivement invisibles tout en
+    continuant de bloquer la création — l'unicité, elle, ne regarde que
+    (enfant, type, période) :
+
+    - un **admin** crée un rapport pour un enfant pas encore affecté à un
+      groupe : `group_id` est NULL, et plus aucune éducatrice ne le verra, même
+      après l'affectation de l'enfant ;
+    - un enfant **change de groupe** : ses rapports de la période en cours
+      restent accrochés à l'ancien groupe.
+
+    Dans les deux cas l'éducatrice lit « Un rapport bi_mensuel existe déjà pour
+    cette période » sans trouver ce rapport nulle part. C'est sur le
+    **bi-mensuel** que ça se voit : sa période couvre une quinzaine, donc une
+    affectation tardive ou un changement de groupe tombe DANS la période d'un
+    rapport déjà écrit — un quotidien n'offre qu'une journée pour ça.
+
+    La photo est conservée en plus du groupe actuel : une éducatrice garde
+    accès à ce qu'elle a écrit pour un enfant qui a depuis quitté son groupe.
+    """
+    return or_(
+        Report.group_id.in_(led_group_ids),
+        Report.child_id.in_(
+            select(Child.id).where(Child.group_id.in_(led_group_ids))
+        ),
+    )
+
+
+async def _staff_leads_report_child(
+    report: Report, staff_id: uuid.UUID, db: AsyncSession
+) -> bool:
+    """Pendant unitaire de `_led_scope_clause` (cf. sa docstring)."""
+    led = await _led_group_ids(staff_id, db)
+    if not led:
+        return False
+    if report.group_id is not None and report.group_id in led:
+        return True
+    child = await db.get(Child, report.child_id)
+    return child is not None and child.group_id is not None and child.group_id in led
+
+
 async def _authorize_write(report: Report, current_user: User, db: AsyncSession) -> None:
     if current_user.role == UserRole.ADMIN:
         return
-    if current_user.role == UserRole.STAFF and report.group_id:
-        group = await db.get(Group, report.group_id)
-        if group and group.educatrice_id == current_user.id:
-            return
+    if current_user.role == UserRole.STAFF and await _staff_leads_report_child(
+        report, current_user.id, db
+    ):
+        return
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=t("errors.reports.cannot_edit"),
@@ -696,13 +773,15 @@ def _ensure_mutable(report: Report, current_user: User) -> None:
 async def _authorize_read(report: Report, current_user: User, db: AsyncSession) -> None:
     if current_user.role == UserRole.ADMIN:
         return
-    if current_user.role == UserRole.STAFF and report.group_id:
-        led = await _led_group_ids(current_user.id, db)
-        if report.group_id in led:
+    if current_user.role == UserRole.STAFF:
+        if await _staff_leads_report_child(report, current_user.id, db):
             return
         # Validateur sans groupe mené : peut ouvrir un soumis/validé pour le
         # valider (cohérent avec validate_report, sans restriction de groupe).
         # Les brouillons/rejetés des autres groupes restent invisibles.
+        # ⚠️ Ce test était IMBRIQUÉ dans `report.group_id`, donc un rapport
+        # soumis sans groupe (créé par un admin pour un enfant non affecté)
+        # n'était ouvrable par AUCUN validateur délégué.
         if (
             PermissionCode.REPORTS_VALIDATE.value in user_permission_codes(current_user)
             and report.status

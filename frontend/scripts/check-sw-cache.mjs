@@ -14,7 +14,7 @@
  * langue comprises — et on vérifie ce que le worker met en cache, sous quelle
  * clé, et ce qu'il sert hors ligne.
  *
- * ⚠️ Le `fetch` simulé doit rester le miroir de `src/middleware.ts` : c'est lui
+ * ⚠️ Le `fetch` simulé doit rester le miroir de `src/proxy.ts` : c'est lui
  * qui décide des redirections, donc de tout ce qui est vérifié ici. Sa
  * première version redirigeait `/icons/...`, que le matcher réel exclut — la
  * garde accusait alors le worker à tort.
@@ -72,7 +72,7 @@ function load(device, cookie = null) {
     const href = typeof input === 'string' ? new URL(input, ORIGIN).href : input.url
     const path = new URL(href).pathname
     const unprefixed = !(path === '/en' || path.startsWith('/en/'))
-    // Mirroir du matcher reel de src/middleware.ts : ces chemins ne passent
+    // Mirroir du matcher reel de src/proxy.ts : ces chemins ne passent
     // JAMAIS par le middleware, donc jamais par la detection de langue.
     const OUT_OF_MATCHER = /^\/(_next\/static|_next\/image|favicon\.ico|icons|images|public|api|manifest\.webmanifest|sw\.js|version\.json|sitemap\.xml|robots\.txt)/
     // /offline passe par le middleware mais est exemptee de la redirection.

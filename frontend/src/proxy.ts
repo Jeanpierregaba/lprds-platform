@@ -13,8 +13,19 @@ import {
 import { ROLE_HOME, type UserRole } from '@/types/auth'
 
 /**
- * Middleware unique — il cumule trois responsabilités qui doivent s'exécuter
- * dans cet ordre précis :
+ * Proxy unique — c'est l'ancien `middleware.ts`, renommé par Next 16 (le
+ * fichier ET l'export : `middleware` est devenu `proxy`). L'ancien nom reste
+ * accepté mais déprécié, et disparaîtra d'une version future ; la logique,
+ * elle, est inchangée — mêmes `NextRequest`/`NextResponse`, même `config`.
+ *
+ * ⚠️ Un changement n'est PAS cosmétique : le proxy s'exécute par défaut sur le
+ * runtime **Node**, là où le middleware tournait sur l'Edge. Rien ici n'en
+ * dépendait (lecture de cookies, d'en-têtes et réécritures d'URL, disponibles
+ * des deux côtés), mais toute addition future peut désormais s'appuyer sur
+ * Node — et doit se souvenir que ce fichier s'exécute à CHAQUE requête.
+ *
+ * Il cumule trois responsabilités qui doivent s'exécuter dans cet ordre
+ * précis :
  *   1. résoudre la langue (préfixe d'URL, cookie, langue du compte, puis
  *      `Accept-Language`) ;
  *   2. rediriger un visiteur non francophone arrivé sur une URL sans préfixe ;
@@ -127,7 +138,7 @@ function readSession(request: NextRequest): {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const { prefixed, bare: servedPath } = splitLocale(pathname)
 

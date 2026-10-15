@@ -23,10 +23,10 @@ import { readFileSync } from 'node:fs'
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')
 
-const middleware = read('../src/middleware.ts')
+const middleware = read('../src/proxy.ts')
 const matcher = middleware.match(/'\/\(\(\?!([^)]+)\)\.\*\)'/)?.[1]
 if (!matcher) {
-  console.error('✗ matcher du middleware introuvable dans src/middleware.ts')
+  console.error('✗ matcher du proxy introuvable dans src/proxy.ts')
   process.exit(1)
 }
 const excluded = new Set(matcher.split('|'))
@@ -60,7 +60,7 @@ const unique = [...new Set(problems)]
 if (unique.length > 0) {
   console.error('✗ assets statiques servis à travers le middleware de langue :')
   for (const p of unique) console.error(`  - ${p}`)
-  console.error('\n  Ajouter le segment à la liste d\'exclusion du matcher (src/middleware.ts).')
+  console.error('\n  Ajouter le segment à la liste d\'exclusion du matcher (src/proxy.ts).')
   process.exit(1)
 }
 console.log('✓ assets statiques — tous exclus du middleware de langue')

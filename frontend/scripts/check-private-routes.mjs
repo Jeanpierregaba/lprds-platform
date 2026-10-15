@@ -2,7 +2,7 @@
  * Vérifie que la garde d'authentification du middleware couvre bien toutes les
  * routes de l'application.
  *
- * `src/middleware.ts` protégeait l'espace connecté par la négative : « tout ce
+ * `src/proxy.ts` (l'ancien `middleware.ts`) protégeait l'espace connecté par la négative : « tout ce
  * qui n'est pas listé comme public exige une session ». Juste pour les routes
  * qui existent, faux pour toutes les autres — une URL inconnue n'étant dans
  * aucune liste, un visiteur anonyme arrivant sur `/une-page-inconnue` était
@@ -27,14 +27,14 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
-const MIDDLEWARE = 'src/middleware.ts'
-const source = readFileSync(MIDDLEWARE, 'utf8')
+const PROXY = 'src/proxy.ts'
+const source = readFileSync(PROXY, 'utf8')
 
 /** Extrait les chemins d'un tableau de littéraux du middleware. */
 function routeList(name) {
   const match = source.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\n\\]`))
   if (!match) {
-    console.error(`[check-private-routes] ${name} introuvable dans ${MIDDLEWARE}.`)
+    console.error(`[check-private-routes] ${name} introuvable dans ${PROXY}.`)
     process.exit(1)
   }
   return [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
@@ -42,7 +42,7 @@ function routeList(name) {
 
 const privateMatch = source.match(/const PRIVATE_PREFIX = '([^']+)'/)
 if (!privateMatch) {
-  console.error(`[check-private-routes] PRIVATE_PREFIX introuvable dans ${MIDDLEWARE}.`)
+  console.error(`[check-private-routes] PRIVATE_PREFIX introuvable dans ${PROXY}.`)
   process.exit(1)
 }
 const PRIVATE_PREFIX = privateMatch[1]
@@ -90,6 +90,6 @@ console.log(`\n${problems.length} route(s) hors garde d'authentification :\n`)
 for (const problem of problems) console.log(`  ${problem}`)
 console.log(
   `\nSoit la poser sous ${PRIVATE_PREFIX}, soit l'ajouter à PUBLIC_ROUTES / ` +
-    `MARKETING_ROUTES dans ${MIDDLEWARE} si elle est bien publique.\n`,
+    `MARKETING_ROUTES dans ${PROXY} si elle est bien publique.\n`,
 )
 process.exit(strict ? 1 : 0)

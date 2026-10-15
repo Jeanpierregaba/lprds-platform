@@ -7,7 +7,9 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine
 from app.core.i18n import resolve_accept_language, set_request_locale
-from app.core.models import Base  # importe tous les modèles (registre central)
+from app.core.models import Base  # noqa: F401 — registre central : cet import
+# enregistre TOUS les modèles avant la première résolution de mapper. `Base`
+# n'est pas lu ici, et le retirer casserait les relations au runtime.
 from app.core.redis import close_redis, redis_client
 from app.api.v1.router import api_router
 

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import media, storage
 from app.core.config import settings
-from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, t
+from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.core.translation import (
     TranslationUnavailable,
     remember_correction,

@@ -50,7 +50,6 @@ import argparse
 import asyncio
 import csv
 import json
-import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -63,7 +62,6 @@ from sqlalchemy import select
 
 import app.core.models  # noqa: F401 — registre central (résolution des mappers)
 from app.core.database import AsyncSessionLocal
-from app.modules.children import io as children_io
 from app.modules.children.io import (
     address_fallback,
     RowError,

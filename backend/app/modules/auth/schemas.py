@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 import uuid
-from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator
+from pydantic import AfterValidator, BaseModel, EmailStr, Field
 from app.modules.auth.models import UserRole
 from app.core.i18n import t
 

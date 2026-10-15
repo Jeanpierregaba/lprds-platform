@@ -20,10 +20,13 @@ import logging
 import uuid
 from typing import Optional
 
-from sqlalchemy import select
+from dataclasses import dataclass
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 from app.core.i18n import DEFAULT_LOCALE, coerce_locale, t
 from app.modules.auth.models import User, UserRole
 from app.modules.notifications.models import PushSubscription
@@ -119,46 +122,54 @@ async def list_user_subscriptions(
     return list(result.scalars().all())
 
 
-async def send_push_to_subscription(
-    subscription: PushSubscription,
-    title: str,
-    body: str,
-    data: Optional[dict] = None,
-    *,
-    db: AsyncSession | None = None,
-) -> bool:
-    """Envoie un push à un abonnement donné. Best-effort : jamais d'erreur HTTP.
+#: Tâches d'envoi en cours — gardées le temps de leur exécution.
+#: ⚠️ `asyncio` ne retient qu'une référence FAIBLE sur une tâche : sans cet
+#: ensemble, le ramasse-miettes peut l'emporter en plein vol et personne ne
+#: recevrait rien, sans la moindre trace.
+_taches_push: set[asyncio.Task] = set()
 
-    `db` sert uniquement à FAIRE LE MÉNAGE : un endpoint révoqué (navigateur
-    désinstallé, abonnement expiré, données du site effacées) répond 404 ou
-    410 et le fera indéfiniment. Sans ce retrait, chaque diffusion rejouerait
-    l'appel pour rien, et le compte paraîtrait abonné à jamais. Les autres
-    codes — un 503 du service de push, une panne réseau — sont PASSAGERS et ne
-    doivent surtout rien supprimer.
 
-    ⚠️ L'envoi est synchrone (pywebpush fait une requête HTTP bloquante) et
-    passe donc par un thread : sans cela, une diffusion à trente parents
-    bloquerait la boucle asyncio le temps de trente allers-retours réseau.
+@dataclass(frozen=True)
+class _Envoi:
+    """Un push prêt à partir : plus aucune session de base n'est nécessaire.
+
+    Tout ce qui demandait la base — le destinataire, sa langue, ses
+    abonnements — a été lu PENDANT la requête. Ne restent que des valeurs.
+    """
+
+    subscription_id: uuid.UUID
+    endpoint: str
+    p256dh: str
+    auth_key: str
+    title: str
+    body: str
+
+
+async def _pousser(envoi: _Envoi, data: Optional[dict]) -> tuple[bool, bool]:
+    """Envoie UN push. Retourne (parti, abonnement définitivement mort).
+
+    ⚠️ La distinction entre les deux booléens est tout l'intérêt : un 404 ou un
+    410 sont DÉFINITIFS (navigateur désinstallé, données du site effacées) et
+    la ligne ne recevra plus jamais rien ; tout autre code — un 503 du service
+    de push, une coupure réseau — est PASSAGER. Désabonner quelqu'un parce que
+    Google a eu une mauvaise minute serait pire que le problème.
+
+    L'appel lui-même part dans un thread : `pywebpush` fait une requête HTTP
+    BLOQUANTE, qui tiendrait sinon la boucle asyncio.
     """
     if not settings.vapid_private_key:
-        # Dit une fois au démarrage par `_warn_dormant_features` ; répété ici
-        # au niveau debug pour que le diagnostic d'un envoi muet soit possible
-        # sans relire le journal de démarrage.
         logger.debug("Push ignoré (aucune clé VAPID configurée)")
-        return False
+        return False, False
 
     from pywebpush import WebPushException, webpush
 
-    payload = json.dumps({"title": title, "body": body, **(data or {})})
+    payload = json.dumps({"title": envoi.title, "body": envoi.body, **(data or {})})
 
     def _envoyer() -> None:
         webpush(
             subscription_info={
-                "endpoint": subscription.endpoint,
-                "keys": {
-                    "p256dh": subscription.p256dh,
-                    "auth": subscription.auth_key,
-                },
+                "endpoint": envoi.endpoint,
+                "keys": {"p256dh": envoi.p256dh, "auth": envoi.auth_key},
             },
             data=payload,
             vapid_private_key=settings.vapid_private_key,
@@ -167,30 +178,121 @@ async def send_push_to_subscription(
 
     try:
         await asyncio.to_thread(_envoyer)
-        return True
+        return True, False
     except WebPushException as exc:
         statut = getattr(getattr(exc, "response", None), "status_code", None)
-        if statut in (404, 410) and db is not None:
+        if statut in (404, 410):
             logger.info(
-                "Abonnement push %s révoqué par le service (%s) : retiré",
-                subscription.id, statut,
+                "Abonnement push %s révoqué par le service (%s)",
+                envoi.subscription_id, statut,
             )
-            await db.delete(subscription)
-            await db.flush()
-        else:
-            logger.warning(
-                "Échec d'envoi push sur l'abonnement %s : %s",
-                subscription.id, exc,
-            )
-        return False
+            return False, True
+        logger.warning(
+            "Échec d'envoi push sur l'abonnement %s : %s", envoi.subscription_id, exc
+        )
+        return False, False
     except Exception:
         # pywebpush laisse aussi passer des erreurs de transport brutes. Un
         # push raté ne doit jamais faire échouer la publication qui l'a
         # déclenché (même politique que la messagerie, cf. CLAUDE.md).
         logger.exception(
-            "Échec inattendu d'envoi push sur l'abonnement %s", subscription.id
+            "Échec inattendu d'envoi push sur l'abonnement %s", envoi.subscription_id
         )
-        return False
+        return False, False
+
+
+async def _envoyer_en_fond(envois: list[_Envoi], data: Optional[dict]) -> None:
+    """Déroule les envois HORS de la requête, puis fait le ménage.
+
+    La session de la requête est fermée depuis longtemps quand cette tâche
+    tourne : le retrait des abonnements morts ouvre donc la sienne, brièvement,
+    et une seule fois pour tout le lot.
+    """
+    morts: list[uuid.UUID] = []
+    for envoi in envois:
+        _, revoque = await _pousser(envoi, data)
+        if revoque:
+            morts.append(envoi.subscription_id)
+
+    if not morts:
+        return
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                delete(PushSubscription).where(PushSubscription.id.in_(morts))
+            )
+            await db.commit()
+    except Exception:
+        logger.exception("Échec du retrait de %d abonnement(s) mort(s)", len(morts))
+
+
+def _programmer(envois: list[_Envoi], data: Optional[dict]) -> int:
+    """Confie le lot à une tâche de fond et rend la main tout de suite.
+
+    ⚠️ Le compte retourné est celui des envois PROGRAMMÉS, pas aboutis — la
+    requête ne les attend plus, elle ne peut donc plus en connaître l'issue.
+    """
+    if not envois:
+        return 0
+    tache = asyncio.create_task(_envoyer_en_fond(envois, data))
+    _taches_push.add(tache)
+    tache.add_done_callback(_taches_push.discard)
+    return len(envois)
+
+
+async def _abonnements_par_compte(
+    user_ids: list[uuid.UUID], db: AsyncSession
+) -> dict[uuid.UUID, list[PushSubscription]]:
+    """Les abonnements de tous les destinataires, en UNE requête.
+
+    La version précédente en faisait une par parent : sur un établissement de
+    150 familles, 150 allers-retours vers la base avant même le premier push.
+    """
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        select(PushSubscription).where(PushSubscription.user_id.in_(user_ids))
+    )
+    par_compte: dict[uuid.UUID, list[PushSubscription]] = {}
+    for sub in result.scalars().all():
+        par_compte.setdefault(sub.user_id, []).append(sub)
+    return par_compte
+
+
+async def send_push_to_subscription(
+    subscription: PushSubscription,
+    title: str,
+    body: str,
+    data: Optional[dict] = None,
+    *,
+    db: AsyncSession | None = None,
+) -> bool:
+    """Envoie un push et ATTEND son issue. Best-effort : jamais d'erreur HTTP.
+
+    ⚠️ C'est le seul chemin qui attend, et c'est voulu : il sert le bouton
+    « envoyer un essai », dont tout l'intérêt est de dire si ça marche. Les
+    envois en nombre (diffusion, message) passent, eux, par les deux fonctions
+    ci-dessous, qui rendent la main avant de partir.
+
+    `db` sert uniquement à FAIRE LE MÉNAGE : un endpoint révoqué répond 404 ou
+    410 et le fera indéfiniment. Sans ce retrait, chaque envoi rejouerait
+    l'appel pour rien, et le compte paraîtrait abonné à jamais.
+    """
+    envoi = _Envoi(
+        subscription_id=subscription.id,
+        endpoint=subscription.endpoint,
+        p256dh=subscription.p256dh,
+        auth_key=subscription.auth_key,
+        title=title,
+        body=body,
+    )
+    parti, revoque = await _pousser(envoi, data)
+    if revoque and db is not None:
+        logger.info("Abonnement push %s retiré", subscription.id)
+        await db.delete(subscription)
+        await db.flush()
+    return parti
+
 
 async def send_push_to_establishment_parents(
     establishment_id: uuid.UUID,
@@ -204,12 +306,24 @@ async def send_push_to_establishment_parents(
     body_params: Optional[dict] = None,
     body_by_locale: Optional[dict[str, str]] = None,
 ) -> int:
-    """Envoie un push aux parents d'un établissement, restreint à `parent_ids`
-    si fourni (diffusion ciblée par départements) — sinon tous les parents.
+    """Pousse aux parents d'un établissement, restreint à `parent_ids` si
+    fourni (diffusion ciblée par départements) — sinon tous les parents.
+
+    ⚠️ **Les envois partent EN FOND ; la requête ne les attend pas.** Chaque
+    push est un aller-retour HTTP vers le service du navigateur : une diffusion
+    à 150 familles, souvent deux appareils chacune, c'était trois cents
+    allers-retours tenus par la requête de publication — au-delà de ce que le
+    reverse proxy accepte d'attendre, pour une diffusion pourtant déjà
+    enregistrée. Ce qui exige la base (destinataires, langues, abonnements) est
+    donc lu ICI, pendant que la session existe ; le réseau se déroule ensuite.
+
+    Conséquence assumée : le compte retourné est celui des envois PROGRAMMÉS.
+    La requête ne peut plus savoir combien aboutissent — c'est le prix de ne
+    plus la faire attendre.
 
     ⚠️ `title_key` est une CLÉ, pas un texte : un même appel touche plusieurs
     parents, chacun avec sa propre langue. Le rendu se fait donc par
-    destinataire, à l'intérieur de la boucle.
+    destinataire.
 
     Trois façons de donner le corps, dans cet ordre de priorité :
 
@@ -219,7 +333,6 @@ async def send_push_to_establishment_parents(
     - `body` — du contenu saisi en une seule langue : extrait d'un message
       privé, qui ne se traduit pas (cf. claude.md).
     - `body_key` (+ `body_params`) — un corps rédigé par la plateforme."""
-    # Récupérer tous les users role=parent de l'établissement
     filters = [
         User.establishment_id == establishment_id,
         User.role == UserRole.PARENT,
@@ -229,17 +342,12 @@ async def send_push_to_establishment_parents(
         if not parent_ids:
             return 0
         filters.append(User.id.in_(parent_ids))
-    result = await db.execute(select(User).where(*filters))
-    parents = result.scalars().all()
+    parents = (await db.execute(select(User).where(*filters))).scalars().all()
 
-    sent = 0
+    abonnements = await _abonnements_par_compte([p.id for p in parents], db)
+
+    envois: list[_Envoi] = []
     for parent in parents:
-        # Récupérer ses souscriptions
-        sub_result = await db.execute(
-            select(PushSubscription).where(PushSubscription.user_id == parent.id)
-        )
-        subscriptions = sub_result.scalars().all()
-
         locale = coerce_locale(parent.locale)
         if body_by_locale is not None:
             text = body_by_locale.get(str(locale)) or body_by_locale[str(DEFAULT_LOCALE)]
@@ -247,14 +355,20 @@ async def send_push_to_establishment_parents(
             text = body
         else:
             text = t(body_key or "", locale, **(body_params or {}))
-        for sub in subscriptions:
-            success = await send_push_to_subscription(
-                sub, t(title_key, locale), text, data, db=db
+        titre = t(title_key, locale)
+        for sub in abonnements.get(parent.id, []):
+            envois.append(
+                _Envoi(
+                    subscription_id=sub.id,
+                    endpoint=sub.endpoint,
+                    p256dh=sub.p256dh,
+                    auth_key=sub.auth_key,
+                    title=titre,
+                    body=text,
+                )
             )
-            if success:
-                sent += 1
 
-    return sent
+    return _programmer(envois, data)
 
 
 async def send_push_to_establishment_admins(
@@ -267,32 +381,35 @@ async def send_push_to_establishment_admins(
     body_key: str | None = None,
     body_params: Optional[dict] = None,
 ) -> int:
-    """Envoie un push à tous les admins d'un établissement (cf. la version
-    parents pour la raison d'être des clés plutôt que des textes)."""
-    result = await db.execute(
-        select(User).where(
-            User.establishment_id == establishment_id,
-            User.role == UserRole.ADMIN,
-            User.is_active.is_(True),
+    """Pousse à tous les admins d'un établissement — même mécanique que la
+    version parents : lecture ici, envoi en fond, compte des PROGRAMMÉS."""
+    admins = (
+        await db.execute(
+            select(User).where(
+                User.establishment_id == establishment_id,
+                User.role == UserRole.ADMIN,
+                User.is_active.is_(True),
+            )
         )
-    )
-    admins = result.scalars().all()
+    ).scalars().all()
 
-    sent = 0
+    abonnements = await _abonnements_par_compte([a.id for a in admins], db)
+
+    envois: list[_Envoi] = []
     for admin in admins:
-        sub_result = await db.execute(
-            select(PushSubscription).where(PushSubscription.user_id == admin.id)
-        )
-        subscriptions = sub_result.scalars().all()
-
         locale = coerce_locale(admin.locale)
         text = body if body is not None else t(body_key or "", locale, **(body_params or {}))
-
-        for sub in subscriptions:
-            success = await send_push_to_subscription(
-                sub, t(title_key, locale), text, data, db=db
+        titre = t(title_key, locale)
+        for sub in abonnements.get(admin.id, []):
+            envois.append(
+                _Envoi(
+                    subscription_id=sub.id,
+                    endpoint=sub.endpoint,
+                    p256dh=sub.p256dh,
+                    auth_key=sub.auth_key,
+                    title=titre,
+                    body=text,
+                )
             )
-            if success:
-                sent += 1
 
-    return sent
+    return _programmer(envois, data)

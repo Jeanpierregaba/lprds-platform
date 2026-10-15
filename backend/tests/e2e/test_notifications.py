@@ -24,6 +24,8 @@ import base64
 import os
 import uuid
 
+import time
+
 import pytest
 
 from app.core.config import settings
@@ -73,6 +75,18 @@ def push_envoyes(monkeypatch):
     monkeypatch.setattr(pywebpush, "webpush", faux_webpush)
     monkeypatch.setattr(settings, "vapid_private_key", "fausse-cle-privee")
     monkeypatch.setattr(settings, "vapid_public_key", "fausse-cle-publique")
+    return envois
+
+
+def _attendre(envois, combien, delai=5.0):
+    """⚠️ Les envois en nombre partent EN FOND (la publication ne les attend
+    plus, cf. notifications/service.py) : sans cette attente, le test lirait la
+    liste avant que la tâche n'ait tourné — il passerait ou non selon la charge
+    de la machine. Le bouton « essai », lui, attend toujours : les tests qui le
+    visent n'ont rien à faire de ce helper."""
+    fin = time.monotonic() + delai
+    while time.monotonic() < fin and len(envois) < combien:
+        time.sleep(0.05)
     return envois
 
 
@@ -302,6 +316,7 @@ def test_une_diffusion_pousse_vraiment_aux_parents_dans_leur_langue(client, push
                     json={"title": "Sortie", "body": "Rendez-vous à 8h"})
     ck("diffusion publiée", r.status_code, 201)
 
+    _attendre(push_envoyes, 1)
     ck("un push est bien parti", len(push_envoyes), 1)
     charge = push_envoyes[0]["data"]
     ck("le titre est rendu en anglais", '"title": "New announcement"' in charge, True)
@@ -309,3 +324,119 @@ def test_une_diffusion_pousse_vraiment_aux_parents_dans_leur_langue(client, push
        "/dashboard/parent/messaging?tab=announcements" in charge, True)
     ck("la destination est un CHEMIN, jamais une URL absolue",
        "http" in charge.split('"url": "')[1].split('"')[0], False)
+
+
+def test_la_publication_n_attend_pas_les_push(client, push_envoyes, monkeypatch):
+    """⚠️ Le point de l'envoi en fond, et le seul moyen de le prouver.
+
+    Chaque push est un aller-retour HTTP vers le service du navigateur. Tenus
+    par la requête, 150 familles à deux appareils faisaient trois cents
+    allers-retours avant la réponse — au-delà de ce que le reverse proxy
+    accepte d'attendre, sur une diffusion pourtant déjà enregistrée.
+
+    On ralentit donc l'envoi à deux secondes : si la publication les attendait,
+    elle les paierait.
+    """
+    import pywebpush
+
+    su = login(client, SU_EMAIL, SU_PASSWORD)
+    adm = onboard(client, su, "PSH8", "admin@psh8.fr")
+    parent, _ = _parent_abonne(client, adm)
+    ck("le parent s'abonne",
+       client.post("/notifications/subscriptions", headers=parent,
+                   json=abonnement()).status_code, 201)
+
+    def webpush_lent(**kwargs):
+        time.sleep(2.0)
+        push_envoyes.append(kwargs)
+
+    monkeypatch.setattr(pywebpush, "webpush", webpush_lent)
+
+    depart = time.monotonic()
+    r = client.post("/messaging/announcements", headers=adm,
+                    json={"title": "Sortie", "body": "Rendez-vous à 8h"})
+    duree = time.monotonic() - depart
+
+    ck("diffusion publiée", r.status_code, 201)
+    ck("la publication rend la main sans attendre le push", duree < 1.5, True)
+    # Et le push part quand même, simplement après.
+    ck("le push finit par partir", len(_attendre(push_envoyes, 1, delai=6.0)), 1)
+
+
+def _compte_abonnements(email: str) -> int:
+    """Lit la base directement — seul observable honnête ici.
+
+    ⚠️ La version précédente de ce test interrogeait `/notifications/test`, et
+    ne prouvait RIEN : cet endpoint envoie pour de vrai, rencontre le 410 et
+    retire lui-même la ligne. Il fabriquait donc le résultat qu'il était censé
+    constater. Prouvé par sabotage — ménage de fond supprimé, le test passait
+    quand même.
+    """
+    import asyncio
+
+    from sqlalchemy import text as sql
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from app.core.config import settings as cfg
+
+    async def _lire() -> int:
+        moteur = create_async_engine(cfg.database_url, poolclass=NullPool)
+        try:
+            async with moteur.connect() as cx:
+                if cfg.db_schema:
+                    await cx.execute(sql(f'SET search_path TO {cfg.db_schema}, public'))
+                return (
+                    await cx.execute(
+                        sql(
+                            "SELECT count(*) FROM push_subscriptions s "
+                            "JOIN users u ON u.id = s.user_id WHERE u.email = :e"
+                        ),
+                        {"e": email},
+                    )
+                ).scalar_one()
+        finally:
+            await moteur.dispose()
+
+    return asyncio.run(_lire())
+
+
+def test_un_abonnement_mort_est_retire_meme_quand_l_envoi_part_en_fond(
+    client, push_envoyes, monkeypatch
+):
+    """Le ménage survit au passage en tâche de fond.
+
+    ⚠️ La session de la requête est fermée quand la tâche tourne : le retrait
+    doit donc ouvrir la SIENNE. Si ce point était faux, rien ne le dirait — un
+    push est best-effort, et la ligne morte serait simplement rejouée à chaque
+    diffusion, pour toujours.
+    """
+    import pywebpush
+
+    su = login(client, SU_EMAIL, SU_PASSWORD)
+    adm = onboard(client, su, "PSH9", "admin@psh9.fr")
+    parent, _ = _parent_abonne(client, adm, "mort")
+    ck("le parent s'abonne",
+       client.post("/notifications/subscriptions", headers=parent,
+                   json=abonnement()).status_code, 201)
+    ck("la ligne existe bien en base", _compte_abonnements("parentmort@push.fr"), 1)
+
+    def webpush_410(**kwargs):
+        exc = pywebpush.WebPushException("révoqué")
+        exc.response = type("R", (), {"status_code": 410})()
+        push_envoyes.append(kwargs)
+        raise exc
+
+    monkeypatch.setattr(pywebpush, "webpush", webpush_410)
+    ck("diffusion publiée", client.post("/messaging/announcements", headers=adm,
+       json={"title": "Sortie", "body": "x"}).status_code, 201)
+    _attendre(push_envoyes, 1)
+
+    fin = time.monotonic() + 5.0
+    restant = 1
+    while time.monotonic() < fin:
+        restant = _compte_abonnements("parentmort@push.fr")
+        if restant == 0:
+            break
+        time.sleep(0.1)
+    ck("l'abonnement mort a été retiré par la tâche de fond", restant, 0)

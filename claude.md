@@ -621,6 +621,55 @@ erreur SMTP en `EmailDeliveryError`.
 > renverront 503 (sauf si `MAIL_SUPPRESS_SEND=true`). La création d'admin via
 > `/establishments` n'est pas concernée (elle n'envoie pas d'email).
 
+### ⚠️ Ce que Yahoo exige d'un email, et que notre code ne donnait pas
+
+Signalé par un établissement : les adresses **yahoo** ne recevaient **jamais**
+rien, quand Gmail recevait tout. Deux défauts, tous deux dans notre code, tous
+deux invisibles côté expéditeur — le DMARC du domaine est en `p=quarantine`,
+donc un message écarté par Yahoo disparaît **sans rebond** : le parent ne
+reçoit rien, et l'établissement n'a aucune trace de l'échec.
+
+1. **Le `Message-ID` ne portait pas notre domaine.** `fastapi-mail` le fabrique
+   avec `make_msgid()` **sans argument**, donc avec le nom d'hôte de la
+   machine : en conteneur, l'identifiant Docker (`<…@3f2a1b9c4d5e>`, pas même
+   un FQDN), et sur un poste de développement `<…@…ip6.arpa>`. Un Message-ID
+   étranger à l'expéditeur est l'une des signatures que Yahoo retient contre un
+   message ; Gmail la tolère.
+   ⚠️ **Il ne peut pas se poser par `headers=`** : la bibliothèque écrit
+   toujours le sien, et le message partirait avec **DEUX** `Message-ID` — pire
+   que le défaut corrigé. On remplace donc le fabricant à la source
+   (`functools.partial(make_msgid, domain=…)`), au point unique de transport.
+   Un test vérifie que la bibliothèque expose toujours ce symbole : un
+   correctif qui s'éteint en silence à la prochaine montée de version ne
+   protège rien.
+2. **Tous nos emails partaient en HTML SEUL**, sans partie `text/plain`. C'est
+   un critère de filtrage constant chez Yahoo. La version texte est
+   **DÉRIVÉE** du HTML (`_text_from_html`), jamais écrite à la main : dix
+   templates texte à tenir en deux langues divergeraient du HTML au premier
+   changement de formulation, et une version texte qui ne dit pas la même chose
+   est pire que pas de version texte. Les liens sont conservés en clair — un
+   bouton « Lire la diffusion » n'est rien en texte sans son URL.
+   ⚠️ `subtype=plain` + `alternative_body=html` n'est pas une inversion : dans
+   un `multipart/alternative`, c'est la **dernière** partie qui est préférée
+   par le client, et la bibliothèque attache `body` d'abord. Annoncer le HTML
+   en `body` le reléguerait en premier, et tout le monde lirait du texte brut.
+
+Les quatre points de construction de message passent désormais par la fabrique
+unique `_html_message()` — les ajouter un par un, c'était quatre occasions de
+n'en faire que trois.
+
+⚠️ **Le reste du problème est HORS DÉPÔT**, et rien dans le dépôt ne le
+rappellera : le domaine publie bien un SPF (`-all`), un DKIM (sélecteur `dkim`)
+et un DMARC, mais
+- `MAIL_SERVER` de la production doit être **dans** le SPF — avec `-all`, un
+  relais absent de l'enregistrement est un refus franc chez Yahoo ;
+- le DMARC n'a **aucun `rua=`** : personne ne peut voir ce que Yahoo fait de
+  nos messages ;
+- réputation d'IP, rDNS et HELO du serveur d'envoi ne se corrigent que là-bas.
+
+Le diagnostic décisif reste la réponse SMTP, dans les journaux du backend :
+`docker compose logs backend | grep -iE "yahoo|smtp|EmailDeliveryError"`.
+
 ### Révocation de tokens (Redis)
 
 Chaque JWT porte un `jti` unique. `POST /auth/logout` et la rotation du refresh
@@ -4147,6 +4196,9 @@ tests/
     │                                     #   au lieu d'un 409 sur un rapport fantôme
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
+    ├── test_email_deliverability.py     # Message-ID sur notre domaine, partie
+    │                                    #   text/plain, HTML préféré — ce que Yahoo
+    │                                    #   exigeait et que nous ne donnions pas
     ├── test_email_links.py              # les liens des emails mènent à une route
     │                                    #   qui existe (comparés à l'arbre frontend)
     ├── test_child_photo.py              # photo d'enfant : qui peut la poser

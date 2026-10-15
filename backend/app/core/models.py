@@ -88,6 +88,7 @@ __all__ = [
     "BlogTag",
     "Article",
     "ArticleAttachment",
+    "BlogGalleryCategory",
     "BlogGalleryPhoto",
     "Book",
     "BookLending",

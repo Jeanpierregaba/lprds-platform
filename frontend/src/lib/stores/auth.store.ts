@@ -4,7 +4,8 @@ import Cookies from 'js-cookie'
 import { notifySessionEnded } from '@/lib/pwa/sw-messages'
 import type { User, TokenResponse } from '@/types/auth'
 
-// middleware.ts (Edge) lit la session depuis un cookie, pas localStorage —
+// proxy.ts (runtime Node depuis Next 16) lit la session depuis un cookie,
+// pas localStorage —
 // le storage Zustand doit donc être adossé aux cookies pour que les deux
 // restent synchronisés.
 const cookieStorage: StateStorage = {

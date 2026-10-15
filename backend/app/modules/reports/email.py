@@ -7,10 +7,8 @@ journalisé, jamais bloquant).
 
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
 
 from app.core import links
-from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, t
 from app.modules.auth.email import render, send_html_email
 

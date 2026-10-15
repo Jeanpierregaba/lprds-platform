@@ -2,7 +2,7 @@ import uuid
 from app.core.i18n import t
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User, UserRole
@@ -257,7 +257,6 @@ async def assign_child(
     correspondre à celle du groupe.
     """
     group = await get_or_404(Group, group_id, establishment_id, db)
-    from app.modules.children.models import Child
 
     child = await _get_child_or_404(child_id, establishment_id, db)
     _ensure_child_matches_section(child, group)

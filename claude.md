@@ -279,7 +279,8 @@ src/
 ├── types/
 │   ├── auth.ts                    # UserRole, User, TokenResponse, ROLE_HOME...
 │   └── api.ts                     # ApiResponse<T>, PaginatedResponse<T>
-└── middleware.ts                   # Langue + garde auth/rôle (cf. § Internationalisation)
+└── proxy.ts                        # Langue + garde auth/rôle — ex-`middleware.ts`
+                                    #   (cf. § Internationalisation)
 
 public/
 ├── sw.js                          # Service worker PWA (app shell + vitrine)
@@ -465,7 +466,7 @@ au-delà d'une douzaine de caractères.
 - **Page `/offline`** : repli hors-ligne stylé vitrine, publiée en statique,
   exclue des moteurs de recherche, **exclue du middleware** (elle doit rester
   accessible sans session).
-- **Middleware** (`src/middleware.ts`) : les ressources PWA
+- **Proxy** (`src/proxy.ts`, ex-`middleware.ts`) : les ressources PWA
   (`manifest.webmanifest`, `sw.js`, `offline`, `version.json`, icônes/images)
   sont exclues du matcher — sans quoi un visiteur anonyme serait redirigé
   vers `/auth/login`.
@@ -717,8 +718,37 @@ router = APIRouter(dependencies=[Depends(require_roles(UserRole.SUPERADMIN))])
 > plus que déléguer à `get_current_user`, qui vérifie déjà `is_active`. Deux
 > noms pour la même garde invitaient à croire qu'ils différaient.
 
+### ⚠️ `middleware.ts` est devenu `proxy.ts` (Next 16)
+
+Le fichier ET l'export ont changé de nom : `export function middleware` est
+`export function proxy`. L'ancien nom reste accepté par Next 16 mais est
+déprécié et disparaîtra ; la logique, elle, est identique — mêmes
+`NextRequest`/`NextResponse`, même `config.matcher`.
+
+⚠️ **Un changement n'est pas cosmétique : le proxy s'exécute par défaut sur le
+runtime Node**, là où le middleware tournait sur l'Edge. Rien ici n'en dépendait
+(lecture de cookies et d'en-têtes, réécritures d'URL), mais toute addition
+future peut désormais s'appuyer sur Node — en se souvenant que ce fichier
+s'exécute à CHAQUE requête.
+
+⚠️ **Deux gardes de lint LISENT ce fichier par son chemin** et devaient suivre :
+`check-private-routes.mjs` (qui y cherche `PRIVATE_PREFIX` et les listes
+publiques) et `check-public-assets.mjs` (qui y cherche le matcher). Les laisser
+en arrière aurait coûté exactement ce qu'elles protègent — la première ne voit
+plus les routes privées posées hors `/dashboard`, la seconde ne voit plus un
+asset servi à travers la détection de langue.
+
+⚠️ **« Le build passe » ne prouve rien ici.** Si Next n'avait pas pris le
+fichier, rien n'aurait échoué : l'espace connecté serait simplement devenu
+PUBLIC. Vérifié sur un serveur réel, quatre comportements : un anonyme sur
+`/dashboard/admin` finit sur `/auth/login` (et `/en/auth/login` en anglais), un
+visiteur hispanophone est envoyé sur `/en`, `/nos-sections` mène à
+`/en/our-sections`, et une URL inconnue rend bien une **404** au lieu de
+rediriger vers la connexion. Le build affiche désormais `ƒ Proxy (Middleware)`
+et l'avertissement de dépréciation a disparu.
+
 ### Protection des routes (frontend)
-Le `middleware.ts` lit le cookie `lprds-auth` (Zustand persist) et redirige les
+Le `proxy.ts` (ex-`middleware.ts`) lit le cookie `lprds-auth` (Zustand persist) et redirige les
 non-authentifiés vers `/auth/login` — **mais seulement depuis l'espace privé**,
 qu'il NOMME (`PRIVATE_PREFIX = '/dashboard'`).
 
@@ -1987,9 +2017,8 @@ patron que la notification de rapport.
   Conséquence sur les tests : « la publication répond 201 » ne prouve plus rien
   (elle répondrait 201 même si la tâche explosait). Ce qui est vérifié, c'est
   que le SECOND parent reçoit son email quand le premier échoue.
-- ⚠️ Le push, lui, reste envoyé DANS la requête (abonnement par abonnement) —
-  comportement antérieur, non touché ici, mais c'est le même risque de latence
-  sur un gros établissement.
+- Le push suit désormais la même règle (cf. « Push : lecture dans la requête,
+  envoi en fond » au module Notifications).
 - Les contrôles sont prouvés par sabotage. ⚠️ Celui des comptes désactivés ne
   tombe qu'en retirant les DEUX filtres `is_active` (audience et requête
   d'envoi) : chacun suffit seul, c'est une redondance assumée.
@@ -3289,7 +3318,7 @@ messages/{fr,en}/   # 19 domaines, ~1830 clés par langue
   importer depuis `@/i18n/navigation`, sinon les liens perdent le préfixe
   `/en` **silencieusement** (pas d'erreur, juste un visiteur anglophone
   ramené en français). Une règle ESLint l'interdit.
-- **`middleware.ts`** cumule trois responsabilités dans un ordre imposé :
+- **`proxy.ts`** cumule trois responsabilités dans un ordre imposé :
   résolution de langue → redirection de détection → garde auth/rôle **sur le
   chemin débarrassé de son préfixe**. Sans ce débarras, `/en/dashboard/admin`
   ne correspondrait à aucune règle et serait accessible sans session.
@@ -3960,7 +3989,7 @@ La garde charge le VRAI fichier dans un contexte minimal (`caches`, `fetch`,
 en cache, sous quelle clé, et ce qu'il sert hors ligne — précache selon la
 langue, réalignement sur le choix de l'utilisateur, purge de fin de session.
 
-⚠️ **Le `fetch` simulé doit rester le miroir de `src/middleware.ts`** : c'est
+⚠️ **Le `fetch` simulé doit rester le miroir de `src/proxy.ts`** : c'est
 lui qui décide des redirections, donc de tout ce qui est vérifié. Sa première
 version redirigeait `/icons/...`, que le matcher réel exclut — la garde
 accusait alors le worker à tort. Les cinq contrôles ont été prouvés par
@@ -4112,6 +4141,8 @@ tests/
     ├── test_messaging_edit_delete.py # édition (15 min, auteur), suppression douce, lot + quota 15,
     │                                 #   retrait PJ, pagination curseur before_id
     ├── test_notifications.py            # abonnements push avec des clés de la VRAIE
+    │                                    #   taille, publication qui n'attend pas les
+    │                                    #   push, ménage des abonnements morts en fond,
     │                                    #   taille (65 et 16 octets), un appareil n'écrase
     │                                    #   pas l'autre, retrait idempotent borné au compte,
     │                                    #   410 purge / 503 conserve, diffusion poussée
@@ -4723,6 +4754,47 @@ gardé côté client disparaît avec le stockage local. Et c'est un **POST**, pa
 DELETE : en paramètre d'URL l'endpoint entrerait dans les journaux d'accès du
 reverse proxy, et un corps sur un DELETE n'est garanti par aucun intermédiaire.
 
+#### ⚠️ Push : lecture DANS la requête, envoi EN FOND
+
+Chaque push est un aller-retour HTTP vers le service du navigateur. Tenus par
+la requête, 150 familles à deux appareils faisaient **trois cents**
+allers-retours avant la réponse — au-delà de ce que le reverse proxy accepte
+d'attendre, sur une diffusion pourtant déjà enregistrée. L'admin aurait vu une
+erreur sur une publication réussie, exactement le défaut corrigé pour l'email.
+
+`send_push_to_establishment_parents` et `..._admins` lisent donc ce qui exige
+la base — destinataires, langues, abonnements — **pendant** la requête, puis
+confient la liste à une tâche de fond (`_Envoi`, valeurs pures, plus aucune
+session). Les tâches sont gardées dans un ensemble : `asyncio` ne retient
+qu'une référence FAIBLE, et une tâche ramassée en plein vol ne laisserait
+aucune trace.
+
+- ⚠️ **Le compte retourné est celui des envois PROGRAMMÉS**, plus des aboutis.
+  La requête ne peut plus connaître l'issue de ce qu'elle n'attend pas.
+- ⚠️ **Le ménage des abonnements morts ouvre SA PROPRE session** : celle de la
+  requête est fermée depuis longtemps quand la tâche tourne. Une seule session,
+  un seul `DELETE` pour tout le lot.
+- ⚠️ **`POST /notifications/test` reste synchrone**, et c'est tout son intérêt :
+  le bouton « essai » existe pour dire si l'envoi marche.
+- **Le rapport validé reste synchrone** lui aussi : il pousse aux parents d'UN
+  enfant, soit deux comptes, pas cent cinquante. Le coût est borné ; le
+  déplacer n'achèterait rien.
+- Au passage, une requête d'abonnements au lieu d'une par destinataire — la
+  version précédente faisait 150 allers-retours vers la base avant le premier
+  push.
+
+Trois contrôles, prouvés par sabotage : rendu synchrone, le test de latence
+tombe (l'envoi est ralenti à deux secondes, la publication doit rendre la main
+en moins de 1,5) ; ménage de fond supprimé, la ligne morte reste en base ;
+suppression sur tout échec au lieu des seuls 404/410, la panne passagère
+désabonne.
+
+⚠️ **Le test du ménage lit la base DIRECTEMENT**, et c'est la seule forme
+honnête : sa première version interrogeait `/notifications/test`, qui envoie
+pour de vrai, rencontre le 410 et retire la ligne lui-même — il fabriquait donc
+le résultat qu'il prétendait constater. Prouvé par sabotage : ménage retiré, il
+passait quand même.
+
 #### ⚠️ Un endpoint révoqué est RETIRÉ, une panne passagère ne l'est pas
 
 `send_push_to_subscription` reçoit la session et supprime la ligne sur **404 ou
@@ -4959,15 +5031,17 @@ test d'isolation tombe.
   section dédiée ci-dessous.
 - ✅ **`endpoint` en `VARCHAR(500)`** — passé en `Text` dans la migration
   `a3f70c91d8be`, avec les deux colonnes de clés.
-- **Next 16 déprécie `middleware` au profit de `proxy`** (averti à chaque build).
-  Sans urgence, mais ce fichier porte l'authentification ET la détection de
-  langue : le migrer un jour de mise à jour majeure serait le mauvais moment.
-- **Imports inutilisés et redéfinitions** (`ruff --select F401,F811`).
-  Cosmétique, mais c'est ce bruit qui a laissé passer les imports manquants
-  ci-dessus — `notifications/service.py` en portait neuf, plus un
-  `from sqlalchemy.ext.asyncio import AsyncSession` en DOUBLE au milieu du
-  fichier, sous un commentaire « ... plus tard dans le fichier ... ». Traité
-  pour ce module, pas pour le reste du dépôt.
+- ✅ **`middleware.ts` → `proxy.ts`** — fait le 15/10/2026, cf. ci-dessous.
+- ✅ **Imports inutilisés** (`ruff --select F401,F811`) — dépôt entier propre
+  depuis le 15/10/2026 (18 occurrences). ⚠️ **Deux n'étaient PAS des résidus**,
+  et un `--fix` aveugle aurait cassé le registre central : `app/main.py`
+  importe `Base` uniquement pour enregistrer TOUS les modèles avant la première
+  résolution de mapper (marqué `# noqa: F401`, avec la raison), et
+  `BlogGalleryCategory` manquait simplement à `__all__` de
+  `app/core/models.py` — le défaut INVERSE de celui de `WeeklyMenu`, déjà vécu
+  ici. C'est exactement le bruit qui avait laissé passer les neuf imports
+  manquants de `notifications/service.py` : une liste courte se relit, une
+  liste de dix-huit non.
 - **Pression mémoire du VPS** : 1,8 Go de swap sur 4 Go, deux environnements
   complets plus LibreTranslate.
 

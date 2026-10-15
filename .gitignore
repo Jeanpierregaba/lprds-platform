@@ -17,3 +17,7 @@ dump.rdb
 
 # Logs générés par l'éditeur Cursor
 .cursor/*.log
+
+# Projet voisin posé dans ce dossier, sans rapport avec la plateforme :
+# 481 Mo (node_modules compris) qu'un `git add -A` embarquerait d'un bloc.
+motion-video/

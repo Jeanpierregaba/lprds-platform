@@ -307,7 +307,9 @@ MESSAGES: dict[str, str] = {
     "errors.reports.bad_file_type": (
         "Type de fichier non autorisé : {content_type}. Seules les images et vidéos sont acceptées."
     ),
-    "errors.reports.period_exists": "Un rapport {report_type} existe déjà pour cette période",
+    "errors.reports.period_exists": (
+        "Un rapport {report_type} existe déjà pour la période « {period} » ({report_status})"
+    ),
     "errors.reports.dates_admin_only": (
         "Seul un administrateur peut modifier les dates d'un rapport"
     ),
@@ -336,6 +338,10 @@ MESSAGES: dict[str, str] = {
     "reports.types.quotidien": "quotidien",
     "reports.types.bi_mensuel": "bi-mensuel",
     "reports.types.annuel": "annuel",
+    "reports.status.draft": "brouillon",
+    "reports.status.submitted": "soumis",
+    "reports.status.rejected": "rejeté",
+    "reports.status.validated": "validé",
     # ── push ────────────────────────────────────────────
     "push.announcement.title": "Nouvelle diffusion",
     "push.message_from_school.title": "Nouveau message de l'établissement",

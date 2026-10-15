@@ -275,7 +275,9 @@ MESSAGES: dict[str, str] = {
     "errors.reports.bad_file_type": (
         "File type not allowed: {content_type}. Only images and videos are accepted."
     ),
-    "errors.reports.period_exists": "A {report_type} report already exists for this period",
+    "errors.reports.period_exists": (
+        "A {report_type} report already exists for the “{period}” period ({report_status})"
+    ),
     "errors.reports.dates_admin_only": (
         "Only an administrator can change a report's dates"
     ),
@@ -304,6 +306,10 @@ MESSAGES: dict[str, str] = {
     "reports.types.quotidien": "daily",
     "reports.types.bi_mensuel": "twice-monthly",
     "reports.types.annuel": "annual",
+    "reports.status.draft": "draft",
+    "reports.status.submitted": "submitted",
+    "reports.status.rejected": "rejected",
+    "reports.status.validated": "approved",
     # ── push ────────────────────────────────────────────
     "push.announcement.title": "New announcement",
     "push.message_from_school.title": "New message from the school",

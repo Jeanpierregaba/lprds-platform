@@ -18,6 +18,7 @@ import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { CardPreviewModal } from '@/components/card-preview-modal'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
+import { displayName } from '@/lib/utils/display-name'
 
 export function QrCodesTab() {
   const t = useTranslations('attendance')
@@ -80,7 +81,7 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
 
   const results = personType === 'child'
     ? (childResults?.items.map((c) => ({ id: c.id, label: `${c.first_names} ${c.last_name}`, sub: c.matricule })) ?? [])
-    : (staffResults?.items.map((s) => ({ id: s.id, label: s.nickname || `${s.first_name} ${s.last_name}`, sub: s.matricule })) ?? [])
+    : (staffResults?.items.map((s) => ({ id: s.id, label: displayName(s), sub: s.matricule })) ?? [])
 
   const { data: qrcode, isLoading: isLoadingQr, error } = useQuery({
     queryKey: ['attendance', 'qrcode', personType, selectedId],

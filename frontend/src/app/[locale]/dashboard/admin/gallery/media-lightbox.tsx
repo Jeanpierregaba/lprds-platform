@@ -18,6 +18,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { type GalleryMediaItem } from '@/types/gallery'
 import { toast } from 'sonner'
 import { useState } from 'react'
+import { displayName } from '@/lib/utils/display-name'
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'long', timeStyle: 'short' })
@@ -62,10 +63,10 @@ export function MediaLightbox({
           {item.announcement_title && <Badge variant="outline">{t('lightbox.announcement', { title: item.announcement_title })}</Badge>}
           {item.child && <Badge variant="outline">{item.child.first_names} {item.child.last_name}</Badge>}
           {item.conversation_parent && (
-            <Badge variant="outline">{t('lightbox.parent', { name: `${item.conversation_parent.first_name} ${item.conversation_parent.last_name}` })}</Badge>
+            <Badge variant="outline">{t('lightbox.parent', { name: displayName(item.conversation_parent) })}</Badge>
           )}
           <Badge variant="outline">
-            {t('lightbox.uploadedBy', { name: item.uploaded_by.nickname ?? `${item.uploaded_by.first_name} ${item.uploaded_by.last_name}` })}
+            {t('lightbox.uploadedBy', { name: displayName(item.uploaded_by) })}
           </Badge>
         </div>
 

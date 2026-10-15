@@ -28,6 +28,7 @@ import { BackLink } from '@/components/dashboard/shared/page'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { AuthMedia } from '@/components/media/auth-media'
 import { useRouter } from '@/i18n/navigation'
+import { displayName } from '@/lib/utils/display-name'
 
 const NO_TAG = '__no_tag__'
 
@@ -196,7 +197,7 @@ export default function ArticleDetailPage() {
             <div>
               <CardTitle>{article.title}</CardTitle>
               <CardDescription>
-                {t('detail.createdBy', { name: article.created_by.nickname || `${article.created_by.first_name} ${article.created_by.last_name}` })} · {formatDateTime(article.created_at)}
+                {t('detail.createdBy', { name: displayName(article.created_by) })} · {formatDateTime(article.created_at)}
               </CardDescription>
             </div>
             <Badge variant={article.status === 'published' ? 'default' : 'outline'}>

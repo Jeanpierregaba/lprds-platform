@@ -24,8 +24,25 @@ class EstablishmentAdminCreate(BaseModel):
     email:      EmailStr
     first_name: str = Field(min_length=1, max_length=100)
     last_name:  str = Field(min_length=1, max_length=100)
+    # ⚠️ EXIGÉ, comme pour les parents (`POST /parents`) et le personnel
+    # (`POST /staff`). L'admin était le seul compte de la plateforme à ne pas
+    # pouvoir en porter : les écrans le nommaient donc par son état civil là où
+    # tous les autres portent le nom d'usage de l'établissement.
+    nickname:   str = Field(min_length=1, max_length=100)
     phone:      str | None = Field(default=None, max_length=20)
     password:   StrongPassword
+
+
+class EstablishmentAdminUpdate(BaseModel):
+    """Le surnom d'un admin EXISTANT — et rien d'autre.
+
+    Sans cette route, les admins créés avant l'ajout du champ resteraient
+    nommés par leur état civil pour toujours : la création est le seul moment
+    où leur fiche se saisit, et un compte admin ne se recrée pas (quota de 3,
+    et le retrait désactive le compte au lieu de le supprimer).
+    """
+
+    nickname:   str = Field(min_length=1, max_length=100)
 
 
 # ── Création d'un établissement ────────────────────────────────

@@ -13,6 +13,7 @@ import {
 import { messagingApi } from '@/lib/api/messaging.api'
 import { intlLocale } from '@/lib/utils/locale-format'
 import type { AnnouncementRecipient } from '@/types/messaging'
+import { displayName } from '@/lib/utils/display-name'
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'short', timeStyle: 'short' })
@@ -143,7 +144,7 @@ function RecipientList({ items }: { items: AnnouncementRecipient[] }) {
 function RecipientRow({ recipient }: { recipient: AnnouncementRecipient }) {
   const t = useTranslations('messaging')
   const { parent, email, read_at, signed_at, signed_name } = recipient
-  const name = parent.nickname || `${parent.first_name} ${parent.last_name}`
+  const name = displayName(parent)
 
   return (
     <li className="flex items-start justify-between gap-3 py-2">

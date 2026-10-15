@@ -180,6 +180,7 @@ async def create_user(
         role=payload.role,
         first_name=payload.first_name,
         last_name=payload.last_name,
+        nickname=payload.nickname,
         phone=payload.phone,
         establishment_id=establishment_id,
     )
@@ -195,6 +196,7 @@ async def create_user(
             await send_welcome_email(
                 email=user.email,
                 first_name=user.first_name,
+                nickname=user.nickname,
                 role=user.role,
                 locale=coerce_locale(user.locale),
                 temp_password=temp_password,
@@ -301,7 +303,9 @@ async def set_user_locale(db: AsyncSession, user: User, locale: str) -> User:
 
 # ── Relance d'invitation ────────────────────────────────────────
 
-async def resend_invitation(user: User, db: AsyncSession) -> None:
+async def resend_invitation(
+    user: User, db: AsyncSession, *, password: str | None = None
+) -> None:
     """Renvoie l'email de bienvenue avec un mot de passe NEUF.
 
     Demandé par un établissement : des parents ne retrouvent pas l'email de
@@ -341,7 +345,19 @@ async def resend_invitation(user: User, db: AsyncSession) -> None:
         message_key="errors.auth.invitation_resend_too_soon",
     )
 
-    temp_password = generate_temp_password()
+    # ⚠️ Un mot de passe FOURNI par l'admin n'est pas un confort : c'est la
+    # seule façon pour lui de le transmettre AUTREMENT que par email. La
+    # plateforme ne peut pas lui rendre celui qu'elle génère — il n'existe que
+    # dans le message parti, et le retourner dans la réponse HTTP est
+    # précisément ce que ce module refuse de faire. Or l'email est le canal qui
+    # échoue (une adresse qu'un fournisseur écarte, une boîte abandonnée), et
+    # c'est justement là qu'on a besoin de dicter les accès de vive voix ou de
+    # les envoyer par messagerie.
+    #
+    # Rien d'autre ne change : même email de bienvenue, même politique d'échec,
+    # même temporisation. Sans mot de passe fourni, le comportement d'origine
+    # est inchangé — un généré, que personne ne relira.
+    temp_password = password or generate_temp_password()
     user.hashed_password = hash_password(temp_password)
     await db.flush()
 
@@ -349,6 +365,7 @@ async def resend_invitation(user: User, db: AsyncSession) -> None:
         await send_welcome_email(
             email=user.email,
             first_name=user.first_name,
+            nickname=user.nickname,
             role=user.role,
             locale=coerce_locale(user.locale),
             temp_password=temp_password,

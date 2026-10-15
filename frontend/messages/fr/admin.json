@@ -77,7 +77,8 @@
       "address": "Adresse requise",
       "email": "Email invalide",
       "phone": "Téléphone requis",
-      "firstName": "Prénom requis"
+      "firstName": "Prénom requis",
+      "nickname": "Surnom requis"
     },
     "title": "Établissements",
     "description": "Gérer les crèches, garderies et écoles maternelles.",
@@ -87,7 +88,12 @@
     "sectionFirstAdmin": "Premier administrateur",
     "count": "{count, plural, one {# établissement} other {# établissements}}",
     "adminsTab": "Administrateurs ({count})",
-    "maxAdminsReached": "Maximum {max} administrateurs atteint."
+    "maxAdminsReached": "Maximum {max} administrateurs atteint.",
+    "nickname": "Surnom",
+    "nicknamePlaceholder": "Ex. Madame la Directrice",
+    "nicknameHint": "C'est ce nom qui s'affichera partout sur la plateforme.",
+    "editNickname": "Modifier le surnom",
+    "nicknameSaved": "Surnom mis à jour"
   },
   "portals": {
     "settings": "Paramètres",

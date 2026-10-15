@@ -33,7 +33,8 @@ def onboard(c, su, code, admin_email):
     r = c.post("/establishments", json={
         "code": code, "name": f"C{code}", "address": "a", "email": f"c@{code.lower()}.fr",
         "phone": "+229", "admin": {"email": admin_email, "first_name": "Ad",
-        "last_name": code, "password": "Creche2026"},
+        "last_name": code, "nickname": f"Direction {code}",
+        "password": "Creche2026"},
     }, headers=su)
     assert r.status_code == 201, f"onboard {code}: {r.status_code} {r.text[:200]}"
     h = login(c, admin_email, "Creche2026")

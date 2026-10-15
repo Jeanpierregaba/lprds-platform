@@ -26,6 +26,7 @@ import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dialogs'
 import { STAFF_TYPES, type StaffListItem, type StaffType } from '@/types/staff'
 import { Link } from '@/i18n/navigation'
+import { displayName } from '@/lib/utils/display-name'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
@@ -169,7 +170,7 @@ export default function StaffListPage() {
                 </Td>
                 <Td>
                   <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-medium">
-                    {s.nickname ?? `${s.first_name} ${s.last_name}`}
+                    {displayName(s)}
                   </Link>
                 </Td>
                 <Td>
@@ -271,13 +272,13 @@ function StaffCard({
     <>
       <ClickableCard
         href={detailHref}
-        label={t('list.openAccount', { name: member.nickname ?? `${member.first_name} ${member.last_name}` })}
+        label={t('list.openAccount', { name: displayName(member) })}
         inactive={!member.is_active}
       >
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">
-            {member.nickname ?? `${member.first_name} ${member.last_name}`}
+            {displayName(member)}
           </p>
           <StatusPill active={member.is_active} shrink />
         </div>
@@ -326,7 +327,7 @@ function StaffCard({
       <QrBadgeDialog
         open={qrOpen}
         onOpenChange={setQrOpen}
-        title={t('list.badge', { name: member.nickname ?? member.first_name })}
+        title={t('list.badge', { name: displayName(member) })}
         subtitle={member.matricule ?? member.email}
         qrImage={qr?.qr_image}
         loading={loadingQr}
@@ -336,7 +337,7 @@ function StaffCard({
         open={confirmToggle}
         onOpenChange={setConfirmToggle}
         title={t('status.confirmTitle')}
-        description={t('status.confirmBody', { name: member.nickname ?? `${member.first_name} ${member.last_name}` })}
+        description={t('status.confirmBody', { name: displayName(member) })}
         confirmLabel={t('status.deactivate')}
         onConfirm={() => {
           setConfirmToggle(false)

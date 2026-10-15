@@ -20,12 +20,13 @@ def test_establishment_onboarding_and_admin_cap(client):
     ck("Code établissement dupliqué → 409", c.post("/establishments", json={
        "code": "LPRDS", "name": "Doublon", "address": "a", "email": "x@x.fr",
        "phone": "+229", "admin": {"email": "x@a.fr", "first_name": "X",
-       "last_name": "Y", "password": "Creche2026"}}, headers=su).status_code, 409)
+       "last_name": "Y", "nickname": "Direction", "password": "Creche2026"}}, headers=su).status_code, 409)
 
     ck("Non-superadmin ne peut pas créer d'établissement → 403", c.post(
        "/establishments", json={"code": "AUTRE2", "name": "N", "address": "a",
        "email": "x@x.fr", "phone": "+229", "admin": {"email": "y@a.fr",
-       "first_name": "X", "last_name": "Y", "password": "Creche2026"}},
+       "first_name": "X", "last_name": "Y", "nickname": "Direction",
+       "password": "Creche2026"}},
        headers=adm).status_code, 403)
 
 

@@ -83,6 +83,7 @@ async def create_staff(
         await send_welcome_email(
             email=member.email,
             first_name=member.first_name,
+            nickname=member.nickname,
             role=UserRole.STAFF,
             locale=coerce_locale(member.locale),
             temp_password=payload.password,
@@ -258,6 +259,8 @@ async def resend_staff_invitation(
     staff_id: uuid.UUID,
     establishment_id: uuid.UUID,
     db: AsyncSession,
+    *,
+    password: str | None = None,
 ) -> None:
     """Renvoie l'email de bienvenue avec un mot de passe neuf.
 
@@ -272,7 +275,7 @@ async def resend_staff_invitation(
     déjà exposé par la réponse.
     """
     user = await _get_or_404(staff_id, establishment_id, db)
-    await auth_service.resend_invitation(user, db)
+    await auth_service.resend_invitation(user, db, password=password)
 
 
 # ── Helpers privés ──────────────────────────────────────────────

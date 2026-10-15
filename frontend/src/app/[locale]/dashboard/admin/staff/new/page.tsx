@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { staffApi } from '@/lib/api/staff.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
+import { CredentialsDialog } from '@/components/dashboard/shared/credentials-dialog'
 import { STAFF_TYPES, type StaffType } from '@/types/staff'
 import { useRouter } from '@/i18n/navigation'
 import { passwordField } from '@/lib/validation/password'
@@ -46,6 +47,12 @@ export default function NewStaffPage() {
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
+  /** Accès à transmettre, affichés APRÈS la création — cf. l'écran parents :
+   *  le mot de passe vient du formulaire, et la navigation vers la fiche
+   *  attend la fermeture du dialogue (sinon le composant est démonté et ce
+   *  mot de passe ne se réaffichera jamais). */
+  const [acces, setAcces] = useState<{ name: string; email: string; password: string } | null>(null)
+  const [creeId, setCreeId] = useState<string | null>(null)
 
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(makeSchema(t, tAuth)), defaultValues: { staff_type: '' } })
@@ -62,7 +69,8 @@ export default function NewStaffPage() {
         staff_type: values.staff_type as StaffType,
       })
       toast.success(t('form.created'))
-      router.push(`/dashboard/admin/staff/${data.id}`)
+      setCreeId(data.id)
+      setAcces({ name: values.first_name, email: values.email, password: values.password })
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
@@ -80,6 +88,18 @@ export default function NewStaffPage() {
   return (
     <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
       <BackLink href="/dashboard/admin/staff" label={t('form.back')} />
+
+      {acces && (
+        <CredentialsDialog
+          open
+          onOpenChange={(ouvert) => {
+            if (ouvert) return
+            setAcces(null)
+            if (creeId) router.push(`/dashboard/admin/staff/${creeId}`)
+          }}
+          {...acces}
+        />
+      )}
 
       <Card>
         <CardHeader>

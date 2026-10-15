@@ -35,6 +35,7 @@ import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { CardsEmptyState } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Announcement } from '@/types/messaging'
+import { displayName } from '@/lib/utils/display-name'
 
 /** Signature minimale d'un traducteur next-intl. */
 type T = (key: string) => string
@@ -393,7 +394,7 @@ function AnnouncementCard({
           <div className="min-w-0 flex-1">
             <CardTitle className="break-words text-base">{announcement.title}</CardTitle>
             <CardDescription>
-              {announcement.created_by.nickname || `${announcement.created_by.first_name} ${announcement.created_by.last_name}`}
+              {displayName(announcement.created_by)}
               {' · '}{formatDateTime(announcement.created_at)}
             </CardDescription>
           </div>

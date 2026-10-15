@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { parentsApi } from '@/lib/api/parents.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion, RightsGuard } from '@/components/dashboard/shared/page'
+import { CredentialsDialog } from '@/components/dashboard/shared/credentials-dialog'
 import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 import { useRouter } from '@/i18n/navigation'
@@ -45,6 +46,14 @@ export default function NewParentPage() {
   const [children, setChildren] = useState<ParentChildBrief[]>([])
   const [childrenError, setChildrenError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  /** Accès à transmettre, affichés APRÈS la création.
+   *
+   * ⚠️ Le mot de passe vient du formulaire, pas d'une réponse d'API : l'admin
+   * vient de le saisir. Et la navigation vers la fiche est repoussée à la
+   * fermeture du dialogue — partir tout de suite démonterait le composant, et
+   * ce mot de passe ne se réaffichera jamais. */
+  const [acces, setAcces] = useState<{ name: string; email: string; password: string } | null>(null)
+  const [creeId, setCreeId] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<Form>({ resolver: zodResolver(makeSchema(t, tAuth)) })
@@ -66,7 +75,8 @@ export default function NewParentPage() {
         child_ids:  children.map((c) => c.id),
       })
       toast.success(t('form.created'))
-      router.push(`/dashboard/admin/parents/${data.id}`)
+      setCreeId(data.id)
+      setAcces({ name: values.first_name, email: values.email, password: values.password })
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }
@@ -84,6 +94,18 @@ export default function NewParentPage() {
   return (
     <PageMotion className="mx-auto w-full max-w-2xl space-y-4">
       <BackLink href="/dashboard/admin/parents" label={t('form.back')} />
+
+      {acces && (
+        <CredentialsDialog
+          open
+          onOpenChange={(ouvert) => {
+            if (ouvert) return
+            setAcces(null)
+            if (creeId) router.push(`/dashboard/admin/parents/${creeId}`)
+          }}
+          {...acces}
+        />
+      )}
 
       <Card>
         <CardHeader>

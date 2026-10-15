@@ -133,5 +133,19 @@
   "uploads": {
     "added": "{count, plural, one {# fichier ajouté.} other {# fichiers ajoutés.}}",
     "partial": "{failed, plural, one {# fichier sur {total} n'a pas pu être envoyé.} other {# fichiers sur {total} n'ont pas pu être envoyés.}}"
+  },
+  "credentials": {
+    "title": "Accès à transmettre",
+    "description": "Copiez ce message et envoyez-le par le canal de votre choix. Il contient le mot de passe du compte.",
+    "message": "Bonjour {name},\n\nVoici vos accès à la plateforme {platform} :\n\nLien : {link}\nEmail : {email}\nMot de passe : {password}\n\nPensez à changer votre mot de passe depuis vos paramètres après votre première connexion.",
+    "copy": "Copier le message",
+    "copied": "Message copié",
+    "copyFailed": "Copie automatique refusée par le navigateur. Le texte est sélectionné : copiez-le à la main.",
+    "warning": "Le mot de passe n'est affiché qu'ici. La plateforme n'en garde qu'une empreinte et ne pourra jamais le réafficher.",
+    "open": "Copier les accès",
+    "optionalPassword": "Mot de passe (facultatif)",
+    "optionalPasswordHint": "Renseignez-le pour pouvoir copier le message d'accès. Laissé vide, un mot de passe est généré et n'existera que dans l'email.",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
   }
 }

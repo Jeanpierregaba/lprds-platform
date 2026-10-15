@@ -34,6 +34,7 @@ import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/component
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import { StatusBadge } from './status-badge'
 import type { AttendanceEvent, DailyStatusValue, PersonType } from '@/types/attendance'
+import { displayName } from '@/lib/utils/display-name'
 
 const ALL = '__all__'
 const PAGE_SIZE = 15
@@ -866,7 +867,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                 onClick={canCorrect ? () => setCorrecting({
                   personType: 'staff',
                   personId: item.staff.id,
-                  displayName: item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`,
+                  displayName: displayName(item.staff),
                   initialArrival: item.arrival_time,
                   initialDeparture: item.departure_time,
                   timeZone: data?.timezone,
@@ -875,7 +876,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
                 title={canCorrect ? t('dashboard.clickToCorrect') : undefined}
               >
                 <Td className="font-medium">
-                  {item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
+                  {displayName(item.staff)}
                 </Td>
                 <Td><StatusBadge status={item.status} /></Td>
                 <Td className="text-muted-foreground">{formatTime(item.arrival_time, data?.timezone)}</Td>
@@ -907,7 +908,7 @@ function StaffDaily({ date, canCorrect }: { date: string; canCorrect: boolean })
             {modalPageItems.map((item) => (
               <ModalPersonRow
                 key={item.staff.id}
-                name={item.staff.nickname || `${item.staff.first_name} ${item.staff.last_name}`}
+                name={displayName(item.staff)}
                 status={item.status}
                 arrival={item.arrival_time}
                 departure={item.departure_time}

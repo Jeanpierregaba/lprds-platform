@@ -621,6 +621,55 @@ erreur SMTP en `EmailDeliveryError`.
 > renverront 503 (sauf si `MAIL_SUPPRESS_SEND=true`). La création d'admin via
 > `/establishments` n'est pas concernée (elle n'envoie pas d'email).
 
+### ⚠️ Ce que Yahoo exige d'un email, et que notre code ne donnait pas
+
+Signalé par un établissement : les adresses **yahoo** ne recevaient **jamais**
+rien, quand Gmail recevait tout. Deux défauts, tous deux dans notre code, tous
+deux invisibles côté expéditeur — le DMARC du domaine est en `p=quarantine`,
+donc un message écarté par Yahoo disparaît **sans rebond** : le parent ne
+reçoit rien, et l'établissement n'a aucune trace de l'échec.
+
+1. **Le `Message-ID` ne portait pas notre domaine.** `fastapi-mail` le fabrique
+   avec `make_msgid()` **sans argument**, donc avec le nom d'hôte de la
+   machine : en conteneur, l'identifiant Docker (`<…@3f2a1b9c4d5e>`, pas même
+   un FQDN), et sur un poste de développement `<…@…ip6.arpa>`. Un Message-ID
+   étranger à l'expéditeur est l'une des signatures que Yahoo retient contre un
+   message ; Gmail la tolère.
+   ⚠️ **Il ne peut pas se poser par `headers=`** : la bibliothèque écrit
+   toujours le sien, et le message partirait avec **DEUX** `Message-ID` — pire
+   que le défaut corrigé. On remplace donc le fabricant à la source
+   (`functools.partial(make_msgid, domain=…)`), au point unique de transport.
+   Un test vérifie que la bibliothèque expose toujours ce symbole : un
+   correctif qui s'éteint en silence à la prochaine montée de version ne
+   protège rien.
+2. **Tous nos emails partaient en HTML SEUL**, sans partie `text/plain`. C'est
+   un critère de filtrage constant chez Yahoo. La version texte est
+   **DÉRIVÉE** du HTML (`_text_from_html`), jamais écrite à la main : dix
+   templates texte à tenir en deux langues divergeraient du HTML au premier
+   changement de formulation, et une version texte qui ne dit pas la même chose
+   est pire que pas de version texte. Les liens sont conservés en clair — un
+   bouton « Lire la diffusion » n'est rien en texte sans son URL.
+   ⚠️ `subtype=plain` + `alternative_body=html` n'est pas une inversion : dans
+   un `multipart/alternative`, c'est la **dernière** partie qui est préférée
+   par le client, et la bibliothèque attache `body` d'abord. Annoncer le HTML
+   en `body` le reléguerait en premier, et tout le monde lirait du texte brut.
+
+Les quatre points de construction de message passent désormais par la fabrique
+unique `_html_message()` — les ajouter un par un, c'était quatre occasions de
+n'en faire que trois.
+
+⚠️ **Le reste du problème est HORS DÉPÔT**, et rien dans le dépôt ne le
+rappellera : le domaine publie bien un SPF (`-all`), un DKIM (sélecteur `dkim`)
+et un DMARC, mais
+- `MAIL_SERVER` de la production doit être **dans** le SPF — avec `-all`, un
+  relais absent de l'enregistrement est un refus franc chez Yahoo ;
+- le DMARC n'a **aucun `rua=`** : personne ne peut voir ce que Yahoo fait de
+  nos messages ;
+- réputation d'IP, rDNS et HELO du serveur d'envoi ne se corrigent que là-bas.
+
+Le diagnostic décisif reste la réponse SMTP, dans les journaux du backend :
+`docker compose logs backend | grep -iE "yahoo|smtp|EmailDeliveryError"`.
+
 ### Révocation de tokens (Redis)
 
 Chaque JWT porte un `jti` unique. `POST /auth/logout` et la rotation du refresh
@@ -798,6 +847,7 @@ PATCH  /api/v1/establishments/{id}                   # Modification partielle
 DELETE /api/v1/establishments/{id}                   # Désactivation (SOFT delete)
 GET    /api/v1/establishments/{id}/admins            # Lister les admins actifs
 POST   /api/v1/establishments/{id}/admins            # Ajouter un admin (max 3)
+PATCH  /api/v1/establishments/{id}/admins/{user_id}  # Surnom d'un admin existant
 DELETE /api/v1/establishments/{id}/admins/{user_id}  # Retirer un admin
 ```
 
@@ -810,6 +860,46 @@ DELETE /api/v1/establishments/{id}/admins/{user_id}  # Retirer un admin
 | `email` | requis, validé `EmailStr` |
 | `phone` | requis, 20 max |
 | `is_active` | soft delete |
+
+### ⚠️ Le SURNOM est le nom affiché — partout, pour tout le monde
+
+L'établissement nomme les gens par leur surnom (« Tata Victoire », « Papa
+Anaïs ») ; l'état civil n'est que le repli. Signalé par l'utilisateur, et trois
+défauts se cumulaient — aucun ne cassait quoi que ce soit, chacun affichait
+simplement le mauvais nom :
+
+1. **`UserResponse` ne portait pas `nickname`.** `GET /auth/me` ne le renvoyait
+   donc jamais : aucun écran ne POUVAIT nommer l'utilisateur connecté
+   autrement que par son état civil — ni l'en-tête, ni le profil, ni la liste
+   des admins d'un établissement. Le champ existait en base depuis toujours.
+2. **L'admin était le seul compte sans champ surnom.** `EstablishmentAdminCreate`
+   l'exige désormais, comme `POST /parents` et `POST /staff`. Pour les comptes
+   créés AVANT, `PATCH /establishments/{id}/admins/{user_id}` (superadmin) pose
+   le surnom et rien d'autre : leur fiche ne se saisit qu'à la création, et un
+   compte admin ne se recrée pas (quota de 3, le retrait désactive au lieu de
+   supprimer).
+3. **Les six templates d'email de bienvenue disent `{{ nickname }}` et personne
+   ne le passait.** Jinja rend une variable absente par une chaîne VIDE : tous
+   ces emails saluaient donc « Bienvenue sur LPRDS,  ! ». Un template ne casse
+   pas sur une variable manquante, et l'email part quand même — rien ne pouvait
+   le signaler.
+
+La règle a **une source de chaque côté** : `display_name()`
+(`app/core/people.py`) et `displayName()` (`lib/utils/display-name.ts`). Elle
+vivait en une trentaine de copies à l'écran et cinq côté serveur, et elles ne
+disaient pas toutes la même chose — six écrans l'avaient simplement oubliée
+(journal de présence, filtres de galerie, attribution des rôles, liste des
+admins, en-tête, profil), et deux copies accolaient le nom de famille au surnom
+(« Tata Victoire Dupont »).
+
+⚠️ **Ne s'applique PAS aux enfants** : leur fiche n'a pas de surnom et porte
+`first_names` (au pluriel) — les deux cas sont impossibles à confondre à
+l'appel, ce qui est précisément pourquoi le helper ne prend pas de `first_names`.
+
+⚠️ **L'écran de profil garde l'état civil**, sous son libellé « Nom complet »,
+et montre le surnom à côté : ce sont deux informations différentes, pas deux
+façons d'écrire la même. Même raison dans la liste des admins du superadmin —
+il gère des comptes, pas des personnes dans une crèche.
 
 ### Le code établissement
 
@@ -832,6 +922,8 @@ produirait des matricules bancals. `"lprds"` est accepté et stocké `"LPRDS"`.
   Seul un superadmin choisit librement l'établissement.
 - **Retirer un admin** = désactiver son compte (`is_active=False`), jamais de
   suppression.
+- **Le surnom de l'admin est requis à la création** et modifiable ensuite par
+  `PATCH .../admins/{user_id}` — cf. la section ci-dessus.
 - **Le mot de passe de l'admin est saisi par le superadmin** à la création.
   **Aucun email n'est envoyé sur ce chemin** : il
   contiendrait un mot de passe en clair. Le superadmin transmet les identifiants
@@ -1243,6 +1335,52 @@ Champs saisis par le créateur : `first_name`, `last_name`, `nickname`, `phone`,
 imposé au premier login (cf. § Authentification), l'email l'y invite seulement.
 Les enfants assignés **doivent appartenir au même établissement** (404 sinon).
 
+### Transmettre les accès autrement que par email — le message à copier
+
+Demandé par l'établissement, et la raison est la même que celle qui a mené au
+chantier Yahoo : **l'email est un canal qui échoue**, et un compte dont les
+identifiants n'arrivent jamais est un compte inutilisable. L'admin doit pouvoir
+envoyer les accès par le canal qu'il a sous la main.
+
+`CredentialsDialog` (`components/dashboard/shared/credentials-dialog.tsx`)
+affiche un message prêt à coller — lien de connexion, email, mot de passe — avec
+un bouton « Copier ». Il s'ouvre après **quatre** gestes : création d'un parent,
+création d'un membre du personnel, réinitialisation administrée, relance
+d'invitation.
+
+⚠️ **Le mot de passe vient de l'ÉCRAN, jamais d'une réponse d'API.** Sur trois
+de ces quatre chemins c'est l'admin qui l'a saisi : il est déjà dans l'état du
+formulaire. La règle « aucun mot de passe dans une réponse HTTP » reste donc
+entière — c'est elle qui protège les journaux d'accès, le cache de requêtes et
+tout ce qui relit une réponse.
+
+⚠️ **La relance d'invitation est le quatrième, et il ne pouvait pas marcher
+ainsi** : le mot de passe qu'elle GÉNÈRE n'existe que dans l'email parti, et
+personne ne peut le relire (bcrypt). `POST /{parents,staff}/{id}/resend-invitation`
+accepte donc un corps **facultatif** `{password}` (`StrongPassword`, validé
+comme partout) : fourni, c'est lui qui vaut et l'écran peut le faire copier ;
+absent, le comportement d'origine est strictement inchangé — généré, jamais
+retourné, et l'écran ne propose aucune copie puisqu'il n'a rien à copier.
+
+⚠️ **Rien n'est persisté** : ni `localStorage`, ni cache de requête. Le message
+vit dans l'état du composant et disparaît à sa fermeture. Sur les écrans de
+création, la navigation vers la fiche est pour cette raison **repoussée à la
+fermeture du dialogue** — partir aussitôt le démonterait, et ce mot de passe ne
+se réaffiche jamais.
+
+⚠️ **Le texte est affiché dans un champ sélectionnable EN PLUS du bouton**, et
+la copie a deux recours. Mesuré à l'écran : dans une vue intégrée,
+`navigator.clipboard` est **refusé** (`clipboard-write: denied`) alors même que
+le contexte est sécurisé. On retombe alors sur la sélection du texte puis
+`document.execCommand('copy')`, qui n'exige aucune permission dans un geste
+d'utilisateur ; si les deux échouent, le texte reste sélectionné et le message
+le dit. Un bouton de copie qui échoue en silence serait pire que pas de bouton.
+
+Le lien porte le **préfixe de langue** de l'interface (`/en/auth/login` en
+anglais) : un destinataire envoyé sur un écran dans la mauvaise langue est
+exactement ce que tout le chantier i18n cherche à éviter. Le nom de la
+plateforme vient de `lib/brand.ts`, source unique (cf. § PWA).
+
 ### Relance d'invitation — et pourquoi « le même mot de passe » est impossible
 
 Demandé par un établissement : des parents ne retrouvent pas l'email reçu à la
@@ -1269,7 +1407,10 @@ message, un mot de passe qui marche.
   accès, sans aucun moyen de le prévenir. Prouvé par sabotage : en avalant
   l'exception, le test tombe.
 - **Aucun mot de passe dans la réponse HTTP** — il ne doit exister que dans
-  l'email, pas traverser les journaux d'accès ni le reverse proxy.
+  l'email, pas traverser les journaux d'accès ni le reverse proxy. ⚠️ C'est
+  pourquoi un mot de passe **fourni** par l'admin (corps facultatif
+  `{password}`) est le seul chemin possible vers le message d'accès à copier :
+  cf. § « Transmettre les accès autrement que par email ».
 - **Une temporisation de 60 s par compte visé** empêche le double clic de
   périmer l'email qu'on vient d'envoyer — cf. § « Temporisation sur la relance
   d'invitation ». Levée si l'envoi échoue.
@@ -4147,6 +4288,12 @@ tests/
     │                                     #   au lieu d'un 409 sur un rapport fantôme
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
+    ├── test_nicknames.py                # le surnom est le nom affiché : exigé pour
+    │                                    #   un admin, posable après coup, renvoyé par
+    │                                    #   /auth/me, et l'email de bienvenue le dit
+    ├── test_email_deliverability.py     # Message-ID sur notre domaine, partie
+    │                                    #   text/plain, HTML préféré — ce que Yahoo
+    │                                    #   exigeait et que nous ne donnions pas
     ├── test_email_links.py              # les liens des emails mènent à une route
     │                                    #   qui existe (comparés à l'arbre frontend)
     ├── test_child_photo.py              # photo d'enfant : qui peut la poser

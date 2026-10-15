@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils/cn'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import type { PersonType } from '@/types/attendance'
+import { displayName } from '@/lib/utils/display-name'
 
 const PAGE_SIZE = 25
 const ALL = '__all__'
@@ -177,7 +178,7 @@ export function JournalTab() {
                         {matricule && <div className="font-mono text-xs font-normal text-muted-foreground">{matricule}</div>}
                       </Td>
                   <Td className="text-muted-foreground">
-                    {event.scanned_by.first_name} {event.scanned_by.last_name}
+                    {displayName(event.scanned_by)}
                   </Td>
                   <Td className="text-muted-foreground">
                     {event.companion_name ? `${event.companion_name}${event.companion_phone ? ` · ${event.companion_phone}` : ''}` : '—'}

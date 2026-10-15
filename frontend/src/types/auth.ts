@@ -6,6 +6,12 @@ export interface User {
   email:            string
   first_name:       string
   last_name:        string
+  /** Nom d'USAGE — « Tata Victoire », « Papa Anaïs ». C'est par là que
+   *  l'établissement nomme les gens ; l'état civil n'en est que le repli.
+   *  ⚠️ Il manquait à cette interface ET à la réponse de l'API : aucun écran
+   *  ne pouvait donc nommer l'utilisateur connecté autrement. Voir
+   *  `displayName()` (`lib/utils/display-name.ts`), qui porte la règle. */
+  nickname:         string | null
   phone:            string | null
   role:             UserRole
   establishment_id: string | null

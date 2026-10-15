@@ -44,6 +44,7 @@ import { AnnualFields } from '../annual-fields'
 import { ContentView } from '../content-view'
 import { useRouter } from '@/i18n/navigation'
 import { useReportVocabulary } from '@/lib/hooks/use-report-vocabulary'
+import { displayName } from '@/lib/utils/display-name'
 
 /** Signature minimale d'un traducteur next-intl. */
 type T = (key: string) => string
@@ -269,7 +270,7 @@ export default function ReportDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-1 text-sm text-muted-foreground">
-          <p>{t('detail.createdBy', { name: report.created_by.nickname || `${report.created_by.first_name} ${report.created_by.last_name}` })} · {formatDateTime(report.created_at)}</p>
+          <p>{t('detail.createdBy', { name: displayName(report.created_by) })} · {formatDateTime(report.created_at)}</p>
           {isAdmin && (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Label htmlFor="reference_date">{t('detail.referenceDate')}</Label>
@@ -295,7 +296,7 @@ export default function ReportDetailPage() {
             </div>
           )}
           {report.validated_by && report.validated_at && (
-            <p>{t('detail.validatedBy', { name: report.validated_by.nickname || `${report.validated_by.first_name} ${report.validated_by.last_name}` })} · {formatDateTime(report.validated_at)}</p>
+            <p>{t('detail.validatedBy', { name: displayName(report.validated_by) })} · {formatDateTime(report.validated_at)}</p>
           )}
           {report.status === 'rejected' && report.rejected_reason && (
             <p className="text-destructive">{t('detail.rejectedReason', { reason: report.rejected_reason })}</p>

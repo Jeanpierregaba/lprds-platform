@@ -7,10 +7,7 @@ import { LocaleSwitcher } from '@/components/locale-switcher'
 import { ThemeToggle } from './theme-toggle'
 import { MobileNav } from './mobile-nav'
 import { useUser } from '@/lib/stores/auth.store'
-
-function initials(firstName: string, lastName: string) {
-  return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
-}
+import { displayInitials, displayName } from '@/lib/utils/display-name'
 
 export function Header() {
   const user = useUser()
@@ -26,11 +23,11 @@ export function Header() {
         <ThemeToggle />
         <div className="flex items-center gap-2 rounded-md px-2 py-2 text-sm">
           <Avatar>
-            <AvatarFallback>{initials(user.first_name, user.last_name)}</AvatarFallback>
+            <AvatarFallback>{displayInitials(user)}</AvatarFallback>
           </Avatar>
           <span className="hidden text-left sm:block">
             <span className="block font-medium leading-none">
-              {user.first_name} {user.last_name}
+              {displayName(user)}
             </span>
             <span className="block text-xs text-muted-foreground">
               {tRoles(user.role)}

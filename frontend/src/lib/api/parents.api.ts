@@ -26,8 +26,15 @@ export const parentsApi = {
 
   /** Renvoie l'email de bienvenue avec un mot de passe NEUF.
    *
-   * ⚠️ Aucun corps, et aucun mot de passe en réponse : il ne doit exister que
-   * dans l'email. Celui d'origine est irrécupérable (bcrypt côté serveur). */
-  resendInvitation: (id: string) =>
-    apiClient.post<void>(`/api/v1/parents/${id}/resend-invitation`),
+   * ⚠️ **Aucun mot de passe en réponse**, jamais : un secret généré par la
+   * plateforme ne traverse pas une réponse HTTP, et celui d'origine est
+   * irrécupérable (bcrypt côté serveur). `password` est donc le seul moyen de
+   * pouvoir transmettre les accès autrement que par email — l'admin le
+   * choisit, donc son écran peut le lui faire copier. Omis, un mot de passe
+   * est généré et n'existera que dans l'email. */
+  resendInvitation: (id: string, password?: string) =>
+    apiClient.post<void>(
+      `/api/v1/parents/${id}/resend-invitation`,
+      password ? { password } : undefined,
+    ),
 }

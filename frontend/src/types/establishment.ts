@@ -25,8 +25,16 @@ export interface EstablishmentAdminCreatePayload {
   email:      string
   first_name: string
   last_name:  string
+  /** Requis, comme pour les parents et le personnel. */
+  nickname:   string
   phone?:     string
   password:   string
+}
+
+/** Le surnom d'un admin EXISTANT, et rien d'autre : les comptes créés avant
+ *  l'ajout du champ n'ont aucun autre moyen d'en recevoir un. */
+export interface EstablishmentAdminUpdatePayload {
+  nickname: string
 }
 
 export interface EstablishmentCreatePayload {

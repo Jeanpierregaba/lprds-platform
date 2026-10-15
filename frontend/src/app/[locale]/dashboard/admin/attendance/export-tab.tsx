@@ -22,6 +22,7 @@ import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { toIsoDate } from '@/lib/utils/dates'
 import type { ExportFileFormat, ExportPersonType } from '@/types/attendance'
+import { displayName } from '@/lib/utils/display-name'
 
 type PeriodType = 'day' | 'week' | 'month' | 'custom'
 
@@ -95,7 +96,7 @@ export function ExportTab() {
         })),
         ...(staffHits?.items ?? []).map((s) => ({
           id: s.id, kind: 'staff' as const,
-          label: s.nickname || `${s.first_name} ${s.last_name}`, sub: s.matricule,
+          label: displayName(s), sub: s.matricule,
         })),
       ]
     : []

@@ -33,6 +33,21 @@ class StaffPasswordResetRequest(BaseModel):
     new_password: StrongPassword
 
 
+class InvitationResendRequest(BaseModel):
+    """Corps OPTIONNEL de la relance d'invitation.
+
+    ⚠️ `password` absent = comportement d'origine : un mot de passe est
+    généré, il n'existe que dans l'email, et **rien ne le retourne** — la
+    réponse reste vide, comme avant. Fourni, il permet à l'admin de
+    TRANSMETTRE les accès autrement qu'en comptant sur l'email : il sait ce
+    qu'il a saisi, donc son écran peut le lui faire copier. C'est le seul
+    chemin possible sans renvoyer un secret dans une réponse HTTP, ce que ce
+    module refuse (cf. le routeur).
+    """
+
+    password: StrongPassword | None = None
+
+
 class StaffStatusRequest(BaseModel):
     is_active: bool
 

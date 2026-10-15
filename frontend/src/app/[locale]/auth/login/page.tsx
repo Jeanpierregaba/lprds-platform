@@ -50,7 +50,7 @@ const makeLoginSchema = (t: (k: string) => string) =>
         
             setSession(tokens, user)
 
-            toast.success(t('login.welcome', { name: user.first_name }))
+            toast.success(t('login.welcome', { name: user.nickname || user.first_name }))
             router.push(ROLE_HOME[user.role])
         } catch (err) {
             toast.error(getApiErrorMessage(err))

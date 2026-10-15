@@ -30,6 +30,7 @@ import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/sh
 import type { Department } from '@/types/organization'
 import type { StaffListItem } from '@/types/staff'
 import type { AttendanceSettingsPayload } from '@/types/attendance'
+import { displayName } from '@/lib/utils/display-name'
 
 const toInputTime = (t: string | null | undefined) => (t ?? '').slice(0, 5)
 const toApiTime = (t: string) => (t.length > 5 ? t : `${t}:00`)
@@ -495,7 +496,7 @@ function StaffSchedulesSettings() {
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">
-                        {s.nickname || `${s.first_name} ${s.last_name}`}
+                        {displayName(s)}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{s.email}</TableCell>
                       <TableCell>
@@ -531,7 +532,7 @@ function StaffSchedulesSettings() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('settings.staffDialogTitle', { name: editing ? (editing.nickname || `${editing.first_name} ${editing.last_name}`) : '' })}
+              {t('settings.staffDialogTitle', { name: editing ? (displayName(editing)) : '' })}
             </DialogTitle>
             <DialogDescription>
               {t('settings.staffDialogHint')}
@@ -663,7 +664,7 @@ function ExemptionsSettings() {
                   return (
                     <TableRow key={staff.id}>
                       <TableCell className="font-medium">
-                        {staff.nickname || `${staff.first_name} ${staff.last_name}`}
+                        {displayName(staff)}
                         {exempt && <Badge variant="outline" className="ml-2 font-normal">{t('settings.exempt')}</Badge>}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{staff.email}</TableCell>
@@ -672,7 +673,7 @@ function ExemptionsSettings() {
                           checked={exempt}
                           onCheckedChange={(v) => toggleMutation.mutate({ staffId: staff.id, exempt: v })}
                           disabled={pendingId === staff.id}
-                          aria-label={t('settings.exemptAria', { name: `${staff.nickname || staff.first_name} ${staff.last_name}` })}
+                          aria-label={t('settings.exemptAria', { name: displayName(staff) })}
                         />
                       </TableCell>
                     </TableRow>

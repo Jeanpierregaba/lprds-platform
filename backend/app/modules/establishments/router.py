@@ -10,6 +10,7 @@ from app.modules.auth.schemas import UserResponse
 from app.modules.establishments import service
 from app.modules.establishments.schemas import (
     EstablishmentAdminCreate,
+    EstablishmentAdminUpdate,
     EstablishmentCreateRequest,
     EstablishmentDetailResponse,
     EstablishmentListResponse,
@@ -102,6 +103,26 @@ async def add_admin(
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:
     admin = await service.add_admin(establishment_id, payload, db)
+    return UserResponse.model_validate(admin)
+
+
+@router.patch(
+    "/{establishment_id}/admins/{user_id}",
+    response_model=UserResponse,
+)
+async def update_admin(
+    establishment_id: uuid.UUID,
+    user_id: uuid.UUID,
+    payload: EstablishmentAdminUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """Donne (ou corrige) le surnom d'un admin existant.
+
+    Les admins créés avant que le champ n'existe n'ont aucun autre moyen d'en
+    recevoir un : leur fiche ne se saisit qu'à la création, et un compte admin
+    ne se recrée pas.
+    """
+    admin = await service.update_admin(establishment_id, user_id, payload, db)
     return UserResponse.model_validate(admin)
 
 

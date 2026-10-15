@@ -57,6 +57,7 @@ async def create_parent(
         await send_welcome_email(
             email=parent.email,
             first_name=parent.first_name,
+            nickname=parent.nickname,
             role=UserRole.PARENT,
             locale=coerce_locale(parent.locale),
             temp_password=payload.password,
@@ -202,6 +203,8 @@ async def resend_parent_invitation(
     parent_id: uuid.UUID,
     establishment_id: uuid.UUID,
     db: AsyncSession,
+    *,
+    password: str | None = None,
 ) -> None:
     """Renvoie l'email de bienvenue avec un mot de passe neuf.
 
@@ -216,7 +219,7 @@ async def resend_parent_invitation(
     déjà exposé par la réponse.
     """
     user = await _get_or_404(parent_id, establishment_id, db)
-    await auth_service.resend_invitation(user, db)
+    await auth_service.resend_invitation(user, db, password=password)
 
 
 # ── Helpers privés ──────────────────────────────────────────────

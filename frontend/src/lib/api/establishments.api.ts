@@ -2,7 +2,8 @@ import { apiClient } from './client'
 import type {
   Establishment, EstablishmentDetail, EstablishmentListResponse,
   EstablishmentCreatePayload, EstablishmentUpdatePayload,
-  EstablishmentAdminCreatePayload, EstablishmentListParams,
+  EstablishmentAdminCreatePayload, EstablishmentAdminUpdatePayload,
+  EstablishmentListParams,
 } from '@/types/establishment'
 import type { User } from '@/types/auth'
 
@@ -27,6 +28,12 @@ export const establishmentsApi = {
 
   addAdmin: (id: string, data: EstablishmentAdminCreatePayload) =>
     apiClient.post<User>(`/api/v1/establishments/${id}/admins`, data),
+
+  /** Le surnom d'un admin EXISTANT. Les comptes créés avant l'ajout du champ
+   *  n'ont aucun autre moyen d'en recevoir un : leur fiche ne se saisit qu'à
+   *  la création, et un compte admin ne se recrée pas. */
+  updateAdmin: (id: string, userId: string, data: EstablishmentAdminUpdatePayload) =>
+    apiClient.patch<User>(`/api/v1/establishments/${id}/admins/${userId}`, data),
 
   removeAdmin: (id: string, userId: string) =>
     apiClient.delete<void>(`/api/v1/establishments/${id}/admins/${userId}`),

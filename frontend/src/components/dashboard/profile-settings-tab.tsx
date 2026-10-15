@@ -63,6 +63,12 @@ export function ProfileSettingsTab() {
             <Label className="text-xs text-muted-foreground">{tc('fields.fullName')}</Label>
             <p className="text-sm font-medium">{user.first_name} {user.last_name}</p>
           </div>
+          {user.nickname && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{tc('fields.nickname')}</Label>
+              <p className="text-sm font-medium">{user.nickname}</p>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">{tc('fields.email')}</Label>
             <p className="break-all text-sm font-medium">{user.email}</p>

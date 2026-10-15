@@ -9,6 +9,7 @@ from app.modules.parents import service
 from app.modules.parents.dependencies import get_parent as get_current_parent
 from app.modules.parents.schemas import (
     ChildBrief,
+    InvitationResendRequest,
     ParentCreateRequest,
     ParentListResponse,
     ParentPasswordResetRequest,
@@ -104,13 +105,22 @@ async def reset_parent_password(
 @router.post("/{parent_id}/resend-invitation", status_code=status.HTTP_204_NO_CONTENT)
 async def resend_parent_invitation(
     parent_id: uuid.UUID,
+    payload: InvitationResendRequest | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission(PermissionCode.PARENTS_WRITE)),
 ) -> None:
     """Renvoie l'email de bienvenue avec un mot de passe NEUF.
 
-    ⚠️ Pas de corps de requête, et surtout aucun mot de passe en réponse : il ne
-    doit exister que dans l'email. Le renvoyer ici le ferait traverser les
-    journaux d'accès et le reverse proxy.
+    ⚠️ **Aucun mot de passe en réponse**, et c'est la règle qui n'a pas bougé :
+    un secret généré par la plateforme ne traverse pas une réponse HTTP. Le
+    corps est optionnel — si l'admin FOURNIT le mot de passe, il sait déjà ce
+    qu'il a saisi (son écran peut donc le lui faire copier pour le transmettre
+    par un autre canal), et rien ne circule en retour. Sans corps, le mot de
+    passe est généré et n'existe que dans l'email, comme avant.
     """
-    await service.resend_parent_invitation(parent_id, current_user.establishment_id, db)
+    await service.resend_parent_invitation(
+        parent_id,
+        current_user.establishment_id,
+        db,
+        password=payload.password if payload else None,
+    )

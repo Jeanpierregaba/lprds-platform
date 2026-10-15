@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.people import display_name as display_name_of
 from app.modules.auth.models import User, UserRole
 from app.modules.organization.models import Department, Group, Section
 from app.modules.organization.schemas import (
@@ -155,8 +156,7 @@ async def create_group(
         payload.section_id, educatrice.id, db
     )
 
-    name = payload.name or educatrice.nickname or \
-        f"{educatrice.first_name} {educatrice.last_name}"
+    name = payload.name or display_name_of(educatrice)
     await _ensure_group_name_available(name, payload.section_id, db)
 
     group = Group(

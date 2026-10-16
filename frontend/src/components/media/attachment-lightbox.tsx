@@ -11,12 +11,10 @@ import { Button } from '@/components/ui/button'
 import { AuthMedia } from '@/components/media/auth-media'
 import { downloadBlob } from '@/lib/utils/download'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} o`
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} Ko`
-  return `${(bytes / 1024 ** 2).toFixed(1)} Mo`
-}
+// ⚠️ Copie locale supprimée : elle écrivait « o / Ko / Mo » en dur, donc en
+// FRANÇAIS au milieu d'une interface anglaise. Le helper partagé passe par
+// `Intl` et suit la langue du lecteur.
+import { formatBytes } from '@/lib/utils/locale-format'
 
 /** Affiche une pièce jointe d'un rapport (image/vidéo) en grand, avec lecture
  *  vidéo et bouton de téléchargement. Le contenu est récupéré via un

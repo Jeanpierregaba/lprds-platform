@@ -4783,6 +4783,82 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 
 ---
 
+## ⚠️ Un téléchargement de blob se joue sur DEUX détails
+
+Signalé par un parent, sur un PDF joint à une diffusion : « Impossible de
+télécharger le fichier joint », avec un message qui s'affiche et disparaît —
+**« seules les URL de type http ou https permettent le téléchargement »**.
+
+Ce message n'est pas le nôtre : c'est le **gestionnaire de téléchargements
+d'Android**, qui ne sait traiter que `http` et `https` et refuse tout le reste.
+Nos médias passent forcément par un `blob:` — les endpoints sont authentifiés,
+donc le fichier est récupéré par l'API puis remis au navigateur en mémoire. Il
+n'y a pas d'URL publique à donner, et il ne doit pas y en avoir.
+
+`lib/utils/download.ts` fabriquait ce blob correctement, et le perdait sur deux
+détails :
+
+1. **L'ancre n'était pas DANS le document.** Un élément détaché ne déclenche
+   pas de téléchargement partout — Firefox l'exige depuis toujours.
+2. **`URL.revokeObjectURL` était appelé dans la foulée du clic.** C'est une
+   course : le navigateur n'a souvent pas encore commencé à lire le blob. L'URL
+   morte retombe alors sur le gestionnaire du système, qui voit un schéma
+   `blob:` et refuse — d'où le message ci-dessus.
+
+⚠️ **Aucun `try/catch` ne pouvait l'attraper** : `a.click()` rend la main
+normalement, et c'est le système, plus tard, qui renonce. L'application croit
+avoir réussi. C'est aussi pourquoi le défaut favorisait les GROS fichiers, qui
+mettent plus longtemps à être lus : les vignettes passaient, le document non.
+
+Prouvé par sabotage dans un vrai navigateur, sur le vrai bouton : l'ancre est
+dans le document au moment du clic et l'URL répond encore (300 622 octets
+relus) quatre secondes après ; rejouée à l'identique, l'ancienne version laisse
+une ancre détachée et une URL morte immédiatement.
+
+⚠️ **Le correctif existait déjà, dans UNE copie.** `export-tab.tsx` avait sa
+propre version avec le commentaire « révocation différée : synchrone juste
+après click() course sur gros blobs » — la leçon avait été apprise là où le
+défaut avait été vu, et nulle part ailleurs. Les trois copies (messagerie,
+export présences, export enfants) passent désormais par le helper unique, qui
+porte aussi `filenameFromDisposition()`.
+
+### Un PDF se LIT — l'affichage suit
+
+Un fichier joint était un bouton-trombone au texte souligné : rien n'y disait
+qu'on avait affaire à un document, ni son poids, et il n'offrait qu'UN geste —
+celui, précisément, qui a échoué chez ce parent.
+
+`components/messaging/file-attachment-card.tsx` présente le document (icône,
+nom, format, poids) et propose **Ouvrir**, **Enregistrer**, et **Partager**.
+Même carte dans les diffusions et dans les conversations, côté admin comme côté
+parent.
+
+- **« Ouvrir » est le geste principal**, et c'est aussi la sortie de secours :
+  un parent qui ne peut pas enregistrer peut au moins lire.
+- ⚠️ **`<object>` et non `<iframe>`** : il rend SES ENFANTS quand le navigateur
+  ne sait pas afficher le type. Avec un cadre, un navigateur sans lecteur PDF —
+  Chrome sur Android — laisse un rectangle vide et sombre, qu'on lit comme une
+  panne. Vu à l'écran, dans la vue intégrée, avant correction.
+- **Les boutons sont répétés sous le cadre** : si rien ne s'affiche, le geste
+  utile est sous les yeux plutôt qu'à chercher après avoir refermé.
+- ⚠️ **« Partager » n'apparaît que sur un appareil TACTILE** capable de partager
+  des fichiers (`canShareFilesHere`). Sur un poste de bureau il ferait doublon
+  avec « Enregistrer », qui marche ; sur mobile c'est souvent le seul chemin qui
+  aboutit, et il mène à « Enregistrer dans Fichiers ».
+- ⚠️ **La croix de retrait est passée DANS la carte.** Posée en absolu — ce que
+  fait l'aperçu d'un média, qui n'a ni cadre ni marge où la loger — elle
+  recouvrait l'icône du document. Vu à l'écran.
+- ⚠️ **Un libellé de bouton hérite de la couleur de la bulle.** Dans une bulle
+  colorée, le texte est blanc : sur un bouton à fond blanc, les libellés
+  disparaissaient purement et simplement. `text-foreground` explicite. Vu à
+  l'écran, invisible au type-check.
+
+Vérifié dans un vrai navigateur, en parent et en admin, en diffusion et en
+conversation, à 375 px comme en grand : carte lisible, aucun débordement
+horizontal, PDF affiché, et le téléchargement qui ne révoque plus son blob.
+
+---
+
 ## ⚠️ Les filtres d'une liste vivent dans l'URL, jamais en `useState`
 
 Signalé par un établissement, sur les enfants : ouvrir la fiche d'un enfant puis

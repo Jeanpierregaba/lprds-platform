@@ -40,3 +40,44 @@ export async function shareOrDownload(
   }
   downloadBlob(blob, filename)
 }
+
+/**
+ * Le partage natif d'un FICHIER est-il praticable ici ?
+ *
+ * Deux conditions, et la seconde compte autant que la première : un appareil
+ * TACTILE. Sur un poste de bureau, `navigator.canShare` existe aussi, mais un
+ * bouton « Partager » y ferait doublon avec « Enregistrer », qui marche très
+ * bien — alors que sur mobile c'est souvent le seul chemin qui aboutit.
+ */
+export function canShareFilesHere(contentType: string): boolean {
+  if (typeof navigator === 'undefined' || typeof navigator.canShare !== 'function') return false
+  const touch = isStandalone() || window.matchMedia('(pointer: coarse)').matches
+  if (!touch) return false
+  const probe = new File([new Uint8Array(1)], 'probe', { type: contentType || 'application/octet-stream' })
+  try {
+    return navigator.canShare({ files: [probe] })
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Ouvre la feuille de partage du système sur ce fichier — « Enregistrer dans
+ * Fichiers », « Envoyer par… ». Rend `false` si l'utilisateur a annulé ou si
+ * le partage a échoué, à l'appelant de proposer autre chose.
+ */
+export async function shareFile(
+  blob: Blob,
+  filename: string,
+  contentType: string,
+): Promise<boolean> {
+  const file = new File([blob], filename, { type: contentType || blob.type })
+  try {
+    await navigator.share({ files: [file] })
+    return true
+  } catch (err) {
+    // Annulation : l'utilisateur a refermé la feuille, il n'y a rien à dire.
+    if (isAbortError(err)) return true
+    return false
+  }
+}

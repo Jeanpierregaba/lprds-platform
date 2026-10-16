@@ -160,5 +160,14 @@
   "conversationEmpty": "Aucun message pour l'instant. Écrivez à l'établissement ci-dessous.",
   "enterToSend": "Touche Entrée pour envoyer.",
   "carouselHint": "Carrousel des médias de la diffusion — flèches ou clavier pour naviguer, Échap pour fermer.",
-  "previewUnavailable": "Aperçu indisponible"
+  "previewUnavailable": "Aperçu indisponible",
+  "file": {
+    "open": "Ouvrir",
+    "share": "Partager",
+    "loading": "Chargement du document…",
+    "loadFailed": "Ce document n’a pas pu être chargé.",
+    "viewerHint": "Si le document ne s’affiche pas ici, enregistrez-le ou partagez-le pour l’ouvrir avec votre lecteur habituel.",
+    "shareFailed": "Le partage n’a pas abouti. Essayez « Enregistrer ».",
+    "inlineUnsupported": "Votre navigateur n’affiche pas les PDF directement."
+  }
 }

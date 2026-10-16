@@ -3,15 +3,15 @@
 import { useTranslations } from 'next-intl'
 
 import { useEffect, useRef, useState } from 'react'
-import { Download, ImageOff, Loader2, Paperclip, Share, X } from 'lucide-react'
+import { Download, ImageOff, Loader2, Share, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { messagingApi } from '@/lib/api/messaging.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
-import { downloadBlob } from '@/lib/utils/download'
 import { cn } from '@/lib/utils/cn'
 import { isStandalone, shareOrDownload } from '@/lib/utils/pwa'
 import { useAttachmentBlob } from '@/lib/messaging/use-attachment-blob'
+import { FileAttachmentCard } from './file-attachment-card'
 import type { Attachment } from '@/types/messaging'
 
 /**
@@ -37,59 +37,45 @@ export function MessageAttachments({
   const tCommon = useTranslations('common')
   return (
     <>
-      {attachments.map((att) => (
-        <span key={att.id} className={cn(onRemove && 'relative block')}>
-          {att.content_type.startsWith('video/') || att.content_type.startsWith('image/') ? (
-            <MediaPreview attachment={att} />
-          ) : (
-            <FileDownloadButton attachment={att} highlight={highlight} />
-          )}
-          {onRemove && (
-            <button
-              type="button"
-              onClick={() => onRemove(att.id)}
-              disabled={removingId === att.id}
-              aria-label={tCommon('actions.removeNamed', { name: att.filename })}
-              title={t('media.removeAttachment')}
-              className="absolute left-1 top-2.5 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive disabled:opacity-60"
-            >
-              {removingId === att.id
-                ? <Loader2 className="size-3.5 animate-spin" />
-                : <X className="size-3.5" />}
-            </button>
-          )}
-        </span>
-      ))}
-    </>
-  )
-}
-
-export function FileDownloadButton({
-  attachment: att,
-  highlight,
-}: {
-  attachment: Attachment
-  highlight: boolean
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        'mt-1.5 flex max-w-full items-center gap-1.5 rounded border px-2 py-1 text-xs underline-offset-2 hover:underline',
-        highlight ? 'border-primary-foreground/30' : 'border-border'
-      )}
-      onClick={async () => {
-        try {
-          const res = await messagingApi.downloadAttachment(att.id)
-          downloadBlob(res.data, att.filename)
-        } catch (err) {
-          toast.error(getApiErrorMessage(err))
+      {attachments.map((att) => {
+        const isMedia =
+          att.content_type.startsWith('video/') || att.content_type.startsWith('image/')
+        // ⚠️ La croix de retrait est posée en ABSOLU sur l'aperçu d'un média,
+        // qui n'a ni cadre ni marge où la loger. Une carte de fichier, elle,
+        // en a une : la croix y entre, sinon elle recouvre l'icône du
+        // document — vu à l'écran.
+        if (!isMedia) {
+          return (
+            <FileAttachmentCard
+              key={att.id}
+              attachment={att}
+              highlight={highlight}
+              onRemove={onRemove ? () => onRemove(att.id) : undefined}
+              removing={removingId === att.id}
+            />
+          )
         }
-      }}
-    >
-      <Paperclip className="size-3 shrink-0" />
-      <span className="min-w-0 truncate">{att.filename}</span>
-    </button>
+        return (
+          <span key={att.id} className={cn(onRemove && 'relative block')}>
+            <MediaPreview attachment={att} />
+            {onRemove && (
+              <button
+                type="button"
+                onClick={() => onRemove(att.id)}
+                disabled={removingId === att.id}
+                aria-label={tCommon('actions.removeNamed', { name: att.filename })}
+                title={t('media.removeAttachment')}
+                className="absolute left-1 top-2.5 rounded-full bg-black/60 p-1 text-white transition hover:bg-destructive disabled:opacity-60"
+              >
+                {removingId === att.id
+                  ? <Loader2 className="size-3.5 animate-spin" />
+                  : <X className="size-3.5" />}
+              </button>
+            )}
+          </span>
+        )
+      })}
+    </>
   )
 }
 

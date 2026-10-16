@@ -33,6 +33,7 @@ import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
 import { Link } from '@/i18n/navigation'
 import { ChildAvatar } from '@/components/children/child-avatar'
 import { useListParams, useUrlSearch } from '@/lib/hooks/use-list-params'
+import { downloadBlob, filenameFromDisposition } from '@/lib/utils/download'
 import { CHILDREN_LIST_PATH } from '../list-paths'
 
 const PAGE_SIZE = 20
@@ -52,19 +53,6 @@ const LIST_DEFAULTS = {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(intlLocale())
-}
-
-function downloadBlob(blob: Blob, fallbackName: string, disposition?: string) {
-  const match = /filename="([^"]+)"/.exec(disposition ?? '')
-  const filename = match?.[1] ?? fallbackName
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }
 
 export default function ChildrenListPage() {
@@ -119,7 +107,7 @@ export default function ChildrenListPage() {
     setLoadingTemplate(true)
     try {
       const res = await childrenApi.importTemplate('xlsx')
-      downloadBlob(res.data as Blob, 'modele_enfants.xlsx', res.headers['content-disposition'])
+      downloadBlob(res.data as Blob, filenameFromDisposition(res.headers['content-disposition'], 'modele_enfants.xlsx'))
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     } finally {
@@ -131,7 +119,7 @@ export default function ChildrenListPage() {
     setExporting(true)
     try {
       const res = await childrenApi.export({ file_format: 'xlsx', include_inactive: includeInactive })
-      downloadBlob(res.data as Blob, 'enfants.xlsx', res.headers['content-disposition'])
+      downloadBlob(res.data as Blob, filenameFromDisposition(res.headers['content-disposition'], 'enfants.xlsx'))
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     } finally {

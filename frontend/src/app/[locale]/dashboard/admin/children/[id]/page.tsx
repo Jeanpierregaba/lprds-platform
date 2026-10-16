@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 import { useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,6 +27,8 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { uploadEachInTurn } from '@/lib/api/upload-many'
 import { downloadBlob } from '@/lib/utils/download'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { listBackHref } from '@/lib/hooks/use-list-params'
+import { CHILDREN_LIST_PATH } from '../../list-paths'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { Child, ChildDocument } from '@/types/children'
@@ -86,6 +88,10 @@ type ContactsForm = z.infer<ReturnType<typeof makeContactsSchema>>
 export default function ChildDetailPage() {
   const t = useTranslations('children')
   const { id } = useParams<{ id: string }>()
+  /* Le « retour » rejoue les filtres de la liste d'où l'on vient — sans
+     quoi on retombe sur une liste remise à zéro. `from` vient de la barre
+     d'adresse : `listBackHref` ne l'honore que s'il désigne bien la liste. */
+  const backHref = listBackHref(CHILDREN_LIST_PATH, useSearchParams().get('from'))
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -120,7 +126,7 @@ export default function ChildDetailPage() {
 
   return (
     <PageMotion className="max-w-3xl space-y-4">
-      <BackLink href="/dashboard/admin/children" label={t('form.back')} />
+      <BackLink href={backHref} label={t('form.back')} />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

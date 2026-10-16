@@ -17,6 +17,7 @@ import { CardsEmptyState, CardsGrid, StaggerItem } from '@/components/dashboard/
 import type { MissingReportResponse } from '@/types/reports'
 import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
+import { useUrlSearch } from '@/lib/hooks/use-list-params'
 
 function normalize(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -39,12 +40,16 @@ export function MissingList({
   const t = useTranslations('reports')
   const tCommon = useTranslations('common')
   const today = new Date().toISOString().slice(0, 10)
+  // Le filtrage est LOCAL ici (la liste entière est déjà chargée) : on filtre
+  // donc sur la frappe, instantanément, et c'est la valeur débouncée qui part
+  // dans l'URL — sans quoi un retour arrière perdrait la recherche.
+  const [draft, setDraft] = useUrlSearch(search, onSearchChange)
   const [view, setView] = useState<ViewMode>('cards')
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('reports:write')
 
-  const q = normalize(search.trim())
+  const q = normalize(draft.trim())
   const items = (data?.items ?? []).filter((item) =>
     !q ||
     normalize(`${item.child.first_names} ${item.child.last_name}`).includes(q) ||
@@ -57,8 +62,8 @@ export function MissingList({
         <div className="flex flex-wrap items-center gap-4">
           <SearchInput
             placeholder={t('missing.search')}
-            value={search}
-            onChange={onSearchChange}
+            value={draft}
+            onChange={setDraft}
             inputClassName="h-9"
           />
           <div className="flex items-center gap-2">

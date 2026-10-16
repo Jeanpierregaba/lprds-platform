@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 import { useRouter } from '@/i18n/navigation'
+import type { ViewMode } from '@/components/dashboard/shared/filters'
 import { REPORT_STATUSES, REPORT_TYPES, type ReportStatus, type ReportType } from '@/types/reports'
 
 export const REPORTS_LIST_PATH = '/dashboard/admin/reports'
@@ -13,13 +14,31 @@ export type StatusTab = ReportStatus | 'missing'
 export type ReportListParams = {
   /** Onglet de type — l'écran en a trois. */
   type: ReportType
-  /** Pastille de statut dans l'onglet. */
+  /** Pastille de statut dans l'onglet — les cinq, « Non soumis » incluse. */
   status: StatusTab
   /** Recherche par nom, prénoms ou matricule. */
   q: string
+  /**
+   * Date de la pastille « Non soumis », qui porte son PROPRE sélecteur.
+   * Vide = aujourd'hui : figer la date du jour dans la valeur par défaut la
+   * graverait dans tous les liens fabriqués ce jour-là, et un lien ouvert le
+   * lendemain afficherait la veille sans que personne ne l'ait demandé.
+   */
+  date: string
+  /** Page courante (décalage), pour les quatre pastilles paginées. */
+  skip: number
+  /** Cartes ou tableau. */
+  view: ViewMode
 }
 
-const DEFAULTS: ReportListParams = { type: 'quotidien', status: 'submitted', q: '' }
+const DEFAULTS: ReportListParams = {
+  type: 'quotidien',
+  status: 'submitted',
+  q: '',
+  date: '',
+  skip: 0,
+  view: 'cards',
+}
 
 const isType = (v: string | null): v is ReportType =>
   v !== null && (REPORT_TYPES as readonly string[]).includes(v)
@@ -30,12 +49,22 @@ const isStatus = (v: string | null): v is StatusTab =>
 export function readReportListParams(sp: URLSearchParams | ReadonlyURLSearchParamsLike): ReportListParams {
   const type = sp.get('type')
   const status = sp.get('status')
+  const skip = Number(sp.get('skip'))
+  const view = sp.get('view')
   return {
     type: isType(type) ? type : DEFAULTS.type,
     status: isStatus(status) ? status : DEFAULTS.status,
     q: sp.get('q') ?? DEFAULTS.q,
+    date: isIsoDate(sp.get('date')) ? (sp.get('date') as string) : DEFAULTS.date,
+    // Un décalage négatif ou non numérique vient d'une URL bricolée : on
+    // retombe sur la première page plutôt que de demander ce qui n'existe pas.
+    skip: Number.isInteger(skip) && skip >= 0 ? skip : DEFAULTS.skip,
+    view: view === 'table' || view === 'cards' ? view : DEFAULTS.view,
   }
 }
+
+const isIsoDate = (v: string | null): boolean =>
+  v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v))
 
 type ReadonlyURLSearchParamsLike = { get(name: string): string | null }
 
@@ -46,6 +75,9 @@ export function reportListHref(params: ReportListParams): string {
   if (params.type !== DEFAULTS.type) sp.set('type', params.type)
   if (params.status !== DEFAULTS.status) sp.set('status', params.status)
   if (params.q) sp.set('q', params.q)
+  if (params.date) sp.set('date', params.date)
+  if (params.skip !== DEFAULTS.skip) sp.set('skip', String(params.skip))
+  if (params.view !== DEFAULTS.view) sp.set('view', params.view)
   const query = sp.toString()
   return query ? `${REPORTS_LIST_PATH}?${query}` : REPORTS_LIST_PATH
 }
@@ -110,11 +142,25 @@ export function useReportListParams() {
 
   const setParams = useCallback(
     (patch: Partial<ReportListParams>) => {
+      // ⚠️ On relit l'URL AU MOMENT du geste : la recherche débouncée qui se
+      // valide pendant qu'on change de pastille partirait sinon du même
+      // instantané que le clic, et l'une des deux effacerait l'autre.
+      const live =
+        typeof window === 'undefined'
+          ? params
+          : readReportListParams(new URLSearchParams(window.location.search))
       // `scroll: false` : on reste où on est, seul l'onglet change sous les yeux.
-      router.replace(reportListHref({ ...params, ...patch }), { scroll: false })
+      router.replace(reportListHref({ ...live, ...patch }), { scroll: false })
     },
     [params, router],
   )
 
-  return { params, setParams }
+  /** Un filtre qui change remet la pagination à zéro : rester page 3 d'un
+   *  résultat qui n'en a plus que deux afficherait une liste vide. */
+  const setFilter = useCallback(
+    (patch: Partial<ReportListParams>) => setParams({ ...patch, skip: 0 }),
+    [setParams],
+  )
+
+  return { params, setParams, setFilter }
 }

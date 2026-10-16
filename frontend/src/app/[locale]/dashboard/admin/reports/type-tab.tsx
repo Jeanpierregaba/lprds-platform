@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
@@ -40,10 +39,11 @@ export function TypeTab({ reportType }: { reportType: ReportType }) {
   const reportStatusLabel = useLabel('reportStatus')
   // Dans l'URL, comme l'onglet de type : un retour de validation doit
   // retrouver la pastille d'où l'on est parti, pas « Soumis » par défaut.
-  const { params, setParams } = useReportListParams()
+  const { params, setFilter } = useReportListParams()
   const status = params.status
-  const [missingDate, setMissingDate] = useState(todayIso())
-  const [missingSearch, setMissingSearch] = useState('')
+  // La date de « Non soumis » vit elle aussi dans l'URL : c'est un filtre, et
+  // c'était le dernier état de cet écran qu'un retour arrière perdait.
+  const missingDate = params.date || todayIso()
 
   const counts = useQuery({
     queryKey: ['reports', 'status-counts', { reportType }],
@@ -67,7 +67,7 @@ export function TypeTab({ reportType }: { reportType: ReportType }) {
     tab === 'missing' ? missingQuery.data?.total : counts.data?.[tab]
 
   return (
-    <Tabs value={status} onValueChange={(v) => v && setParams({ status: v as StatusTab })}>
+    <Tabs value={status} onValueChange={(v) => v && setFilter({ status: v as StatusTab })}>
       <PillsTabsList>
         {STATUS_TAB_STYLE.map((tab) => (
           <PillsTrigger key={tab.value} value={tab.value} active={tab.active}>
@@ -86,9 +86,9 @@ export function TypeTab({ reportType }: { reportType: ReportType }) {
         {status === 'missing' && (
           <MissingList
             date={missingDate}
-            onDateChange={setMissingDate}
-            search={missingSearch}
-            onSearchChange={setMissingSearch}
+            onDateChange={(date) => setFilter({ date })}
+            search={params.q}
+            onSearchChange={(q) => setFilter({ q })}
             data={missingQuery.data}
             isLoading={missingQuery.isLoading}
           />

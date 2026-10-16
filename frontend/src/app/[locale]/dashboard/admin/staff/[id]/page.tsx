@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
 import { useLabelMap } from '@/lib/i18n/labels'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,6 +28,8 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { listBackHref } from '@/lib/hooks/use-list-params'
+import { STAFF_LIST_PATH } from '../../list-paths'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog, ResendInvitationDialog } from '@/components/dashboard/shared/dialogs'
 import { CredentialsDialog } from '@/components/dashboard/shared/credentials-dialog'
@@ -58,6 +60,10 @@ export default function StaffDetailPage() {
   const tAuth = useTranslations('auth')
   const staffTypesLabels = useLabelMap('staffTypes', STAFF_TYPES)
   const { id } = useParams<{ id: string }>()
+  /* Le « retour » rejoue les filtres de la liste d'où l'on vient — sans
+     quoi on retombe sur une liste remise à zéro. `from` vient de la barre
+     d'adresse : `listBackHref` ne l'honore que s'il désigne bien la liste. */
+  const backHref = listBackHref(STAFF_LIST_PATH, useSearchParams().get('from'))
   const queryClient = useQueryClient()
   const [resetOpen, setResetOpen] = useState(false)
   const [resendOpen, setResendOpen] = useState(false)
@@ -164,7 +170,7 @@ export default function StaffDetailPage() {
 
   return (
     <PageMotion className="max-w-3xl space-y-4">
-      <BackLink href="/dashboard/admin/staff" label={t('form.back')} />
+      <BackLink href={backHref} label={t('form.back')} />
 
       {acces && (
         <CredentialsDialog

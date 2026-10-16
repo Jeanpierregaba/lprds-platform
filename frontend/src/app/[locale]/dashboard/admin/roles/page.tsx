@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { ShieldCheck, UserCog } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { RolesTab } from './roles-tab'
 import { AssignmentTab } from './assignment-tab'
@@ -14,6 +14,7 @@ export default function RolesPage() {
   const t = useTranslations('rbac')
   return (
     <PageMotion>
+      <ModuleGuard adminOnly>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -36,6 +37,7 @@ export default function RolesPage() {
           <AssignmentTab />
         </TabPanel>
       </Tabs>
+      </ModuleGuard>
     </PageMotion>
   )
 }

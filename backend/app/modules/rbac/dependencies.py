@@ -48,3 +48,45 @@ def require_permission(*codes: PermissionCode):
         return current_user
 
     return _check
+
+
+def require_any_permission(*codes: PermissionCode):
+    """
+    Autorise l'admin de l'établissement, ou un staff portant AU MOINS UNE des
+    permissions listées — sémantique OU, là où `require_permission` exige
+    TOUTES les permissions (ET).
+
+    Les deux sont nécessaires et ne se remplacent pas : « modifier une fiche
+    enfant » exige `children:write` ET `children:archive` quand l'import crée
+    et désactive dans le même geste ; « voir les rapports » se satisfait de
+    read, write OU validate — refuser un porteur de write seul afficherait le
+    module dans la barre latérale et renverrait 403 sur ses données.
+
+    Cinq routers réimplémentaient ce OU à la main (`_can_see_reports`,
+    `_vocabulary_access`, `_read_types`, `_read_history`…), chacun avec sa
+    copie du test de rôle et sa propre 403 : autant d'occasions de n'en
+    corriger que quatre.
+    """
+    allowed = {str(c) for c in codes}
+
+    async def _check(current_user: User = Depends(get_current_user)) -> User:
+        forbidden = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=t("errors.common.insufficient_permissions"),
+        )
+
+        if current_user.establishment_id is None:
+            raise forbidden
+
+        if current_user.role == UserRole.ADMIN:
+            return current_user
+
+        if current_user.role != UserRole.STAFF:
+            raise forbidden
+
+        if not allowed & user_permission_codes(current_user):
+            raise forbidden
+
+        return current_user
+
+    return _check

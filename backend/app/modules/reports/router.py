@@ -27,7 +27,11 @@ from app.modules.reports.schemas import (
     ReportUpdateRequest,
     ReportVocabularyResponse,
 )
-from app.modules.rbac.dependencies import require_permission, user_permission_codes
+from app.modules.rbac.dependencies import (
+    require_any_permission,
+    require_permission,
+    user_permission_codes,
+)
 from app.modules.rbac.models import PermissionCode
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -48,17 +52,16 @@ def _sees_reports(user: User) -> bool:
     )
 
 
-async def _can_see_reports(user: User = Depends(get_current_user)) -> User:
-    """Garde des endpoints de LECTURE (liste, détail, manquants) : admin, ou
-    staff porteur d'au moins une permission du module. La sidebar affiche le
-    module dès une permission détenue ; refuser ici donnerait « page visible,
-    données 403 ». Le périmètre FIN (groupe mené vs tout l'établissement)
-    reste décidé dans le service, pas ici."""
-    if user.role == UserRole.ADMIN:
-        return user
-    if user.role == UserRole.STAFF and _sees_reports(user):
-        return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
+# Garde des endpoints de LECTURE (liste, détail, manquants) : admin, ou staff
+# porteur d'au moins une permission du module. La sidebar affiche le module dès
+# une permission détenue ; être plus étroit ici donnerait « page visible,
+# données 403 ». Le périmètre FIN (groupe mené vs tout l'établissement) reste
+# décidé dans le service, pas ici.
+_can_see_reports = require_any_permission(
+    PermissionCode.REPORTS_READ,
+    PermissionCode.REPORTS_WRITE,
+    PermissionCode.REPORTS_VALIDATE,
+)
 
 
 async def _vocabulary_access(user: User = Depends(get_current_user)) -> User:
@@ -84,19 +87,13 @@ _admin_only = require_roles(UserRole.ADMIN)
 
 
 # ── Paramètres : types de rapport activés par département ────────
-async def _read_types(
-    user: User = Depends(get_current_user),
-) -> User:
-    """Lecture des types actifs : admin, ou staff porteur de reports:read OU
-    reports:write — l'éducatrice en a besoin dans le formulaire de création
-    pour savoir quels types proposer (elle ne peut pas les CONFIGURER, seuls
-    POST/DELETE ci-dessous sont admin-only)."""
-    if user.role == UserRole.ADMIN:
-        return user
-    codes = user_permission_codes(user)
-    if PermissionCode.REPORTS_READ.value in codes or PermissionCode.REPORTS_WRITE.value in codes:
-        return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
+# Lecture des types actifs : admin, ou staff porteur de reports:read OU
+# reports:write — l'éducatrice en a besoin dans le formulaire de création pour
+# savoir quels types proposer (elle ne peut pas les CONFIGURER : seuls les
+# POST/DELETE ci-dessous sont réservés à l'admin).
+_read_types = require_any_permission(
+    PermissionCode.REPORTS_READ, PermissionCode.REPORTS_WRITE
+)
 
 
 @router.get(

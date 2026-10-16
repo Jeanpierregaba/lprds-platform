@@ -147,5 +147,11 @@
     "optionalPasswordHint": "Fill it in to be able to copy the credentials message. Left empty, a password is generated and will only exist in the email.",
     "showPassword": "Show password",
     "hidePassword": "Hide password"
+  },
+  "rights": {
+    "explain": "This page requires one of the following permissions:",
+    "ask": "Ask your establishment's administrator to add it to your role.",
+    "home": "Back to my dashboard",
+    "adminOnly": "This page is reserved for the establishment's administrator. No permission delegates it."
   }
 }

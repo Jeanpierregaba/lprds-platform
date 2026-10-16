@@ -113,8 +113,9 @@ export const STAFF_MODULE_ITEMS: (NavItem & {
     labelKey: 'attendanceSettings', href: '/dashboard/admin/settings?tab=presences', icon: Settings,
     permissions: ['attendance:write'],
   },
-  {
-    labelKey: 'librarySettings', href: '/dashboard/admin/settings?tab=bibliotheque', icon: Settings,
-    permissions: ['library:read', 'library:write', 'library:lend'], requireAll: true,
-  },
+  // ⚠️ PAS d'entrée « Paramètres bibliothèque » : `GET/PUT /library/settings`
+  // est réservé à l'admin (décision testée), non délégable. L'entrée existait
+  // et visait exactement le profil que le serveur refuse — un bibliothécaire
+  // y arrivait sur un formulaire qui affichait des valeurs par défaut
+  // inventées, puis échouait à l'enregistrement.
 ]

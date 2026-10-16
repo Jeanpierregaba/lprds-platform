@@ -173,7 +173,8 @@
     "generalRestored": "Horaire général rétabli.",
     "exempt": "Exempté",
     "exemptAria": "Exempter {name}",
-    "exemptionSaved": "Exemption mise à jour."
+    "exemptionSaved": "Exemption mise à jour.",
+    "matricule": "Matricule"
   },
   "dashboard": {
     "correctTitle": "Corriger les heures",

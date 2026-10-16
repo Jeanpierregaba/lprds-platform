@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { organizationApi } from '@/lib/api/organization.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { childrenApi } from '@/lib/api/children.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
@@ -208,10 +208,10 @@ type TabProps = { childId: string; child: Child; onSaved: () => void; canWrite: 
 
 function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
   const t = useTranslations('children')
-  const { data: departments } = useQuery({
-    queryKey: ['departments', { includeInactive: false }],
-    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
-  })
+  // ⚠️ Sélecteurs de périmètre : l'ANNUAIRE. `/departments` et `/sections`
+  // exigent `organization:read` — un staff porteur de `children:read` seul
+  // voyait des filtres vides, sans rien qui l'explique.
+  const { departments, sectionsOf } = useDirectoryUnits()
 
   const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm<InfoForm>({
     resolver: zodResolver(makeInfoSchema(t)),
@@ -228,13 +228,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
 
   const departmentId = watch('department_id')
 
-  const { data: sections } = useQuery({
-    queryKey: ['sections', { departmentId: departmentId || '__all__', includeInactive: false }],
-    queryFn: () =>
-      organizationApi
-        .listSections({ department_id: departmentId || undefined, include_inactive: false })
-        .then((r) => r.data),
-  })
+  const sections = sectionsOf(departmentId)
 
   const onSubmit = async (values: InfoForm) => {
     try {

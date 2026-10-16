@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Building, LayoutGrid, Users } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { DepartmentsTab } from './departments-tab'
 import { SectionsTab } from './sections-tab'
@@ -15,6 +15,7 @@ export default function OrganizationPage() {
   const t = useTranslations('organization')
   return (
     <PageMotion>
+      <ModuleGuard anyOf={['organization:read', 'organization:write']}>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -43,6 +44,7 @@ export default function OrganizationPage() {
           <GroupsTab />
         </TabPanel>
       </Tabs>
+      </ModuleGuard>
     </PageMotion>
   )
 }

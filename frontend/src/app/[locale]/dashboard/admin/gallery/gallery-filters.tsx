@@ -9,11 +9,9 @@ import { REPORT_TYPES } from '@/types/reports'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { childrenApi } from '@/lib/api/children.api'
-import { organizationApi } from '@/lib/api/organization.api'
-import { staffApi } from '@/lib/api/staff.api'
+import { directoryApi } from '@/lib/api/directory.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { GALLERY_SOURCES, type GalleryMediaParams } from '@/types/gallery'
-import { displayName } from '@/lib/utils/display-name'
 
 export const ALL = '__all__'
 
@@ -65,30 +63,29 @@ export function GalleryFilters({
   const tCommon = useTranslations('common')
   const gallerySourcesLabels = useLabelMap('gallerySources', GALLERY_SOURCES)
   const reportTypesLabels = useLabelMap('reportTypes', REPORT_TYPES)
+  // ⚠️ Les quatre listes viennent de l'ANNUAIRE. Elles appelaient les modules
+  // Enfants, Organisation et Personnel, donc `gallery:read` ne suffisait pas à
+  // remplir les filtres de la galerie : le staff délégué voyait « tous les
+  // enfants » et rien d'autre. Et claude.md le disait déjà de la galerie —
+  // « `gallery:read` n'implique pas `reports:read` », aucun couplage caché
+  // entre modules : filtrer n'est pas consulter.
   const { data: children } = useQuery({
-    queryKey: ['children', 'options'],
-    queryFn: () => childrenApi.list({ limit: 200 }).then((r) => r.data.items),
-  })
-  const { data: departments } = useQuery({
-    queryKey: ['departments', 'options'],
-    queryFn: () => organizationApi.listDepartments().then((r) => r.data),
-  })
-  const { data: groups } = useQuery({
-    queryKey: ['groups', 'options'],
-    queryFn: () => organizationApi.listGroups().then((r) => r.data),
+    queryKey: ['directory', 'children', { limit: 200 }],
+    queryFn: () => directoryApi.listChildren({ limit: 200 }).then((r) => r.data.items),
   })
   const { data: staff } = useQuery({
-    queryKey: ['staff', 'options'],
-    queryFn: () => staffApi.list({ limit: 200 }).then((r) => r.data.items),
+    queryKey: ['directory', 'staff', { limit: 200 }],
+    queryFn: () => directoryApi.listStaff({ limit: 200 }).then((r) => r.data.items),
   })
+  const { departments, groups } = useDirectoryUnits()
 
   const set = <K extends keyof GalleryFilterState>(key: K, value: GalleryFilterState[K]) =>
     onChange({ ...filters, [key]: value })
 
-  const childItems = { [ALL]: t('filters.allChildren'), ...Object.fromEntries((children ?? []).map((c) => [c.id, `${c.first_names} ${c.last_name}`])) }
-  const deptItems = { [ALL]: t('filters.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }
-  const groupItems = { [ALL]: t('filters.allGroups'), ...Object.fromEntries((groups ?? []).map((g) => [g.id, g.name])) }
-  const staffItems = { [ALL]: t('filters.allStaff'), ...Object.fromEntries((staff ?? []).map((s) => [s.id, displayName(s)])) }
+  const childItems = { [ALL]: t('filters.allChildren'), ...Object.fromEntries((children ?? []).map((c) => [c.id, c.display_name])) }
+  const deptItems = { [ALL]: t('filters.allDepartments'), ...Object.fromEntries(departments.map((d) => [d.id, d.name])) }
+  const groupItems = { [ALL]: t('filters.allGroups'), ...Object.fromEntries(groups.map((g) => [g.id, g.name])) }
+  const staffItems = { [ALL]: t('filters.allStaff'), ...Object.fromEntries((staff ?? []).map((s) => [s.id, s.display_name])) }
 
   const hasActiveFilters = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS)
 

@@ -7,7 +7,6 @@ import { intlLocale } from '@/lib/utils/locale-format'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
@@ -21,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { organizationApi } from '@/lib/api/organization.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils'
@@ -102,10 +101,10 @@ export default function NewChildPage() {
   const [step, setStep] = useState(0)
   const [documents, setDocuments] = useState<File[]>([])
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments', { includeInactive: false }],
-    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
-  })
+  // ⚠️ Sélecteurs de périmètre : l'ANNUAIRE. `/departments` et `/sections`
+  // exigent `organization:read` — un staff porteur de `children:read` seul
+  // voyait des filtres vides, sans rien qui l'explique.
+  const { departments, sectionsOf } = useDirectoryUnits()
 
   const {
     register, handleSubmit, control, watch, trigger, getValues,
@@ -123,13 +122,7 @@ export default function NewChildPage() {
 
   const departmentId = watch('department_id')
 
-  const { data: sections } = useQuery({
-    queryKey: ['sections', { departmentId: departmentId || '__all__', includeInactive: false }],
-    queryFn: () =>
-      organizationApi
-        .listSections({ department_id: departmentId || undefined, include_inactive: false })
-        .then((r) => r.data),
-  })
+  const sections = sectionsOf(departmentId)
 
   const guardianFields = useFieldArray({ control, name: 'guardians' })
   const authorizedFields = useFieldArray({ control, name: 'authorized_persons' })

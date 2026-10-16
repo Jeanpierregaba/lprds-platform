@@ -12,6 +12,7 @@ from app.modules.notifications.router import router as notifications_router
 from app.modules.messaging.router import router as messaging_router
 from app.modules.organization.router import router as organization_router
 from app.modules.parents.router import router as parents_router
+from app.modules.directory.router import router as directory_router
 from app.modules.rbac.router import router as rbac_router
 from app.modules.reports.router import router as reports_router
 from app.modules.staff.router import router as staff_router
@@ -20,6 +21,7 @@ api_router = APIRouter()
 api_router.include_router(auth_router)
 api_router.include_router(establishments_router)
 api_router.include_router(rbac_router)
+api_router.include_router(directory_router)
 api_router.include_router(organization_router)
 api_router.include_router(children_router)
 api_router.include_router(parents_router)

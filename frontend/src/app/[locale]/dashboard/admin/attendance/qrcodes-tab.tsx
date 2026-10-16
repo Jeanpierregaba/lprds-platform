@@ -13,12 +13,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { attendanceApi } from '@/lib/api/attendance.api'
-import { childrenApi } from '@/lib/api/children.api'
-import { staffApi } from '@/lib/api/staff.api'
+import { directoryApi } from '@/lib/api/directory.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { CardPreviewModal } from '@/components/card-preview-modal'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
-import { displayName } from '@/lib/utils/display-name'
 
 export function QrCodesTab() {
   const t = useTranslations('attendance')
@@ -65,23 +63,30 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
   // Seuil de 2 lettres + 10 premiers résultats (comme l'export) : à 1
   // lettre le bruit noie les résultats sans prévenir l'utilisateur.
   const searchActive = debouncedSearch.trim().length >= 2
+  // ⚠️ L'ANNUAIRE, pas les modules Enfants et Personnel. Ces deux listes
+  // exigeaient `children:read` / `staff:read` : une assistante de direction à
+  // qui l'établissement avait confié les badges voyait un sélecteur vide, sans
+  // un mot d'explication — c'est le défaut signalé. Imprimer une carte n'a pas
+  // à ouvrir le dossier de l'enfant.
   const { data: childResults, isLoading: isSearchingChildren } = useQuery({
-    queryKey: ['children', { search: debouncedSearch }],
-    queryFn: () => childrenApi.list({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
+    queryKey: ['directory', 'children', { search: debouncedSearch }],
+    queryFn: () => directoryApi.listChildren({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
     enabled: personType === 'child' && searchActive,
   })
 
   const { data: staffResults, isLoading: isSearchingStaff } = useQuery({
-    queryKey: ['staff', { search: debouncedSearch }],
-    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
+    queryKey: ['directory', 'staff', { search: debouncedSearch }],
+    queryFn: () => directoryApi.listStaff({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
     enabled: personType === 'staff' && searchActive,
   })
 
   const isSearching = personType === 'child' ? isSearchingChildren : isSearchingStaff
 
+  // `display_name` vient du serveur : la règle du surnom y vit une fois,
+  // au lieu d'être rejouée par chaque écran.
   const results = personType === 'child'
-    ? (childResults?.items.map((c) => ({ id: c.id, label: `${c.first_names} ${c.last_name}`, sub: c.matricule })) ?? [])
-    : (staffResults?.items.map((s) => ({ id: s.id, label: displayName(s), sub: s.matricule })) ?? [])
+    ? (childResults?.items.map((c) => ({ id: c.id, label: c.display_name, sub: c.matricule })) ?? [])
+    : (staffResults?.items.map((s) => ({ id: s.id, label: s.display_name, sub: s.matricule ?? '' })) ?? [])
 
   const { data: qrcode, isLoading: isLoadingQr, error } = useQuery({
     queryKey: ['attendance', 'qrcode', personType, selectedId],
@@ -93,20 +98,20 @@ function PersonQrCode({ personType }: { personType: 'child' | 'staff' }) {
 
   const selected = results.find((r) => r.id === selectedId)
 
-  const { data: childDetail } = useQuery({
-    queryKey: ['children', selectedId],
-    queryFn: () => childrenApi.get(selectedId!).then((r) => r.data),
-    enabled: personType === 'child' && !!selectedId,
-  })
+  // ⚠️ Plus aucun appel à la FICHE de l'enfant. Il ne servait qu'à imprimer
+  // un nom et une section sur la carte — et ramenait notes médicales,
+  // médications et médecin traitant avec. L'annuaire porte exactement les
+  // quatre champs que la carte dessine.
+  const selectedChild = childResults?.items.find((c) => c.id === selectedId)
 
   const cardData =
-    childDetail && qrcode
+    personType === 'child' && selectedChild && qrcode
       ? {
           qrImage: qrcode.qr_image,
           matricule: qrcode.matricule,
-          firstName: childDetail.first_names,
-          lastName: childDetail.last_name,
-          section: childDetail.section?.name ?? '',
+          firstName: selectedChild.first_names,
+          lastName: selectedChild.last_name,
+          section: selectedChild.section_name ?? '',
         }
       : null
 

@@ -1,12 +1,11 @@
 from datetime import date
-from app.core.i18n import t
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.models import User
 from app.modules.menus import service
 from app.modules.menus.dependencies import get_establishment_member
 from app.modules.menus.schemas import (
@@ -19,7 +18,7 @@ from app.modules.menus.schemas import (
     MenuWriteRequest,
     VisibleDepartmentsResponse,
 )
-from app.modules.rbac.dependencies import require_permission, user_permission_codes
+from app.modules.rbac.dependencies import require_any_permission, require_permission
 from app.modules.rbac.models import PermissionCode
 
 router = APIRouter(prefix="/menus", tags=["menus"])
@@ -27,18 +26,12 @@ router = APIRouter(prefix="/menus", tags=["menus"])
 _write = require_permission(PermissionCode.MENUS_WRITE)
 
 
-async def _read_history(
-    user: User = Depends(get_establishment_member),
-) -> User:
-    """Historique (semaines passées + liste complète) : admin, ou staff porteur
-    de menus:read (consultation seule) OU menus:write (édition, inclut donc la
-    lecture)."""
-    if user.role == UserRole.ADMIN:
-        return user
-    codes = user_permission_codes(user)
-    if PermissionCode.MENUS_READ.value in codes or PermissionCode.MENUS_WRITE.value in codes:
-        return user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=t("errors.common.insufficient_permissions"))
+# Historique (semaines passées + liste complète) : admin, ou staff porteur de
+# menus:read (consultation seule) OU menus:write (édition, qui inclut donc la
+# lecture). Un parent n'y a jamais accès — il ne lit que la semaine en cours.
+_read_history = require_any_permission(
+    PermissionCode.MENUS_READ, PermissionCode.MENUS_WRITE
+)
 
 
 # ── Écriture (admin ou staff délégué menus:write, TOUS départements) ─

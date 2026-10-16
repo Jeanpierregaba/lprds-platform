@@ -22,7 +22,7 @@ import {
 import { organizationApi } from '@/lib/api/organization.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
-import { staffApi } from '@/lib/api/staff.api'
+import { directoryApi } from '@/lib/api/directory.api'
 import { childrenApi } from '@/lib/api/children.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
@@ -68,7 +68,9 @@ export function GroupsTab() {
 
   const { data: educatrices } = useQuery({
     queryKey: ['staff', { staff_type: 'educateur' }],
-    queryFn: () => staffApi.list({ staff_type: 'educateur', include_inactive: false, limit: 200 }).then((r) => r.data),
+    // Désigner une éducatrice n'exige pas `staff:read` : c'est un choix de
+    // personne, pas une consultation de dossier.
+    queryFn: () => directoryApi.listStaff({ staff_type: 'educateur', limit: 200 }).then((r) => r.data),
   })
 
   const { data, isLoading } = useQuery({
@@ -252,7 +254,7 @@ export function GroupsTab() {
                   render={({ field }) => (
                     <Select
                       items={Object.fromEntries(
-                        (educatrices?.items ?? []).map((e) => [e.id, displayName(e)])
+                        (educatrices?.items ?? []).map((e) => [e.id, e.display_name])
                       )}
                       value={field.value}
                       onValueChange={field.onChange}
@@ -263,7 +265,7 @@ export function GroupsTab() {
                       <SelectContent>
                         {educatrices?.items.map((e) => (
                           <SelectItem key={e.id} value={e.id}>
-                            {displayName(e)}
+                            {e.display_name}
                           </SelectItem>
                         ))}
                       </SelectContent>

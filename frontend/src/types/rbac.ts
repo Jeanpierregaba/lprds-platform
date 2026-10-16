@@ -22,6 +22,8 @@ export const PERMISSION_CODES = [
   'organization:write',
   'attendance:scan',
   'attendance:read',
+  'attendance:qrcode',
+  'attendance:correct',
   'attendance:write',
   'reports:read',
   'reports:write',
@@ -44,7 +46,13 @@ export const PERMISSION_GROUPS: { moduleKey: string; codes: PermissionCode[] }[]
   { moduleKey: 'parents', codes: ['parents:read', 'parents:write'] },
   { moduleKey: 'staff', codes: ['staff:read', 'staff:write'] },
   { moduleKey: 'organization', codes: ['organization:read', 'organization:write'] },
-  { moduleKey: 'attendance', codes: ['attendance:scan', 'attendance:read', 'attendance:write'] },
+  {
+    moduleKey: 'attendance',
+    codes: [
+      'attendance:scan', 'attendance:read', 'attendance:qrcode',
+      'attendance:correct', 'attendance:write',
+    ],
+  },
   { moduleKey: 'reports', codes: ['reports:read', 'reports:write', 'reports:validate'] },
   { moduleKey: 'gallery', codes: ['gallery:read'] },
   { moduleKey: 'menus', codes: ['menus:read', 'menus:write'] },

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { BookMarked, BookOpen } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { CatalogueTab } from './catalogue-tab'
 import { LendingsTab } from './lendings-tab'
@@ -14,6 +14,7 @@ export default function LibraryPage() {
   const t = useTranslations('library')
   return (
     <PageMotion>
+      <ModuleGuard anyOf={['library:read', 'library:write', 'library:lend']}>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -36,6 +37,7 @@ export default function LibraryPage() {
           <LendingsTab />
         </TabPanel>
       </Tabs>
+      </ModuleGuard>
     </PageMotion>
   )
 }

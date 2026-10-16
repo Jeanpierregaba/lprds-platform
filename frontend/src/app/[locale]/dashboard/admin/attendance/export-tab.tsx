@@ -16,14 +16,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { attendanceApi } from '@/lib/api/attendance.api'
-import { childrenApi } from '@/lib/api/children.api'
-import { staffApi } from '@/lib/api/staff.api'
-import { organizationApi } from '@/lib/api/organization.api'
+import { directoryApi } from '@/lib/api/directory.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { downloadBlob, filenameFromDisposition } from '@/lib/utils/download'
 import { toIsoDate } from '@/lib/utils/dates'
 import type { ExportFileFormat, ExportPersonType } from '@/types/attendance'
-import { displayName } from '@/lib/utils/display-name'
 
 type PeriodType = 'day' | 'week' | 'month' | 'custom'
 
@@ -78,14 +76,17 @@ export function ExportTab() {
   }, [personSearch])
 
   const searchActive = debouncedSearch.length >= 2 && !selectedPerson
+  // ⚠️ L'ANNUAIRE : restreindre un export à une personne n'exige pas d'ouvrir
+  // son dossier. `/children` et `/staff` demandaient `children:read` /
+  // `staff:read`, que le porteur de `attendance:read` n'a pas forcément.
   const { data: childHits, isLoading: childrenSearching } = useQuery({
-    queryKey: ['attendance-export-search', 'children', debouncedSearch],
-    queryFn: () => childrenApi.list({ search: debouncedSearch, limit: 8 }).then((r) => r.data),
+    queryKey: ['directory', 'children', { search: debouncedSearch, limit: 8 }],
+    queryFn: () => directoryApi.listChildren({ search: debouncedSearch, limit: 8 }).then((r) => r.data),
     enabled: searchActive,
   })
   const { data: staffHits, isLoading: staffSearching } = useQuery({
-    queryKey: ['attendance-export-search', 'staff', debouncedSearch],
-    queryFn: () => staffApi.list({ search: debouncedSearch, limit: 8 }).then((r) => r.data),
+    queryKey: ['directory', 'staff', { search: debouncedSearch, limit: 8 }],
+    queryFn: () => directoryApi.listStaff({ search: debouncedSearch, limit: 8 }).then((r) => r.data),
     enabled: searchActive,
   })
   const searching = childrenSearching || staffSearching
@@ -93,11 +94,11 @@ export function ExportTab() {
     ? [
         ...(childHits?.items ?? []).map((c) => ({
           id: c.id, kind: 'child' as const,
-          label: `${c.first_names} ${c.last_name}`, sub: c.matricule,
+          label: c.display_name, sub: c.matricule,
         })),
         ...(staffHits?.items ?? []).map((s) => ({
           id: s.id, kind: 'staff' as const,
-          label: displayName(s), sub: s.matricule,
+          label: s.display_name, sub: s.matricule ?? '',
         })),
       ]
     : []
@@ -117,19 +118,9 @@ export function ExportTab() {
     }
   }
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments', { includeInactive: false }],
-    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
-  })
-
-  const { data: sections } = useQuery({
-    queryKey: ['sections', { departmentId }],
-    queryFn: () =>
-      departmentId
-        ? organizationApi.listSections({ department_id: departmentId, include_inactive: false }).then((r) => r.data)
-        : Promise.resolve([]),
-    enabled: !!departmentId,
-  })
+  // Même raison pour le périmètre : `/departments` exige `organization:read`.
+  const { departments, sectionsOf } = useDirectoryUnits()
+  const sections = departmentId ? sectionsOf(departmentId) : []
 
   const download = async () => {
     if (!dateFrom || !dateTo) {

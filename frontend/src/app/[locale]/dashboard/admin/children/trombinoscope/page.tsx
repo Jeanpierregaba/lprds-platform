@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { ChildAvatar } from '@/components/children/child-avatar'
 import { childrenApi } from '@/lib/api/children.api'
-import { organizationApi } from '@/lib/api/organization.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { useRouter } from '@/i18n/navigation'
 
 const PATH = '/dashboard/admin/children/trombinoscope'
@@ -31,10 +31,10 @@ export default function TrombinoscopePage() {
   const router = useRouter()
   const sectionId = useSearchParams().get('section') ?? ''
 
-  const sections = useQuery({
-    queryKey: ['organization', 'sections'],
-    queryFn: () => organizationApi.listSections().then((r) => r.data),
-  })
+  // Annuaire : `/sections` exige `organization:read`, que `children:read`
+  // n'implique pas — le sélecteur restait vide et la feuille inutilisable.
+  const { sections: sectionList } = useDirectoryUnits()
+  const sections = { data: sectionList }
 
   const children = useQuery({
     queryKey: ['children', 'trombinoscope', sectionId],

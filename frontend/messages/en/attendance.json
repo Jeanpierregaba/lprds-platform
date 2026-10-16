@@ -173,7 +173,8 @@
     "generalRestored": "General schedule restored.",
     "exempt": "Exempt",
     "exemptAria": "Exempt {name}",
-    "exemptionSaved": "Exemption updated."
+    "exemptionSaved": "Exemption updated.",
+    "matricule": "Staff ID"
   },
   "dashboard": {
     "correctTitle": "Correct the times",

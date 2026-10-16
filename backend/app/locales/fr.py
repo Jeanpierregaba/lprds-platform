@@ -267,6 +267,16 @@ MESSAGES: dict[str, str] = {
         "Enfant(s) introuvable(s) dans cet établissement : {ids}"
     ),
     # ── rbac ──────────────────────────────────────────────
+    "rbac.baseline.educatrice.name": "Éducatrice (socle)",
+    "rbac.baseline.educatrice.description": (
+        "Socle automatique de toute éducatrice : consultation et rédaction des "
+        "rapports de son groupe, consultation du menu."
+    ),
+    "rbac.baseline.bibliothecaire.name": "Bibliothécaire (socle)",
+    "rbac.baseline.bibliothecaire.description": (
+        "Socle automatique de tout bibliothécaire : gestion du catalogue, des "
+        "prêts et retours, et des rappels de la bibliothèque."
+    ),
     "errors.rbac.permissions_missing": (
         "Catalogue de permissions incomplet en base : {missing}. Lancez 'alembic upgrade head'"
     ),

@@ -17,7 +17,7 @@ import { downloadBlob } from '@/lib/utils/download'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
 import { useAttachmentBlob } from '@/lib/messaging/use-attachment-blob'
-import { FileDownloadButton } from './message-attachments'
+import { FileAttachmentCard } from './file-attachment-card'
 import type { Attachment } from '@/types/messaging'
 
 const isPreviewable = (att: Attachment) =>
@@ -26,8 +26,9 @@ const isPreviewable = (att: Attachment) =>
 /**
  * Médias d'une diffusion : frames carrés de taille fixe (média recadré en
  * `cover`), grille 2 colonnes dès 2 médias, badge « +N » au-delà de 4.
- * Un clic ouvre le carrousel à l'index cliqué. Les non-images (PDF) restent
- * des boutons de téléchargement sous la grille.
+ * Un clic ouvre le carrousel à l'index cliqué. Les non-images (PDF) sont
+ * présentés sous la grille par leur propre carte — nom, format, poids, et de
+ * quoi les ouvrir, les enregistrer ou les partager.
  */
 export function AnnouncementMediaGrid({ attachments }: { attachments: Attachment[] }) {
   const media = attachments.filter(isPreviewable)
@@ -71,7 +72,7 @@ export function AnnouncementMediaGrid({ attachments }: { attachments: Attachment
         </div>
       )}
       {files.map((att) => (
-        <FileDownloadButton key={att.id} attachment={att} highlight={false} />
+        <FileAttachmentCard key={att.id} attachment={att} highlight={false} />
       ))}
       {viewerIndex !== null && (
         <AnnouncementMediaViewer

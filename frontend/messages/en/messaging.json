@@ -160,5 +160,14 @@
   "conversationEmpty": "No messages yet. Write to the school below.",
   "enterToSend": "Press Enter to send.",
   "carouselHint": "Announcement media carousel — use the arrows or keyboard to navigate, Esc to close.",
-  "previewUnavailable": "Preview unavailable"
+  "previewUnavailable": "Preview unavailable",
+  "file": {
+    "open": "Open",
+    "share": "Share",
+    "loading": "Loading document…",
+    "loadFailed": "This document could not be loaded.",
+    "viewerHint": "If the document does not appear here, save or share it to open it with your usual reader.",
+    "shareFailed": "Sharing did not complete. Try “Save”.",
+    "inlineUnsupported": "Your browser cannot display PDFs inline."
+  }
 }

@@ -20,6 +20,7 @@ import { childrenApi } from '@/lib/api/children.api'
 import { staffApi } from '@/lib/api/staff.api'
 import { organizationApi } from '@/lib/api/organization.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { downloadBlob, filenameFromDisposition } from '@/lib/utils/download'
 import { toIsoDate } from '@/lib/utils/dates'
 import type { ExportFileFormat, ExportPersonType } from '@/types/attendance'
 import { displayName } from '@/lib/utils/display-name'
@@ -160,23 +161,13 @@ export function ExportTab() {
         staff_id: selectedPerson?.kind === 'staff' ? selectedPerson.id : undefined,
       })
       const blob = res.data as Blob
-      const disposition = res.headers['content-disposition']
-      const match = /filename="([^"]+)"/.exec(disposition ?? '')
       // Le backend nomme désormais en `.xlsx` ; le repli local fait pareil
       // (jamais `.excel`, inconnu de l'OS au double-clic).
-      const filename = match?.[1] ?? `presences_${dateFrom}_${dateTo}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      // Revocation différée : synchrone juste après click() course sur gros blobs.
-      setTimeout(() => {
-        URL.revokeObjectURL(url)
-        a.remove()
-      }, 5000)
+      const filename = filenameFromDisposition(
+        res.headers['content-disposition'],
+        `presences_${dateFrom}_${dateTo}.${format === 'pdf' ? 'pdf' : 'xlsx'}`,
+      )
+      downloadBlob(blob, filename)
       toast.success(t('export.downloaded', { filename }))
     } catch (err) {
       toast.error(getApiErrorMessage(err))

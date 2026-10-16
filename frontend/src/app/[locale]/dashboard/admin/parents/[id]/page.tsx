@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,6 +24,8 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
+import { listBackHref } from '@/lib/hooks/use-list-params'
+import { PARENTS_LIST_PATH } from '../../list-paths'
 import { DetailSkeleton, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog, ResendInvitationDialog } from '@/components/dashboard/shared/dialogs'
 import { CredentialsDialog } from '@/components/dashboard/shared/credentials-dialog'
@@ -57,6 +59,10 @@ export default function ParentDetailPage() {
   const tCommon = useTranslations('common')
   const tAuth = useTranslations('auth')
   const { id } = useParams<{ id: string }>()
+  /* Le « retour » rejoue les filtres de la liste d'où l'on vient — sans
+     quoi on retombe sur une liste remise à zéro. `from` vient de la barre
+     d'adresse : `listBackHref` ne l'honore que s'il désigne bien la liste. */
+  const backHref = listBackHref(PARENTS_LIST_PATH, useSearchParams().get('from'))
   const queryClient = useQueryClient()
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -175,7 +181,7 @@ export default function ParentDetailPage() {
 
   return (
     <PageMotion className="max-w-2xl space-y-4">
-      <BackLink href="/dashboard/admin/parents" label={t('form.back')} />
+      <BackLink href={backHref} label={t('form.back')} />
 
       {acces && (
         <CredentialsDialog

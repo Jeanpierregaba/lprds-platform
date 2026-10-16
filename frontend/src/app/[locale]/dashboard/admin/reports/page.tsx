@@ -14,7 +14,7 @@ export default function ReportsPage() {
   const reportTypesLabel = useLabel('reportTypes')
   // L'onglet vit dans l'URL : c'est ce qui permet de revenir ICI après avoir
   // validé un rapport, au lieu de retomber sur « Quotidien ».
-  const { params, setParams } = useReportListParams()
+  const { params, setFilter } = useReportListParams()
   return (
     <PageMotion>
       <PageHeader
@@ -22,7 +22,7 @@ export default function ReportsPage() {
         description={t('page.description')}
       />
 
-      <Tabs value={params.type} onValueChange={(v) => v && setParams({ type: v as typeof params.type })}>
+      <Tabs value={params.type} onValueChange={(v) => v && setFilter({ type: v as typeof params.type })}>
         <PillsTabsList>
           {TYPE_TAB_META.map((tab) => (
             <PillsTrigger key={tab.value} value={tab.value} active={tab.active} icon={tab.icon}>

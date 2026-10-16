@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Eye, Loader2, Plus, UserCheck, Users, UserX } from 'lucide-react'
@@ -24,8 +24,20 @@ import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
 import type { ParentListItem } from '@/types/parents'
 import { Link } from '@/i18n/navigation'
 import { displayName } from '@/lib/utils/display-name'
+import { useListParams, useUrlSearch } from '@/lib/hooks/use-list-params'
+import { PARENTS_LIST_PATH } from '../list-paths'
 
 const PAGE_SIZE = 20
+
+/** Les filtres vivent dans l'URL : ouvrir une fiche puis revenir en arrière
+ *  doit retrouver cet écran, pas une liste remise à zéro. Constante de module —
+ *  son identité sert de dépendance au hook. */
+const LIST_DEFAULTS = {
+  q: '',
+  inactive: false,
+  skip: 0,
+  view: 'cards' as ViewMode,
+}
 
 export default function ParentsListPage() {
   const t = useTranslations('parents')
@@ -33,18 +45,10 @@ export default function ParentsListPage() {
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('parents:write')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [includeInactive, setIncludeInactive] = useState(false)
-  const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<ViewMode>('cards')
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
-
-  useEffect(() => setSkip(0), [debouncedSearch, includeInactive])
+  const { params, setParams, setFilter, detailHref } = useListParams(PARENTS_LIST_PATH, LIST_DEFAULTS)
+  const { inactive: includeInactive, skip, view } = params
+  const debouncedSearch = params.q
+  const [search, setSearch] = useUrlSearch(params.q, (q) => setFilter({ q }))
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['parents', { search: debouncedSearch, includeInactive, skip }],
@@ -81,11 +85,11 @@ export default function ParentsListPage() {
         <InactiveSwitch
           id="include-inactive"
           checked={includeInactive}
-          onCheckedChange={setIncludeInactive}
+          onCheckedChange={(checked) => setFilter({ inactive: checked })}
           label={t('list.includeInactive')}
         />
 
-        <ViewToggle view={view} onChange={setView} />
+        <ViewToggle view={view} onChange={(next) => setParams({ view: next })} />
       </div>
 
       {view === 'cards' ? (
@@ -93,6 +97,7 @@ export default function ParentsListPage() {
           items={items}
           isLoading={isLoading}
           hasSearch={!!debouncedSearch}
+          detailHref={detailHref}
         />
       ) : (
       <DataTable>
@@ -136,27 +141,27 @@ export default function ParentsListPage() {
             items.map((p) => (
               <TableRow key={p.id} className={cn(!p.is_active && 'opacity-70')}>
                 <Td>
-                  <Link href={`/dashboard/admin/parents/${p.id}`} className="block font-medium">
+                  <Link href={detailHref(p.id)} className="block font-medium">
                     {displayName(p)}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/parents/${p.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(p.id)} className="block text-muted-foreground">
                     {p.email}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/parents/${p.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(p.id)} className="block text-muted-foreground">
                     {p.phone ?? '—'}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/parents/${p.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(p.id)} className="block text-muted-foreground">
                     {p.children_count}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/parents/${p.id}`} className="block">
+                  <Link href={detailHref(p.id)} className="block">
                     <StatusPill active={p.is_active} />
                   </Link>
                 </Td>
@@ -172,15 +177,15 @@ export default function ParentsListPage() {
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}
-        onSkipChange={setSkip}
+        onSkipChange={(next) => setParams({ skip: next })}
       />
     </PageMotion>
   )
 }
 
 function ParentsCardGrid({
-  items, isLoading, hasSearch,
-}: { items: ParentListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  items, isLoading, hasSearch, detailHref,
+}: { items: ParentListItem[]; isLoading: boolean; hasSearch: boolean; detailHref: (id: string) => string }) {
   const t = useTranslations('parents')
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -203,7 +208,7 @@ function ParentsCardGrid({
     <CardsGrid>
       {items.map((parent, i) => (
         <StaggerItem key={parent.id} index={i}>
-          <ParentCard parent={parent} canWrite={canWrite} />
+          <ParentCard parent={parent} canWrite={canWrite} detailHref={detailHref(parent.id)} />
         </StaggerItem>
       ))}
     </CardsGrid>
@@ -211,14 +216,14 @@ function ParentsCardGrid({
 }
 
 function ParentCard({
-  parent, canWrite,
+  parent, canWrite, detailHref,
 }: {
   parent: ParentListItem
   canWrite: boolean
+  detailHref: string
 }) {
   const t = useTranslations('parents')
   const queryClient = useQueryClient()
-  const detailHref = `/dashboard/admin/parents/${parent.id}`
   const [confirmToggle, setConfirmToggle] = useState(false)
 
   const toggleMutation = useMutation({
@@ -253,7 +258,7 @@ function ParentCard({
         </p>
 
         <div className="flex flex-wrap gap-2 pt-3">
-          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/parents/${parent.id}`} />}>
+          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={detailHref} />}>
             <Eye className="mr-1.5 size-4" />
             {t('list.view')}
           </Button>

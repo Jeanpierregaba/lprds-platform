@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useLabel, useLabelMap } from '@/lib/i18n/labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -27,9 +27,22 @@ import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dial
 import { STAFF_TYPES, type StaffListItem, type StaffType } from '@/types/staff'
 import { Link } from '@/i18n/navigation'
 import { displayName } from '@/lib/utils/display-name'
+import { useListParams, useUrlSearch } from '@/lib/hooks/use-list-params'
+import { STAFF_LIST_PATH } from '../list-paths'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
+
+/** Les filtres vivent dans l'URL : ouvrir une fiche puis revenir en arrière
+ *  doit retrouver cet écran, pas une liste remise à zéro. Constante de module —
+ *  son identité sert de dépendance au hook. */
+const LIST_DEFAULTS = {
+  q: '',
+  type: ALL,
+  inactive: false,
+  skip: 0,
+  view: 'cards' as ViewMode,
+}
 
 export default function StaffListPage() {
   const t = useTranslations('staff')
@@ -39,19 +52,10 @@ export default function StaffListPage() {
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('staff:write')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [staffType, setStaffType] = useState<string>(ALL)
-  const [includeInactive, setIncludeInactive] = useState(false)
-  const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<ViewMode>('cards')
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
-
-  useEffect(() => setSkip(0), [debouncedSearch, staffType, includeInactive])
+  const { params, setParams, setFilter, detailHref } = useListParams(STAFF_LIST_PATH, LIST_DEFAULTS)
+  const { type: staffType, inactive: includeInactive, skip, view } = params
+  const debouncedSearch = params.q
+  const [search, setSearch] = useUrlSearch(params.q, (q) => setFilter({ q }))
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['staff', { search: debouncedSearch, staffType, includeInactive, skip }],
@@ -94,7 +98,7 @@ export default function StaffListPage() {
         <Select
           items={{ [ALL]: t('list.allTypes'), ...staffTypesLabels }}
           value={staffType}
-          onValueChange={(v) => setStaffType(v ?? ALL)}
+          onValueChange={(v) => setFilter({ type: v ?? ALL })}
         >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder={t('list.allTypes')} />
@@ -109,11 +113,11 @@ export default function StaffListPage() {
         <InactiveSwitch
           id="include-inactive"
           checked={includeInactive}
-          onCheckedChange={setIncludeInactive}
+          onCheckedChange={(checked) => setFilter({ inactive: checked })}
           label={t('list.includeInactive')}
         />
 
-        <ViewToggle view={view} onChange={setView} />
+        <ViewToggle view={view} onChange={(next) => setParams({ view: next })} />
       </div>
 
       {view === 'cards' ? (
@@ -121,6 +125,7 @@ export default function StaffListPage() {
           items={items}
           isLoading={isLoading}
           hasSearch={!!debouncedSearch}
+          detailHref={detailHref}
         />
       ) : (
       <DataTable>
@@ -164,27 +169,27 @@ export default function StaffListPage() {
             items.map((s) => (
               <TableRow key={s.id} className={cn(!s.is_active && 'opacity-70')}>
                 <Td>
-                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-mono text-xs">
+                  <Link href={detailHref(s.id)} className="block font-mono text-xs">
                     {s.matricule ?? '—'}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block font-medium">
+                  <Link href={detailHref(s.id)} className="block font-medium">
                     {displayName(s)}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(s.id)} className="block text-muted-foreground">
                     {s.staff_type ? staffTypesLabel(s.staff_type) : '—'}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(s.id)} className="block text-muted-foreground">
                     {s.email}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/staff/${s.id}`} className="block">
+                  <Link href={detailHref(s.id)} className="block">
                     <StatusPill active={s.is_active} />
                   </Link>
                 </Td>
@@ -200,15 +205,15 @@ export default function StaffListPage() {
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}
-        onSkipChange={setSkip}
+        onSkipChange={(next) => setParams({ skip: next })}
       />
     </PageMotion>
   )
 }
 
 function StaffCardGrid({
-  items, isLoading, hasSearch,
-}: { items: StaffListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  items, isLoading, hasSearch, detailHref,
+}: { items: StaffListItem[]; isLoading: boolean; hasSearch: boolean; detailHref: (id: string) => string }) {
   const t = useTranslations('staff')
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -232,7 +237,7 @@ function StaffCardGrid({
     <CardsGrid>
       {items.map((member, i) => (
         <StaggerItem key={member.id} index={i}>
-          <StaffCard member={member} canWrite={canWrite} canQr={canQr} />
+          <StaffCard member={member} canWrite={canWrite} canQr={canQr} detailHref={detailHref(member.id)} />
         </StaggerItem>
       ))}
     </CardsGrid>
@@ -240,16 +245,16 @@ function StaffCardGrid({
 }
 
 function StaffCard({
-  member, canWrite, canQr,
+  member, canWrite, canQr, detailHref,
 }: {
   member: StaffListItem
   canWrite: boolean
   canQr: boolean
+  detailHref: string
 }) {
   const t = useTranslations('staff')
   const staffTypesLabel = useLabel('staffTypes')
   const queryClient = useQueryClient()
-  const detailHref = `/dashboard/admin/staff/${member.id}`
   const [qrOpen, setQrOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
 
@@ -291,7 +296,7 @@ function StaffCard({
         <p className="truncate text-sm text-muted-foreground" title={member.email}>{member.email}</p>
 
         <div className="flex flex-wrap gap-2 pt-3">
-          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/staff/${member.id}`} />}>
+          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={detailHref} />}>
             <Eye className="mr-1.5 size-4" />
             {t('list.view')}
           </Button>

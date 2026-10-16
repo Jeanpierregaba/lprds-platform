@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl'
 
-import { useEffect, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useLabel } from '@/lib/i18n/labels'
 import { useQuery } from '@tanstack/react-query'
@@ -15,13 +14,14 @@ import { reportsApi } from '@/lib/api/reports.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { cn } from '@/lib/utils/cn'
-import { SearchInput, ViewToggle, type ViewMode } from '@/components/dashboard/shared/filters'
+import { SearchInput, ViewToggle } from '@/components/dashboard/shared/filters'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
 import { CardsEmptyState, CardsGrid, CardsSkeleton, ClickableCard, StaggerItem } from '@/components/dashboard/shared/cards'
 import { ListPagination } from '@/components/dashboard/shared/pagination'
 import { REPORT_STATUS_BADGE_CLASS, type ReportListItem, type ReportStatus, type ReportType } from '@/types/reports'
 import { Link } from '@/i18n/navigation'
 import { reportDetailHref, useReportListParams } from './list-params'
+import { useUrlSearch } from '@/lib/hooks/use-list-params'
 import { displayName } from '@/lib/utils/display-name'
 
 const PAGE_SIZE = 20
@@ -47,21 +47,12 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
   // La page est partagée admin/staff : l'éducatrice sans reports:write
   // (lecture seule) ne voit pas le bouton de création.
   const canWrite = user?.role === 'admin' || permissions.has('reports:write')
-  const { params, setParams } = useReportListParams()
+  const { params, setParams, setFilter } = useReportListParams()
   // La frappe reste locale (le champ doit répondre à chaque touche) ; c'est la
   // valeur DÉBOUNCÉE qui va dans l'URL, sinon on y écrirait trente fois par mot.
-  const [search, setSearch] = useState(params.q)
+  const [search, setSearch] = useUrlSearch(params.q, (q) => setFilter({ q }))
   const debouncedSearch = params.q
-  const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<ViewMode>('cards')
-
-  useEffect(() => {
-    if (search === params.q) return
-    const t = setTimeout(() => setParams({ q: search }), 300)
-    return () => clearTimeout(t)
-  }, [search, params.q, setParams])
-
-  useEffect(() => setSkip(0), [status, reportType, debouncedSearch])
+  const { skip, view } = params
 
   const detailHref = (reportId: string) => reportDetailHref(reportId, params)
 
@@ -93,7 +84,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
         />
 
         <div className="flex items-center gap-2">
-          <ViewToggle view={view} onChange={setView} />
+          <ViewToggle view={view} onChange={(next) => setParams({ view: next })} />
           {canWrite && (
             <Button render={<Link href="/dashboard/admin/reports/new" />}>
               <Plus className="mr-1.5 size-4" />
@@ -180,7 +171,7 @@ export function StatusList({ reportType, status }: { reportType: ReportType; sta
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}
-        onSkipChange={setSkip}
+        onSkipChange={(next) => setParams({ skip: next })}
       />
     </div>
   )

@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { intlLocale } from '@/lib/utils/locale-format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -32,9 +32,23 @@ import { ConfirmDialog, QrBadgeDialog } from '@/components/dashboard/shared/dial
 import type { ChildImportReportResponse, ChildListItem } from '@/types/children'
 import { Link } from '@/i18n/navigation'
 import { ChildAvatar } from '@/components/children/child-avatar'
+import { useListParams, useUrlSearch } from '@/lib/hooks/use-list-params'
+import { CHILDREN_LIST_PATH } from '../list-paths'
 
 const PAGE_SIZE = 20
 const ALL = '__all__'
+
+/** Les filtres vivent dans l'URL : ouvrir une fiche puis revenir en arrière
+ *  doit retrouver cet écran, pas une liste remise à zéro. Constante de module —
+ *  son identité sert de dépendance au hook. */
+const LIST_DEFAULTS = {
+  q: '',
+  dept: ALL,
+  section: ALL,
+  inactive: false,
+  skip: 0,
+  view: 'cards' as ViewMode,
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(intlLocale())
@@ -59,27 +73,16 @@ export default function ChildrenListPage() {
   const user = useUser()
   const { permissions } = useMyPermissions()
   const canWrite = user?.role === 'admin' || permissions.has('children:write')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [departmentId, setDepartmentId] = useState<string>(ALL)
-  const [sectionId, setSectionId] = useState<string>(ALL)
-  const [includeInactive, setIncludeInactive] = useState(false)
-  const [skip, setSkip] = useState(0)
-  const [view, setView] = useState<ViewMode>('cards')
+  const { params, setParams, setFilter, detailHref } = useListParams(CHILDREN_LIST_PATH, LIST_DEFAULTS)
+  const { dept: departmentId, section: sectionId, inactive: includeInactive, skip, view } = params
+  const debouncedSearch = params.q
+  const [search, setSearch] = useUrlSearch(params.q, (q) => setFilter({ q }))
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [loadingTemplate, setLoadingTemplate] = useState(false)
   const [importReport, setImportReport] = useState<ChildImportReportResponse | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
-
-  useEffect(() => setSkip(0), [debouncedSearch, departmentId, sectionId, includeInactive])
-  useEffect(() => setSectionId(ALL), [departmentId])
 
   const { data: departments } = useQuery({
     queryKey: ['departments', { includeInactive: false }],
@@ -206,7 +209,9 @@ export default function ChildrenListPage() {
         <Select
           items={{ [ALL]: t('list.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
           value={departmentId}
-          onValueChange={(v) => setDepartmentId(v ?? ALL)}
+          /* Changer de département vide la section : les sections affichées
+             sont celles du département, celle d'avant n'y est plus. */
+          onValueChange={(v) => setFilter({ dept: v ?? ALL, section: ALL })}
         >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder={t('list.allDepartments')} />
@@ -221,7 +226,7 @@ export default function ChildrenListPage() {
         <Select
           items={{ [ALL]: t('list.allSections'), ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
           value={sectionId}
-          onValueChange={(v) => setSectionId(v ?? ALL)}
+          onValueChange={(v) => setFilter({ section: v ?? ALL })}
         >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder={t('list.allSections')} />
@@ -236,11 +241,11 @@ export default function ChildrenListPage() {
         <InactiveSwitch
           id="include-inactive"
           checked={includeInactive}
-          onCheckedChange={setIncludeInactive}
+          onCheckedChange={(checked) => setFilter({ inactive: checked })}
           label={t('list.includeInactive')}
         />
 
-        <ViewToggle view={view} onChange={setView} />
+        <ViewToggle view={view} onChange={(next) => setParams({ view: next })} />
       </div>
 
       {view === 'cards' ? (
@@ -248,6 +253,7 @@ export default function ChildrenListPage() {
           items={items}
           isLoading={isLoading}
           hasSearch={!!debouncedSearch}
+          detailHref={detailHref}
         />
       ) : (
       <DataTable>
@@ -292,12 +298,12 @@ export default function ChildrenListPage() {
             items.map((child) => (
               <TableRow key={child.id} className={cn(!child.is_active && 'opacity-70')}>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="block font-mono text-xs">
+                  <Link href={detailHref(child.id)} className="block font-mono text-xs">
                     {child.matricule}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="flex items-center gap-2.5 font-medium">
+                  <Link href={detailHref(child.id)} className="flex items-center gap-2.5 font-medium">
                     <ChildAvatar
                       childId={child.id}
                       firstNames={child.first_names}
@@ -309,22 +315,22 @@ export default function ChildrenListPage() {
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(child.id)} className="block text-muted-foreground">
                     {formatDate(child.birth_date)}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(child.id)} className="block text-muted-foreground">
                     {child.department?.name ?? '—'}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="block text-muted-foreground">
+                  <Link href={detailHref(child.id)} className="block text-muted-foreground">
                     {child.section?.name ?? '—'}
                   </Link>
                 </Td>
                 <Td>
-                  <Link href={`/dashboard/admin/children/${child.id}`} className="block">
+                  <Link href={detailHref(child.id)} className="block">
                     <StatusPill active={child.is_active} />
                   </Link>
                 </Td>
@@ -340,7 +346,7 @@ export default function ChildrenListPage() {
         skip={skip}
         pageSize={PAGE_SIZE}
         total={total}
-        onSkipChange={setSkip}
+        onSkipChange={(next) => setParams({ skip: next })}
       />
 
       <Dialog open={!!importReport} onOpenChange={(open) => !open && setImportReport(null)}>
@@ -386,8 +392,8 @@ export default function ChildrenListPage() {
 }
 
 function ChildrenCardGrid({
-  items, isLoading, hasSearch,
-}: { items: ChildListItem[]; isLoading: boolean; hasSearch: boolean }) {
+  items, isLoading, hasSearch, detailHref,
+}: { items: ChildListItem[]; isLoading: boolean; hasSearch: boolean; detailHref: (id: string) => string }) {
   const t = useTranslations('children')
   const user = useUser()
   const { permissions } = useMyPermissions()
@@ -411,7 +417,7 @@ function ChildrenCardGrid({
     <CardsGrid>
       {items.map((child, i) => (
         <StaggerItem key={child.id} index={i}>
-          <ChildCard child={child} canArchive={canArchive} canQr={canQr} />
+          <ChildCard child={child} canArchive={canArchive} canQr={canQr} detailHref={detailHref(child.id)} />
         </StaggerItem>
       ))}
     </CardsGrid>
@@ -442,15 +448,15 @@ function childAgeLabel(
 }
 
 function ChildCard({
-  child, canArchive, canQr,
+  child, canArchive, canQr, detailHref,
 }: {
   child: ChildListItem
   canArchive: boolean
   canQr: boolean
+  detailHref: string
 }) {
   const t = useTranslations('children')
   const queryClient = useQueryClient()
-  const detailHref = `/dashboard/admin/children/${child.id}`
   const [qrOpen, setQrOpen] = useState(false)
   const [confirmToggle, setConfirmToggle] = useState(false)
 
@@ -504,7 +510,7 @@ function ChildCard({
         </p>
 
         <div className="flex flex-wrap gap-2 pt-3">
-          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={`/dashboard/admin/children/${child.id}`} />}>
+          <Button variant="outline" size="sm" className="rounded-xl bg-accent" render={<Link href={detailHref} />}>
             <Eye className="mr-1.5 size-4" />
             {t('card.view')}
           </Button>

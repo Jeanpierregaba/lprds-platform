@@ -2861,6 +2861,19 @@ site au moment où l'on clique « retour », juste après avoir validé quelque
 chose. Un `startsWith` seul ne suffirait pas : « /dashboard/admin/reportsXYZ »
 le satisferait.
 
+⚠️ **Trois états de cet écran étaient restés en arrière**, et la cinquième
+pastille portait les deux premiers : la **date** de « Non soumis », qui a son
+PROPRE sélecteur, et sa recherche ; plus la **page** et le mode d'affichage des
+quatre autres. Un correctif qui ne traite que ce qu'on voit d'abord laisse
+derrière lui exactement ce qui se voit le moins — ici, le filtre qui demandait
+le plus de clics à reposer. `?date=&skip=&view=` les rejoignent donc dans
+`list-params.ts`.
+
+⚠️ **La date par défaut est VIDE, pas « aujourd'hui »**. Graver la date du jour
+dans tous les liens fabriqués ce jour-là ferait afficher la veille à qui
+rouvrirait le lien le lendemain — un filtre que personne n'a demandé. Vide se
+lit « aujourd'hui », quel que soit le jour où l'on relit.
+
 ### ⚠️ Auto-publication quand l'auteur est admin — et ce que l'écran doit en dire
 
 Quand `POST /reports/{id}/submit` est appelé par un **admin**, le rapport est
@@ -4770,6 +4783,76 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 
 ---
 
+## ⚠️ Les filtres d'une liste vivent dans l'URL, jamais en `useState`
+
+Signalé par un établissement, sur les enfants : ouvrir la fiche d'un enfant puis
+revenir en arrière **rechargeait la liste à zéro** — recherche, département,
+section, inactifs, page et mode d'affichage perdus. Il faut tout reposer, à
+chaque fiche consultée, et on en consulte des dizaines à la suite.
+
+C'est le MÊME défaut que celui des rapports (cf. « Après une validation, on
+revient LÀ D'OÙ L'ON VIENT »), et sa cause n'est pas la navigation mais l'ÉTAT :
+des filtres en `useState` ne survivent à AUCUNE navigation. Le cache de React
+Query n'y change rien — il est bien là, mais la clé de requête est reconstruite
+depuis des valeurs par défaut, donc on ne retrouve jamais la même entrée.
+
+`lib/hooks/use-list-params.ts` porte la règle pour les listes d'administration
+(enfants, parents, personnel) ; les rapports gardent leur propre copie validée,
+leurs onglets étant typés. Trois choses en découlent, et la première est la
+seule qu'on avait demandée :
+
+1. le **retour arrière du navigateur** retrouve l'écran exact, sans qu'on écrive
+   une ligne pour lui — c'est l'URL qui porte tout ;
+2. le lien vers la fiche recopie la requête dans un paramètre `from`, et le
+   « Retour à la liste » de la fiche y revient ;
+3. le lien de liste devient **partageable** et se met en favori.
+
+⚠️ **Les valeurs par défaut sont OMISES de l'URL.** Tout sérialiser donnerait
+`?q=&dept=__all__&section=__all__&inactive=false&skip=0&view=cards` sur une
+liste que personne n'a filtrée — illisible, et un sentinelle interne
+(`__all__`) exposé dans une adresse qu'on partage.
+
+⚠️ **`replace`, jamais `push`** : changer de filtre n'est pas une étape de
+navigation. Empilées, trente frappes de recherche rendraient le bouton
+« retour » inutilisable — il faudrait le cliquer trente fois pour quitter la
+page.
+
+⚠️ **`setParams` relit l'URL AU MOMENT du geste**, et non les filtres du rendu
+qui a posé le gestionnaire. Deux gestes rapprochés — la recherche débouncée qui
+se valide pendant qu'on bascule un sélecteur — partent sinon du même
+instantané, et **le second efface le premier**. Observé à l'écran : la vue
+tableau disparaissait de l'URL quand l'interrupteur « inactifs » était basculé
+juste après. Rien ne casse, c'est le propre de ce défaut.
+
+⚠️ **Le champ de recherche se synchronise dans les DEUX sens** (`useUrlSearch`).
+La frappe reste locale et débouncée — sinon on écrirait dans l'URL trente fois
+par mot — mais quand l'URL change sans passer par le clavier (retour arrière,
+lien reçu), le champ doit SUIVRE, faute de quoi il afficherait un filtre qui
+n'est plus appliqué.
+
+⚠️ **Un filtre qui change remet la pagination à zéro** (`setFilter`). Rester
+page 3 d'un résultat qui n'en a plus que deux afficherait une liste vide, qu'on
+lirait comme « aucun résultat ».
+
+⚠️ **`from` vient de la BARRE D'ADRESSE** : `listBackHref` ne l'honore que s'il
+désigne bien CETTE liste. Un `startsWith` seul ne suffirait pas —
+« /dashboard/admin/staffXYZ » le satisferait. Vérifié en navigateur sur les deux
+formes piégées (hôte étranger, préfixe prolongé) : les deux retombent sur la
+liste nue.
+
+⚠️ **Les chemins de liste sont nommés dans `app/[locale]/dashboard/admin/list-paths.ts`**,
+pas exportés depuis les pages : la fiche en a besoin pour valider son `from`, et
+l'importer de la page de liste embarquerait tout cet écran dans son bundle.
+
+Vérifié dans un vrai navigateur, et c'est le seul contrôle qui vaille ici — ni
+le type-check ni le build ne voient un filtre perdu : enfants (département, page
+2, vue tableau), parents et personnel (recherche, type, inactifs), puis les
+trois types de rapports sur les **cinq** pastilles, date et recherche de « Non
+soumis » comprises. Aller sur une fiche, revenir : tout est retrouvé, par le
+bouton du navigateur comme par le lien « Retour ».
+
+---
+
 ## Conventions de code
 
 ### Backend — règles absolues
@@ -4848,6 +4931,10 @@ référence pour quiconque clone le repo (nouvelle recrue frontend comprise).
 - **🌍 `next/link` et `next/navigation` sont interdits** — importer
   `Link`/`useRouter`/`usePathname`/`redirect` depuis `@/i18n/navigation`,
   sinon les liens perdent le préfixe `/en` sans la moindre erreur
+- **🔎 Les filtres d'une liste vont dans l'URL**, jamais en `useState` —
+  `useListParams` / `useUrlSearch` (`lib/hooks/use-list-params.ts`), ou
+  `list-params.ts` pour les rapports. Sans ça, revenir d'une fiche recharge la
+  liste à zéro (cf. la section dédiée)
 
 ### Nommage
 ```

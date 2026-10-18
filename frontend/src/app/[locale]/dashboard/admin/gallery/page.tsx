@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { galleryApi } from '@/lib/api/gallery.api'
 import { useUser } from '@/lib/stores/auth.store'
 import { isVideo, type GalleryMediaItem } from '@/types/gallery'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { GalleryFilters, EMPTY_FILTERS, toParams, type GalleryFilterState } from './gallery-filters'
 import { MediaThumb } from './media-thumb'
 import { MediaLightbox } from './media-lightbox'
@@ -46,6 +46,7 @@ export default function GalleryPage() {
 
   return (
     <PageMotion>
+      <ModuleGuard anyOf={['gallery:read']}>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -103,6 +104,7 @@ export default function GalleryPage() {
       )}
 
       <MediaLightbox item={selected} onOpenChange={(open) => !open && setSelected(null)} />
+      </ModuleGuard>
     </PageMotion>
   )
 }

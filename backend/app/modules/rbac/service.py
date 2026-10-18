@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User, UserRole
 from app.modules.rbac.dependencies import user_permission_codes
-from app.modules.rbac.models import Permission, PermissionCode, Role
+from app.modules.rbac.models import (
+    BaselineRoleKind,
+    Permission,
+    PermissionCode,
+    Role,
+)
+from app.modules.staff.models import StaffType
 from app.modules.rbac.schemas import (
     RoleCreateRequest,
     RoleResponse,
@@ -22,98 +28,109 @@ async def list_permissions(db: AsyncSession) -> list[Permission]:
     return list(result.scalars().all())
 
 
-# ── Rôle socle éducatrice ────────────────────────────────────────
-# Attribué automatiquement (pas au choix de l'admin) à tout staff
-# staff_type=educateur : rapports de son groupe, consultation du menu.
-# Reste un vrai rôle RBAC (visible/révocable depuis l'écran Rôles de
-# l'admin), distinct des permissions "spéciales" qu'il coche lui-même —
-# cf. claude.md, module Personnel/Portail staff.
+# ── Rôles SOCLES ────────────────────────────────────────────────
+# Attribués automatiquement d'après `staff_type` (pas au choix de l'admin), et
+# retrouvés par `roles.baseline_kind` — une clé qu'aucune interface n'expose.
+#
+# ⚠️ Ils l'étaient par leur NOM, que l'admin peut éditer depuis l'écran Rôles.
+# Renommé, le socle était recréé en double à l'embauche suivante, et une
+# rétrogradation supprimait le lien du mauvais rôle : le membre conservait
+# `reports:write`. Mesuré, pas supposé. Un libellé se lit et se change ; une
+# clé reste.
+#
 # « Mon Groupe », Présence et Galerie (médias envoyés) ne sont volontairement
-# PAS ici : ce sont des accès hors-RBAC (endpoints /children/my-group,
-# /attendance/daily/my-group, /gallery/my-uploads), scopés à ses propres
-# données par construction, jamais par permission — gallery:read reste sinon
-# la permission "large" existante (parcourir toute la galerie déléguée).
-BASELINE_EDUCATRICE_ROLE_NAME = "Éducatrice (socle)"
-BASELINE_EDUCATRICE_PERMISSIONS = [
-    PermissionCode.REPORTS_READ,
-    PermissionCode.REPORTS_WRITE,
-    PermissionCode.MENUS_READ,
-]
+# PAS ici : ce sont des accès hors-RBAC (`/children/my-group`,
+# `/attendance/daily/my-group`, `/gallery/my-uploads`), scopés aux propres
+# données du membre par construction, jamais par permission.
+BASELINE_PERMISSIONS: dict[BaselineRoleKind, list[PermissionCode]] = {
+    BaselineRoleKind.EDUCATRICE: [
+        PermissionCode.REPORTS_READ,
+        PermissionCode.REPORTS_WRITE,
+        PermissionCode.MENUS_READ,
+    ],
+    # Le bibliothécaire est le seul poste à qui l'établissement délègue par
+    # défaut tout le volet lecture/écriture/prêts du module Bibliothèque.
+    BaselineRoleKind.BIBLIOTHECAIRE: [
+        PermissionCode.LIBRARY_READ,
+        PermissionCode.LIBRARY_WRITE,
+        PermissionCode.LIBRARY_LEND,
+    ],
+}
+
+# Sortes de socle par type de personnel. Un `staff_type` absent d'ici n'a pas
+# de socle — c'est le cas de la majorité.
+BASELINE_BY_STAFF_TYPE: dict[str, BaselineRoleKind] = {
+    str(StaffType.EDUCATEUR): BaselineRoleKind.EDUCATRICE,
+    str(StaffType.BIBLIOTHECAIRE): BaselineRoleKind.BIBLIOTHECAIRE,
+}
 
 
-async def ensure_educatrice_baseline_role(
-    establishment_id: uuid.UUID, db: AsyncSession
+def baseline_kind_for(staff_type: str | None) -> BaselineRoleKind | None:
+    return BASELINE_BY_STAFF_TYPE.get(staff_type or "")
+
+
+async def ensure_baseline_role(
+    kind: BaselineRoleKind,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
 ) -> Role:
+    """
+    Rôle socle de cette sorte pour cet établissement, créé au besoin.
+
+    ⚠️ **Ne réactive JAMAIS un socle désactivé.** Il le faisait, et la
+    conséquence était mesurable : un admin qui retirait le socle à toutes ses
+    éducatrices le voyait revenir — pour TOUTES — à la simple embauche de la
+    suivante. Une décision prise dans l'écran Rôles ne doit pas être défaite
+    par une action sans rapport. Le nouveau membre reçoit bien le rôle ; tant
+    qu'il est désactivé, celui-ci ne confère rien, et le jour où l'admin le
+    réactive tout le monde en bénéficie d'un coup, ce qui est précisément ce
+    qu'il aura demandé.
+    """
     result = await db.execute(
         select(Role).where(
             Role.establishment_id == establishment_id,
-            Role.name == BASELINE_EDUCATRICE_ROLE_NAME,
+            Role.baseline_kind == str(kind),
         )
     )
     role = result.scalar_one_or_none()
-    if role is None:
-        role = Role(
-            establishment_id=establishment_id,
-            name=BASELINE_EDUCATRICE_ROLE_NAME,
-            description=(
-                "Socle automatique de toute éducatrice : consultation/rédaction "
-                "des rapports de son groupe, galerie de ses médias, consultation "
-                "du menu."
-            ),
-        )
-        role.permissions = await _resolve_permissions(
-            BASELINE_EDUCATRICE_PERMISSIONS, db
-        )
-        db.add(role)
-        await db.flush()
-    elif not role.is_active:
-        role.is_active = True
-        await db.flush()
+    if role is not None:
+        return role
+
+    role = Role(
+        establishment_id=establishment_id,
+        name=await _available_baseline_name(kind, establishment_id, db),
+        description=t(f"rbac.baseline.{kind}.description"),
+        baseline_kind=str(kind),
+    )
+    role.permissions = await _resolve_permissions(BASELINE_PERMISSIONS[kind], db)
+    db.add(role)
+    await db.flush()
     return role
 
 
-# ── Rôle socle bibliothécaire ───────────────────────────────────
-# Même pattern que le rôle socle éducatrice : attribué automatiquement à tout
-# staff staff_type=bibliothecaire. Porte l'intégralité du module Bibliothèque
-# (catalogue + prêts/retours + rappels) — le bibliothécaire est le seul poste
-# à qui l'établissement délègue tout le volet lecture/écriture de ce module
-# par défaut. Reste un vrai rôle RBAC, visible/révocable depuis l'écran Rôles.
-BASELINE_BIBLIOTHECAIRE_ROLE_NAME = "Bibliothécaire (socle)"
-BASELINE_BIBLIOTHECAIRE_PERMISSIONS = [
-    PermissionCode.LIBRARY_READ,
-    PermissionCode.LIBRARY_WRITE,
-    PermissionCode.LIBRARY_LEND,
-]
+async def _available_baseline_name(
+    kind: BaselineRoleKind,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> str:
+    """
+    Libellé du socle, dans la langue de la requête — un établissement qui
+    s'installe en anglais n'a aucune raison de lire « Éducatrice (socle) »
+    dans son écran Rôles. Ce n'est plus qu'un libellé : l'admin peut le
+    renommer sans rien casser depuis que la clé vit dans `baseline_kind`.
 
-
-async def ensure_bibliothecaire_baseline_role(
-    establishment_id: uuid.UUID, db: AsyncSession
-) -> Role:
-    result = await db.execute(
-        select(Role).where(
+    `uq_role_name_per_estab` reste une contrainte PLEINE : si l'admin a déjà
+    créé un rôle portant ce nom à la main, on retombe sur la clé plutôt que de
+    laisser l'embauche échouer en 500 sur une collision de libellé.
+    """
+    wanted = t(f"rbac.baseline.{kind}.name")
+    taken = await db.scalar(
+        select(Role.id).where(
             Role.establishment_id == establishment_id,
-            Role.name == BASELINE_BIBLIOTHECAIRE_ROLE_NAME,
+            Role.name == wanted,
         )
     )
-    role = result.scalar_one_or_none()
-    if role is None:
-        role = Role(
-            establishment_id=establishment_id,
-            name=BASELINE_BIBLIOTHECAIRE_ROLE_NAME,
-            description=(
-                "Socle automatique de tout bibliothécaire : gestion du catalogue, "
-                "des prêts/retours et des rappels de la bibliothèque."
-            ),
-        )
-        role.permissions = await _resolve_permissions(
-            BASELINE_BIBLIOTHECAIRE_PERMISSIONS, db
-        )
-        db.add(role)
-        await db.flush()
-    elif not role.is_active:
-        role.is_active = True
-        await db.flush()
-    return role
+    return str(kind) if taken else wanted
 
 
 # ── Rôles (scopés à l'établissement de l'admin) ─────────────────

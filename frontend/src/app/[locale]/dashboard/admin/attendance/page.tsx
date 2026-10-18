@@ -7,6 +7,7 @@ import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText, Settings } fro
 
 import { Tabs, TabsTrigger } from '@/components/ui/tabs'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
+import type { PermissionCode } from '@/types/rbac'
 import { useUser } from '@/lib/stores/auth.store'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, TabPanel } from '@/components/dashboard/shared/tabs'
@@ -22,12 +23,19 @@ export default function AttendancePage() {
   const user = useUser()
   const { permissions, isLoading: isLoadingPermissions } = useMyPermissions()
   const isAdmin = user?.role === 'admin'
-  const can = (code: string) => isAdmin || permissions.has(code)
+  // ⚠️ `PermissionCode` et non `string` : avec `string`, une faute de frappe
+  // dans un code (« attendance:wrtie ») type-checke, renvoie toujours false,
+  // et masque l'onglet pour toujours sans que rien ne le signale.
+  const can = (code: PermissionCode) => isAdmin || permissions.has(code)
 
   const showRead = can('attendance:read')
-  const showWrite = can('attendance:write')
+  // Les badges et les paramètres ne sont plus le même droit : confier les
+  // réglages de l'établissement pour laisser imprimer une carte était le
+  // défaut signalé.
+  const showQrcode = can('attendance:qrcode')
+  const showSettings = can('attendance:write')
   const showScan = can('attendance:scan')
-  const fallbackTab = showRead ? 'dashboard' : showScan ? 'scan' : showWrite ? 'qrcodes' : 'dashboard'
+  const fallbackTab = showRead ? 'dashboard' : showScan ? 'scan' : showQrcode ? 'qrcodes' : 'dashboard'
   const [tab, setTab] = useState<string | null>(null)
   // Onglet contrôlé : recalculé quand les permissions arrivent (async) —
   // plus de page vide pour les rôles restreints (ex. scan seul).
@@ -35,7 +43,8 @@ export default function AttendancePage() {
 
   function isTabVisible(value: string) {
     if (value === 'dashboard' || value === 'journal' || value === 'export') return showRead
-    if (value === 'qrcodes' || value === 'settings') return showWrite
+    if (value === 'qrcodes') return showQrcode
+    if (value === 'settings') return showSettings
     if (value === 'scan') return showScan
     return false
   }
@@ -47,7 +56,7 @@ export default function AttendancePage() {
         description={t('page.description')}
       />
 
-      {!isLoadingPermissions && !showRead && !showWrite && !showScan ? (
+      {!isLoadingPermissions && !showRead && !showQrcode && !showSettings && !showScan ? (
         <p className="text-sm text-muted-foreground">{t('noAccess')}</p>
       ) : (
       <Tabs value={active} onValueChange={(v) => v && setTab(v)}>
@@ -70,7 +79,7 @@ export default function AttendancePage() {
               {t('tabs.journal')}
             </TabsTrigger>
           )}
-          {showWrite && (
+          {showQrcode && (
             <TabsTrigger
               value="qrcodes"
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-orange data-active:text-navy data-active:shadow-md"
@@ -97,7 +106,7 @@ export default function AttendancePage() {
               {t('tabs.export')}
             </TabsTrigger>
           )}
-          {showWrite && (
+          {showSettings && (
             <TabsTrigger
               value="settings"
               className="rounded-xl px-4 py-2.5 text-muted-foreground transition-all duration-300 ease-in-out hover:bg-white/70 hover:text-foreground data-active:bg-secondary data-active:text-white data-active:shadow-md"
@@ -118,7 +127,7 @@ export default function AttendancePage() {
             <JournalTab />
           </TabPanel>
         )}
-        {showWrite && (
+        {showQrcode && (
           <TabPanel value="qrcodes">
             <QrCodesTab />
           </TabPanel>
@@ -133,7 +142,7 @@ export default function AttendancePage() {
             <ExportTab />
           </TabPanel>
         )}
-        {showWrite && (
+        {showSettings && (
           <TabPanel value="settings">
             <SettingsTab />
           </TabPanel>

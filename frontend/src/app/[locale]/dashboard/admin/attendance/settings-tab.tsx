@@ -23,14 +23,12 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { attendanceApi } from '@/lib/api/attendance.api'
-import { organizationApi } from '@/lib/api/organization.api'
-import { staffApi } from '@/lib/api/staff.api'
+import { directoryApi } from '@/lib/api/directory.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
-import type { Department } from '@/types/organization'
-import type { StaffListItem } from '@/types/staff'
+import type { DirectoryStaff, DirectoryUnit } from '@/types/directory'
 import type { AttendanceSettingsPayload } from '@/types/attendance'
-import { displayName } from '@/lib/utils/display-name'
 
 const toInputTime = (t: string | null | undefined) => (t ?? '').slice(0, 5)
 const toApiTime = (t: string) => (t.length > 5 ? t : `${t}:00`)
@@ -199,27 +197,27 @@ type DepartmentForm = z.infer<ReturnType<typeof makeDepartmentSchema>>
 function DepartmentSettings() {
   const t = useTranslations('attendance')
   const queryClient = useQueryClient()
-  const [editing, setEditing] = useState<Department | null>(null)
+  const [editing, setEditing] = useState<DirectoryUnit | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const { data: departments, isLoading: isLoadingDepartments } = useQuery({
-    queryKey: ['departments', { includeInactive: false }],
-    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
-  })
+  // ⚠️ L'ANNUAIRE, pas `/departments` (qui exige `organization:read`) : un
+  // staff à qui l'établissement confie les RÉGLAGES de présence n'a aucune
+  // raison de porter aussi l'organisation — sa liste restait vide.
+  const { departments, isLoading: isLoadingDepartments } = useDirectoryUnits()
 
   const settingsQueries = useQueries({
-    queries: (departments ?? []).map((d) => ({
+    queries: departments.map((d) => ({
       queryKey: ['attendance', 'settings', 'department', d.id],
       queryFn: async () => {
         const res = await attendanceApi.getDepartmentSettings(d.id)
         return res.status === 200 ? res.data : null
       },
-      enabled: !!departments,
+      enabled: departments.length > 0,
     })),
   })
 
   const settingsByDept = new Map(
-    (departments ?? []).map((d, i) => [d.id, settingsQueries[i]?.data ?? null])
+    departments.map((d, i) => [d.id, settingsQueries[i]?.data ?? null])
   )
   const isLoadingSettings = settingsQueries.some((q) => q.isLoading)
 
@@ -227,7 +225,7 @@ function DepartmentSettings() {
     resolver: zodResolver(makeDepartmentSchema(t)),
   })
 
-  const openEdit = (dept: Department) => {
+  const openEdit = (dept: DirectoryUnit) => {
     setEditing(dept)
     const current = settingsByDept.get(dept.id)
     reset({
@@ -279,14 +277,14 @@ function DepartmentSettings() {
                     <TableCell />
                   </TableRow>
                 ))
-              ) : departments?.length === 0 ? (
+              ) : departments.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
                     {t('settings.noDepartment')}
                   </TableCell>
                 </TableRow>
               ) : (
-                departments?.map((dept) => {
+                departments.map((dept) => {
                   const current = settingsByDept.get(dept.id)
                   return (
                     <TableRow key={dept.id}>
@@ -354,7 +352,7 @@ function StaffSchedulesSettings() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [editing, setEditing] = useState<StaffListItem | null>(null)
+  const [editing, setEditing] = useState<DirectoryStaff | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   useEffect(() => {
@@ -362,9 +360,11 @@ function StaffSchedulesSettings() {
     return () => clearTimeout(t)
   }, [search])
 
+  // Idem : désigner un membre pour lui poser un horaire n'exige pas
+  // d'ouvrir son dossier RH (`staff:read`).
   const { data: staffResults, isLoading } = useQuery({
-    queryKey: ['staff', { search: debouncedSearch, forSchedules: true }],
-    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 200 }).then((r) => r.data),
+    queryKey: ['directory', 'staff', { search: debouncedSearch, forSchedules: true }],
+    queryFn: () => directoryApi.listStaff({ search: debouncedSearch || undefined, limit: 200 }).then((r) => r.data),
   })
 
   const staffItems = staffResults?.items ?? []
@@ -408,7 +408,7 @@ function StaffSchedulesSettings() {
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
-  const openEdit = (s: StaffListItem) => {
+  const openEdit = (s: DirectoryStaff) => {
     setEditing(s)
     setDialogOpen(true)
   }
@@ -459,7 +459,7 @@ function StaffSchedulesSettings() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('settings.staffColumn')}</TableHead>
-                <TableHead>{t('settings.email')}</TableHead>
+                <TableHead>{t('settings.matricule')}</TableHead>
                 <TableHead>{t('settings.schedule')}</TableHead>
                 <TableHead className="w-32">{t('settings.arrivalShort')}</TableHead>
                 <TableHead className="w-32">{t('settings.departureShort')}</TableHead>
@@ -496,9 +496,9 @@ function StaffSchedulesSettings() {
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">
-                        {displayName(s)}
+                        {s.display_name}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{s.email}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{s.matricule}</TableCell>
                       <TableCell>
                         {currentLoading ? (
                           <Skeleton className="h-5 w-24 rounded-full" />
@@ -532,7 +532,7 @@ function StaffSchedulesSettings() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('settings.staffDialogTitle', { name: editing ? (displayName(editing)) : '' })}
+              {t('settings.staffDialogTitle', { name: editing?.display_name ?? '' })}
             </DialogTitle>
             <DialogDescription>
               {t('settings.staffDialogHint')}
@@ -588,8 +588,8 @@ function ExemptionsSettings() {
   }, [search])
 
   const { data: staffResults, isLoading } = useQuery({
-    queryKey: ['staff', { search: debouncedSearch, forExemptions: true }],
-    queryFn: () => staffApi.list({ search: debouncedSearch || undefined, include_inactive: false, limit: 200 }).then((r) => r.data),
+    queryKey: ['directory', 'staff', { search: debouncedSearch, forExemptions: true }],
+    queryFn: () => directoryApi.listStaff({ search: debouncedSearch || undefined, limit: 200 }).then((r) => r.data),
   })
 
   const { data: exemptions } = useQuery({
@@ -634,7 +634,7 @@ function ExemptionsSettings() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('settings.staffColumn')}</TableHead>
-                <TableHead>{t('settings.email')}</TableHead>
+                <TableHead>{t('settings.matricule')}</TableHead>
                 <TableHead className="w-32">{t('settings.exempt')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -664,16 +664,16 @@ function ExemptionsSettings() {
                   return (
                     <TableRow key={staff.id}>
                       <TableCell className="font-medium">
-                        {displayName(staff)}
+                        {staff.display_name}
                         {exempt && <Badge variant="outline" className="ml-2 font-normal">{t('settings.exempt')}</Badge>}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{staff.email}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{staff.matricule}</TableCell>
                       <TableCell>
                         <Switch
                           checked={exempt}
                           onCheckedChange={(v) => toggleMutation.mutate({ staffId: staff.id, exempt: v })}
                           disabled={pendingId === staff.id}
-                          aria-label={t('settings.exemptAria', { name: displayName(staff) })}
+                          aria-label={t('settings.exemptAria', { name: staff.display_name })}
                         />
                       </TableCell>
                     </TableRow>

@@ -23,7 +23,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TableBody, TableRow } from '@/components/ui/table'
 import { attendanceApi } from '@/lib/api/attendance.api'
-import { organizationApi } from '@/lib/api/organization.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
@@ -85,7 +85,11 @@ export function DashboardTab() {
   const user = useUser()
   const { permissions } = useMyPermissions()
   // Correction manuelle : admin d'office, ou staff porteur de attendance:write.
-  const canCorrect = user?.role === 'admin' || permissions.has('attendance:write')
+  // ⚠️ `attendance:correct`, plus `attendance:write`. Rectifier l'heure d'un
+  // pointage est un geste quotidien ; le confondre avec les réglages de
+  // l'établissement obligeait à confier les seconds pour permettre le premier
+  // — signalé par l'établissement sur le cas d'une assistante de direction.
+  const canCorrect = user?.role === 'admin' || permissions.has('attendance:correct')
 
   return (
     <div className="space-y-4 pt-2">
@@ -456,17 +460,11 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
   const [departmentId, setDepartmentId] = useState<string>(ALL)
   const [sectionId, setSectionId] = useState<string>(ALL)
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments', { includeInactive: false }],
-    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
-  })
-  const { data: sections } = useQuery({
-    queryKey: ['sections', { departmentId, includeInactive: false }],
-    queryFn: () =>
-      organizationApi
-        .listSections({ department_id: departmentId === ALL ? undefined : departmentId, include_inactive: false })
-        .then((r) => r.data),
-  })
+  // Sélecteurs de périmètre : l'ANNUAIRE. `/departments` et `/sections`
+  // exigent `organization:read`, que la plupart des porteurs de
+  // `attendance:read` n'ont pas — le filtre restait vide.
+  const { departments, sectionsOf } = useDirectoryUnits()
+  const sections = sectionsOf(departmentId === ALL ? null : departmentId)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'daily', 'children', { date, departmentId, sectionId }],
@@ -607,19 +605,26 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
             {sections?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10"
-          disabled={counts.absent === 0 || notifyMutation.isPending}
-          onClick={() => setConfirmNotify(true)}
-          title={counts.absent === 0 ? t('dashboard.noAbsentToday') : t('dashboard.notifyHint')}
-        >
-          {notifyMutation.isPending
-            ? <Loader2 className="mr-1.5 size-4 animate-spin" />
-            : <Mail className="mr-1.5 size-4" />}
-          {t('dashboard.notifyParents')}{counts.absent > 0 ? ` (${counts.absent})` : ''}
-        </Button>
+        {/* ⚠️ Gardé par `canCorrect`, comme la relance individuelle juste
+            en dessous : l'enquête d'absence ÉCRIT aux parents. Ce bouton-ci
+            n'avait aucune garde — il s'affichait dès `attendance:read` et
+            répondait 403 au clic, c'est-à-dire exactement l'impasse que tout
+            le reste de cet écran évite. */}
+        {canCorrect && (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10"
+            disabled={counts.absent === 0 || notifyMutation.isPending}
+            onClick={() => setConfirmNotify(true)}
+            title={counts.absent === 0 ? t('dashboard.noAbsentToday') : t('dashboard.notifyHint')}
+          >
+            {notifyMutation.isPending
+              ? <Loader2 className="mr-1.5 size-4 animate-spin" />
+              : <Mail className="mr-1.5 size-4" />}
+            {t('dashboard.notifyParents')}{counts.absent > 0 ? ` (${counts.absent})` : ''}
+          </Button>
+        )}
       </div>
 
       <ConfirmDialog

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Images, Newspaper, Tags } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { ArticlesTab } from './articles-tab'
 import { TagsTab } from './tags-tab'
@@ -15,6 +15,7 @@ export default function BlogPage() {
   const t = useTranslations('blog')
   return (
     <PageMotion>
+      <ModuleGuard anyOf={['blog:write']}>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -43,6 +44,7 @@ export default function BlogPage() {
           <GalleryTab />
         </TabPanel>
       </Tabs>
+      </ModuleGuard>
     </PageMotion>
   )
 }

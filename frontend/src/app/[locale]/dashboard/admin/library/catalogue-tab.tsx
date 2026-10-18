@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { libraryApi } from '@/lib/api/library.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
-import { organizationApi } from '@/lib/api/organization.api'
+import { directoryApi } from '@/lib/api/directory.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
@@ -44,7 +44,7 @@ export function CatalogueTab() {
 
   const { data: sections } = useQuery({
     queryKey: ['organization', 'sections'],
-    queryFn: () => organizationApi.listSections({ include_inactive: true }).then((r) => r.data),
+    queryFn: () => directoryApi.listUnits({ include_inactive: true }).then((r) => r.data.sections),
   })
 
   const { data, isLoading, isFetching } = useQuery({

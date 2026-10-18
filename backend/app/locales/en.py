@@ -243,6 +243,16 @@ MESSAGES: dict[str, str] = {
     # ── parents ───────────────────────────────────────────
     "errors.parents.children_not_found": "Child(ren) not found in this establishment: {ids}",
     # ── rbac ──────────────────────────────────────────────
+    "rbac.baseline.educatrice.name": "Educator (baseline)",
+    "rbac.baseline.educatrice.description": (
+        "Automatic baseline for every educator: viewing and writing reports for "
+        "their own group, viewing the menu."
+    ),
+    "rbac.baseline.bibliothecaire.name": "Librarian (baseline)",
+    "rbac.baseline.bibliothecaire.description": (
+        "Automatic baseline for every librarian: managing the catalogue, loans "
+        "and returns, and library reminders."
+    ),
     "errors.rbac.permissions_missing": (
         "The permission catalogue is incomplete in the database: {missing}. Run 'alembic upgrade head'"
     ),

@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { CalendarDays, History } from 'lucide-react'
 
 import { Tabs } from '@/components/ui/tabs'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { WeekTab } from './week-tab'
 import { HistoryTab } from './history-tab'
@@ -20,6 +20,7 @@ export default function MenusPage() {
 
   return (
     <PageMotion>
+      <ModuleGuard anyOf={['menus:read', 'menus:write']}>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -47,6 +48,7 @@ export default function MenusPage() {
           />
         </TabPanel>
       </Tabs>
+      </ModuleGuard>
     </PageMotion>
   )
 }

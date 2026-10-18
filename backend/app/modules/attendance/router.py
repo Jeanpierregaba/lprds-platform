@@ -40,6 +40,14 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 _scan = require_permission(PermissionCode.ATTENDANCE_SCAN)
 _read = require_permission(PermissionCode.ATTENDANCE_READ)
+# ⚠️ `attendance:write` ne couvre plus QUE les paramètres du module (horaires,
+# exemptions, fuseau). Imprimer un badge et rectifier une heure de pointage
+# sont des gestes QUOTIDIENS, sans rapport avec la configuration : les laisser
+# sous la même permission obligeait à confier les réglages de l'établissement
+# à qui n'avait besoin que d'imprimer une carte — signalé par l'utilisateur,
+# sur le cas d'une assistante de direction.
+_qrcode = require_permission(PermissionCode.ATTENDANCE_QRCODE)
+_correct = require_permission(PermissionCode.ATTENDANCE_CORRECT)
 _write = require_permission(PermissionCode.ATTENDANCE_WRITE)
 
 
@@ -49,7 +57,7 @@ async def get_child_qrcode(
     child_id: uuid.UUID,
     response: Response,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_qrcode),
 ) -> QRCodeResponse:
     """Jeton chiffré + image PNG du badge (prête à imprimer). Chaque appel
     génère un jeton équivalent (tous restent valides) : cache privé d'1 h
@@ -63,7 +71,7 @@ async def get_staff_qrcode(
     staff_id: uuid.UUID,
     response: Response,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_qrcode),
 ) -> QRCodeResponse:
     response.headers["Cache-Control"] = "private, max-age=3600"
     return await service.get_staff_qrcode(staff_id, user.establishment_id, db)
@@ -97,7 +105,7 @@ async def scan(
 async def create_manual_event(
     payload: ManualEventRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_correct),
 ) -> AttendanceEventResponse:
     """Saisie manuelle d'une arrivée/départ (scan faux ou jamais scanné)."""
     return await service.create_manual_event(payload, user.establishment_id, user, db)
@@ -108,7 +116,7 @@ async def update_event(
     event_id: uuid.UUID,
     payload: UpdateEventRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_correct),
 ) -> AttendanceEventResponse:
     """Rectifie l'heure d'une ligne existante (type et personne inchangés)."""
     return await service.update_event(event_id, payload, user.establishment_id, db)
@@ -117,7 +125,7 @@ async def update_event(
 @router.post("/absent-notifications", response_model=AbsenceInquiryResponse)
 async def send_absence_inquiries(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_write),
+    user: User = Depends(_correct),
     target_date: date_ | None = Query(default=None, alias="date"),
     department_id: uuid.UUID | None = Query(default=None),
     section_id: uuid.UUID | None = Query(default=None),

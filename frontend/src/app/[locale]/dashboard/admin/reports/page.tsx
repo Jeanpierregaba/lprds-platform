@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 
 import { Tabs } from '@/components/ui/tabs'
 import { useLabel } from '@/lib/i18n/labels'
-import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { ModuleGuard, PageHeader, PageMotion } from '@/components/dashboard/shared/page'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { TYPE_TAB_META, TypeTab } from './type-tab'
 import { useReportListParams } from './list-params'
@@ -17,6 +17,7 @@ export default function ReportsPage() {
   const { params, setFilter } = useReportListParams()
   return (
     <PageMotion>
+      <ModuleGuard anyOf={['reports:read', 'reports:write', 'reports:validate']}>
       <PageHeader
         title={t('page.title')}
         description={t('page.description')}
@@ -37,6 +38,7 @@ export default function ReportsPage() {
           </TabPanel>
         ))}
       </Tabs>
+      </ModuleGuard>
     </PageMotion>
   )
 }

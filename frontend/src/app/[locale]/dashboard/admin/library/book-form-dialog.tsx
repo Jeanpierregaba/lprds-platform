@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { libraryApi } from '@/lib/api/library.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import type { Book } from '@/types/library'
-import type { Section } from '@/types/organization'
+import type { DirectoryUnit } from '@/types/directory'
 
 type T = (key: string) => string
 
@@ -48,7 +48,7 @@ interface BookFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   book: Book | null
-  sections: Section[]
+  sections: DirectoryUnit[]
 }
 
 export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormDialogProps) {

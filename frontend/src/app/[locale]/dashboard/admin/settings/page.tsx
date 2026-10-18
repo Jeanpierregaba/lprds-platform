@@ -22,10 +22,13 @@ const TABS = [
   // Types activés par département : réservé à l'admin — une éducatrice porte
   // reports:write (elle rédige) mais ne configure pas les types actifs.
   { value: 'rapports', labelKey: 'rapports', icon: FileText, adminOnly: true },
-  {
-    value: 'bibliotheque', labelKey: 'bibliotheque', icon: BookOpen,
-    perms: ['library:read', 'library:write', 'library:lend'],
-  },
+  // ⚠️ ADMIN SEUL, comme `GET/PUT /library/settings` côté serveur. Cet onglet
+  // s'ouvrait à qui portait les trois permissions `library:*` — un
+  // bibliothécaire, donc — et le serveur répondait 403. Pire qu'une impasse :
+  // le formulaire affichait ses valeurs PAR DÉFAUT (3 jours, 14 jours), si
+  // bien que le bibliothécaire lisait des réglages inventés, et croyait les
+  // enregistrer. Mesuré : 403 sur les deux verbes.
+  { value: 'bibliotheque', labelKey: 'bibliotheque', icon: BookOpen, adminOnly: true },
 ] as const
 
 function SettingsTabs() {
@@ -38,9 +41,8 @@ function SettingsTabs() {
   const isAdmin = user?.role === 'admin'
   const visible: string[] = TABS.filter((t) => {
     if ('adminOnly' in t && t.adminOnly) return isAdmin
-    if (!('perm' in t) && !('perms' in t)) return true
+    if (!('perm' in t)) return true
     if (isAdmin) return true
-    if ('perms' in t) return t.perms.every((p) => permissions.has(p))
     return permissions.has(t.perm)
   }).map((t) => t.value)
 

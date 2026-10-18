@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TableBody, TableRow } from '@/components/ui/table'
-import { childrenApi } from '@/lib/api/children.api'
+import { directoryApi } from '@/lib/api/directory.api'
 import { libraryApi } from '@/lib/api/library.api'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
@@ -77,7 +77,8 @@ function CreateLendingDialog({
 
   const { data: children } = useQuery({
     queryKey: ['children', 'for-lending'],
-    queryFn: () => childrenApi.list({ limit: 100 }).then((r) => r.data),
+    // Enregistrer un prêt désigne un enfant ; ça n'ouvre pas son dossier.
+    queryFn: () => directoryApi.listChildren({ limit: 100 }).then((r) => r.data),
     enabled: open,
   })
 

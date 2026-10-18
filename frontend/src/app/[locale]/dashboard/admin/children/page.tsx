@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { childrenApi } from '@/lib/api/children.api'
 import { attendanceApi } from '@/lib/api/attendance.api'
-import { organizationApi } from '@/lib/api/organization.api'
+import { useDirectoryUnits } from '@/lib/hooks/use-directory'
 import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
@@ -72,18 +72,12 @@ export default function ChildrenListPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: departments } = useQuery({
-    queryKey: ['departments', { includeInactive: false }],
-    queryFn: () => organizationApi.listDepartments(false).then((r) => r.data),
-  })
+  // ⚠️ Sélecteurs de périmètre : l'ANNUAIRE. `/departments` et `/sections`
+  // exigent `organization:read` — un staff porteur de `children:read` seul
+  // voyait des filtres vides, sans rien qui l'explique.
+  const { departments, sectionsOf } = useDirectoryUnits()
 
-  const { data: sections } = useQuery({
-    queryKey: ['sections', { departmentId, includeInactive: false }],
-    queryFn: () =>
-      organizationApi
-        .listSections({ department_id: departmentId === ALL ? undefined : departmentId, include_inactive: false })
-        .then((r) => r.data),
-  })
+  const sections = sectionsOf(departmentId === ALL ? null : departmentId)
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['children', { search: debouncedSearch, departmentId, sectionId, includeInactive, skip }],

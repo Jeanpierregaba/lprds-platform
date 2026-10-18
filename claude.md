@@ -106,10 +106,12 @@ app/
 │   │   ├── service.py             # Logique métier établissements
 │   │   └── router.py              # Endpoints HTTP /establishments/*
 │   ├── rbac/
-│   │   ├── models.py              # Permission, Role, PermissionCode, tables M2M
+│   │   ├── models.py              # Permission, Role, PermissionCode, BaselineRoleKind,
+│   │   │                          #   tables M2M
 │   │   ├── schemas.py             # Pydantic v2 I/O schemas
 │   │   ├── service.py             # Logique métier rôles/permissions
-│   │   ├── dependencies.py        # require_permission(), admin_establishment_id
+│   │   ├── dependencies.py        # require_permission() (ET),
+│   │   │                          #   require_any_permission() (OU)
 │   │   └── router.py              # Endpoints HTTP /rbac/*
 │   ├── organization/
 │   │   ├── models.py              # Department, Section, Group (hiérarchie)
@@ -158,6 +160,10 @@ app/
 │   │   ├── dependencies.py        # get_parent (portail)
 │   │   ├── email.py + templates/  # Notification de publication (best-effort)
 │   │   └── router.py              # Endpoints HTTP /reports/*
+│   ├── directory/                 # Pas de models.py — porte UNIQUE des sélecteurs
+│   │   ├── schemas.py             # ⚠️ Ce qu'un sélecteur exige, et RIEN de plus
+│   │   ├── service.py             # Colonnes nommées, jamais l'entité ORM
+│   │   └── router.py              # /directory/{children,staff,units}
 │   ├── gallery/                   # Pas de models.py — agrégation live, aucune table propre
 │   │   ├── schemas.py             # GalleryMediaItem unifié (source report|message)
 │   │   ├── service.py             # Requêtes agrégées sur report_attachments + attachments
@@ -492,7 +498,7 @@ postgresql+asyncpg://adminlprds:lprds@localhost:5432/lprds_database
 - `establishments` — établissements (crèches, garderies, maternelle)
 - `users` — tous les utilisateurs (tous rôles confondus)
 - `permissions` — catalogue RBAC (seedé par migration, lecture seule)
-- `roles` / `role_permissions` / `user_roles` — RBAC par établissement
+- `roles` / `role_permissions` / `user_roles` — RBAC par établissement (`roles.baseline_kind` = clé des rôles socles)
 - `departments` / `sections` / `groups` — hiérarchie interne (dept → section → groupe)
 - `children` — fiches enfants (matricule unique)
 - `guardians` — parents/tuteurs d'un enfant (fiches de contact)
@@ -980,7 +986,9 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 | `organization:write` | Gérer départements, sections et groupes |
 | `attendance:scan` | Scanner les codes QR de présence |
 | `attendance:read` | Consulter les présences et tableaux de bord |
-| `attendance:write` | Configurer les paramètres de présence (horaires, exemptions, QR) |
+| `attendance:qrcode` | Générer et imprimer les badges QR |
+| `attendance:correct` | Rectifier un pointage (saisie manuelle, correction d'heure) + enquête d'absence |
+| `attendance:write` | Configurer les paramètres de présence (horaires, exemptions, fuseau) |
 | `reports:read` | Consulter les rapports |
 | `reports:write` | Créer, modifier et soumettre des rapports |
 | `reports:validate` | Valider ou rejeter les rapports soumis |
@@ -992,20 +1000,88 @@ Source de vérité : l'enum `PermissionCode` (`rbac/models.py`). La table
 | `library:write` | Créer, modifier et désactiver les livres |
 | `library:lend` | Enregistrer prêts, retours et rappels |
 
-> **Ajouter une permission** = 1) l'ajouter à `PermissionCode` (+ `PERMISSION_LABELS`,
-> qui ne sert plus qu'au seed — l'API ne renvoie que le code, le libellé vit
-> dans `messages/{locale}/rbac.json` et dans `PERMISSION_CODES` côté frontend),
-> 2) écrire une migration qui l'insère dans `permissions`. Sans l'étape 2, toute
-> tentative de l'attribuer renvoie une 500 explicite (garde-fou dans le service).
+> **Ajouter une permission** demande quatre gestes, dont deux de chaque côté —
+> cf. § « Ajouter une permission — la marche à suivre » plus bas. `PERMISSION_LABELS`
+> ne sert plus qu'au seed : l'API ne renvoie que le code, le libellé vit dans
+> `messages/{locale}/rbac.json`.
 
-### Règle d'autorisation — `require_permission(*codes)`
+### Règle d'autorisation — `require_permission` (ET) / `require_any_permission` (OU)
 - **Admin** de l'établissement → autorisé d'office (tous les droits chez lui)
-- **Staff** → autorisé si ses rôles **actifs** portent **toutes** les permissions
-  listées (sémantique AND — pour un OU, voir le pattern `_read_history` du
-  module Menus ou les portails hors RBAC ci-dessous)
+- **Staff** → `require_permission(*codes)` exige **toutes** les permissions
+  listées (ET) ; `require_any_permission(*codes)` se satisfait d'**au moins
+  une** (OU)
+
+⚠️ **Les deux sont nécessaires, et le OU manquait.** Cinq gardes le
+réimplémentaient à la main (`_can_see_reports`, `_vocabulary_access`,
+`_read_types`, `_read_history`), chacune avec sa copie du test de rôle et sa
+propre 403 — autant d'occasions de n'en corriger que quatre. Le ET reste
+indispensable là où un seul geste écrit ET désactive (`POST /children/import`
+exige `children:write` ET `children:archive`).
+
+Le OU n'est pas une facilité : la barre latérale affiche un module dès UNE
+permission détenue, donc une garde plus étroite donnerait « page visible,
+données 403 ». `_vocabulary_access` reste écrit à la main — il a une branche
+`parent`, que la primitive ne couvre pas.
 - **Superadmin** → **refusé** (403). Il gère le SaaS et les établissements, pas
   les données des enfants — minimisation RGPD. C'est volontaire, pas un oubli.
 - **Parent** → refusé (son portail dédié est hors RBAC)
+
+### ⚠️ Les rôles SOCLES ont une clé, pas un nom
+
+Deux rôles sont attribués **automatiquement** d'après `staff_type`, sans que
+l'admin les coche : `educateur` → rapports de son groupe + consultation du
+menu ; `bibliothecaire` → les trois permissions `library:*`. Ils restent de
+vrais rôles RBAC, visibles et révocables depuis l'écran Rôles.
+
+Ils étaient retrouvés **par leur NOM**. Or ce nom est un libellé que l'admin
+peut éditer, et trois défauts en découlaient — tous mesurés, aucun visible :
+
+1. **Renommé, le socle était recréé en double** à l'embauche suivante, et la
+   rétrogradation d'un éducateur supprimait le lien du **mauvais** rôle : il
+   conservait `reports:write`. C'est le défaut du seed qui s'identifiait par
+   email, à l'identique.
+2. **Un socle désactivé était silencieusement RÉACTIVÉ** : l'admin le retirait
+   à toutes ses éducatrices, et la simple embauche de la suivante le rendait —
+   à toutes. Une décision prise dans l'écran Rôles ne doit pas être défaite par
+   une action sans rapport.
+3. **Le socle attribué à la main puis le membre promu** violait
+   `user_roles_pkey` : la promotion répondait **500**. Le socle étant un rôle
+   ordinaire, l'admin peut parfaitement l'attribuer lui-même.
+
+`roles.baseline_kind` (migration `a7e3c91f4d22`, index unique **partiel** par
+établissement) porte désormais la clé, qu'aucune interface n'expose. Un libellé
+est fait pour être lu et changé ; une clé, pour rester.
+
+- **`ensure_baseline_role` ne réactive JAMAIS.** Le nouveau membre reçoit bien
+  le rôle ; tant qu'il est désactivé, celui-ci ne confère rien, et le jour où
+  l'admin le réactive tout le monde en bénéficie — ce qu'il aura demandé.
+- **`_link_baseline` est idempotent** (`ON CONFLICT DO NOTHING`).
+- **Le libellé suit la langue de la requête** (`rbac.baseline.*`) : un
+  établissement qui s'installe en anglais ne lit pas « (socle) ». Si le nom est
+  déjà pris par un rôle créé à la main, on retombe sur la clé plutôt que de
+  faire échouer l'embauche sur une collision de libellé.
+- **Une seule table `BASELINE_BY_STAFF_TYPE`** : le troisième poste qui
+  recevra un socle ne touchera que cette ligne. Les deux sortes étaient
+  traitées par deux blocs jumeaux, donc deux occasions de n'en corriger qu'un.
+
+### ⚠️ Ajouter une permission — la marche à suivre
+
+1. l'ajouter à `PermissionCode` **et** à `PERMISSION_LABELS` (`rbac/models.py`) ;
+2. écrire une migration qui l'insère dans `permissions` — sans elle, toute
+   tentative de l'attribuer renvoie une 500 explicite ;
+3. l'ajouter à `PERMISSION_CODES` **et** à `PERMISSION_GROUPS`
+   (`frontend/src/types/rbac.ts`) — sans le groupe, elle n'apparaît que dans le
+   repli « Autres » de l'éditeur de rôles ;
+4. poser son libellé dans `messages/{fr,en}/rbac.json`.
+
+⚠️ Si elle **restreint** un geste couvert jusque-là par une permission plus
+large, la migration doit **l'attribuer aux rôles qui portaient l'ancienne** :
+redécouper retire sinon des capacités en production, en silence, et personne ne
+le découvre avant qu'un utilisateur ne se heurte à un bouton disparu.
+
+`tests/e2e/test_rbac.py` compare les quatre points aux sources RÉELLES (enum,
+table servie par l'API, fichier du frontend, catalogues de traduction) : en
+oublier un fait échouer la suite, pas la production.
 
 ### Granularité bibliothèque — un geste = une permission
 Le module Bibliothèque applique le principe fin (pas de garde groupée) :
@@ -1029,6 +1105,11 @@ Certains endpoints ne passent jamais par `require_permission`, par décision :
   abonnements uniquement) — aucune permission `notifications:*` n'est
   nécessaire ; `GET /vapid-public-key` est public (clé publique uniquement).
 - **Blog public** : `/public/blog/*` sans authentification (vitrine).
+
+⚠️ **L'annuaire n'est PAS un portail hors RBAC** : `/directory/*` est gardé par
+`require_any_permission` sur les permissions dont le geste a réellement besoin
+de choisir quelqu'un (cf. § Module Annuaire). Il réduit ce qui est EXPOSÉ, pas
+qui y a droit.
 
 ### Route legacy — `POST /auth/users`
 Route historique de création d'utilisateurs (`require_roles(SUPERADMIN,
@@ -1056,10 +1137,49 @@ interdite reçoit 403). Le frontend masque pour éviter les impasses :
   personnel (dont l'onglet « Rôles RBAC », **admin uniquement**), organisation,
   bibliothèque (write/lend séparés, paramètres admin uniquement), menus
   (`menus:write` sur les cellules + boutons) et aux onglets présences
-  (dashboard/journal/export → `attendance:read`, QR → `:write`, scanner →
-  `:scan`, onglet par défaut = premier permis).
+  (dashboard/journal/export → `attendance:read`, QR → `:qrcode`, réglages →
+  `:write`, scanner → `:scan`, correction d'une ligne → `:correct`, onglet par
+  défaut = premier permis).
+- ⚠️ **Le `Set` de `useMyPermissions()` est typé `Set<PermissionCode>`**, et ce
+  n'est pas de la cosmétique : en `Set<string>`,
+  `permissions.has('children:wrtie')` **type-checke**, renvoie toujours `false`
+  et masque le bouton POUR TOUJOURS. Rien ne l'attrapait — ni `tsc`, ni le
+  lint, ni un test — pour une trentaine de littéraux répartis dans
+  l'interface. Vérifié dans les deux sens : la même faute échoue désormais en
+  `TS2345`. Un helper local qui élargit le type (`can = (code: string) => …`)
+  rouvre le trou : l'annoter `PermissionCode`.
 - **Pages `new`** (enfants/parents/personnel) : garde anti deep-link —
   message « Droits insuffisants » au lieu du formulaire.
+- **Pages de MODULE** : `<ModuleGuard anyOf={[...]}>`
+  (`components/dashboard/shared/page.tsx`), sémantique OU comme
+  `require_any_permission` côté serveur.
+  ⚠️ **Six pages n'en avaient aucune** — rôles, actualités, galerie,
+  organisation, bibliothèque, menus, rapports — alors que les pages `new` en
+  portaient une depuis toujours. Le proxy laisse délibérément tout compte
+  `staff` entrer sous `/dashboard/admin/*` (il y réutilise les mêmes écrans) :
+  un membre sans le droit voyait donc la page s'afficher et ses requêtes
+  répondre 403, et l'écran annonçait « aucun rôle », « aucun article » — une
+  absence de données là où il fallait lire un refus. Vu de l'établissement, ça
+  ressemble à une panne de son compte.
+  La garde **NOMME le droit manquant** (libellés de `rbac.permissions.*`), et
+  c'est tout son intérêt : « droits insuffisants » n'apprend rien à qui doit le
+  réparer, le libellé exact est ce que l'admin va chercher dans l'écran Rôles.
+  `adminOnly` pour ce qu'aucune permission ne délègue (Rôles).
+  ⚠️ Elle ne refuse **pas** pendant le chargement des permissions (asynchrone),
+  sinon un refus clignoterait sur l'écran de quelqu'un qui a le droit.
+  ⚠️ `errors.insufficientRights` existait **dans les deux catalogues sans être
+  appelé par personne** : la traduction était là, le code l'ignorait. Un
+  catalogue complet ne prouve rien tant que personne ne vérifie qu'il est lu.
+- ⚠️ **Les SÉLECTEURS passent par l'annuaire**, jamais par le module voisin —
+  cf. § « Module Annuaire ». Un filtre rempli depuis `/children` exige
+  `children:read`, ce qu'un porteur de `attendance:read` n'a pas : la liste
+  restait vide, sans un mot.
+- ⚠️ **Onglet « Paramètres bibliothèque » : ADMIN SEUL**, comme
+  `GET/PUT /library/settings`. L'entrée de navigation et l'onglet s'ouvraient à
+  qui portait les trois permissions `library:*` — un bibliothécaire, donc — et
+  le serveur répondait 403. Pire qu'une impasse : le formulaire affichait ses
+  valeurs **par défaut** (3 jours, 14 jours), si bien qu'il lisait des réglages
+  inventés et croyait les enregistrer.
 - **Galerie staff** : `source` forcée à `report`, sélecteur masqué (la
   messagerie reste hors RBAC, 403 sinon).
 - **Ne pas gater** : portails parent (`/mine/*`, hors RBAC), socle staff,
@@ -1481,7 +1601,8 @@ Le type de personnel est un **poste descriptif**, totalement indépendant de :
 Pour donner des droits à un staff, l'admin lui attribue un rôle RBAC (`/rbac`).
 
 Valeurs (`StaffType`) : `administrateur`, `educateur`, `prestataire`,
-`directrice`, `redacteur`, `secretaire`, `restaurateur`. Stockées en **texte**
+`directrice`, `redacteur`, `secretaire`, `restaurateur`, `bibliothecaire`.
+Stockées en **texte**
 (validées côté API), pas en enum PostgreSQL : ajouter un type = éditer l'enum,
 sans migration.
 
@@ -1676,20 +1797,55 @@ décision explicite (alternative « nouvel event manuel avec flag » écartée) 
   dernier départ, même règle que le backend), PATCH si la ligne existe sinon
   création manuelle, vide = inchangé.
 
-### Permissions — trois, pas deux
+### Permissions — CINQ, et c'est un découpage voulu
 
-Contrairement aux autres modules (`read`/`write`), celui-ci a **trois**
-permissions distinctes, car ce sont trois gestes différents dans la vraie vie
-(un agent d'accueil scanne, sans pouvoir consulter les rapports ni changer la
-config) :
+Contrairement aux autres modules (`read`/`write`), celui-ci a **cinq**
+permissions distinctes, car ce sont cinq gestes différents dans la vraie vie
+(un agent d'accueil scanne, sans pouvoir consulter les présences ni changer la
+configuration de l'établissement) :
 
 | Permission | Couvre |
 |---|---|
-| `attendance:scan` | `POST /scan` uniquement |
-| `attendance:read` | Journal + dashboards journaliers |
-| `attendance:write` | QR codes, horaires, exemptions (config du système) |
+| `attendance:scan` | `POST /scan`, `POST /scan/verify` |
+| `attendance:read` | Journal, dashboards journaliers, export |
+| `attendance:qrcode` | `GET /qrcode/child/{id}`, `GET /qrcode/staff/{id}` |
+| `attendance:correct` | `POST /events/manual`, `PATCH /events/{id}`, `POST /absent-notifications` |
+| `attendance:write` | `GET`/`PUT`/`DELETE /settings/*` (horaires, exemptions, fuseau) |
 
-Admin d'office sur les trois ; superadmin exclu (403), comme partout ailleurs.
+⚠️ **`attendance:write` ne désignait pas ce que son libellé annonce**, et
+l'établissement l'a signalé sur un cas concret : une **assistante de
+direction** ne pouvait ni imprimer un badge ni rectifier une heure de pointage
+sans recevoir en même temps **les réglages de l'établissement** — horaires de
+tous les départements, exemptions, fuseau horaire. Imprimer une carte et
+corriger un oubli de scan sont des gestes **quotidiens** ; configurer les
+horaires est un acte de direction. Les confondre obligeait à confier le second
+pour permettre le premier.
+
+⚠️ **L'enquête d'absence part avec `:correct`**, pas avec `:write` : c'est une
+action sur la journée en cours, au même titre qu'une rectification. Côté écran,
+le bouton « Prévenir les parents » n'avait **aucune** garde — il s'affichait dès
+`attendance:read` et répondait 403 au clic, alors que la relance individuelle
+juste en dessous était gardée depuis toujours.
+
+⚠️ **`:correct` ne se suffit pas à lui-même en pratique** : on rectifie une
+ligne qu'on VOIT, et le tableau de bord exige `attendance:read`. Les deux vont
+donc ensemble dans un rôle, sans que le code impose le couplage — c'est à
+l'admin de composer, comme partout ailleurs.
+
+⚠️ **Le redécoupage RETIRE des capacités aux rôles existants, en silence.** La
+migration `a7e3c91f4d22` attribue donc `:qrcode` et `:correct` à **tout rôle
+qui portait `attendance:write`** — il les exerçait déjà, on ne fait que nommer
+ce qu'il faisait. Sans cette reprise, une éducatrice se serait découverte
+incapable d'imprimer un badge au lendemain d'un déploiement, sans qu'aucun
+écran ne l'annonce.
+
+⚠️ **Les SÉLECTEURS de personne ne sont plus ici.** L'onglet QR et l'export
+appelaient `/children` et `/staff` pour remplir leurs listes, donc exigeaient
+`children:read` / `staff:read` : c'est la **seconde** moitié du défaut
+signalé — la permission autorisait le geste, l'écran ne pouvait pas le
+proposer. Cf. § « Module Annuaire ».
+
+Admin d'office sur les cinq ; superadmin exclu (403), comme partout ailleurs.
 
 ### Calcul du statut journalier
 
@@ -2961,6 +3117,87 @@ GET    /api/v1/reports/mine/{id}/pdf      # bulletin annuel uniquement — 422 s
 Toutes les opérations sont bornées à `establishment_id`. Un rapport d'un autre
 établissement → **404** partout (admin comme staff), cohérent avec tous les
 autres modules.
+
+---
+
+## Module Annuaire (directory)
+
+Porte **unique** des sélecteurs : les listes déroulantes, les filtres de
+périmètre et les recherches « choisir une personne ». Aucune table, aucun
+modèle — des requêtes en lecture sur `children`, `users` et la hiérarchie.
+
+### ⚠️ Pourquoi il existe — un couplage qui n'apparaissait nulle part
+
+Signalé par l'établissement : une **assistante de direction** à qui les
+présences avaient été confiées ne pouvait pas générer les badges QR des
+enfants ni du personnel. La permission disait « générer les badges » et le
+backend l'autorisait ; c'est le **sélecteur de personne** qui appelait
+`/children` et `/staff`, donc exigeait `children:read` / `staff:read`. Liste
+vide, aucun badge imprimable, et rien à l'écran pour le dire.
+
+Le défaut n'était pas isolé : **neuf écrans** remplissaient leurs listes en
+appelant le module d'à côté — export de présences, réglages d'horaires, prêts
+de la bibliothèque, création de rapport, filtres de galerie, rattachement d'un
+enfant à un compte parent, désignation d'une éducatrice, trombinoscope, fiches
+enfants. Et l'onglet QR téléchargeait la **fiche complète** de l'enfant — notes
+médicales, médications, médecin traitant — pour imprimer un nom sur une carte.
+
+Élargir les permissions existantes aurait créé le couplage caché que le projet
+refuse explicitement ailleurs (« `gallery:read` n'implique pas `reports:read` »)
+et étendu l'accès aux données sans que l'admin le voie. L'annuaire sépare donc
+les deux questions : **de quoi ai-je besoin pour remplir une liste
+déroulante** (un nom, un matricule, un rattachement) et **de quoi ai-je besoin
+pour ouvrir un dossier** (la permission du module).
+
+### Endpoints
+```
+GET /api/v1/directory/children   # ?search= &section_id= &include_inactive= &skip= &limit=
+GET /api/v1/directory/staff      # ?search= &staff_type= &include_inactive= &skip= &limit=
+GET /api/v1/directory/units      # départements + sections + groupes ; ?include_inactive=
+```
+
+### Ce qu'il ne dit PAS
+
+C'est le cœur du module. `DirectoryChild` porte le nom affichable, **les
+prénoms et le nom séparément** (le badge physique les imprime sur deux lignes
+distinctes, à des positions et dans des couleurs différentes — les recoller
+changerait la carte), le matricule, le département, la section, `is_active` et
+`has_photo`. Rien d'autre : ni date de naissance, ni adresse, ni médical, ni
+tuteurs.
+
+⚠️ **Les requêtes nomment les COLONNES**, jamais l'entité ORM : `select(Child)`
+hydraterait le dossier entier pour n'en garder que deux champs, et une future
+colonne sensible sur `children` entrerait dans la réponse sans que personne ne
+le décide. ⚠️ L'email du personnel n'y est pas : les deux tableaux de réglages
+de présence qui l'affichaient montrent désormais le **matricule** — il
+distingue deux homonymes sans diffuser une adresse personnelle à qui règle un
+horaire.
+
+### Autorisation — un OU par ressource, jamais un passe-droit
+
+Chaque liste est gardée par `require_any_permission` sur les permissions dont
+le geste a **réellement besoin** de choisir quelqu'un. Les listes sont longues
+et explicites ; ce qui compte est ce qui en est absent : `blog:write` n'y
+figure pas — rédiger une actualité ne désigne personne — et le superadmin est
+exclu comme partout. Sous test dans les deux sens.
+
+### Côté frontend
+
+`directoryApi` (`lib/api/directory.api.ts`) et `useDirectoryUnits()`
+(`lib/hooks/use-directory.ts`), qui ramène départements, sections et groupes en
+**une** requête et filtre les sections côté client : changer de département ne
+relance plus d'appel.
+
+⚠️ **Ne pas l'utiliser pour une LISTE DE TRAVAIL.** Une liste d'enfants qu'on
+consulte passe par son propre module, qui porte les champs du métier et la
+permission qui va avec. L'annuaire ne sert qu'à CHOISIR.
+
+⚠️ **`display_name` vient du serveur** : la règle du surnom (« Tata Victoire »)
+y vit une fois, au lieu d'être rejouée par chaque écran — c'est la même
+discipline que `app/core/people.py`, appliquée aux sélecteurs.
+
+### Isolation
+Toutes les requêtes sont bornées à `establishment_id`.
 
 ---
 
@@ -4351,6 +4588,12 @@ tests/
     ├── test_hardening.py                # rate limiting /auth/login ET /auth/password-reset
     │                                    #   (par email ET par IP, 429 invariant sur une
     │                                    #   adresse inconnue), format d'erreur uniforme
+    ├── test_rbac.py                     # rôles & permissions : les deux MIROIRS du
+    │                                    #   catalogue (enum ↔ table ↔ copie frontend),
+    │                                    #   superadmin exclu, rôle désactivé inerte,
+    │                                    #   404 inter-établissement, découpage présences
+    │                                    #   (badges ≠ réglages), clé stable des rôles
+    │                                    #   socles, et l'annuaire sur le cas signalé
     └── test_schema_drift.py             # modèles ↔ schéma migré (cf. « Registre central »)
 ```
 
@@ -5043,6 +5286,19 @@ Types    : PascalCase interfaces, SCREAMING_SNAKE pour les constantes
   `onupdate=func.now()`** : sans ça, l'attribut est expiré après un UPDATE et sa
   lecture déclenche un lazy-load interdit en async (`MissingGreenlet` → 500).
   Les INSERT n'ont pas le problème (RETURNING automatique), les UPDATE si.
+- **⚠️ `lazy="selectin"` sur une relation que PERSONNE ne lit se paie à chaque
+  requête.** `Role.users` et `Role.establishment` n'étaient lues nulle part —
+  `RoleResponse` ne porte que l'identifiant de l'établissement et les codes de
+  permission — et coûtaient pourtant : mesuré, `GET /rbac/roles` émettait **12
+  requêtes SQL**, dont l'hydratation de **tous les porteurs** du rôle *et de
+  leurs enfants* (le socle éducatrice en compte autant que l'établissement a
+  d'éducatrices), et `Role.establishment` ajoutait un SELECT sur **chaque
+  requête authentifiée** d'un staff porteur d'un rôle, pour un établissement
+  déjà chargé juste avant. Les deux sont passées à **`lazy="raise_on_sql"`** —
+  et non `"select"`, qui retomberait sur le `MissingGreenlet` → 500 documenté
+  ci-dessus : mieux vaut une erreur qui nomme la relation qu'un chargement
+  paresseux interdit. `user.roles.append(role)` continue de fonctionner (la
+  mutation par `back_populates` n'émet aucun SELECT), et c'est sous test.
 - **`await db.refresh(obj)` après un flush si la réponse expose une relation
   renseignée par sa FK** : poser `child.department_id = x` ne charge PAS
   `child.department`, et `lazy="selectin"` ne joue qu'au chargement par requête,
@@ -5375,6 +5631,32 @@ reparaît à l'identique ; clé d'unicité réduite au compte → le test des de
 appareils tombe ; suppression sur tout échec au lieu des seuls 404/410 → le
 test de la panne passagère tombe ; retrait non borné au compte appelant → le
 test d'isolation tombe.
+
+### ✅ Audit du module Rôles & permissions — 16/10/2026
+
+Dix défauts, tous **prouvés par exécution** avant correction (sondes jetées
+après coup), tous **verrouillés par `tests/e2e/test_rbac.py`** dont les gardes
+sont prouvées par sabotage. Le module qui gouverne l'accès de tous les autres
+n'avait jusque-là que six lignes de chemin heureux dans le smoke test.
+
+| # | Défaut | Correction |
+|---|---|---|
+| 1 | `attendance:write` couvrait les badges QR et la rectification d'un pointage en plus des réglages — une assistante de direction devait recevoir la configuration de l'établissement pour imprimer une carte | `attendance:qrcode` + `attendance:correct` (migration `a7e3c91f4d22`, reprise des rôles existants) |
+| 2 | Neuf écrans remplissaient leurs sélecteurs via le module voisin, donc exigeaient SA permission ; l'onglet QR téléchargeait la fiche médicale pour imprimer un nom | § Module Annuaire |
+| 3 | Le rôle socle était retrouvé **par son nom**, éditable : renommé, il se dupliquait, et une rétrogradation laissait les droits en place | `roles.baseline_kind` |
+| 4 | Un socle désactivé était silencieusement réactivé par une embauche, pour tout le monde | `ensure_baseline_role` ne réactive plus |
+| 5 | Socle attribué à la main + promotion → **500** (`user_roles_pkey`) | `_link_baseline`, `ON CONFLICT DO NOTHING` |
+| 6 | `permissions.has('…')` acceptait n'importe quelle chaîne : une faute de frappe masquait un bouton pour toujours | `Set<PermissionCode>` |
+| 7 | Six pages de module sans garde anti deep-link : « aucun rôle » au lieu d'un refus | `<ModuleGuard>`, qui NOMME le droit manquant |
+| 8 | « Paramètres bibliothèque » offert au bibliothécaire, refusé par le serveur, et affichant des valeurs inventées | admin seul, des deux côtés |
+| 9 | `Role.users` / `Role.establishment` en `selectin` sans aucun lecteur : 12 requêtes SQL sur `GET /rbac/roles` | `lazy="raise_on_sql"` |
+| 10 | Deux miroirs du catalogue sans garde (enum ↔ table, enum ↔ frontend) | `test_rbac.py` les compare aux sources RÉELLES |
+
+Ce que l'audit a confirmé de sain : **206 endpoints, aucun sans garde** (hors
+routes publiques assumées), les 22 — désormais 24 — codes tous réellement
+appliqués, le superadmin exclu par le RÔLE et pas seulement par
+`establishment_id`, la discipline 404-plutôt-que-403, et un rôle désactivé qui
+ne confère rien.
 
 ### 🟠 Points à traiter
 

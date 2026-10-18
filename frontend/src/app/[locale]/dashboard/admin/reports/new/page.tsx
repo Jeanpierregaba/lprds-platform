@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { childrenApi } from '@/lib/api/children.api'
+import { directoryApi } from '@/lib/api/directory.api'
 import { reportsApi } from '@/lib/api/reports.api'
 import { useReportForms } from '@/lib/reports/use-report-forms'
 import { useAttendancePrefill } from '@/lib/reports/use-attendance-prefill'
@@ -26,6 +27,7 @@ import { useMyPermissions } from '@/lib/hooks/use-my-permissions'
 import { BackLink, PageMotion } from '@/components/dashboard/shared/page'
 import { REPORT_TYPES, type ReportType } from '@/types/reports'
 import type { ChildListItem } from '@/types/children'
+import type { DirectoryChild } from '@/types/directory'
 import { DailyFields } from '../daily-fields'
 import { BiMensuelFields } from '../bimensuel-fields'
 import { AnnualFields } from '../annual-fields'
@@ -65,7 +67,11 @@ export default function NewReportPage() {
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [selectedChild, setSelectedChild] = useState<ChildListItem | null>(null)
+  // ⚠️ Forme de l'ANNUAIRE des deux côtés. La branche « mon groupe » passe
+  // par `/children/my-group` (hors RBAC, scopé au groupe mené) et renvoie une
+  // fiche complète : elle est ramenée à la même forme pauvre, sinon l'écran
+  // aurait deux types pour une même sélection.
+  const [selectedChild, setSelectedChild] = useState<DirectoryChild | null>(null)
   const [reportType, setReportType] = useState<ReportType | ''>('')
   const [referenceDate, setReferenceDate] = useState(todayIso())
   const [stagedFiles, setStagedFiles] = useState<File[]>([])
@@ -82,15 +88,18 @@ export default function NewReportPage() {
   }, [search])
 
   // Admin (ou staff avec children:read) : recherche/liste sur toute la base.
+  // Le sélecteur passe par l'ANNUAIRE : choisir l'enfant d'un rapport n'a pas
+  // à ouvrir sa fiche. Le périmètre, lui, ne change pas — c'est la branche
+  // « mon groupe » ci-dessous qui le porte pour une éducatrice.
   const { data: searchResults, isLoading: isSearching } = useQuery({
-    queryKey: ['children', { search: debouncedSearch }],
-    queryFn: () => childrenApi.list({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
+    queryKey: ['directory', 'children', { search: debouncedSearch, limit: 10 }],
+    queryFn: () => directoryApi.listChildren({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
     enabled: hasChildrenRead && debouncedSearch.length > 0 && !selectedChild,
   })
 
   const { data: allChildren, isLoading: isLoadingAll } = useQuery({
-    queryKey: ['children', { all: true }],
-    queryFn: () => childrenApi.list({ limit: 200 }).then((r) => r.data),
+    queryKey: ['directory', 'children', { all: true }],
+    queryFn: () => directoryApi.listChildren({ limit: 200 }).then((r) => r.data),
     enabled: hasChildrenRead && !debouncedSearch && !selectedChild,
   })
 
@@ -103,6 +112,20 @@ export default function NewReportPage() {
   })
 
   const normalize = (s: string) => s.toLowerCase().trim()
+  const asDirectoryChild = (c: ChildListItem): DirectoryChild => ({
+    id: c.id,
+    display_name: `${c.first_names} ${c.last_name}`.trim(),
+    first_names: c.first_names,
+    last_name: c.last_name,
+    matricule: c.matricule,
+    department_id: c.department?.id ?? null,
+    department_name: c.department?.name ?? null,
+    section_id: c.section?.id ?? null,
+    section_name: c.section?.name ?? null,
+    is_active: c.is_active,
+    has_photo: c.has_photo,
+  })
+
   const myGroupFiltered = debouncedSearch
     ? (myGroupChildren?.items ?? []).filter((c) => {
         const q = normalize(debouncedSearch)
@@ -110,15 +133,17 @@ export default function NewReportPage() {
       })
     : (myGroupChildren?.items ?? [])
 
-  const childResults = hasChildrenRead ? (debouncedSearch ? searchResults : allChildren) : { total: myGroupFiltered.length, items: myGroupFiltered }
+  const childResults = hasChildrenRead
+    ? (debouncedSearch ? searchResults : allChildren)
+    : { total: myGroupFiltered.length, items: myGroupFiltered.map(asDirectoryChild) }
   const isSearchingOrListing = hasChildrenRead
     ? (debouncedSearch ? isSearching : isLoadingAll)
     : isLoadingMyGroup
 
   const { data: allowedTypes, isLoading: isLoadingTypes } = useQuery({
-    queryKey: ['reports', 'department-types', selectedChild?.department?.id],
-    queryFn: () => reportsApi.listDepartmentReportTypes(selectedChild!.department!.id).then((r) => r.data),
-    enabled: !!selectedChild?.department,
+    queryKey: ['reports', 'department-types', selectedChild?.department_id],
+    queryFn: () => reportsApi.listDepartmentReportTypes(selectedChild!.department_id!).then((r) => r.data),
+    enabled: !!selectedChild?.department_id,
   })
 
   const { data: vocabulary, isLoading: isLoadingVocabulary } = useReportVocabulary()
@@ -130,7 +155,7 @@ export default function NewReportPage() {
     childId: selectedChild?.id,
     referenceDate,
     form: dailyForm,
-    departmentId: selectedChild?.department?.id ?? undefined,
+    departmentId: selectedChild?.department_id ?? undefined,
   })
 
   const activeForm = reportType === 'quotidien' ? dailyForm : reportType === 'bi_mensuel' ? bimensuelForm : reportType === 'annuel' ? annualForm : null
@@ -283,7 +308,7 @@ export default function NewReportPage() {
                         onClick={() => { setSelectedChild(c); setReportType('') }}
                         className="flex w-full items-center justify-between gap-2 p-3 text-left text-sm hover:bg-muted"
                       >
-                        <span className="font-medium">{c.first_names} {c.last_name}</span>
+                        <span className="font-medium">{c.display_name}</span>
                         <span className="font-mono text-xs text-muted-foreground">{c.matricule}</span>
                       </button>
                     ))
@@ -294,9 +319,9 @@ export default function NewReportPage() {
           ) : (
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div>
-                <p className="font-medium">{selectedChild.first_names} {selectedChild.last_name}</p>
+                <p className="font-medium">{selectedChild.display_name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedChild.matricule} · {selectedChild.department?.name ?? t('form.noDepartment')}
+                  {selectedChild.matricule} · {selectedChild.department_name ?? t('form.noDepartment')}
                 </p>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedChild(null); setReportType('') }}>
@@ -305,17 +330,17 @@ export default function NewReportPage() {
             </div>
           )}
 
-          {selectedChild && !selectedChild.department && (
+          {selectedChild && !selectedChild.department_id && (
             <p className="text-sm text-destructive">{t('childWithoutDepartment')}</p>
           )}
 
-          {selectedChild?.department && (
+          {selectedChild?.department_id && (
             <>
               {isLoadingTypes ? (
                 <Skeleton className="h-9 w-full" />
               ) : allowedTypeValues.size === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {t('form.noTypeForDepartment', { department: selectedChild.department.name })}
+                  {t('form.noTypeForDepartment', { department: selectedChild.department_name ?? '' })}
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">

@@ -9,7 +9,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { childrenApi } from '@/lib/api/children.api'
+import { directoryApi } from '@/lib/api/directory.api'
 import type { ParentChildBrief } from '@/types/parents'
 
 export function ChildMultiSelect({
@@ -26,7 +26,9 @@ export function ChildMultiSelect({
 
   const { data, isLoading } = useQuery({
     queryKey: ['children', { search: debouncedSearch }],
-    queryFn: () => childrenApi.list({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
+    // Rattacher un enfant à un compte parent le DÉSIGNE ; `parents:write`
+    // n'a pas à impliquer l'accès aux fiches enfants.
+    queryFn: () => directoryApi.listChildren({ search: debouncedSearch || undefined, limit: 10 }).then((r) => r.data),
     enabled: debouncedSearch.length > 0,
   })
 

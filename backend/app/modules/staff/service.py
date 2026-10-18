@@ -3,7 +3,8 @@ from app.core.i18n import coerce_locale, t
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, func, insert, or_, select
+from sqlalchemy import delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.email import (
@@ -17,8 +18,8 @@ from app.modules.auth.security import hash_password
 from app.modules.establishments.models import Establishment
 from app.modules.rbac.models import user_roles
 from app.modules.rbac.service import (
-    ensure_bibliothecaire_baseline_role,
-    ensure_educatrice_baseline_role,
+    baseline_kind_for,
+    ensure_baseline_role,
 )
 from app.modules.staff.matricule import generate_unique_staff_matricule
 from app.modules.staff.models import StaffType
@@ -63,18 +64,15 @@ async def create_staff(
     db.add(member)
     await db.flush()
 
-    if member.staff_type == str(StaffType.EDUCATEUR):
+    kind = baseline_kind_for(member.staff_type)
+    if kind is not None:
         # Insertion directe dans la table d'association plutôt que
         # `member.roles.append(...)` : `member` vient d'être créé (jamais
-        # chargé par un SELECT), donc sa collection `roles` (lazy="selectin")
-        # n'est pas hydratée — y toucher déclencherait un lazy-load
-        # synchrone, incompatible avec le contexte async ici.
-        role = await ensure_educatrice_baseline_role(establishment_id, db)
-        await db.execute(insert(user_roles).values(user_id=member.id, role_id=role.id))
-        await db.flush()
-    elif member.staff_type == str(StaffType.BIBLIOTHECAIRE):
-        role = await ensure_bibliothecaire_baseline_role(establishment_id, db)
-        await db.execute(insert(user_roles).values(user_id=member.id, role_id=role.id))
+        # chargé par un SELECT), donc sa collection `roles` n'est pas
+        # hydratée — y toucher déclencherait un lazy-load synchrone,
+        # incompatible avec le contexte async ici.
+        role = await ensure_baseline_role(kind, establishment_id, db)
+        await _link_baseline(member.id, role.id, db)
         await db.flush()
 
     # Email de bienvenue avec les identifiants. S'il échoue, le compte serait
@@ -156,6 +154,26 @@ async def get_staff(
     )
 
 
+async def _link_baseline(
+    user_id: uuid.UUID,
+    role_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """
+    Rattache un membre à son rôle socle, sans tomber si le lien existe déjà.
+
+    ⚠️ `ON CONFLICT DO NOTHING` n'est pas une précaution théorique : le socle
+    est un rôle ORDINAIRE dans l'écran Rôles, donc l'admin peut l'attribuer à
+    la main. Attribué à une secrétaire puis promue éducatrice, l'insertion
+    violait `user_roles_pkey` et la promotion répondait **500** — reproduit.
+    """
+    await db.execute(
+        pg_insert(user_roles)
+        .values(user_id=user_id, role_id=role_id)
+        .on_conflict_do_nothing()
+    )
+
+
 # ── Modification ────────────────────────────────────────────────
 async def update_staff(
     staff_id: uuid.UUID,
@@ -165,8 +183,7 @@ async def update_staff(
 ) -> StaffResponse:
     member = await _get_or_404(staff_id, establishment_id, db)
     changes = payload.model_dump(exclude_unset=True)
-    was_educateur = member.staff_type == str(StaffType.EDUCATEUR)
-    was_bibliothecaire = member.staff_type == str(StaffType.BIBLIOTHECAIRE)
+    kind_before = baseline_kind_for(member.staff_type)
 
     if "email" in changes and changes["email"] != member.email:
         await _ensure_email_available(changes["email"], db)
@@ -176,35 +193,23 @@ async def update_staff(
     for field, value in changes.items():
         setattr(member, field, value)
 
-    is_educateur = member.staff_type == str(StaffType.EDUCATEUR)
-    if is_educateur and not was_educateur:
-        role = await ensure_educatrice_baseline_role(establishment_id, db)
-        await db.execute(
-            insert(user_roles).values(user_id=member.id, role_id=role.id)
-        )
-    elif was_educateur and not is_educateur:
-        baseline = await ensure_educatrice_baseline_role(establishment_id, db)
-        await db.execute(
-            delete(user_roles).where(
-                user_roles.c.user_id == member.id,
-                user_roles.c.role_id == baseline.id,
+    # Changement de poste : on retire le socle de l'ANCIENNE sorte et on pose
+    # celui de la nouvelle. Une seule boucle pour les deux sortes — les écrire
+    # l'une après l'autre, c'était deux occasions de n'en traiter qu'une, et le
+    # jour où un troisième poste reçoit un socle, trois.
+    kind_now = baseline_kind_for(member.staff_type)
+    if kind_before != kind_now:
+        if kind_before is not None:
+            old = await ensure_baseline_role(kind_before, establishment_id, db)
+            await db.execute(
+                delete(user_roles).where(
+                    user_roles.c.user_id == member.id,
+                    user_roles.c.role_id == old.id,
+                )
             )
-        )
-
-    is_bibliothecaire = member.staff_type == str(StaffType.BIBLIOTHECAIRE)
-    if is_bibliothecaire and not was_bibliothecaire:
-        role = await ensure_bibliothecaire_baseline_role(establishment_id, db)
-        await db.execute(
-            insert(user_roles).values(user_id=member.id, role_id=role.id)
-        )
-    elif was_bibliothecaire and not is_bibliothecaire:
-        baseline = await ensure_bibliothecaire_baseline_role(establishment_id, db)
-        await db.execute(
-            delete(user_roles).where(
-                user_roles.c.user_id == member.id,
-                user_roles.c.role_id == baseline.id,
-            )
-        )
+        if kind_now is not None:
+            role = await ensure_baseline_role(kind_now, establishment_id, db)
+            await _link_baseline(member.id, role.id, db)
 
     await db.flush()
     await db.refresh(member)

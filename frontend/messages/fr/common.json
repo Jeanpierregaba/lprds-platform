@@ -147,5 +147,11 @@
     "optionalPasswordHint": "Renseignez-le pour pouvoir copier le message d'accès. Laissé vide, un mot de passe est généré et n'existera que dans l'email.",
     "showPassword": "Afficher le mot de passe",
     "hidePassword": "Masquer le mot de passe"
+  },
+  "rights": {
+    "explain": "Cette page demande l'un des droits suivants :",
+    "ask": "Demandez à l'administrateur de votre établissement de l'ajouter à votre rôle.",
+    "home": "Retour à mon tableau de bord",
+    "adminOnly": "Cette page est réservée à l'administrateur de l'établissement. Aucune permission ne la délègue."
   }
 }

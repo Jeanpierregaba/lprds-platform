@@ -86,6 +86,17 @@
     "unavailable": "Unavailable",
     "availableRatio": "{count, plural, one {{available}/{total} copy available} other {{available}/{total} copies available}}"
   },
+  "cover": {
+    "label": "Cover",
+    "add": "Add a cover",
+    "replace": "Replace the cover",
+    "remove": "Remove",
+    "undo": "Undo this choice",
+    "hint": "Image only, saved along with the book. An oversized photo is compressed automatically.",
+    "pendingRemoval": "The cover will be removed when you save.",
+    "mustBeImage": "The cover must be an image.",
+    "failed": "The book was saved, but its cover could not be:"
+  },
   "settings": {
     "remindersTitle": "Return reminders",
     "remindersHint": "Automatically remind parents when books are due back.",

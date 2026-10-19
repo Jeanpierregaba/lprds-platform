@@ -1,9 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi.responses import FileResponse
 
 from app.core.database import AsyncSession, get_db
-from app.modules.auth.dependencies import require_roles
+from app.core.media_serving import media_response
+from app.modules.auth.dependencies import get_current_user, require_roles
 from app.modules.auth.models import User, UserRole
 from app.modules.library import service as library_service
 from app.modules.library.dependencies import (
@@ -108,6 +110,58 @@ async def deactivate_book(
     db: AsyncSession = Depends(get_db),
 ) -> BookResponse:
     return await library_service.deactivate_book(
+        book_id, current_user.establishment_id, db
+    )
+
+
+# ── Couverture du livre ─────────────────────────────────────────
+@router.put("/books/{book_id}/cover", response_model=BookResponse)
+async def set_book_cover(
+    book_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_library_write),
+    db: AsyncSession = Depends(get_db),
+) -> BookResponse:
+    """Dépose ou remplace la couverture — `PUT` : il n'y en a qu'une, la
+    reposer remplace la précédente (même contrat que la photo d'un enfant)."""
+    return await library_service.set_book_cover(
+        book_id, current_user.establishment_id, file, db
+    )
+
+
+@router.get("/books/{book_id}/cover")
+async def download_book_cover(
+    book_id: uuid.UUID,
+    thumb: bool = Query(
+        False,
+        description="Vignette JPEG (~480 px) au lieu de l'original — pour les grilles.",
+    ),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    """⚠️ `get_current_user` et non `require_library_read` : les trois écrans
+    qui affichent le catalogue n'ont pas la même porte (gestion RBAC, portail
+    parent, portail éducatrice). La portée est tranchée dans le service
+    (`_book_for_cover_read`), au même endroit pour tout le monde — sans quoi
+    les deux portails auraient affiché une grille de cases vides."""
+    book, path = await library_service.get_book_cover(book_id, current_user, db)
+    return await media_response(
+        storage_key=book.cover_storage_key or "",
+        path=path,
+        filename=book.cover_filename or "cover.jpg",
+        content_type=book.cover_content_type or "image/jpeg",
+        thumb=thumb,
+    )
+
+
+@router.delete("/books/{book_id}/cover", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_book_cover(
+    book_id: uuid.UUID,
+    current_user: User = Depends(require_library_write),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Idempotent : retirer une couverture absente n'est pas une erreur."""
+    await library_service.delete_book_cover(
         book_id, current_user.establishment_id, db
     )
 

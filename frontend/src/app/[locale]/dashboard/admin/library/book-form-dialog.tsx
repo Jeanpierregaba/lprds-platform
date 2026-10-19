@@ -25,6 +25,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { libraryApi } from '@/lib/api/library.api'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
+import { coverThumbKey } from '@/components/library/book-cover'
+import { BookCoverPicker, type CoverIntent } from '@/components/library/book-cover-picker'
 import type { Book } from '@/types/library'
 import type { DirectoryUnit } from '@/types/directory'
 
@@ -56,11 +58,13 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
   const tCommon = useTranslations('common')
   const queryClient = useQueryClient()
   const [sectionIds, setSectionIds] = useState<string[]>([])
+  const [coverIntent, setCoverIntent] = useState<CoverIntent>({ kind: 'keep' })
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(makeFormSchema(t)) })
 
@@ -74,11 +78,14 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
         total_quantity: book?.total_quantity ?? 1,
       })
       setSectionIds(book?.sections.map((s) => s.id) ?? [])
+      setCoverIntent({ kind: 'keep' })
     }
   }, [open, book, reset])
 
+  const title = watch('title')
+
   const mutation = useMutation({
-    mutationFn: (values: FormValues) => {
+    mutationFn: async (values: FormValues) => {
       const payload = {
         title: values.title,
         author: values.author,
@@ -89,13 +96,43 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
         total_quantity: values.total_quantity,
         section_ids: sectionIds,
       }
-      return book
-        ? libraryApi.updateBook(book.id, payload)
-        : libraryApi.createBook(payload)
+      const saved = book
+        ? await libraryApi.updateBook(book.id, payload)
+        : await libraryApi.createBook(payload)
+
+      /* ⚠️ La couverture part APRÈS le livre, en deux temps — le patron de
+       * tous les téléversements du projet, et ici une nécessité : un livre
+       * neuf n'a pas d'identifiant avant d'exister.
+       *
+       * Son échec ne défait donc PAS l'enregistrement du texte, qui est déjà
+       * fait. Le dire est tout l'intérêt : annoncer « livre ajouté » sur une
+       * couverture perdue laisserait l'utilisateur ignorer ce qu'il doit
+       * reprendre. Le second toast le nomme, et le livre est bien là, prêt à
+       * recevoir son image depuis « Modifier ». */
+      let coverFailed: unknown = null
+      try {
+        if (coverIntent.kind === 'replace') {
+          await libraryApi.setCover(saved.data.id, coverIntent.file)
+        } else if (coverIntent.kind === 'remove') {
+          await libraryApi.removeCover(saved.data.id)
+        }
+      } catch (error) {
+        coverFailed = error
+      }
+      return { id: saved.data.id, coverTouched: coverIntent.kind !== 'keep', coverFailed }
     },
-    onSuccess: () => {
+    onSuccess: ({ id, coverTouched, coverFailed }) => {
       toast.success(book ? t('book.updated') : t('book.created'))
+      if (coverFailed) {
+        toast.error(`${t('cover.failed')} ${getApiErrorMessage(coverFailed)}`)
+      }
       queryClient.invalidateQueries({ queryKey: ['library-books'] })
+      // La vignette est en cache « pour toujours » : sans cette invalidation,
+      // l'ancienne couverture resterait affichée après le remplacement.
+      if (coverTouched) {
+        queryClient.invalidateQueries({ queryKey: coverThumbKey(id) })
+        queryClient.invalidateQueries({ queryKey: ['library', 'cover-full', id] })
+      }
       onOpenChange(false)
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -123,6 +160,17 @@ export function BookFormDialog({ open, onOpenChange, book, sections }: BookFormD
           onSubmit={handleSubmit((values) => mutation.mutate(values))}
           className="space-y-4"
         >
+          <div className="space-y-1.5">
+            <Label>{t('cover.label')}</Label>
+            <BookCoverPicker
+              bookId={book?.id ?? null}
+              title={title || book?.title || ''}
+              hasCover={book?.has_cover ?? false}
+              intent={coverIntent}
+              onIntentChange={setCoverIntent}
+            />
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="book-title">{t('book.title')}</Label>

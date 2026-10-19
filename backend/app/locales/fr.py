@@ -187,6 +187,7 @@ MESSAGES: dict[str, str] = {
     "errors.library.due_before_borrow": "La date de retour est antérieure à la date de prêt",
     "errors.library.book_not_found": "Livre introuvable",
     "errors.library.lending_not_found": "Prêt introuvable",
+    "errors.library.cover_not_found": "Ce livre n'a pas de couverture",
     # ── menus ─────────────────────────────────────────────
     "errors.menus.no_menu": "Aucun menu publié pour cette semaine et ce département",
     "errors.menus.wrong_department": "Ce menu ne concerne pas votre département",

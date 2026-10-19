@@ -1,10 +1,10 @@
 """
-Service des fichiers médias — un seul endroit pour les neuf endpoints.
+Service des fichiers médias — un seul endroit pour les onze endpoints.
 
-Quatre modules servent des médias (rapports, messagerie, blog interne, blog
-public) et chacun le faisait avec son propre `FileResponse`. Ajouter les
-vignettes et les en-têtes de cache à neuf endroits, c'était neuf occasions de
-n'en faire que huit.
+Cinq modules servent des médias (rapports, messagerie, blog — interne et
+public —, photo d'enfant, couverture de livre) et chacun le faisait avec son
+propre `FileResponse`. Ajouter les vignettes et les en-têtes de cache à onze
+endroits, c'était onze occasions de n'en faire que dix.
 """
 
 from pathlib import Path

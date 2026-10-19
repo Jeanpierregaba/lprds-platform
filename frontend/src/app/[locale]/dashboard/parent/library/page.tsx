@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs } from '@/components/ui/tabs'
 import { libraryApi } from '@/lib/api/library.api'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { BookCover } from '@/components/library/book-cover'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import { type LendingStatus } from '@/types/library'
 
@@ -82,11 +83,16 @@ export default function ParentLibraryPage() {
               {bookItems.map((book) => (
                 <Card key={book.id}>
                   <CardContent className="space-y-2 p-4">
-                    <div className="font-medium">{book.title}</div>
-                    <div className="text-sm text-muted-foreground">{book.author}</div>
-                    {book.description && (
-                      <p className="line-clamp-2 text-sm text-muted-foreground">{book.description}</p>
-                    )}
+                    <div className="flex items-start gap-3">
+                      <BookCover bookId={book.id} title={book.title} hasCover={book.has_cover} size="md" />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="font-medium">{book.title}</div>
+                        <div className="text-sm text-muted-foreground">{book.author}</div>
+                        {book.description && (
+                          <p className="line-clamp-2 text-sm text-muted-foreground">{book.description}</p>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center justify-between gap-2 pt-1 text-sm">
                       <span className={book.available_quantity === 0 ? 'shrink-0 text-destructive' : 'shrink-0'}>
                         {book.available_quantity > 0
@@ -141,8 +147,18 @@ export default function ParentLibraryPage() {
                     {lendingItems.map((lending) => (
                       <TableRow key={lending.id}>
                         <TableCell>
-                          <div className="font-medium">{lending.book_title}</div>
-                          <div className="text-xs text-muted-foreground">{lending.author}</div>
+                          <div className="flex items-center gap-2.5">
+                            <BookCover
+                              bookId={lending.book_id}
+                              title={lending.book_title}
+                              hasCover={lending.book_has_cover}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <div className="font-medium">{lending.book_title}</div>
+                              <div className="text-xs text-muted-foreground">{lending.author}</div>
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>{lending.child_name}</TableCell>
                         <TableCell>{formatDate(lending.borrowed_at)}</TableCell>
@@ -168,14 +184,22 @@ export default function ParentLibraryPage() {
             {lendingItems.map((lending) => (
               <Card key={lending.id}>
                 <CardContent className="space-y-1.5 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{lending.book_title}</p>
-                      <p className="truncate text-xs text-muted-foreground">{lending.author}</p>
+                  <div className="flex items-start gap-2.5">
+                    <BookCover
+                      bookId={lending.book_id}
+                      title={lending.book_title}
+                      hasCover={lending.book_has_cover}
+                      size="sm"
+                    />
+                    <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{lending.book_title}</p>
+                        <p className="truncate text-xs text-muted-foreground">{lending.author}</p>
+                      </div>
+                      <Badge variant={STATUS_BADGE_VARIANT[lending.status]} className="shrink-0">
+                        {lendingStatusLabel(lending.status)}
+                      </Badge>
                     </div>
-                    <Badge variant={STATUS_BADGE_VARIANT[lending.status]} className="shrink-0">
-                      {lendingStatusLabel(lending.status)}
-                    </Badge>
                   </div>
                   {lending.overdue_days != null && (
                     <p className="text-xs text-destructive">{tl('lendings.overdue', { count: lending.overdue_days })}</p>

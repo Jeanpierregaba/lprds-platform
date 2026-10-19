@@ -18,6 +18,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -89,6 +90,16 @@ class Book(Base):
     total_quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Couverture du livre — quatre colonnes DIRECTES plutôt qu'une table : la
+    # relation est strictement 1–1, même patron que l'image à la une d'un
+    # article et que la photo de profil d'un enfant. Toutes nullables : un
+    # catalogue entier existe déjà sans couverture, et il n'est pas question
+    # d'en exiger une pour continuer à prêter des livres.
+    cover_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cover_content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cover_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    cover_storage_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -103,6 +114,18 @@ class Book(Base):
     lendings: Mapped[list["BookLending"]] = relationship(
         back_populates="book", lazy="selectin"
     )
+
+    @property
+    def has_cover(self) -> bool:
+        """Drapeau servi à l'écran — JAMAIS une URL.
+
+        La couverture passe par un endpoint authentifié : exposer une URL
+        donnerait l'illusion d'un lien utilisable tel quel. Et sans ce drapeau,
+        chaque case d'une grille de catalogue lancerait une requête vouée à une
+        404. Les quatre colonnes bougent ensemble ; `cover_storage_key` est
+        celle qui désigne le fichier, donc celle qui fait foi.
+        """
+        return self.cover_storage_key is not None
 
     def __repr__(self) -> str:
         return f"<Book {self.title} ({self.author})>"

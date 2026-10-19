@@ -86,6 +86,17 @@
     "unavailable": "Indisponible",
     "availableRatio": "{count, plural, one {{available}/{total} exemplaire disponible} other {{available}/{total} exemplaires disponibles}}"
   },
+  "cover": {
+    "label": "Couverture",
+    "add": "Ajouter une couverture",
+    "replace": "Remplacer la couverture",
+    "remove": "Retirer",
+    "undo": "Annuler ce choix",
+    "hint": "Image seule, enregistrée avec le livre. Une photo trop lourde est allégée automatiquement.",
+    "pendingRemoval": "La couverture sera retirée à l’enregistrement.",
+    "mustBeImage": "La couverture doit être une image.",
+    "failed": "Le livre est enregistré, mais la couverture n’a pas pu l’être :"
+  },
   "settings": {
     "remindersTitle": "Rappels de retour",
     "remindersHint": "Rappelez automatiquement aux parents la date de retour des livres.",

@@ -210,6 +210,13 @@ class Settings(BaseSettings):
     children_max_attachment_mb: int = 10
     children_allowed_attachment_types: str = ""
 
+    # Couverture d'un livre (module bibliothèque) — UNE image par livre, jamais
+    # de vidéo ni de PDF. Plafond volontairement BAS : contrairement à un média
+    # de rapport, cette image n'est jamais regardée en grand — elle s'affiche
+    # en vignette dans une grille de catalogue, et l'original n'est servi que
+    # sur la fiche. Au-dessus, elle est recompressée, pas refusée.
+    library_max_cover_mb: int = 10
+
     # ── Traduction automatique du contenu saisi (blog, menus) ────
     # Désactivée par défaut, comme MAIL_SUPPRESS_SEND côté email : un dev qui
     # clone le repo ne doit pas appeler une API payante sans l'avoir décidé,

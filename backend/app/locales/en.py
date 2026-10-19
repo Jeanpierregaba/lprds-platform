@@ -167,6 +167,7 @@ MESSAGES: dict[str, str] = {
     "errors.library.due_before_borrow": "The due date is before the loan date",
     "errors.library.book_not_found": "Book not found",
     "errors.library.lending_not_found": "Loan not found",
+    "errors.library.cover_not_found": "This book has no cover image",
     # ── menus ─────────────────────────────────────────────
     "errors.menus.no_menu": "No menu published for this week and department",
     "errors.menus.wrong_department": "This menu does not concern your department",

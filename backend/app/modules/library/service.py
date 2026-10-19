@@ -14,11 +14,14 @@ Décisions de conception (confirmées avec l'utilisateur avant implémentation) 
 import logging
 import uuid
 from datetime import date, timedelta
+from pathlib import Path
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
+from app.core import media, storage
+from app.core.config import settings
 from app.core.database import AsyncSession
 from app.core.i18n import Locale, coerce_locale, current_locale, t
 from app.core.translation import (
@@ -45,6 +48,12 @@ from app.modules.library.schemas import (
     SectionBrief,
 )
 from app.modules.organization.models import Group, Section
+from app.modules.rbac.dependencies import user_permission_codes
+from app.modules.rbac.models import PermissionCode
+
+#: Les couvertures vivent dans leur propre dossier, comme `blog/covers` et
+#: `children/photos` : un dossier par nature de média, jamais un fourre-tout.
+_COVER_SUBFOLDER = "library/covers"
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +177,7 @@ def _book_response(
         total_quantity=book.total_quantity,
         available_quantity=max(book.total_quantity - open_counts.get(book.id, 0), 0),
         is_active=book.is_active,
+        has_cover=book.has_cover,
         sections=[SectionBrief(id=s.id, name=s.name) for s in book.sections],
         created_at=book.created_at,
         updated_at=book.updated_at,
@@ -207,6 +217,7 @@ async def _lending_response(lending: BookLending, db: AsyncSession) -> LendingRe
         book_id=lending.book_id,
         book_title=lending.book.title,
         author=lending.book.author,
+        book_has_cover=lending.book.has_cover,
         child_id=child.id,
         child_name=_child_full_name(child),
         child_matricule=child.matricule,
@@ -410,6 +421,172 @@ async def deactivate_book(
     await db.flush()
     await db.refresh(book)
     return _book_response(book, {book.id: 0})
+
+
+# ── Couverture du livre ─────────────────────────────────────────
+#
+# ⚠️ La LECTURE ne passe PAS par `require_permission`, et c'est le même
+# raisonnement que la photo de profil d'un enfant : l'audience est
+# HÉTÉROGÈNE. Trois écrans affichent le catalogue — la gestion
+# (`library:read`), le portail du parent (`/mine/books`) et celui de
+# l'éducatrice (`/educator/books`), ces deux derniers étant hors RBAC et
+# scopés par construction. Garder la couverture derrière `library:read`
+# aurait donné, dans les deux portails, une grille de cases vides sans un
+# mot d'explication.
+#
+# Un seul endpoint plutôt que trois (un par chemin de lecture) : l'écran n'a
+# alors qu'UNE adresse à appeler, donc un seul composant d'affichage. La
+# règle de portée vit ici, au même endroit pour tout le monde.
+async def _parent_section_ids(parent: User, db: AsyncSession) -> list[uuid.UUID]:
+    child_ids = [c.id for c in parent.assigned_children]
+    if not child_ids:
+        return []
+    result = await db.execute(
+        select(Child.section_id).where(
+            Child.id.in_(child_ids), Child.section_id.is_not(None)
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def _parent_has_borrowed(
+    parent: User, book_id: uuid.UUID, db: AsyncSession
+) -> bool:
+    """Un de ses enfants a-t-il emprunté ce livre — rendu ou non ?"""
+    child_ids = [c.id for c in parent.assigned_children]
+    if not child_ids:
+        return False
+    return bool(await db.scalar(
+        select(BookLending.id).where(
+            BookLending.book_id == book_id,
+            BookLending.child_id.in_(child_ids),
+        ).limit(1)
+    ))
+
+
+async def _book_for_cover_read(
+    book_id: uuid.UUID, user: User, db: AsyncSession
+) -> Book:
+    """Le livre, si cet utilisateur a le droit de VOIR sa couverture.
+
+    404 partout plutôt que 403, comme dans tout le projet : on ne révèle pas
+    l'existence d'un livre hors de portée. Le superadmin est exclu
+    (`establishment_id is None`), comme ailleurs.
+    """
+    not_found = HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=t("errors.library.book_not_found"),
+    )
+    if user.establishment_id is None:
+        raise not_found
+
+    book = await db.scalar(
+        select(Book)
+        .where(Book.id == book_id, Book.establishment_id == user.establishment_id)
+        .options(selectinload(Book.sections))
+    )
+    if book is None:
+        raise not_found
+
+    # Gestion : l'admin d'office, et le staff porteur d'une permission du
+    # module — y compris `library:write`/`library:lend`, qui voient déjà la
+    # fiche entière et dont l'écran affiche la même grille.
+    if user.role == UserRole.ADMIN:
+        return book
+    if user.role == UserRole.STAFF:
+        codes = user_permission_codes(user)
+        if codes & {
+            str(PermissionCode.LIBRARY_READ),
+            str(PermissionCode.LIBRARY_WRITE),
+            str(PermissionCode.LIBRARY_LEND),
+        }:
+            return book
+        # Éducatrice sans permission : les livres empruntables dans la section
+        # de ses groupes, exactement le périmètre de `/educator/books`.
+        visible = await _educator_section_ids(user.id, db)
+    elif user.role == UserRole.PARENT:
+        # ⚠️ Un livre EMPRUNTÉ reste visible même s'il a quitté le périmètre —
+        # désactivé du catalogue, ou l'enfant a changé de section depuis. Il est
+        # dans le cartable, et sa ligne figure dans « Mes emprunts » tant que
+        # l'historique existe. Sans cette branche, cette liste annoncerait une
+        # couverture (`book_has_cover`) que le serveur refuserait : un trou
+        # ouvert par l'ÉCRAN, pas par le modèle.
+        if await _parent_has_borrowed(user, book.id, db):
+            return book
+        visible = await _parent_section_ids(user, db)
+    else:
+        raise not_found
+
+    if not book.is_active or not visible:
+        raise not_found
+    if not {s.id for s in book.sections} & set(visible):
+        raise not_found
+    return book
+
+
+async def set_book_cover(
+    book_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    file: UploadFile,
+    db: AsyncSession,
+) -> BookResponse:
+    """Dépose ou remplace la couverture (l'ancienne quitte le stockage)."""
+    book = await _get_book_or_404(book_id, establishment_id, db)
+
+    # Même porte que tous les téléversements du projet : le type est lu dans
+    # les OCTETS, un HEIC d'iPhone est converti, une photo trop lourde est
+    # recompressée au lieu d'être refusée. `images_only` : rien d'autre qu'une
+    # image ne saurait illustrer une couverture.
+    accepted = await media.accept_upload(
+        file,
+        await file.read(),
+        max_image_mb=settings.library_max_cover_mb,
+        max_video_mb=settings.library_max_cover_mb,
+        allow_video=False,
+        allow_pdf=False,
+        images_only=True,
+    )
+
+    ancienne = book.cover_storage_key
+    book.cover_storage_key = await storage.save_file(
+        _COVER_SUBFOLDER, accepted.filename, accepted.content
+    )
+    book.cover_filename = accepted.filename
+    book.cover_content_type = accepted.content_type
+    book.cover_size_bytes = len(accepted.content)
+    await db.flush()
+    # Après le flush : si l'écriture échoue, l'ancienne couverture est encore là.
+    if ancienne:
+        await storage.delete_file(ancienne)
+    await db.refresh(book)
+    open_count = await _open_lending_count(db, book.id)
+    return _book_response(book, {book.id: open_count})
+
+
+async def get_book_cover(
+    book_id: uuid.UUID, user: User, db: AsyncSession
+) -> tuple[Book, Path]:
+    book = await _book_for_cover_read(book_id, user, db)
+    if not book.cover_storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=t("errors.library.cover_not_found"),
+        )
+    return book, storage.resolve_path(book.cover_storage_key)
+
+
+async def delete_book_cover(
+    book_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> None:
+    book = await _get_book_or_404(book_id, establishment_id, db)
+    if not book.cover_storage_key:
+        return  # idempotent : retirer une couverture absente n'est pas une erreur
+    await storage.delete_file(book.cover_storage_key)
+    book.cover_storage_key = None
+    book.cover_filename = None
+    book.cover_content_type = None
+    book.cover_size_bytes = None
+    await db.flush()
 
 
 # ── Prêts ───────────────────────────────────────────────────────

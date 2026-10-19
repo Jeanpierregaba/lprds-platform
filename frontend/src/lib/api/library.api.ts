@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { BLOB_REQUEST, UPLOAD_REQUEST } from './file-transfer'
 import type {
   Book,
   BookCreatePayload,
@@ -35,6 +36,25 @@ export const libraryApi = {
     apiClient.patch<Book>(`/api/v1/library/books/${id}`, data),
 
   deactivateBook: (id: string) => apiClient.delete<Book>(`/api/v1/library/books/${id}`),
+
+  // ── Couverture ───────────────────────────────────────────────
+  //
+  // Un seul endpoint de lecture pour les TROIS écrans du catalogue (gestion,
+  // portail parent, portail éducatrice) : la portée est tranchée côté serveur,
+  // donc l'affichage n'a qu'une adresse et un seul composant.
+  setCover: (bookId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    // `PUT` : il n'y a qu'une couverture, la reposer remplace la précédente.
+    return apiClient.put<Book>(`/api/v1/library/books/${bookId}/cover`, form, UPLOAD_REQUEST)
+  },
+
+  downloadCover: (bookId: string, thumb = false) =>
+    apiClient.get<Blob>(`/api/v1/library/books/${bookId}/cover`,
+      { ...BLOB_REQUEST, params: thumb ? { thumb: true } : undefined }),
+
+  removeCover: (bookId: string) =>
+    apiClient.delete<void>(`/api/v1/library/books/${bookId}/cover`),
 
   // ── Prêts & retours ──────────────────────────────────────────
   createLending: (data: LendingCreatePayload) =>

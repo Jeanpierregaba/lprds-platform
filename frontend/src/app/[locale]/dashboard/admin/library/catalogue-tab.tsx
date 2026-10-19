@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils/cn'
 import { InactiveSwitch } from '@/components/dashboard/shared/filters'
 import { CardsEmptyState, CardsGrid, CardsSkeleton, StaggerItem, StatusPill } from '@/components/dashboard/shared/cards'
 import { ConfirmDialog } from '@/components/dashboard/shared/dialogs'
+import { BookCover } from '@/components/library/book-cover'
 import type { Book } from '@/types/library'
 import { BookFormDialog } from './book-form-dialog'
 
@@ -190,11 +191,18 @@ function BooksCardGrid({
         <StaggerItem key={book.id} index={i}>
           <Card className={cn('rounded-2xl shadow-soft transition hover:-translate-y-0.5', !book.is_active && 'opacity-75')}>
             <CardContent className="space-y-1.5 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">{book.title}</p>
-                <StatusPill active={book.is_active} activeLabel={t('catalogue.activeLabel')} inactiveLabel={t('catalogue.inactiveLabel')} shrink />
+              {/* La couverture d'abord : c'est ce à quoi on reconnaît un livre
+                  sur une étagère, avant d'en lire le titre. */}
+              <div className="flex items-start gap-3">
+                <BookCover bookId={book.id} title={book.title} hasCover={book.has_cover} size="md" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 flex-1 break-words font-display text-xl font-semibold leading-tight">{book.title}</p>
+                    <StatusPill active={book.is_active} activeLabel={t('catalogue.activeLabel')} inactiveLabel={t('catalogue.inactiveLabel')} shrink />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{t('catalogue.byAuthor', { author: book.author })}</p>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">{t('catalogue.byAuthor', { author: book.author })}</p>
               <div className="flex flex-wrap gap-1">
                 {book.sections.length === 0 ? (
                   <span className="text-sm text-muted-foreground">{t('catalogue.noSection')}</span>

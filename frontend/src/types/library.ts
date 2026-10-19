@@ -19,6 +19,12 @@ export interface Book {
   total_quantity:     number
   available_quantity: number
   is_active:          boolean
+  /**
+   * Drapeau, jamais une URL — la couverture passe par un endpoint
+   * authentifié. Sans lui, chaque case d'une grille de catalogue lancerait
+   * une requête vouée à une 404.
+   */
+  has_cover:          boolean
   sections:           SectionBrief[]
   created_at:         string
   updated_at:         string
@@ -59,6 +65,9 @@ export interface Lending {
   book_id:          string
   book_title:       string
   author:           string
+  /** Même drapeau que sur `Book` : la liste des prêts montre les mêmes
+   *  livres, elle doit pouvoir les reconnaître à leur couverture. */
+  book_has_cover:   boolean
   child_id:         string
   child_name:       string
   child_matricule:  string

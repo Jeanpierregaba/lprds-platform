@@ -32,6 +32,7 @@ import { useUser } from '@/lib/stores/auth.store'
 import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { cn } from '@/lib/utils/cn'
 import { DataTable, DataTableHead, TableSkeletonRows, Td, Th } from '@/components/dashboard/shared/table'
+import { BookCover } from '@/components/library/book-cover'
 import { LENDING_STATUSES, type LendingStatus } from '@/types/library'
 
 const PAGE_SIZE = 20
@@ -282,7 +283,7 @@ export function LendingsTab() {
         <TableBody>
           {isLoading ? (
             <TableSkeletonRows
-              widths={['h-4 w-48', 'h-4 w-36', 'h-4 w-24', 'h-4 w-24', 'h-5 w-20 rounded-full', '']}
+              widths={['h-14 w-48', 'h-4 w-36', 'h-4 w-24', 'h-4 w-24', 'h-5 w-20 rounded-full', '']}
             />
           ) : items.length === 0 ? (
             <TableRow className="hover:bg-transparent">
@@ -299,8 +300,20 @@ export function LendingsTab() {
             items.map((lending) => (
               <TableRow key={lending.id}>
                 <Td>
-                  <div className="font-medium">{lending.book_title}</div>
-                  <div className="text-xs text-muted-foreground">{lending.author}</div>
+                  {/* La couverture en petit : une ligne de tableau se parcourt
+                      à l'œil, et c'est l'image qu'on reconnaît avant le titre. */}
+                  <div className="flex items-center gap-2.5">
+                    <BookCover
+                      bookId={lending.book_id}
+                      title={lending.book_title}
+                      hasCover={lending.book_has_cover}
+                      size="sm"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium">{lending.book_title}</div>
+                      <div className="text-xs text-muted-foreground">{lending.author}</div>
+                    </div>
+                  </div>
                 </Td>
                 <Td>
                   <div className="font-medium">{lending.child_name}</div>

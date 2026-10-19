@@ -50,6 +50,10 @@ class BookResponse(BaseModel):
     # total_quantity - prêts en cours (jamais négatif, borné en service)
     available_quantity: int
     is_active: bool
+    # Drapeau, jamais une URL : la couverture passe par un endpoint
+    # authentifié. Sans lui, chaque case d'une grille demanderait une image qui
+    # n'existe pas.
+    has_cover: bool = False
     sections: list[SectionBrief]
     created_at: datetime
     updated_at: datetime
@@ -81,6 +85,9 @@ class LendingResponse(BaseModel):
     book_id: uuid.UUID
     book_title: str
     author: str
+    # Même drapeau que sur `BookResponse` : la liste des prêts montre les mêmes
+    # livres, elle doit pouvoir les reconnaître à leur couverture.
+    book_has_cover: bool = False
     child_id: uuid.UUID
     child_name: str
     child_matricule: str

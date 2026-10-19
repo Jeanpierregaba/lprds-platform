@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { libraryApi } from '@/lib/api/library.api'
 import { PageHeader, PageMotion } from '@/components/dashboard/shared/page'
+import { BookCover } from '@/components/library/book-cover'
 
 export default function StaffLibraryPage() {
   const t = useTranslations('admin')
@@ -47,8 +48,13 @@ export default function StaffLibraryPage() {
           {books.map((book) => (
             <Card key={book.id}>
               <CardContent className="space-y-2 p-4">
-                <div className="font-medium">{book.title}</div>
-                <div className="text-sm text-muted-foreground">{book.author}</div>
+                <div className="flex items-start gap-3">
+                  <BookCover bookId={book.id} title={book.title} hasCover={book.has_cover} size="md" />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="font-medium">{book.title}</div>
+                    <div className="text-sm text-muted-foreground">{book.author}</div>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2 pt-1 text-sm">
                   <BookOpen className="size-4 text-muted-foreground" />
                   <span className={book.available_quantity === 0 ? 'text-destructive' : undefined}>

@@ -2765,7 +2765,7 @@ contrôle de simultanéité tombe ; arrêté au premier échec, trois contrôles
 tombent ; en retenant la dernière erreur au lieu de la première, celui qui la
 vise tombe.
 
-### Vignettes — `?thumb=true` sur les neuf endpoints de média
+### Vignettes — `?thumb=true` sur les onze endpoints de média
 
 Retirer le plafond rendait l'affichage possible ; il restait **cher**. Une image
 n'est recompressée au téléversement qu'au-dessus du plafond du module (50 Mo
@@ -2796,9 +2796,9 @@ l'original — davantage encore sur une photo de téléphone.
   `private` pour l'espace connecté (données authentifiées), `public` pour le
   site vitrine. Sur un forfait mobile, ne pas retélécharger compte autant que la
   vignette.
-- **Un seul helper** (`app/core/media_serving.py`) pour les neuf endpoints des
-  quatre modules. Les ajouter neuf fois, c'était neuf occasions de n'en faire
-  que huit — ce qui est exactement ce qui était arrivé à la validation des
+- **Un seul helper** (`app/core/media_serving.py`) pour les onze endpoints des
+  cinq modules. Les ajouter onze fois, c'était onze occasions de n'en faire
+  que dix — ce qui est exactement ce qui était arrivé à la validation des
   téléversements avant `media.py`.
 
 ⚠️ **Ce qui diffère d'un module à l'autre, c'est le NOM de la clé de stockage**
@@ -3585,6 +3585,9 @@ GET      /api/v1/library/books                          # library:read — ?sect
 GET      /api/v1/library/books/{id}                     # library:read
 PATCH    /api/v1/library/books/{id}                     # library:write
 DELETE   /api/v1/library/books/{id}                     # library:write — soft delete (409 si prêts en cours)
+PUT      /api/v1/library/books/{id}/cover               # library:write — multipart, remplace la précédente
+GET      /api/v1/library/books/{id}/cover?thumb=        # TOUT lecteur du catalogue (cf. ci-dessous)
+DELETE   /api/v1/library/books/{id}/cover               # library:write — 204, idempotent
 POST     /api/v1/library/lendings                       # library:lend — {book_id, child_id, borrowed_at?, due_date?}
 GET      /api/v1/library/lendings                       # library:read — ?book_id= &child_id= &status=
 POST     /api/v1/library/lendings/{id}/return           # library:lend (409 si déjà rendu)
@@ -3594,6 +3597,76 @@ GET    /api/v1/library/mine/books                       # parent — sections de
 GET    /api/v1/library/mine/lendings                    # parent — ses prêts
 GET    /api/v1/library/educator/books                   # staff — livres de sa section (hors RBAC)
 ```
+
+### Couverture d'un livre — l'écriture est RBAC, la lecture ne peut pas l'être
+
+Quatre colonnes directes sur `books` (`cover_filename`, `cover_content_type`,
+`cover_size_bytes`, `cover_storage_key`, migration `f2b48c1a7e35`) — relation
+strictement 1–1, même patron que l'image à la une d'un article et que la photo
+de profil d'un enfant. Toutes nullables : un catalogue entier existe déjà sans
+couverture, et il n'est pas question d'en exiger une pour continuer à prêter
+des livres.
+
+⚠️ **La lecture ne passe PAS par `require_permission`**, et c'est le même
+raisonnement que la photo d'un enfant : l'audience est **hétérogène**. Trois
+écrans affichent le même catalogue par trois portes différentes — la gestion
+(`library:read`), le portail du **parent** (`/mine/books`) et celui de
+l'**éducatrice** (`/educator/books`), ces deux derniers étant hors RBAC et
+scopés par construction. Garder la couverture derrière `library:read` aurait
+donc donné, dans les deux portails, une grille de cases vides sans un mot
+d'explication — exactement la forme du défaut que le module Annuaire a dû
+refermer ailleurs.
+
+La règle de portée vit donc en UN endroit, `_book_for_cover_read` :
+
+| Qui | Ce qu'il voit |
+|---|---|
+| Admin | toutes les couvertures de son établissement |
+| Staff portant `library:read`/`:write`/`:lend` | idem — c'est la même grille à l'écran |
+| Éducatrice (hors RBAC) | les livres **actifs** des sections de ses groupes |
+| Parent (hors RBAC) | les livres **actifs** des sections de ses enfants, **plus ceux qu'ils ont empruntés** |
+| Superadmin | rien (404), comme partout |
+
+**Un seul endpoint plutôt que trois** (un par chemin de lecture) : l'écran n'a
+alors qu'une adresse à appeler, donc un seul composant d'affichage
+(`components/library/book-cover.tsx`). 404 partout, jamais 403 — on ne révèle
+pas l'existence d'un livre hors de portée.
+
+**Déposer et retirer restent `library:write`**, comme le reste du catalogue :
+une couverture est une donnée du livre, pas une donnée de prêt.
+
+- **`has_cover` est un BOOLÉEN, pas une URL** — même raison que `has_photo` sur
+  un enfant : la couverture passe par un endpoint authentifié, et sans ce
+  drapeau chaque case d'une grille lancerait une requête vouée à une 404.
+- **Images seulement** (`images_only=True`), jamais de vidéo ni de PDF. Plafond
+  propre au module (`LIBRARY_MAX_COVER_MB`, défaut 10) : au-dessus, l'image est
+  **recompressée**, pas refusée.
+- La **vignette** (`?thumb=true`) est ce que demandent les grilles. Mesuré sur
+  une couverture réelle de 1200×1800 : **127 Ko → 9,6 Ko, 13× plus léger**.
+- **Un repli TEINTÉ par titre** quand il n'y a pas de couverture, pas un cadre
+  vide : un catalogue sans images ne doit pas être une colonne de rectangles
+  identiques — même raisonnement que les initiales d'un enfant sans photo.
+- **La liste des prêts porte le même drapeau** (`book_has_cover` sur
+  `LendingResponse`) : elle montre les mêmes livres, elle doit pouvoir les
+  reconnaître à leur couverture — en petit (`size="sm"`), une ligne de tableau
+  se parcourant à l'œil.
+  ⚠️ Et elle **ouvre un trou que le catalogue n'avait pas** : un livre emprunté
+  peut avoir quitté le périmètre du parent — désactivé, ou l'enfant a changé de
+  section — alors que sa ligne reste dans « Mes emprunts » tant que
+  l'historique existe. Sans la branche « ce parent a-t-il emprunté ce livre »
+  (`_parent_has_borrowed`), l'écran annoncerait une couverture que le serveur
+  refuserait : un trou ouvert par l'ÉCRAN, pas par le modèle. Le livre est dans
+  le cartable de l'enfant ; le lui cacher n'aurait protégé personne.
+- ⚠️ **Côté écran, rien n'est envoyé au moment du choix.** Le fichier est
+  retenu dans le dialogue et part **après** l'enregistrement du livre : un
+  livre NEUF n'a pas encore d'identifiant où le déposer, et dans un formulaire
+  « Annuler » doit tout annuler. L'échec du second temps ne défait donc pas le
+  premier — l'écran le **dit** (« le livre est enregistré, mais la couverture
+  n'a pas pu l'être »), là où un simple « livre ajouté » laisserait
+  l'utilisateur ignorer ce qu'il doit reprendre.
+- ⚠️ La vignette est en cache React Query « pour toujours » : un remplacement
+  doit **invalider** `['library', 'cover-thumb', id]`, sinon l'ancienne image
+  reste affichée.
 
 ### Pagination — 200, comme partout ailleurs
 Le module plafonnait seul `limit` à **100** quand les dix autres acceptent 200,
@@ -4240,6 +4313,9 @@ BLOG_MAX_ATTACHMENT_MB=50
 # Dossier d'inscription enfant — images + PDF, jamais de vidéo. La compression
 # ne descend pas sous 1600 px : une pièce d'identité doit rester lisible.
 CHILDREN_MAX_ATTACHMENT_MB=10
+# Couverture d'un livre (module bibliothèque) — UNE image par livre, jamais de
+# vidéo ni de PDF. Plafond bas : elle s'affiche en vignette dans une grille.
+LIBRARY_MAX_COVER_MB=10
 # Notifications push Web (PWA Phase 2) — clés VAPID (privée JAMAIS exposée au frontend)
 VAPID_PRIVATE_KEY=<vapid privée>
 VAPID_PUBLIC_KEY=<vapid publique>
@@ -4568,6 +4644,12 @@ tests/
     │                                    #   reprise planifiée (tâches Celery appelées directement)
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend,
     │                                     #   borne de pagination alignée sur le reste de l'API
+    ├── test_library_cover.py            # couverture d'un livre : QUI la voit — gestion,
+    │                                    #   parent et éducatrice par trois portes, et
+    │                                    #   personne d'autre ; vignette, remplacement qui
+    │                                    #   efface l'ancien fichier, retrait idempotent,
+    │                                    #   et le livre EMPRUNTÉ qui reste visible du
+    │                                    #   parent après sa sortie du périmètre
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
     ├── test_announcement_email.py    # notification email d'une diffusion :
     │                                 #   ciblage respecté, lien vers LA diffusion,
@@ -4720,10 +4802,12 @@ Réglages du worker, et ce qu'ils supposent :
 
 ## Téléversement de médias — une seule porte, `app/core/media.py`
 
-**Quatre** modules acceptent des fichiers : rapports, messagerie, blog (+
-galerie du site vitrine) et le **dossier d'inscription enfant**. Ils
-appliquaient chacun leur variante de la même règle, et tous sur **le MIME
-déclaré par le navigateur**.
+**Cinq** modules acceptent des fichiers : rapports, messagerie, blog (+
+galerie du site vitrine), le **dossier d'inscription enfant** et la
+**couverture d'un livre**. Les quatre premiers appliquaient chacun leur
+variante de la même règle, et tous sur **le MIME déclaré par le navigateur** —
+c'est précisément ce qui a mené à la porte unique ci-dessous, par laquelle le
+cinquième est entré sans rien réécrire.
 
 ⚠️ **Le type d'un fichier se lit dans son CONTENU.** Une photo parfaitement
 valide arrivant en `application/octet-stream` ou sans type du tout était
@@ -4732,7 +4816,7 @@ refusée, alors que la même photo passait depuis un autre appareil : c'est le
 ne dépendait pas du format mais du chemin par lequel le fichier arrivait
 (gestionnaire de fichiers, re-partage depuis une messagerie, `.heic` d'iPhone).
 `media.sniff()` lit les octets ; `media.accept_upload()` est le seul point
-d'entrée des quatre modules.
+d'entrée des cinq modules.
 
 ⚠️ **Le dossier d'inscription était le plus strict des quatre** : une liste
 blanche de MIME exacts, sans même le sur-ensemble `image/*` des autres. Une

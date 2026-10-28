@@ -692,7 +692,7 @@ async def list_lendings(
         .limit(limit)
     )
     lendings = list(result.scalars().all())
-    items = [await _lending_response(l, db) for l in lendings]
+    items = [await _lending_response(lending, db) for lending in lendings]
     return LendingListResponse(total=total or 0, items=items)
 
 
@@ -910,7 +910,7 @@ async def list_parent_lendings(
         .limit(limit)
     )
     lendings = list(result.scalars().all())
-    items = [await _lending_response(l, db) for l in lendings]
+    items = [await _lending_response(lending, db) for lending in lendings]
     return LendingListResponse(total=total or 0, items=items)
 
 

@@ -174,6 +174,12 @@ async def _pousser(envoi: _Envoi, data: Optional[dict]) -> tuple[bool, bool]:
             data=payload,
             vapid_private_key=settings.vapid_private_key,
             vapid_claims={"sub": settings.vapid_subject},
+            # ⚠️ `pywebpush` passe un plafond par défaut de DIX MILLE secondes
+            # à `requests` — soit près de trois heures, c'est-à-dire aucune
+            # borne en pratique. Un service de push qui ne répond plus
+            # retenait donc l'envoi indéfiniment, et avec lui le lot entier,
+            # qui est séquentiel.
+            timeout=settings.push_timeout_seconds,
         )
 
     try:

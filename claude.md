@@ -3194,6 +3194,117 @@ sinon on retombe exactement sur ce défaut : un bouton visible qui échoue.
   (contrairement au mot de passe temporaire, qui EST le seul canal de
   délivrance et bloque donc la création si l'email échoue, cf. module Parents).
 
+### ⚠️ Valider ne doit pas attendre le facteur — « Impossible de joindre le serveur »
+
+Un établissement a signalé des erreurs « Impossible de joindre le serveur » à
+la soumission et à la validation, surtout sur les **bi-mensuels**. Ce n'était
+pas le réseau : ce message est celui que `getApiErrorMessage` affiche quand il
+n'y a **aucune réponse**, ce qui inclut le délai d'attente d'`apiClient` —
+**10 s** pour tout appel JSON.
+
+En face, la requête attendait du travail que rien ne bornait utilement :
+
+| Travail tenu par la requête | Plafond réel AVANT |
+|---|---|
+| Un email **par parent**, séquentiel | **60 s chacun** — défaut d'`aiosmtplib`, jamais surchargé |
+| Un push **par appareil** | **10 000 s** — défaut de `pywebpush` |
+| La traduction du contenu sur `PATCH` | 20 s (`TRANSLATION_TIMEOUT_SECONDS`) |
+
+⚠️ **Le défaut n'est pas l'erreur affichée, c'est ce qu'elle cache.** Mesuré
+sur l'installation réelle, avec un envoi ralenti à 12 s : côté navigateur
+`net::ERR_ABORTED` et le toast d'échec ; côté serveur, au même instant,
+`statut = validated` — **le rapport était publié et le parent prévenu**.
+L'admin lit donc un échec sur une action réussie et irréversible, et son
+second clic récolte un **409 « Seul un rapport soumis peut être validé »**, qui
+n'a aucun sens pour lui.
+
+**Pourquoi le bi-mensuel d'abord** : ses **sept** champs de texte libre sont
+tous **obligatoires**, c'est donc toujours la charge de traduction maximale. Un
+quotidien n'en a que trois, courts et facultatifs.
+
+Quatre corrections, et il les faut toutes :
+
+1. **L'email et le push partent EN FOND** (`app/core/background.py`). Ce qui
+   exige la base est lu pendant la requête ; le réseau se déroule après la
+   réponse. Même patron que les diffusions, pour la même raison.
+2. **Le push passe par la porte du module Notifications**
+   (`send_push_to_establishment_parents`) au lieu de la boucle recopiée dans
+   `reports/service.py`, qui faisait une requête d'abonnements par parent et
+   n'avait ni envoi en fond ni retrait des abonnements morts.
+   ⚠️ Le corps est rendu **langue par langue** (`body_by_locale`) : le libellé
+   de période en dépend, donc `body_params` mettrait « 1–15 octobre 2026 »
+   dans un push anglais.
+3. **Les plafonds des bibliothèques sont posés** : `MAIL_TIMEOUT_SECONDS`
+   (20 s) et `PUSH_TIMEOUT_SECONDS` (10 s). Une tâche de fond qui attend une
+   minute par message reste une tâche qui n'avance pas.
+4. **Les écritures de rapport ont leur propre plafond client**
+   (`WRITE_REQUEST`, 30 s, `lib/api/client.ts`) : elles attendent encore la
+   traduction, qui reste dans la requête. Dix secondes conviennent à une
+   lecture, pas à une écriture qui appelle un service tiers.
+
+`tests/e2e/test_reports_validation_flow.py` verrouille les quatre, et les
+quatre sabotages tombent : envoi remis dans la requête (latence), `try/except`
+par destinataire retiré (le second parent n'est plus servi), retouche d'un
+soumis refusée, plafond SMTP retiré (60 s réapparaît).
+
+⚠️ **Conséquence assumée** : la requête ne connaît plus l'issue de ce qu'elle
+n'attend pas. Elle ne rapporte que des envois PROGRAMMÉS — c'est le prix de ne
+plus la faire attendre, et c'est acceptable parce que ce canal est
+best-effort. Un mot de passe temporaire, lui, continue de bloquer : il n'existe
+que dans son email.
+
+### ⚠️ Valider ENREGISTRE d'abord — une correction de relecture ne se perd pas
+
+Second signalement, même écran. L'admin retouche un rapport pendant sa
+relecture — c'est le but de l'écran, le `submitted` ayant été ouvert pour ça —
+puis clique « Valider et publier ». La mutation n'envoyait que l'identifiant :
+**la correction était perdue, le rapport partait au parent avec l'ancien
+texte, et le toast annonçait un succès.** Reproduit dans un vrai navigateur,
+puis lu en base.
+
+Le bon enchaînement existait déjà juste au-dessus : `submitMutation` fait
+`update` puis `submit` **depuis toujours**. La validation était le seul des
+trois gestes à ne pas le suivre.
+
+- **On n'enregistre que si le formulaire a CHANGÉ.** Un `PATCH` systématique
+  relancerait la traduction (elle se déclenche sur toute écriture dont le
+  texte diffère) et réécrirait un rapport que l'admin n'a pas touché.
+- **Rien de changé → on valide tel quel, sans validation stricte** : le
+  contenu est déjà passé par la porte de la soumission, et un rapport ancien
+  n'a pas à buter sur un schéma durci depuis. **Quelque chose a changé → même
+  exigence de complétude que « Soumettre »**, puisque valider publie de la
+  même façon.
+- ⚠️ **`formState` de React Hook Form est un PROXY : `isDirty` doit être lu
+  PENDANT LE RENDU.** Lu seulement dans le gestionnaire de clic, il garde la
+  valeur du rendu précédent — faux — et la validation conclut qu'il n'y a rien
+  à enregistrer. Première version du correctif écrite ainsi : vérifiée dans un
+  vrai navigateur, **aucun `PATCH` n'était émis et la correction se reperdait
+  à l'identique**. Ni `tsc` ni le build ne voient ce défaut.
+- ⚠️ **« Enregistrer » ne quitte plus l'écran.** On enregistre au milieu d'une
+  relecture pour ne pas perdre son travail, pas pour en sortir ; l'écran
+  éjectait vers la liste, qu'il fallait rouvrir à chaque sauvegarde
+  intermédiaire. « Soumettre », juste à côté, restait déjà en place : c'est
+  « Enregistrer » qui était l'exception. Le formulaire est **reposé sur les
+  valeurs écrites** (`reset`), sinon `isDirty` resterait vrai et la validation
+  croirait avoir encore quelque chose à enregistrer.
+
+### ⚠️ Le renouvellement de jeton pendant une longue relecture
+
+Deux faiblesses de `lib/api/client.ts`, du même signalement (« après un long
+moment passé sur le rapport ») :
+
+- **`_retry` ne se posait pas sur le chemin de la FILE D'ATTENTE.** Une requête
+  rejouée avec le jeton frais qui reçoit malgré tout un 401 repassait dans
+  l'intercepteur, ne voyait plus de renouvellement en cours et en déclenchait
+  un **second**, avec un jeton de rafraîchissement déjà rotaté donc révoqué :
+  session vidée, retour à l'écran de connexion, **saisie perdue**. C'est
+  exactement le scénario de l'admin qui reste longtemps sur un rapport —
+  plusieurs requêtes expirent alors ensemble et une seule renouvelle.
+- **L'appel de renouvellement n'avait aucun plafond** (`axios.post` nu, qui
+  n'hérite ni des intercepteurs ni du délai). Un réseau muet laissait
+  `isRefreshing` à vrai indéfiniment : toutes les requêtes suivantes
+  s'empilaient dans la file et plus rien n'aboutissait ni n'échouait.
+
 ### Endpoints
 ```
 GET/POST/DELETE /api/v1/reports/settings/departments/{id}/types[/{report_type}]  # GET : lecture ouverte (reports:read OU reports:write — le formulaire de création en a besoin) ; POST/DELETE : ADMIN uniquement (non délégable — une éducatrice porte reports:write mais ne configure pas les types actifs)
@@ -4414,6 +4525,10 @@ MAIL_STARTTLS=true
 MAIL_SSL_TLS=false
 # Dev/test : n'établit aucune connexion SMTP, les emails sont ignorés (défaut false)
 MAIL_SUPPRESS_SEND=false
+# Plafond d'une session SMTP. ⚠️ Le défaut d'aiosmtplib est de 60 s et n'était
+# pas surchargé : c'était l'attente la plus longue de la plateforme, et elle se
+# paie PAR message (cf. « Valider ne doit pas attendre le facteur »).
+MAIL_TIMEOUT_SECONDS=20
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
 # Pièces jointes — le TYPE est lu dans le contenu du fichier, jamais dans ce
@@ -4434,6 +4549,9 @@ LIBRARY_MAX_COVER_MB=10
 VAPID_PRIVATE_KEY=<vapid privée>
 VAPID_PUBLIC_KEY=<vapid publique>
 VAPID_SUBJECT=mailto:hello@lespetitsrayonsdesoleil.net
+# Plafond d'un envoi push. ⚠️ pywebpush passe 10 000 s à requests par défaut —
+# près de trois heures, c'est-à-dire aucune borne en pratique.
+PUSH_TIMEOUT_SECONDS=10
 # Traduction automatique du contenu saisi (blog, menus) — cf. section
 # « Internationalisation ». Best-effort strict : un échec ne bloque jamais une
 # publication, le site vitrine retombe sur le français.
@@ -4735,6 +4853,11 @@ tests/
     │                                     #   au lieu d'un 409 sur un rapport fantôme
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
+    ├── test_reports_validation_flow.py  # valider n'attend ni l'email ni le push,
+    │                                    #   un envoi refusé ne prive pas les AUTRES
+    │                                    #   parents, retoucher un SOUMIS puis valider
+    │                                    #   publie la RETOUCHE, et les plafonds des
+    │                                    #   bibliothèques sont réellement posés
     ├── test_nicknames.py                # le surnom est le nom affiché : exigé pour
     │                                    #   un admin, posable après coup, renvoyé par
     │                                    #   /auth/me, et l'email de bienvenue le dit
@@ -5589,9 +5712,12 @@ aucune trace.
   un seul `DELETE` pour tout le lot.
 - ⚠️ **`POST /notifications/test` reste synchrone**, et c'est tout son intérêt :
   le bouton « essai » existe pour dire si l'envoi marche.
-- **Le rapport validé reste synchrone** lui aussi : il pousse aux parents d'UN
-  enfant, soit deux comptes, pas cent cinquante. Le coût est borné ; le
-  déplacer n'achèterait rien.
+- ⚠️ **Le rapport validé était resté synchrone — c'était une ERREUR, corrigée
+  le 28/10/2026.** Le raisonnement tenait en une phrase (« il pousse aux
+  parents d'UN enfant, deux comptes, pas cent cinquante : le coût est borné »)
+  et il regardait la mauvaise grandeur. Ce qui décide n'est pas le NOMBRE de
+  destinataires mais le PLAFOND PAR ENVOI : un seul suffit à dépasser ce que
+  le navigateur attend. Cf. « Valider ne doit pas attendre le facteur ».
 - Au passage, une requête d'abonnements au lieu d'une par destinataire — la
   version précédente faisait 150 allers-retours vers la base avant le premier
   push.

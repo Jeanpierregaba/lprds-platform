@@ -318,3 +318,68 @@ def test_library_pagination_cap_matches_the_rest_of_the_api(client):
     router = (Path(__file__).resolve().parents[2] / "app/modules/library/router.py").read_text()
     ck("aucune borne de pagination restée à 100", "le=100" in router, False)
     ck("les cinq routes paginées sont à 200", router.count("ge=1, le=200"), 5)
+
+
+def test_scheduled_reminders_persist_the_daily_guard(client):
+    """Le rappel déclenché par le BEAT persiste son anti-doublon.
+
+    `send_due_reminders` ne fait qu'un `flush` ; c'est l'appelant qui commite.
+    En requête HTTP, `get_db` s'en charge en fin de requête — d'où un
+    anti-doublon qui tenait depuis `POST /library/reminders/run` (vérifié dans
+    `test_library`) mais PAS depuis la tâche planifiée, qui referme sa session
+    sans commiter. Deux chemins, deux comportements sur la garde qui les
+    protège tous les deux.
+
+    Conséquence en production : le beat retombant sur une ardoise vierge à
+    chaque redémarrage (volume `lprds_celery_beat`), un parent recevait un
+    second rappel à chaque déploiement — alors que c'est précisément
+    l'idempotence qui devait rendre ce rattrapage inoffensif.
+
+    Le rollback n'emportait d'ailleurs pas que `last_reminded_on` : le message
+    injecté dans la conversation du parent disparaissait avec lui. Le parent
+    recevait donc l'email (envoyé hors transaction, best-effort) sans la trace
+    côté messagerie — les deux moitiés d'un même rappel en désaccord.
+
+    Prouvé par sabotage : commit retiré de `library/tasks.py`, le second
+    passage renvoie 1 au lieu de 0 et le message n'est plus en base.
+    """
+    from app.modules.library import tasks as library_tasks
+
+    c = client
+    su = login(c, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD)
+    adm = onboard(c, su, "LPRDS", "admin@a.fr")
+
+    dep = c.post("/departments", json={"name": "Crèche"}, headers=adm).json()
+    sec = c.post("/sections", json={"name": "Étoile", "department_id": dep["id"]},
+                 headers=adm).json()
+    child = _create_child(c, adm, dep["id"], sec["id"])
+    par = _create_parent(c, adm, child["id"], "parent@a.fr")
+
+    c.put("/library/settings", json={"reminders_enabled": True,
+          "reminder_days_before": 2, "default_loan_days": 14}, headers=adm)
+    book = c.post("/library/books", json={
+        "title": "Le Petit Prince", "author": "Saint-Exupéry",
+        "total_quantity": 1, "section_ids": [sec["id"]],
+    }, headers=adm).json()
+    ck("Prêt en retard créé → 201", c.post("/library/lendings", json={
+       "book_id": book["id"], "child_id": child["id"],
+       "borrowed_at": (TODAY - timedelta(days=10)).isoformat(),
+       "due_date": YESTERDAY}, headers=adm).status_code, 201)
+
+    first = library_tasks.send_due_reminders_all()
+    ck("Beat, 1er passage : 1 prêt rappelé", first["reminded_lendings"], 1)
+    ck("Beat, 1er passage : 1 parent notifié", first["reminded_parents"], 1)
+
+    # Le message doit avoir SURVÉCU à la fermeture de la session de la tâche.
+    msgs = c.get("/messaging/conversations/me/messages", headers=par).json()["items"]
+    ck("  message de rappel persisté en base",
+       sum("bibliothèque" in (m["body"] or "") for m in msgs), 1)
+
+    second = library_tasks.send_due_reminders_all()
+    ck("Beat, 2e passage : 0 (anti-doublon last_reminded_on COMMITÉ)",
+       second["reminded_lendings"], 0)
+    ck("Beat, 2e passage : 0 parent notifié", second["reminded_parents"], 0)
+
+    msgs = c.get("/messaging/conversations/me/messages", headers=par).json()["items"]
+    ck("  aucun second message injecté",
+       sum("bibliothèque" in (m["body"] or "") for m in msgs), 1)

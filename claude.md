@@ -4887,7 +4887,9 @@ tests/
     │                                    #   correction de menu propagée à la semaine suivante,
     │                                    #   reprise planifiée (tâches Celery appelées directement)
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend,
-    │                                     #   borne de pagination alignée sur le reste de l'API
+    │                                     #   borne de pagination alignée sur le reste de l'API,
+    │                                     #   et l'anti-doublon des rappels PERSISTÉ quand c'est le
+    │                                     #   beat qui déclenche (la tâche commite elle-même)
     ├── test_library_cover.py            # couverture d'un livre : QUI la voit — gestion,
     │                                    #   parent et éducatrice par trois portes, et
     │                                    #   personne d'autre ; vignette, remplacement qui
@@ -5031,6 +5033,10 @@ Réglages du worker, et ce qu'ils supposent :
   toutes les tâches sont idempotentes par construction (anti-doublon journalier
   `last_reminded_on`, mémoire de traduction, balayages qui ne sélectionnent que
   ce qui manque). Une future tâche non idempotente devra le reconsidérer.
+  ⚠️ Et une idempotence **non commitée n'existe pas** : `last_reminded_on` était
+  posé puis annulé à la fermeture de la session de la tâche — cf. « Et elle
+  COMMITE elle-même » ci-dessous. L'hypothèse de ces deux réglages reposait
+  donc sur une garde qui ne tenait pas sur le chemin du beat.
 - `task_soft_time_limit` 10 min / `task_time_limit` 12 min — un balayage parti
   en vrille ne doit pas occuper le worker ni retarder les rappels du matin.
 - `broker_connection_retry_on_startup` — en conteneur, le worker démarre souvent
@@ -5040,7 +5046,8 @@ Réglages du worker, et ce qu'ils supposent :
 - L'état du beat vit dans le volume `lprds_celery_beat` : sans lui, chaque
   redémarrage repart d'une ardoise vierge et refait tomber les échéances passées
   — inoffensif grâce à l'idempotence, mais un parent recevrait un second rappel
-  à chaque déploiement.
+  à chaque déploiement. ⚠️ Cette idempotence n'était pas persistée jusqu'au
+  26/10/2026 : le second rappel partait pour de bon.
 - `worker` et `beat` attendent `backend: service_healthy` (healthcheck sur
   `/health/ready`), pas `service_started` : l'entrypoint du backend est le seul à
   migrer, et une tâche partie avant aurait un schéma d'avance sur elle.
@@ -5144,9 +5151,85 @@ fermée. Le premier passage marcherait, les suivants non — le pire profil de
 panne qui soit, invisible en test comme au premier lancement.
 
 Toute tâche passe donc par **`task_sessions()`** (`app/core/database.py`) :
-moteur jetable, `NullPool`, refermé en sortie. Même raisonnement que le moteur
-jetable de `tests/conftest.py`. Les cinq tâches (`library` ×2, `blog`, `menus`,
+moteur jetable, `NullPool`, refermé en sortie — **et un pool Redis propre à la
+tâche** (cf. ci-dessous). Même raisonnement que le moteur jetable de
+`tests/conftest.py`. Les cinq tâches (`library` ×2, `blog`, `menus`,
 `reports`) l'utilisent.
+
+### ⚠️ Et elle COMMITE elle-même — `task_sessions()` ne le fait pas
+
+`task_sessions()` fabrique des sessions, rien de plus : **il ne commite pas en
+sortie**, contrairement à `get_db`, qui commite en fin de requête HTTP. Toute
+session de tâche qui ÉCRIT doit donc appeler `await db.commit()` elle-même ;
+sans lui, la fermeture annule tout.
+
+Le piège est qu'un service appelé depuis les deux côtés n'a aucune raison de
+commiter lui-même — `send_due_reminders` se contente d'un `flush`, comme tout
+le reste du projet. Le même code se comportait donc **différemment selon
+l'appelant** : correct depuis `POST /library/reminders/run`, perdu depuis le
+beat. Et ce qui se perdait était précisément **l'anti-doublon journalier**
+(`last_reminded_on`) qui protège les deux chemins — plus le message injecté
+dans la conversation du parent, qui partait avec le rollback. Le parent
+recevait l'email (envoyé hors transaction, best-effort) sans la trace côté
+messagerie, et un **second rappel à chaque passage**.
+
+⚠️ C'est exactement le scénario que le volume `lprds_celery_beat` est censé
+rendre inoffensif — « un redémarrage refait tomber les échéances passées,
+inoffensif grâce à l'idempotence ». L'idempotence invoquée était justement
+celle qui ne tenait pas. Une garde dont on documente qu'elle couvre un risque
+mérite d'être vérifiée SUR LE CHEMIN qu'elle couvre.
+
+Rien ne pouvait le signaler : la tâche renvoie son compte depuis l'objet
+retourné par le service (valeurs déjà calculées), donc elle annonçait
+fidèlement « 1 prêt rappelé » en n'en persistant aucun.
+
+`tests/e2e/test_library.py::test_scheduled_reminders_persist_the_daily_guard`
+appelle la tâche **deux fois de suite** et exige 0 au second passage — le
+contrôle par HTTP (dans `test_library`) ne pouvait pas voir le défaut, puisque
+c'est `get_db` qui le masquait. Prouvé par sabotage : commit retiré, le second
+passage renvoie 1 et le message n'est plus en base.
+
+⚠️ Les sessions **en lecture seule** d'une tâche (celles qui ne collectent que
+des identifiants avant la boucle) n'ont, elles, rien à commiter — c'est la
+forme des quatre autres tâches, et c'est pourquoi `grep -n "db.commit"` sur un
+fichier de tâche ne suffit pas à juger : il faut regarder **chaque** session
+qui écrit.
+
+### ⚠️ Le client REDIS global avait le même mal, et personne ne l'avait vu
+
+Tout ce qui précède vaut mot pour mot pour Redis : une connexion
+`redis.asyncio` appartient elle aussi à la boucle qui l'a ouverte. Le moteur
+SQLAlchemy avait été traité, le client Redis — un **singleton de module** —
+était resté en arrière. Les rappels de bibliothèque injectent un message dans
+la conversation du parent, donc **publient sur Redis** : dès le SECOND passage
+dans la vie d'un worker, la publication piochait une connexion rattachée à une
+boucle fermée (« got Future attached to a different loop »).
+
+Le temps réel étant best-effort, `ws_manager` attrapait et journalisait : le
+rappel partait quand même, mais un parent connecté ne voyait plus rien arriver
+en direct, **et plus jamais**. Aucun écran ne montre ça.
+
+`task_pool()` (`app/core/redis.py`) prête au client un pool valable pour la
+boucle de la tâche, et `task_sessions()` l'ouvre pour elle — **une seule
+porte** pour les deux, sinon la prochaine tâche écrite n'en franchira qu'une.
+
+⚠️ **Il faut borner les DEUX côtés**, et le second n'est apparu qu'après avoir
+corrigé le premier : un pool neuf à l'entrée ne suffit pas, car en sortie la
+tâche rendrait au pool PARTAGÉ les connexions ouvertes dans sa boucle — que le
+prochain venu paierait (« unable to perform operation on … the handler is
+closed », levé côté HTTP dans la vérification de révocation de jeton, donc sur
+un chemin qui n'a rien à voir). La tâche referme donc son pool **dans sa
+propre boucle**, le seul endroit où ces connexions peuvent encore se fermer
+proprement, puis repose celui qu'elle avait trouvé.
+
+⚠️ On remplace le **pool**, jamais le client : les six consommateurs font
+`from app.core.redis import redis_client`, donc importent l'objet par valeur —
+réassigner le module ne les atteindrait pas.
+
+Trouvé par le test ci-dessus, pas par relecture : c'est le seul test qui
+appelle une tâche **deux fois de suite**, et la seconde exécution est
+exactement ce qui réveille ce défaut. Les deux gardes sont prouvées par
+sabotage.
 
 ---
 

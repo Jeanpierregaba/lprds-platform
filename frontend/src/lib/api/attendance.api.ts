@@ -3,7 +3,8 @@ import { apiClient } from './client'
 import type {
   AbsenceInquiryResponse, AttendanceEvent, AttendanceEventListResponse, AttendanceGeneralSettings, AttendanceGeneralSettingsPayload,
   AttendanceSettingsPayload, ChildDailyStatusListResponse, DepartmentAttendanceSettings, EventType,
-  ManualEventPayload, PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffExemption, StaffSchedule,
+  Exemption, ExemptionCreatePayload, ExemptionListResponse, ExemptionScope, ExemptionUpdatePayload,
+  ManualEventPayload, PersonType, QRCodeResponse, StaffDailyStatusListResponse, StaffSchedule,
   AttendanceExportParams, UpdateEventPayload,
   VerifyQrResponse,
 } from '@/types/attendance'
@@ -64,13 +65,20 @@ export const attendanceApi = {
   setGeneralSettings: (data: AttendanceGeneralSettingsPayload) =>
     apiClient.put<AttendanceGeneralSettings>('/api/v1/attendance/settings/general', data),
 
-  listExemptions: (exemptOnly = false) =>
-    apiClient.get<StaffExemption[]>('/api/v1/attendance/settings/exempt-staff', {
-      params: { exempt_only: exemptOnly },
+  // ── Exemptions (personnel, enfant, section) ──
+  listExemptions: (params?: { scope?: ExemptionScope; include_revoked?: boolean; limit?: number }) =>
+    apiClient.get<ExemptionListResponse>('/api/v1/attendance/settings/exemptions', {
+      params: { limit: 200, ...params },
     }),
 
-  setExemption: (staffId: string, exempt: boolean) =>
-    apiClient.patch<StaffExemption>(`/api/v1/attendance/settings/exempt-staff/${staffId}`, { exempt }),
+  createExemption: (data: ExemptionCreatePayload) =>
+    apiClient.post<Exemption>('/api/v1/attendance/settings/exemptions', data),
+
+  updateExemption: (id: string, data: ExemptionUpdatePayload) =>
+    apiClient.patch<Exemption>(`/api/v1/attendance/settings/exemptions/${id}`, data),
+
+  revokeExemption: (id: string) =>
+    apiClient.delete<void>(`/api/v1/attendance/settings/exemptions/${id}`),
 
   // ── Horaires personnalisés (staff) ──
   getStaffSchedule: (staffId: string) =>

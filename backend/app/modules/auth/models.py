@@ -65,11 +65,11 @@ class User(Base):
     )
     staff_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
-    # Exemption au contrôle de présence (module attendance). Concerne le staff ;
-    # défaut False pour tous les rôles (sans effet pour non-staff).
-    attendance_exempt: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    # ⚠️ Plus de colonne `attendance_exempt` ici : une exemption porte
+    # désormais une PÉRIODE et peut viser un enfant ou une section entière, ce
+    # qu'un booléen sur `users` ne pouvait pas exprimer. Elle vit dans
+    # `attendance_exemptions` (migration b4c82e07f1a9, qui reprend les
+    # exemptions existantes en périodes sans fin).
 
     establishment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

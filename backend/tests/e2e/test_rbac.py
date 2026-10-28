@@ -204,8 +204,12 @@ def test_attendance_write_no_longer_grants_badges_nor_corrections(client):
     # ⚠️ `/settings/general` répond 404 tant que rien n'est configuré : ce
     # code ne distingue pas « autorisé » de « refusé ». La liste des
     # exemptions répond 200 même vide, donc elle, oui.
+    #
+    # (L'ancien `/settings/exempt-staff` a disparu avec les exemptions à
+    # période — il ne savait dire qu'« exempté pour toujours ». La nouvelle
+    # route a la même propriété, c'est-à-dire la seule qui compte ici.)
     ck("Paramètres : accès aux réglages",
-       c.get("/attendance/settings/exempt-staff", headers=params_only).status_code, 200)
+       c.get("/attendance/settings/exemptions", headers=params_only).status_code, 200)
     ck("Paramètres : PAS de badge",
        c.get(f"/attendance/qrcode/child/{child['id']}", headers=params_only).status_code, 403)
     ck("Paramètres : PAS de rectification", c.patch(
@@ -216,7 +220,7 @@ def test_attendance_write_no_longer_grants_badges_nor_corrections(client):
     ck("Badges : impression autorisée",
        c.get(f"/attendance/qrcode/child/{child['id']}", headers=badges).status_code, 200)
     ck("Badges : PAS les réglages",
-       c.get("/attendance/settings/exempt-staff", headers=badges).status_code, 403)
+       c.get("/attendance/settings/exemptions", headers=badges).status_code, 403)
 
     _, correct = _with_role(c, adm, "r@rbac7.fr", ["attendance:correct"])
     ck("Rectification : saisie manuelle autorisée", c.post(
@@ -225,7 +229,7 @@ def test_attendance_write_no_longer_grants_badges_nor_corrections(client):
              "event_type": "arrival", "date": "2026-10-01", "time": "08:05"},
        headers=correct).status_code, 201)
     ck("Rectification : PAS les réglages",
-       c.get("/attendance/settings/exempt-staff", headers=correct).status_code, 403)
+       c.get("/attendance/settings/exemptions", headers=correct).status_code, 403)
     ck("Rectification : PAS de badge",
        c.get(f"/attendance/qrcode/child/{child['id']}", headers=correct).status_code, 403)
 

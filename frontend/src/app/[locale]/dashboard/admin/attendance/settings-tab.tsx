@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs } from '@/components/ui/tabs'
@@ -29,6 +28,7 @@ import { getApiErrorMessage } from '@/lib/utils/api-error'
 import { PillsTabsList, PillsTrigger, TabPanel } from '@/components/dashboard/shared/tabs'
 import type { DirectoryStaff, DirectoryUnit } from '@/types/directory'
 import type { AttendanceSettingsPayload } from '@/types/attendance'
+import { ExemptionsSettings } from './exemptions-settings'
 
 const toInputTime = (t: string | null | undefined) => (t ?? '').slice(0, 5)
 const toApiTime = (t: string) => (t.length > 5 ? t : `${t}:00`)
@@ -572,118 +572,6 @@ function StaffSchedulesSettings() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-function ExemptionsSettings() {
-  const t = useTranslations('attendance')
-  const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
-
-  const { data: staffResults, isLoading } = useQuery({
-    queryKey: ['directory', 'staff', { search: debouncedSearch, forExemptions: true }],
-    queryFn: () => directoryApi.listStaff({ search: debouncedSearch || undefined, limit: 200 }).then((r) => r.data),
-  })
-
-  const { data: exemptions } = useQuery({
-    queryKey: ['attendance', 'settings', 'exempt-staff'],
-    queryFn: () => attendanceApi.listExemptions(false).then((r) => r.data),
-  })
-
-  const exemptSet = new Set((exemptions ?? []).filter((e) => e.exempt).map((e) => e.staff_id))
-
-  const toggleMutation = useMutation({
-    mutationFn: ({ staffId, exempt }: { staffId: string; exempt: boolean }) =>
-      attendanceApi.setExemption(staffId, exempt),
-    onSuccess: () => {
-      toast.success(t('settings.exemptionSaved'))
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'settings', 'exempt-staff'] })
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
-  })
-  // Pending par ligne : un seul toggle global bloquait les 50 switches et
-  // les bascules rapides se perdaient.
-  const pendingId = toggleMutation.isPending ? toggleMutation.variables?.staffId ?? null : null
-
-  const items = staffResults?.items ?? []
-
-  return (
-    <div className="mt-2 space-y-4">
-      <p className="text-sm text-white font-semibold">{t('exemptHint')}</p>
-
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={t('settings.searchStaff')}
-          className="pl-8"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('settings.staffColumn')}</TableHead>
-                <TableHead>{t('settings.matricule')}</TableHead>
-                <TableHead className="w-32">{t('settings.exempt')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-10" /></TableCell>
-                  </TableRow>
-                ))
-              ) : items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={3} className="h-40 text-center">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <UserRound className="size-5" />
-                      </div>
-                      <p>{debouncedSearch ? t('settings.noResult') : t('settings.searchPrompt')}</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((staff) => {
-                  const exempt = exemptSet.has(staff.id)
-                  return (
-                    <TableRow key={staff.id}>
-                      <TableCell className="font-medium">
-                        {staff.display_name}
-                        {exempt && <Badge variant="outline" className="ml-2 font-normal">{t('settings.exempt')}</Badge>}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{staff.matricule}</TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={exempt}
-                          onCheckedChange={(v) => toggleMutation.mutate({ staffId: staff.id, exempt: v })}
-                          disabled={pendingId === staff.id}
-                          aria-label={t('settings.exemptAria', { name: staff.display_name })}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   )
 }

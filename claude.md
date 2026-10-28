@@ -507,6 +507,7 @@ postgresql+asyncpg://adminlprds:lprds@localhost:5432/lprds_database
 - `attendance_events` — journal append-only des scans QR (présence)
 - `department_attendance_settings` / `attendance_settings` — horaires + fuseau
 - `staff_attendance_schedules` — horaires personnalisés par membre du personnel (surcharge l'horaire général)
+- `attendance_exemptions` — dispenses de pointage SUR UNE PÉRIODE (personnel, enfant, ou section entière)
 - `announcements` / `announcement_reads` — diffusions admin → parents + accusés de lecture
 - `announcement_signatures` — attestations de lecture signées par les parents
 - `conversations` / `messages` — messagerie privée admin ↔ parent (1 conv/parent)
@@ -1730,8 +1731,8 @@ GET  /api/v1/attendance/daily/children            # ?date= &department_id= &sect
 GET  /api/v1/attendance/daily/staff                # ?date=
 GET  /PUT /api/v1/attendance/settings/departments/{department_id}   # attendance:write
 GET  /PUT /api/v1/attendance/settings/general                        # fuseau + horaires staff
-GET  /api/v1/attendance/settings/exempt-staff                        # ?exempt_only=
-PATCH /api/v1/attendance/settings/exempt-staff/{staff_id}
+GET  /POST /api/v1/attendance/settings/exemptions                    # ?scope=&include_revoked= — attendance:write
+PATCH /DELETE /api/v1/attendance/settings/exemptions/{exemption_id}  # période/motif ; DELETE = annulation
 GET  /PUT /DELETE /api/v1/attendance/settings/staff/{staff_id}       # horaire personnalisé staff
 GET  /api/v1/attendance/export                      # ?format=&person_type=&date_from=&date_to=
                                                     #  &department_id=&section_id=&child_id=&staff_id=
@@ -1810,7 +1811,7 @@ configuration de l'établissement) :
 | `attendance:read` | Journal, dashboards journaliers, export |
 | `attendance:qrcode` | `GET /qrcode/child/{id}`, `GET /qrcode/staff/{id}` |
 | `attendance:correct` | `POST /events/manual`, `PATCH /events/{id}`, `POST /absent-notifications` |
-| `attendance:write` | `GET`/`PUT`/`DELETE /settings/*` (horaires, exemptions, fuseau) |
+| `attendance:write` | `GET`/`POST`/`PUT`/`PATCH`/`DELETE /settings/*` (horaires, exemptions, fuseau) |
 
 ⚠️ **`attendance:write` ne désignait pas ce que son libellé annonce**, et
 l'établissement l'a signalé sur un cas concret : une **assistante de
@@ -1859,8 +1860,8 @@ séparé pour chacun) :
 | Arrivée, aucun horaire configuré | `present` | `null` (indéterminable) |
 | Arrivée après l'horaire attendu + tolérance | `late` | écart en minutes |
 | Arrivée dans les temps (+ tolérance) | `present` | `0` |
-| **Staff exempté**, pas d'arrivée | `exempt` | `null` |
-| **Staff exempté**, arrivée quand même | calculé normalement | idem |
+| **Exempté** (staff, enfant, ou section de l'enfant), pas d'arrivée | `exempt` | `null` |
+| **Exempté**, arrivée quand même | calculé normalement | idem |
 
 `arrival_time` = **premier** événement `arrival` du jour ; `departure_time` =
 **dernier** événement `departure` du jour (en cas de scans multiples/erreurs).
@@ -1906,11 +1907,124 @@ par département).
 > si on voulait un jour des horaires staff par département, il faudrait d'abord
 > ajouter ce lien — non fait ici, hors périmètre de la demande actuelle.
 
-**Exemption** (`users.attendance_exempt`, colonne sur `User`, défaut `False`) :
-un staff exempté n'est jamais compté `absent` par défaut, géré via
-`/attendance/settings/exempt-staff` — qui exige un compte **actif** (409
-sinon : un flag sur un inactif serait invisible, la liste ne montrant que les
-actifs).
+### Exemptions — une PÉRIODE, et les enfants par leur SECTION
+
+Une exemption ne pouvait concerner qu'un membre du personnel, et seulement
+« pour toujours » : un booléen `users.attendance_exempt`. Elle porte désormais
+une **période** et peut viser un **enfant** ou une **section entière** — table
+`attendance_exemptions` (migration `b4c82e07f1a9`), et le booléen a disparu.
+
+⚠️ **La migration REPREND les exemptions existantes** en périodes sans bornes,
+ce qui est exactement ce que le booléen voulait dire. Sans cette reprise, tout
+personnel exempté se serait découvert compté « absent » au lendemain du
+déploiement, sans qu'aucun écran ne l'annonce — le même défaut silencieux que
+le redécoupage de `attendance:write`, qui avait dû réattribuer ses permissions
+aux rôles existants. Aller-retour `upgrade`/`downgrade` vérifié sur une base
+réelle, avec une exemption en place.
+
+**La SECTION est le chemin principal pour les enfants**, décision explicite de
+l'utilisateur : une sortie, une fermeture, une semaine de stage concernent la
+classe, pas vingt enfants nommés un par un. L'exemption nominative reste là
+pour le cas particulier — un enfant en convalescence dans une section qui,
+elle, fonctionne normalement. Un enfant est couvert par SA propre exemption
+**OU** par celle de sa section : un OU, jamais une exclusion. Retirer un enfant
+d'une section exemptée n'a pas été demandé, et une exception à l'exception
+rendrait la règle illisible.
+
+#### ⚠️ Rien n'est éteint en base à l'échéance — et c'est tout le sujet
+
+« L'exemption est désactivée automatiquement quand la période est passée » se
+tient **sans écrire une ligne** : le statut de présence est calculé à la volée
+(comme tout le module), donc il suffit que la date du jour sorte de
+`[starts_on, ends_on]`. Basculer un `is_active=False` à l'échéance aurait fait
+deux dégâts, et le second est bien pire :
+
+1. l'exemption resterait **en force jusqu'au prochain passage du beat** — une
+   journée entière dans le pire des cas, et indéfiniment si le worker est à
+   terre : un enfant compté « exempté » un jour où il était attendu ;
+2. surtout, **l'export recalcule le passé.** Une exemption du 1<sup>er</sup> au
+   15 octobre, éteinte le 16, ferait réapparaître ces quinze jours en
+   « absent » : une tâche de fond réécrirait l'historique, des mois plus tard,
+   sans que personne n'ait rien demandé.
+
+Prouvé par sabotage : en faisant basculer `is_active` par la tâche,
+`test_expiry_never_rewrites_the_past` tombe exactement là — un jour couvert
+repasse à « absent ».
+
+L'écran doit pourtant **lire** « Expirée », sinon la fonctionnalité paraît ne
+pas marcher. D'où `state` (`upcoming` / `active` / `expired` / `revoked`),
+champ **DÉRIVÉ** des dates, jamais stocké ni lu en base.
+
+Les trois gestes ont donc trois sens distincts, et il faut les trois :
+
+| Geste | Effet | Pour quoi |
+|---|---|---|
+| échéance | ne couvre plus les jours suivants | fin normale |
+| `ends_on` raccourci (`PATCH`) | **fin anticipée** — le passé reste couvert | « finalement il revient lundi » |
+| `DELETE` (`is_active=False`) | **annulation**, y compris dans l'historique | « cette ligne est une erreur » |
+
+⚠️ `is_active` est filtré **deux fois** — par la requête de `_load_exemptions`
+et par `AttendanceExemption.covers()`, la seule autorité. Redondance assumée,
+mais elle rend le contrôle par HTTP **aveugle** : prouvé par sabotage, retirer
+la garde du modèle laisse le test de l'annulation passer, le filtre SQL
+suffisant à lui seul. D'où un contrôle **au ras du modèle** sur `covers()` et
+`state()` (bornes incluses des deux côtés, annulation, bornes ouvertes) — un
+test qui réussit sur du code cassé ne prouve rien.
+
+#### La notification d'échéance
+
+`attendance/tasks.py`, 06:00 UTC — **avant** les rappels de bibliothèque de
+07:00 : l'admin doit lire qu'une dispense est terminée au début de sa journée,
+pas après avoir découvert l'absence au tableau de bord. La tâche **constate**,
+elle ne décide de rien.
+
+- **Deux canaux, best-effort** : email aux admins actifs (`exemption_expired`,
+  dans la langue de chacun) **et** push. L'email est le canal qui n'exige RIEN
+  du destinataire — le push suppose un abonnement **par appareil**, accordé à
+  la main, donc un admin qui n'a jamais ouvert cet écran ne serait prévenu de
+  rien.
+- Le push mène à `/dashboard/admin/attendance?tab=settings`. L'écran des
+  présences choisissait sinon son premier onglet permis : la notification
+  tombait sur le tableau de bord, **juste à côté** de ce qu'elle annonce —
+  exactement le défaut déjà corrigé sur les deux écrans de messagerie.
+- **`expired_notified_at` est l'anti-doublon** : un admin ne doit pas relire
+  chaque matin que l'exemption de mardi dernier est finie. Il est remis à NULL
+  quand la période est **prolongée**, sans quoi une exemption rouverte
+  finirait en silence. Les deux comportements sont sous test, et prouvés par
+  sabotage.
+- ⚠️ **La tâche COMMITE explicitement.** Hors d'une requête HTTP il n'y a pas
+  de `get_db` pour le faire en sortie : sans ce commit, `expired_notified_at`
+  ne survit pas à la session et l'anti-doublon existe sans rien protéger.
+  Trouvé par le test, pas par relecture.
+
+#### Les parents d'un enfant dispensé ne sont jamais interrogés sur son absence
+
+Conséquence que la demande ne nommait pas, mais qui en découle : demander
+« pourquoi votre enfant était-il absent ? » quand c'est l'établissement
+lui-même qui l'a dispensé est le pire message possible.
+
+**Deux voies, deux gardes**, et c'est la seconde qui manquait :
+`POST /absent-notifications` en masse est protégé **par construction** (un
+enfant exempté a le statut `exempt`, jamais `absent`), mais la **relance
+individuelle** fabrique « absent » à la main, sans passer par le statut du
+jour. Elle refuse donc explicitement, en 422 — et c'est justement la voie
+ciblée, celle qu'on emprunte pour UN enfant précis.
+
+#### Permission et périmètre
+
+`attendance:write`, comme les autres réglages du module — une dispense est un
+paramètre de l'établissement, pas un geste quotidien. Admin d'office,
+superadmin exclu (403), cible hors établissement en **404 jamais 403**.
+
+⚠️ Les sélecteurs de personne passent par l'**annuaire**, jamais par
+`/children` ni `/staff` : poser une exemption n'exige pas d'ouvrir un dossier.
+C'est le couplage que le module Annuaire a dû refermer ailleurs.
+
+⚠️ **Rupture volontaire** : `GET /settings/exempt-staff` et
+`PATCH /settings/exempt-staff/{staff_id}` ont disparu. Elles ne savaient dire
+qu'« exempté pour toujours », et les garder à côté des périodes aurait fait
+deux sources de vérité pour la même question. Le seul consommateur était
+l'écran des réglages, refait avec les nouvelles.
 
 ### Horaires personnalisés par membre du personnel (table dédiée)
 
@@ -4604,6 +4718,13 @@ tests/
     ├── test_core_modules_smoke.py       # golden path : auth, RBAC, organisation,
     │                                     #   enfants, parents, staff, présences, messagerie
     ├── test_attendance_correction.py      # correction manuelle (PATCH ligne + saisie manuelle, 403 sans write)
+    ├── test_attendance_exemptions.py     # exemptions : la SECTION couvre ses
+    │                                     #   enfants, la période décide seule, et
+    │                                     #   l'échéance ne réécrit PAS l'historique ;
+    │                                     #   annuler ≠ raccourcir ; parents d'un
+    │                                     #   dispensé jamais interrogés (deux voies) ;
+    │                                     #   notification une seule fois ; `covers()`
+    │                                     #   prouvé au ras du modèle
     ├── test_reports_workflow.py         # cycle de vie complet (soumission/validation/rejet)
     ├── test_reports_daily_content.py    # contenu structuré quotidien + pièces jointes
     ├── test_reports_bimensuel_content.py
@@ -4760,6 +4881,7 @@ explicitement, sinon trois conteneurs migreraient la base en même temps.
 
 | Tâche | Quand |
 |---|---|
+| `attendance.notify_expired_exemptions_all` | 06:00 UTC |
 | `library.send_due_reminders_all` | 07:00 UTC |
 | `blog.retry_missing_translations` | toutes les heures à :05 |
 | `menus.retry_missing_translations` | :20 |

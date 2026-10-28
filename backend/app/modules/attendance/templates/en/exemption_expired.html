@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; color: #1c1c1c; line-height: 1.5;">
+  <p>Hello {{ admin_first_name }},</p>
+  <p>
+    {% if lines|length == 1 %}
+    An attendance exemption has reached its end date at {{ establishment_name }}:
+    {% else %}
+    {{ lines|length }} attendance exemptions have reached their end date at
+    {{ establishment_name }}:
+    {% endif %}
+  </p>
+  <ul>
+    {% for line in lines %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  <p>
+    The people concerned are expected to check in again: without a scanned
+    arrival, they will now show up as absent.
+  </p>
+  <p>
+    If the exemption needs to continue, you can change its period from the
+    {{ platform_name }} <a href="{{ frontend_url }}">attendance settings</a>.
+  </p>
+  <p>Have a good day,<br>The {{ platform_name }} team</p>
+</body>
+</html>

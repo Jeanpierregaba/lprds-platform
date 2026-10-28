@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; color: #1c1c1c; line-height: 1.5;">
+  <p>Bonjour {{ admin_first_name }},</p>
+  <p>
+    {% if lines|length == 1 %}
+    Une exemption de pointage est arrivée à échéance à {{ establishment_name }} :
+    {% else %}
+    {{ lines|length }} exemptions de pointage sont arrivées à échéance à
+    {{ establishment_name }} :
+    {% endif %}
+  </p>
+  <ul>
+    {% for line in lines %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  <p>
+    Les personnes concernées sont de nouveau attendues au pointage : sans
+    arrivée scannée, elles apparaîtront désormais comme absentes.
+  </p>
+  <p>
+    Si la dispense doit se prolonger, vous pouvez en changer la période depuis
+    les <a href="{{ frontend_url }}">réglages de présence {{ platform_name }}</a>.
+  </p>
+  <p>Bonne journée,<br>L'équipe {{ platform_name }}</p>
+</body>
+</html>

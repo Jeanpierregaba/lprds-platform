@@ -47,6 +47,7 @@ PARENT_REPORTS = "/dashboard/parent/reports"
 PARENT_MESSAGING = "/dashboard/parent/messaging"
 PARENT_LIBRARY = "/dashboard/parent/library"
 ADMIN_MESSAGING = "/dashboard/admin/messaging"
+ADMIN_ATTENDANCE = "/dashboard/admin/attendance"
 
 #: Route DYNAMIQUE — le segment entre accolades correspond à un dossier `[id]`
 #: côté frontend. Séparée des chemins nus parce que la garde la résout
@@ -57,7 +58,7 @@ PARENT_REPORT = "/dashboard/parent/reports/{report_id}"
 ALL_PATHS = (
     LOGIN, NEW_PASSWORD,
     PARENT_REPORTS, PARENT_MESSAGING, PARENT_LIBRARY,
-    ADMIN_MESSAGING,
+    ADMIN_MESSAGING, ADMIN_ATTENDANCE,
 )
 
 #: Les routes à segment dynamique, vérifiées à part par la même garde.
@@ -71,6 +72,11 @@ ALL_DYNAMIC_PATHS = (PARENT_REPORT,)
 TAB_ANNOUNCEMENTS = "announcements"
 TAB_PARENT_CONVERSATION = "conversation"
 TAB_ADMIN_CONVERSATIONS = "conversations"
+
+#: Onglet des RÉGLAGES de présence — là où vivent les exemptions. L'écran des
+#: présences choisit sinon son premier onglet permis, donc une notification
+#: d'échéance mènerait au tableau de bord et laisserait l'admin chercher.
+TAB_SETTINGS = "settings"
 
 
 def parent_announcement_query(announcement_id: object) -> dict[str, str]:

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 from app.core.config import settings
+from app.core.redis import task_pool
 
 # db_schema n'est jamais défini en dev/prod (cf. config.py) — connect_args
 # reste vide, comportement strictement inchangé pour l'application réelle.
@@ -71,9 +72,14 @@ async def task_sessions() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         connect_args=_connect_args,
     )
     try:
-        yield async_sessionmaker(
-            task_engine, class_=AsyncSession, expire_on_commit=False
-        )
+        # Le client Redis global souffre EXACTEMENT du même mal (sa connexion
+        # appartient aussi à la boucle qui l'a ouverte) et ces tâches le
+        # touchent — les rappels publient sur Redis. Une seule porte pour les
+        # deux, sinon la prochaine tâche écrite n'en franchira qu'une.
+        async with task_pool():
+            yield async_sessionmaker(
+                task_engine, class_=AsyncSession, expire_on_commit=False
+            )
     finally:
         await task_engine.dispose()
 

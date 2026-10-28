@@ -43,6 +43,15 @@ def send_due_reminders_all() -> dict:
             for establishment_id in establishment_ids:
                 async with Session() as db:
                     result = await library_service.send_due_reminders(establishment_id, db)
+                    # ⚠️ Hors cycle HTTP : il n'y a pas de `get_db` pour
+                    # commiter en sortie, et `task_sessions()` ne le fait pas
+                    # non plus. Sans ce commit, le `flush` du service est
+                    # annulé à la fermeture de la session : l'anti-doublon
+                    # `last_reminded_on` n'est jamais persisté et le message
+                    # injecté dans la conversation du parent disparaît — donc
+                    # un second rappel à chaque passage du beat, alors que
+                    # c'est l'idempotence qui rend ce rattrapage inoffensif.
+                    await db.commit()
                 total_parents += result.reminded_parents
                 total_lendings += result.reminded_lendings
             return {"reminded_parents": total_parents, "reminded_lendings": total_lendings}

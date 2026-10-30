@@ -107,6 +107,12 @@ class Settings(BaseSettings):
     # pire résultat possible pour un dépannage.
     invitation_resend_cooldown_seconds: int = 60
 
+    # Notification email d'un message privé : une seule par conversation et
+    # par destinataire sur cette fenêtre. Un échange tient dix allers-retours
+    # en un quart d'heure — autant d'emails serait du harcèlement, et le
+    # premier a déjà dit ce qu'il y avait à dire (cf. messaging/email.py).
+    message_email_cooldown_minutes: int = 30
+
     # CORS — origines supplémentaires, séparées par des virgules.
     # frontend_url est toujours autorisée (cf. cors_origins).
     cors_extra_origins: str = ""

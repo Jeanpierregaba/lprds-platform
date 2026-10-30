@@ -311,6 +311,13 @@ MESSAGES: dict[str, str] = {
     "emails.parent_password_reset.subject": "Your LPRDS password has been reset",
     "emails.report_available.subject": "A new report is available — {child}",
     "emails.announcement.subject": "New announcement — {title}",
+    "emails.message.subject": "New message — {sender}",
+    # Repli quand l'établissement n'a pas de nom renseigné : côté parent,
+    # l'expéditeur est « l'administration » en tant que COLLECTIF — n'importe
+    # quel admin répond dans n'importe quelle conversation, et le portail
+    # n'affiche jamais le nom de celui qui a écrit. Nommer la personne ici
+    # contredirait l'écran, et promettrait un interlocuteur attitré.
+    "emails.message.sender_school": "the school",
     "emails.absence_inquiry.subject_one": "{child} absent — {date}",
     "emails.absence_inquiry.subject_many": "Absences on {date}",
     "emails.library_reminder.subject": "Library books due back",

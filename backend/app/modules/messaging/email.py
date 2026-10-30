@@ -1,5 +1,6 @@
 """
-Notification email à la publication d'une diffusion.
+Notifications email du module Messagerie : publication d'une diffusion, et
+arrivée d'un message privé.
 
 ⚠️ **Pourquoi un email alors que le push existe déjà.** Une diffusion ne
 disposait que de deux canaux, et aucun des deux n'atteint un parent qui n'a
@@ -70,5 +71,49 @@ async def send_announcement_email(
     await send_html_email(
         to=to,
         subject=t("emails.announcement.subject", locale, title=title),
+        html=html,
+    )
+
+
+async def send_message_email(
+    *,
+    to: str,
+    recipient_first_name: str,
+    sender_label: str,
+    message_url: str,
+    locale: Locale = DEFAULT_LOCALE,
+) -> None:
+    """Prévient UN destinataire qu'un message privé l'attend.
+
+    ⚠️ **Aucun extrait du corps, pas même tronqué** — et c'est plus strict que
+    pour une diffusion, dont le titre voyage. Une diffusion est écrite pour
+    tout l'établissement ; une conversation privée porte précisément ce qu'on
+    ne dit qu'à une famille — un souci de santé, une difficulté de
+    comportement, un retard de paiement. Le push en expose déjà un aperçu de
+    120 caractères, mais il va à un appareil que le destinataire a lui-même
+    enrôlé ; un email reste en clair chez un fournisseur de messagerie, et y
+    reste des années.
+
+    ⚠️ **`message_url` est fourni par l'appelant, pas construit ici** : la
+    destination dépend du DESTINATAIRE — le parent et l'admin n'ont ni le même
+    écran ni la même façon de désigner la conversation (il n'en a qu'une, l'autre
+    les a toutes). La choisir ici obligerait cette fonction à savoir qui elle
+    écrit, et à refaire le test de rôle que l'appelant vient de faire.
+
+    Best-effort, comme la notification de diffusion : le message est déjà
+    persisté, visible dans le fil et compté dans les pastilles de non-lus.
+    """
+    html = render(
+        TEMPLATES_DIR,
+        "message_available.html",
+        locale,
+        recipient_first_name=recipient_first_name,
+        sender_label=sender_label,
+        message_url=message_url,
+        platform_name="LPRDS",
+    )
+    await send_html_email(
+        to=to,
+        subject=t("emails.message.subject", locale, sender=sender_label),
         html=html,
     )

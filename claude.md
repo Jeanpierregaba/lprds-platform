@@ -2060,6 +2060,11 @@ Client ← WS (relais transparent) ←──────────── tous 
 
 ### Notifications à la réception (conversations privées)
 
+- **Email au destinataire** (best-effort, temporisé) — cf. « Conversations
+  privées — notification par email » ci-dessous. C'est le seul des quatre
+  canaux qui n'exige du destinataire ni onglet ouvert, ni abonnement, ni
+  visite spontanée.
+
 - **Push Web au destinataire** (`send_message`, best-effort) : aux admins si
   l'expéditeur est le parent, au seul parent de la conversation
   (`parent_ids={...}`) si l'expéditeur est un admin — couvre l'app fermée.
@@ -2322,6 +2327,85 @@ patron que la notification de rapport.
 - ⚠️ **Rien n'est envoyé au `PATCH`** d'une diffusion, volontairement : une
   correction de coquille ne doit pas réécrire à tout l'établissement. Seule la
   publication notifie.
+
+### Conversations privées — notification par email (le MÊME trou, refermé)
+
+Les diffusions avaient trois canaux dont aucun n'atteignait un parent inactif ;
+les conversations privées avaient exactement les mêmes trois, et le même défaut
+est resté ouvert un mois de plus — WebSocket (suppose un onglet ouvert à cet
+instant), push (suppose un abonnement **par appareil**, accordé à la main), et
+pastille de non-lus (suppose qu'on revienne de son propre chef). Un parent qui
+n'a jamais ouvert la carte des réglages de notifications n'était prévenu de
+rien, et un message privé **attend souvent une réponse** — c'est plus gênant
+qu'une diffusion, qui est purement informative.
+
+`messaging/email.py::send_message_email` +
+`templates/{fr,en}/message_available.html`, même patron que la diffusion.
+
+- ⚠️ **AUCUN extrait du corps, pas même tronqué** — et c'est plus strict que
+  la diffusion, dont le TITRE voyage. Une diffusion est écrite pour tout
+  l'établissement ; une conversation privée porte précisément ce qu'on ne dit
+  qu'à une famille : un souci de santé, une difficulté de comportement, un
+  retard de paiement. Le push, lui, en expose 120 caractères — mais il va à un
+  appareil que le destinataire a lui-même enrôlé, alors qu'un email reste en
+  clair chez un fournisseur de messagerie, pour des années. La fonction d'envoi
+  **ne reçoit même pas le corps** : la fuite est structurellement impossible,
+  pas seulement interdite.
+- **Les deux sens**, avec la règle de destinataire du push : au parent de la
+  conversation si l'expéditeur est un admin, à **tous** les admins actifs
+  sinon. Un admin n'est pas davantage devant son écran qu'un parent, et c'est
+  lui qu'un parent attend.
+- ⚠️ **Côté parent, l'expéditeur annoncé est l'ÉTABLISSEMENT, pas l'admin qui
+  a écrit.** Le portail n'affiche jamais le nom de celui qui a répondu
+  (« l'administration » est collective, cf. `sender_role`) : nommer la personne
+  dans l'email contredirait l'écran et promettrait un interlocuteur attitré.
+  Côté admin, l'expéditeur EST nommé par son surnom — il a plusieurs familles
+  en face.
+- ⚠️ **Une seule notification par conversation et par destinataire sur
+  `MESSAGE_EMAIL_COOLDOWN_MINUTES`** (30 min). Sans elle, un échange de dix
+  allers-retours en un quart d'heure — le cas NORMAL quand un parent et
+  l'établissement règlent quelque chose — ferait dix emails, alors que le
+  premier a déjà dit tout ce qu'il avait à dire : « allez voir votre
+  messagerie ». C'est la différence de fond avec la diffusion, qui est un
+  événement ponctuel et n'a besoin d'aucune borne.
+- ⚠️ **La temporisation est réservée PENDANT la requête** (`rate_limit.claim_once`,
+  `SET NX` atomique), jamais dans la tâche de fond : deux messages envoyés dans
+  la même seconde y arriveraient tous les deux avant que le premier n'ait posé
+  sa clé. Un `GET` suivi d'un `SET` rouvrirait le trou — l'atomicité EST la
+  garde.
+- ⚠️ **Un échec d'envoi LÈVE la temporisation**, comme la relance d'invitation :
+  rien n'a été délivré, et laisser la clé priverait le destinataire de toute
+  notification pour la demi-heure suivante — soit précisément au moment où le
+  SMTP revient.
+- **Lecture dans la requête, envoi en fond**, comme la diffusion et le push :
+  `fastapi-mail` ouvre une connexion SMTP par message, et c'est ici le chemin
+  le plus fréquent de la plateforme, dans une interface qui se veut temps réel.
+- **Le lien mène à LA conversation**, et ce n'est pas le même écran des deux
+  côtés : `links.parent_conversation_query()` (le parent n'en a qu'une, mais
+  l'onglet reste à nommer — cet écran ouvre les diffusions par défaut) et
+  `links.admin_conversation_query(id)` (l'admin les a toutes, il faut désigner
+  laquelle). ⚠️ **Les deux constructeurs servent l'email ET le push**, qui ne
+  diffèrent que par l'hôte — les requêtes étaient jusqu'ici écrites à la main
+  dans `send_message`, donc libres de diverger de l'email qu'on ajoutait.
+- **Langue du destinataire**, best-effort par destinataire, jamais remonté en
+  erreur HTTP : le message est déjà persisté, visible dans le fil et compté
+  dans les pastilles.
+- **L'email DIT qu'il ne se répétera pas** (« Vous ne recevrez pas d'email pour
+  chaque message de cet échange ») : sans cette phrase, le destinataire conclut
+  à une panne au deuxième message resté sans notification.
+
+Les contrôles sont prouvés par sabotage (`tests/e2e/test_message_email.py`) :
+temporisation retirée → quatre messages font quatre emails ; aperçu du corps
+injecté → la fuite est attrapée ; levée sur échec supprimée → le second message
+ne notifie plus ; filtre `is_active` retiré → un compte désactivé est écrit.
+
+⚠️ **Une cinquième « garde » s'est révélée du CODE MORT au sabotage** : un
+`if destinataire.id == sender.id: continue` censé empêcher un admin de s'écrire
+à lui-même. Le test passait encore une fois la garde retirée — parce que les
+deux branches ne lisent QUE l'autre côté de la conversation : l'expéditeur ne
+peut pas s'y trouver. La propriété tient par la FORME des requêtes, pas par ce
+`if`, qui a donc été supprimé. Sans la passe de sabotage, il serait resté là à
+faire croire qu'il protégeait quelque chose.
 
 ### Diffusions — ciblage par départements (1 à N, coché avant l'envoi)
 
@@ -4287,6 +4371,9 @@ PASSWORD_RESET_RATE_LIMIT_PER_IP=10
 PASSWORD_RESET_RATE_LIMIT_WINDOW_SECONDS=3600
 # Relance d'invitation : temporisation par compte visé (double clic).
 INVITATION_RESEND_COOLDOWN_SECONDS=60
+# Notification email d'un message privé : une seule par conversation et par
+# destinataire sur cette fenêtre. Levée si l'envoi échoue (rien n'a été délivré).
+MESSAGE_EMAIL_COOLDOWN_MINUTES=30
 # Origines CORS supplémentaires (séparées par des virgules).
 # FRONTEND_URL est toujours autorisée — inutile de la répéter ici.
 CORS_EXTRA_ORIGINS=
@@ -4653,6 +4740,12 @@ tests/
     │                                    #   et le livre EMPRUNTÉ qui reste visible du
     │                                    #   parent après sa sortie du périmètre
     ├── test_messaging_scope_and_media.py # diffusions ciblées par départements, vidéo en conversations
+    ├── test_message_email.py         # notification email d'un message privé :
+    │                                 #   le CORPS ne voyage jamais, un échange ne
+    │                                 #   fait qu'UN email, l'échec lève la
+    │                                 #   temporisation, et le lien mène à LA
+    │                                 #   conversation — pas au même écran des
+    │                                 #   deux côtés
     ├── test_announcement_email.py    # notification email d'une diffusion :
     │                                 #   ciblage respecté, lien vers LA diffusion,
     │                                 #   échec SMTP non bloquant, langue du destinataire

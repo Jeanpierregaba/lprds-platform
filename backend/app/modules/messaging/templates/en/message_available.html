@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#2563eb">New message</h2>
+  <p>Hello {{ recipient_first_name }},</p>
+  <p>You have received a new message from <strong>{{ sender_label }}</strong>
+     in your {{ platform_name }} inbox.</p>
+  <a href="{{ message_url }}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px">
+    Read the message
+  </a>
+  <p style="color:#6b7280;font-size:13px;margin-top:24px">
+    The message itself can only be read from your account, after signing in.
+    You will not receive an email for every message in this exchange.
+  </p>
+</body>
+</html>

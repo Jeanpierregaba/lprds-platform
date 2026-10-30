@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#2563eb">Nouveau message</h2>
+  <p>Bonjour {{ recipient_first_name }},</p>
+  <p>Vous avez reçu un nouveau message de <strong>{{ sender_label }}</strong>
+     dans votre messagerie {{ platform_name }}.</p>
+  <a href="{{ message_url }}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px">
+    Lire le message
+  </a>
+  <p style="color:#6b7280;font-size:13px;margin-top:24px">
+    Le contenu du message n'est consultable que depuis votre espace, après connexion.
+    Vous ne recevrez pas d'email pour chaque message de cet échange.
+  </p>
+</body>
+</html>

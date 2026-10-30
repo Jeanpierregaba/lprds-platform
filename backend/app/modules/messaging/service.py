@@ -8,14 +8,14 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import links, media, storage
+from app.core import links, media, rate_limit, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
 from app.core.people import display_name as display_name_of
 from app.modules.auth.models import User, UserRole
 from app.modules.establishments.models import Establishment
-from app.modules.messaging.email import send_announcement_email
+from app.modules.messaging.email import send_announcement_email, send_message_email
 from app.modules.children.models import Child
 from app.modules.messaging.models import (
     Announcement,
@@ -886,7 +886,7 @@ async def send_message(
             # qu'elle annonce.
             {"type": "message", "conversation_id": str(conversation.id),
              "url": links.url_path(links.PARENT_MESSAGING,
-                                   tab=links.TAB_PARENT_CONVERSATION)},
+                                   **links.parent_conversation_query())},
             parent_ids={conversation.parent_id},
         )
     else:
@@ -899,13 +899,145 @@ async def send_message(
             # parent, et l'admin a PLUSIEURS conversations — il faut donc en
             # plus désigner laquelle, sinon il doit la retrouver dans la liste.
             {"type": "message", "conversation_id": str(conversation.id),
-             "url": links.url_path(links.ADMIN_MESSAGING,
-                                   tab=links.TAB_ADMIN_CONVERSATIONS,
-                                   conversation=str(conversation.id))},
+             "url": links.url_path(
+                 links.ADMIN_MESSAGING,
+                 **links.admin_conversation_query(conversation.id))},
             body_key="push.message.body",
             body_params={"sender": sender_label},
         )
+
+    await _notify_recipient_by_email(conversation, sender, sender_label, db)
     return response
+
+
+async def _notify_recipient_by_email(
+    conversation: Conversation,
+    sender: User,
+    sender_label: str,
+    db: AsyncSession,
+) -> None:
+    """Prévient par email le destinataire d'un message privé.
+
+    ⚠️ **Pourquoi un email alors que le push existe.** Exactement le
+    raisonnement qui a mené à l'email de diffusion : les trois canaux en place
+    n'atteignent que quelqu'un qui a DÉJÀ fait quelque chose — le WebSocket
+    suppose un onglet ouvert à cet instant, le push un abonnement par appareil
+    que le destinataire a accordé lui-même, la pastille de non-lus qu'il
+    revienne de son propre chef. Un parent qui n'a jamais ouvert la carte de
+    réglages des notifications n'était prévenu de rien, et un message privé
+    attend souvent une réponse.
+
+    ⚠️ **Les deux sens**, comme le push, et avec la même règle de destinataire :
+    au parent de la conversation si l'expéditeur est un admin, à tous les admins
+    actifs sinon. Un admin n'est pas davantage devant son écran qu'un parent —
+    et c'est lui qu'un parent attend.
+
+    ⚠️ **Lecture ICI, envoi EN FOND** : `fastapi-mail` ouvre une connexion SMTP
+    par message. Tenu par la requête, l'envoi ferait attendre l'expéditeur le
+    temps d'un aller-retour SMTP à chaque message — sur le chemin le plus
+    fréquent de la plateforme, dans une interface qui se veut temps réel.
+    """
+    if sender.role == UserRole.ADMIN:
+        destinataires = (
+            await db.execute(
+                select(User).where(
+                    User.id == conversation.parent_id, User.is_active.is_(True)
+                )
+            )
+        ).scalars().all()
+        # Côté parent, l'expéditeur est « l'administration » en tant que
+        # COLLECTIF : le portail n'affiche jamais le nom de l'admin qui a
+        # répondu (cf. `sender_role`, photo du rôle à l'envoi). L'email dit
+        # donc la même chose que l'écran.
+        etiquette_par_defaut = (
+            await db.execute(
+                select(Establishment.name).where(
+                    Establishment.id == conversation.establishment_id
+                )
+            )
+        ).scalar_one_or_none() or ""
+        destination = links.url(
+            links.PARENT_MESSAGING, **links.parent_conversation_query()
+        )
+    else:
+        destinataires = (
+            await db.execute(
+                select(User).where(
+                    User.establishment_id == conversation.establishment_id,
+                    User.role == UserRole.ADMIN,
+                    User.is_active.is_(True),
+                )
+            )
+        ).scalars().all()
+        etiquette_par_defaut = sender_label
+        destination = links.url(
+            links.ADMIN_MESSAGING,
+            **links.admin_conversation_query(conversation.id),
+        )
+
+    envois: list[tuple[str, str, str, Locale, str]] = []
+    # ⚠️ L'expéditeur ne peut pas se retrouver dans cette liste : les deux
+    # branches ci-dessus ne lisent QUE l'autre côté de la conversation. Un
+    # test de plus (« et surtout pas moi ») n'aurait rien protégé — vérifié
+    # par sabotage, il passait encore une fois la garde retirée, parce que
+    # c'est la forme de la requête qui tient la propriété, pas un `if`.
+    for destinataire in destinataires:
+        # ⚠️ La temporisation est RÉSERVÉE PENDANT LA REQUÊTE, jamais dans la
+        # tâche de fond : deux messages envoyés coup sur coup y arriveraient
+        # tous les deux avant que le premier n'ait posé sa clé.
+        cle = _cle_email_message(conversation.id, destinataire.id)
+        if not await rate_limit.claim_once(
+            cle, window_seconds=settings.message_email_cooldown_minutes * 60
+        ):
+            continue
+        locale = coerce_locale(destinataire.locale)
+        etiquette = etiquette_par_defaut or t(
+            "emails.message.sender_school", locale
+        )
+        envois.append(
+            (destinataire.email, destinataire.first_name, etiquette, locale, cle)
+        )
+    if not envois:
+        return
+
+    tache = asyncio.create_task(_envoyer_emails_message(envois, destination))
+    _taches_email.add(tache)
+    tache.add_done_callback(_taches_email.discard)
+
+
+def _cle_email_message(conversation_id: uuid.UUID, destinataire_id: uuid.UUID) -> str:
+    return f"msg_email:{conversation_id}:{destinataire_id}"
+
+
+async def _envoyer_emails_message(
+    envois: list[tuple[str, str, str, Locale, str]],
+    destination: str,
+) -> None:
+    """Best-effort PAR DESTINATAIRE, et plus aucune session de base ici.
+
+    ⚠️ **Un échec LÈVE la temporisation** — même raisonnement que la relance
+    d'invitation : rien n'a été délivré, et laisser la clé en place priverait le
+    destinataire de toute notification pour la demi-heure suivante, c'est-à-dire
+    précisément quand le SMTP revient. La garde protège contre un email de
+    TROP, pas contre une tentative de rattrapage.
+    """
+    for email, first_name, sender_label, locale, cle in envois:
+        try:
+            await send_message_email(
+                to=email,
+                recipient_first_name=first_name,
+                sender_label=sender_label,
+                message_url=destination,
+                locale=locale,
+            )
+        except Exception:  # SMTP, rendu de template, réseau…
+            logger.exception(
+                "Échec d'envoi de la notification de message à %s", email
+            )
+            try:
+                await rate_limit.reset(cle)
+            except Exception:
+                logger.exception("Temporisation non levée pour %s", email)
 
 
 async def edit_message(

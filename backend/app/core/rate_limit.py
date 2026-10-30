@@ -42,5 +42,17 @@ async def check_and_increment(
         )
 
 
+async def claim_once(key: str, *, window_seconds: int) -> bool:
+    """Réserve un droit UNIQUE pour la fenêtre : `True` au premier appelant,
+    `False` ensuite. Ne lève jamais — ce n'est pas un refus à annoncer à un
+    utilisateur, mais une notification qu'on s'abstient de répéter.
+
+    ⚠️ `SET NX` et non un `GET` suivi d'un `SET` : deux messages envoyés dans
+    la même seconde liraient tous deux « pas encore notifié » et partiraient
+    tous les deux. L'atomicité EST la garde.
+    """
+    return bool(await redis_client.set(key, "1", ex=window_seconds, nx=True))
+
+
 async def reset(key: str) -> None:
     await redis_client.delete(key)

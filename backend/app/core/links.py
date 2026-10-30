@@ -87,6 +87,32 @@ def parent_announcement_query(announcement_id: object) -> dict[str, str]:
     return {"tab": TAB_ANNOUNCEMENTS, "announcement": str(announcement_id)}
 
 
+def parent_conversation_query() -> dict[str, str]:
+    """Paramètres menant à la conversation du portail parent.
+
+    Le parent n'en a qu'UNE : rien à désigner, mais l'onglet reste à nommer —
+    cet écran ouvre les diffusions par défaut, donc sans ce paramètre la
+    notification mène juste à côté du message qu'elle annonce.
+    """
+    return {"tab": TAB_PARENT_CONVERSATION}
+
+
+def admin_conversation_query(conversation_id: object) -> dict[str, str]:
+    """Paramètres menant à UNE conversation précise de l'espace admin.
+
+    L'admin en a plusieurs : il faut en plus dire LAQUELLE, sinon il doit la
+    retrouver dans une liste triée par activité.
+
+    ⚠️ Un seul constructeur pour l'email ET le push, comme pour les diffusions.
+    Les deux ne diffèrent que par l'hôte (`url` contre `url_path`) ; deux copies
+    finiraient par mener à deux endroits, et seul l'un des deux serait vérifié.
+    """
+    return {
+        "tab": TAB_ADMIN_CONVERSATIONS,
+        "conversation": str(conversation_id),
+    }
+
+
 def parent_report(report_id: object) -> str:
     """Chemin du rapport PRÉCIS dans le portail parent."""
     return PARENT_REPORT.format(report_id=report_id)

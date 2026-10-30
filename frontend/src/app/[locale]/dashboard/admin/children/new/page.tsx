@@ -54,6 +54,7 @@ const makeSchema = (t: T) => z.object({
   last_name: z.string().min(1, t('validation.lastName')).max(100),
   first_names: z.string().min(1, t('validation.firstNames')).max(200),
   birth_date: z.string().min(1, t('validation.birthDate')),
+  birth_place: z.string().max(200).optional().or(z.literal('')),
   admission_date: z.string().min(1, t('validation.admissionDate')),
   residence_address: z.string().min(1, t('validation.address')).max(500),
   department_id: z.string().optional().or(z.literal('')),
@@ -73,7 +74,8 @@ const makeSchema = (t: T) => z.object({
 type Form = z.infer<ReturnType<typeof makeSchema>>
 
 const STEP_FIELDS: Record<number, (keyof Form)[]> = {
-  0: ['last_name', 'first_names', 'birth_date', 'admission_date', 'residence_address',
+  0: ['last_name', 'first_names', 'birth_date', 'birth_place', 'admission_date',
+      'residence_address',
       'department_id', 'section_id', 'behavioral_notes', 'preferences'],
   1: ['medical_notes', 'dietary_restrictions', 'medications', 'doctor_name', 'doctor_phone'],
   2: ['guardians', 'authorized_persons'],
@@ -162,6 +164,7 @@ export default function NewChildPage() {
         last_name: values.last_name,
         first_names: values.first_names,
         birth_date: values.birth_date,
+        birth_place: values.birth_place || undefined,
         admission_date: values.admission_date,
         residence_address: values.residence_address,
         department_id: values.department_id || undefined,
@@ -298,6 +301,12 @@ export default function NewChildPage() {
                         <Input id="admission_date" type="date" {...register('admission_date')} aria-invalid={!!errors.admission_date} />
                         {errors.admission_date && <p className="text-sm text-destructive">{errors.admission_date.message}</p>}
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="birth_place">{t('fields.birthPlace')}</Label>
+                      <Input id="birth_place" {...register('birth_place')} aria-invalid={!!errors.birth_place} />
+                      {errors.birth_place && <p className="text-sm text-destructive">{errors.birth_place.message}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -579,6 +588,7 @@ export default function NewChildPage() {
                         <p><span className="text-muted-foreground">{t('summary.lastName')} </span>{values.last_name || '—'}</p>
                         <p><span className="text-muted-foreground">{t('summary.firstNames')} </span>{values.first_names || '—'}</p>
                         <p><span className="text-muted-foreground">{t('summary.birth')} </span>{formatDate(values.birth_date)}</p>
+                        <p><span className="text-muted-foreground">{t('summary.birthPlace')} </span>{values.birth_place || '—'}</p>
                         <p><span className="text-muted-foreground">{t('summary.admission')} </span>{formatDate(values.admission_date)}</p>
                         <p className="sm:col-span-2"><span className="text-muted-foreground">{t('summary.address')} </span>{values.residence_address || '—'}</p>
                         <p><span className="text-muted-foreground">{t('summary.department')} </span>{departmentName(values.department_id ?? '') ?? '—'}</p>

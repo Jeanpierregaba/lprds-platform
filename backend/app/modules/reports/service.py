@@ -3,6 +3,7 @@ import copy
 import calendar
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from enum import StrEnum
@@ -15,7 +16,7 @@ from pydantic import BaseModel, ValidationError, create_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import links, media, storage
+from app.core import background, links, media, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
@@ -459,7 +460,7 @@ async def submit_report(
         report.validated_at = now
         await db.flush()
         await db.refresh(report)
-        await _notify_parents(report)
+        _notify_parents(report)
         # Push notification : envoie aux parents que le rapport est validé
         await _send_report_push_notifications(report, db)
     else:
@@ -491,7 +492,7 @@ async def validate_report(
     report.validated_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(report)
-    await _notify_parents(report)
+    _notify_parents(report)
     # Push notification : envoie aux parents que le rapport est validé
     await _send_report_push_notifications(report, db)
     return await _to_response(report, db)
@@ -823,73 +824,133 @@ async def _read_report_ids(parent_id: uuid.UUID, db: AsyncSession) -> set[uuid.U
     return set(result.scalars().all())
 
 
-async def _notify_parents(report: Report) -> None:
+@dataclass(frozen=True)
+class _EmailRapport:
+    """Une notification prête à partir : plus aucune session n'est nécessaire.
+
+    Tout ce qui demandait la base — le destinataire, sa langue, le nom de
+    l'enfant, le libellé de période dans CETTE langue — a été lu pendant la
+    requête.
     """
-    Best-effort : contrairement au mot de passe temporaire (canal de délivrance
-    critique sans filet), le rapport reste consultable sur le portail même si
-    l'email échoue — l'échec est journalisé, jamais bloquant ni remonté en erreur.
+
+    to: str
+    parent_first_name: str
+    child_first_names: str
+    child_last_name: str
+    report_type: str
+    period_label: str
+    locale: Locale
+
+
+def _notify_parents(report: Report) -> int:
+    """Programme la notification des parents, et rend la main aussitôt.
+
+    ⚠️ **L'envoi ne se fait PLUS dans la requête**, et c'était la cause
+    mesurée d'un défaut signalé par un établissement : « Impossible de joindre
+    le serveur » à la validation d'un rapport. Un email, c'est une session SMTP
+    par destinataire, plafonnée à 60 s par le défaut d'`aiosmtplib` ; le
+    navigateur, lui, abandonne bien avant. Le serveur menait pourtant la
+    validation à terme — le parent était prévenu, le rapport publié — si bien
+    que l'admin lisait un échec sur une action réussie et irréversible, puis
+    récoltait un 409 en réessayant.
+
+    Le raisonnement précédent (« deux comptes, pas cent cinquante : le coût est
+    borné, le déplacer n'achèterait rien ») regardait le NOMBRE de
+    destinataires. Ce n'est pas lui qui décide : un seul destinataire suffit à
+    dépasser le plafond du client si le serveur de mail traîne.
+
+    Best-effort, comme avant : le rapport reste consultable sur le portail si
+    l'email n'arrive pas. Ce que la requête perd, c'est de pouvoir en rendre
+    compte — elle ne retourne que le nombre d'envois PROGRAMMÉS.
     """
     child = report.child
-    for parent in child.parents:
-        if not parent.is_active:
-            continue
+    envois = [
+        _EmailRapport(
+            to=parent.email,
+            parent_first_name=parent.first_name,
+            child_first_names=child.first_names,
+            child_last_name=child.last_name,
+            report_type=report.report_type,
+            period_label=_label_of(report, coerce_locale(parent.locale)),
+            locale=coerce_locale(parent.locale),
+        )
+        for parent in child.parents
+        if parent.is_active
+    ]
+    if envois:
+        background.spawn(
+            _envoyer_notifications_rapport(envois),
+            label=f"notification de rapport ({len(envois)} parent(s))",
+        )
+    return len(envois)
+
+
+async def _envoyer_notifications_rapport(envois: list[_EmailRapport]) -> None:
+    """Déroule les envois hors de la requête.
+
+    Best-effort **par destinataire** : un serveur qui refuse une adresse ne
+    doit pas priver les suivants de leur notification.
+    """
+    for envoi in envois:
         try:
             await send_report_available_email(
-                to=parent.email,
-                parent_first_name=parent.first_name,
-                child_first_names=child.first_names,
-                child_last_name=child.last_name,
-                report_type=report.report_type,
-                period_label=_label_of(report, coerce_locale(parent.locale)),
-                locale=coerce_locale(parent.locale),
+                to=envoi.to,
+                parent_first_name=envoi.parent_first_name,
+                child_first_names=envoi.child_first_names,
+                child_last_name=envoi.child_last_name,
+                report_type=envoi.report_type,
+                period_label=envoi.period_label,
+                locale=envoi.locale,
             )
         except EmailDeliveryError:
             logger.exception(
-                "Échec d'envoi de la notification de rapport à %s", parent.email
+                "Échec d'envoi de la notification de rapport à %s", envoi.to
             )
 
 
 async def _send_report_push_notifications(report: Report, db) -> int:
+    """Pousse aux parents de l'enfant que le rapport est validé.
+
+    ⚠️ Passe désormais par `send_push_to_establishment_parents`, la porte du
+    module Notifications, au lieu d'une boucle recopiée ici. Celle-ci faisait
+    tout dans la requête : une requête d'abonnements PAR parent, puis un
+    aller-retour HTTP vers le service du navigateur par appareil — et
+    `pywebpush` reçoit un plafond par défaut de dix mille secondes, donc rien
+    ne bornait l'attente. La porte du module lit ce qui exige la base pendant
+    la requête et déroule le réseau après la réponse ; elle rend aussi le
+    rendu par langue du destinataire et le retrait des abonnements morts, que
+    cette copie refaisait à sa façon.
+
+    ⚠️ Le corps est rendu ICI, langue par langue (`body_by_locale`), parce que
+    le libellé de période en dépend : `body_params` ne porterait qu'une seule
+    chaîne pour tous les destinataires, donc « 1–15 octobre 2026 » dans un push
+    anglais.
+
+    Retourne le nombre d'envois PROGRAMMÉS — la requête ne les attend plus.
     """
-    Envoie des notifications push aux parents lorsqu'un rapport est validé.
-    Best-effort : l'échec ne bloque pas la consultation du rapport sur le portail.
-    """
-    from app.modules.notifications.models import PushSubscription
-    from app.modules.notifications.service import send_push_to_subscription
+    from app.modules.notifications.service import send_push_to_establishment_parents
 
     child = report.child
+    parent_ids = {parent.id for parent in child.parents if parent.is_active}
+    if not parent_ids:
+        return 0
 
-    sent = 0
-    for parent in child.parents:
-        if not parent.is_active:
-            continue
-        sub_result = await db.execute(
-            select(PushSubscription).where(PushSubscription.user_id == parent.id)
-        )
-        subscriptions = sub_result.scalars().all()
-
-        for sub in subscriptions:
-            # Le rendu se fait ici, par parent : le même rapport notifie
-            # plusieurs comptes, qui n'ont pas forcément la même langue.
-            locale = coerce_locale(parent.locale)
-            success = await send_push_to_subscription(
-                sub,
-                t("push.report.title", locale),
-                t("push.report.body", locale,
-                  period=_label_of(report, locale), child=child.first_names),
-                # Le rapport PRÉCIS, pas la liste : son identifiant était
-                # déjà dans la charge utile, simplement inutilisé.
-                {"report_id": str(report.id), "child_id": str(child.id),
-                 "url": links.parent_report(report.id)},
-                # Comme dans les boucles de notifications/service.py : un
-                # endpoint révoqué est retiré au lieu d'être rejoué à chaque
-                # rapport validé.
-                db=db,
-            )
-            if success:
-                sent += 1
-
-    return sent
+    return await send_push_to_establishment_parents(
+        report.establishment_id,
+        "push.report.title",
+        None,
+        db,
+        # Le rapport PRÉCIS, pas la liste : son identifiant était déjà dans la
+        # charge utile, simplement inutilisé.
+        {"report_id": str(report.id), "child_id": str(child.id),
+         "url": links.parent_report(report.id)},
+        parent_ids=parent_ids,
+        body_by_locale={
+            str(loc): t("push.report.body", loc,
+                        period=_label_of(report, loc), child=child.first_names)
+            for loc in Locale
+        },
+    )
 
 
 def _child_brief(child: Child) -> ChildBrief:

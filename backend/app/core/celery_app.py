@@ -20,6 +20,7 @@ celery_app = Celery(
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=[
+        "app.modules.attendance.tasks",
         "app.modules.library.tasks",
         "app.modules.blog.tasks",
         "app.modules.menus.tasks",
@@ -36,6 +37,14 @@ celery_app.conf.beat_schedule = {
     # à l'heure du dernier déploiement — 3 h du matin chez le parent si la mise
     # en production avait eu lieu à 3 h. Invisible tant que rien ne tournait.
     # `crontab` dit une heure, pas un délai.
+    # 06:00 UTC — les exemptions de présence arrivées à échéance. Avant les
+    # rappels de bibliothèque : l'admin doit lire qu'une dispense est terminée
+    # au début de sa journée, pas après avoir découvert l'absence au tableau
+    # de bord. La tâche ne désactive rien, elle constate (cf. attendance/tasks).
+    "attendance-expired-exemptions-daily": {
+        "task": "app.modules.attendance.tasks.notify_expired_exemptions_all",
+        "schedule": crontab(hour=6, minute=0),
+    },
     "library-due-reminders-daily": {
         "task": "app.modules.library.tasks.send_due_reminders_all",
         "schedule": crontab(hour=7, minute=0),

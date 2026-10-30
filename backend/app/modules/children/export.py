@@ -58,7 +58,8 @@ def _child_to_row(child) -> list[object]:
 
     return [
         child.matricule, child.last_name, child.first_names, "",
-        child.birth_date.isoformat(), child.admission_date.isoformat(),
+        child.birth_date.isoformat(), child.birth_place or "",
+        child.admission_date.isoformat(),
         child.residence_address or "",
         "actif" if child.is_active else "inactif",
         child.section.name if child.section else "",

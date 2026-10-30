@@ -81,6 +81,11 @@ MESSAGES: dict[str, str] = {
     "errors.attendance.no_settings": "No attendance settings configured for this establishment",
     "errors.attendance.account_disabled": "This account is deactivated",
     "errors.attendance.child_not_absent": "This child is not absent on this date",
+    "errors.attendance.child_exempt": (
+        "This child is exempt from attendance on this date — there is no "
+        "reason to ask their parents about the absence"
+    ),
+    "errors.attendance.exemption_not_found": "Exemption not found",
     "errors.attendance.invalid_qr": "Invalid QR code",
     "errors.attendance.bad_timezone": (
         "Invalid time zone configured ({timezone}) — reconfigure the attendance settings"
@@ -320,6 +325,9 @@ MESSAGES: dict[str, str] = {
     "emails.message.sender_school": "the school",
     "emails.absence_inquiry.subject_one": "{child} absent — {date}",
     "emails.absence_inquiry.subject_many": "Absences on {date}",
+    "emails.exemption_expired.subject_one": "An attendance exemption has ended",
+    "emails.exemption_expired.subject_many": "{count} attendance exemptions have ended",
+    "emails.exemption_expired.line": "{scope} \u2014 {name} (until {end})",
     "emails.library_reminder.subject": "Library books due back",
     "reports.types.quotidien": "daily",
     "reports.types.bi_mensuel": "twice-monthly",
@@ -329,6 +337,9 @@ MESSAGES: dict[str, str] = {
     "reports.status.rejected": "rejected",
     "reports.status.validated": "approved",
     # ── push ────────────────────────────────────────────
+    "push.exemption_expired.title": "Attendance exemption ended",
+    "push.exemption_expired.body_one": "An exemption has reached its end date",
+    "push.exemption_expired.body_many": "{count} exemptions have reached their end date",
     "push.announcement.title": "New announcement",
     "push.message_from_school.title": "New message from the school",
     "push.message.title": "New message",
@@ -368,6 +379,10 @@ MESSAGES: dict[str, str] = {
     ),
     "validation.departure_before_arrival": (
         "The departure time must be later than the arrival time"
+    ),
+    "validation.end_before_start": "The end date cannot be before the start date",
+    "validation.exemption_target": (
+        "A \u201c{scope}\u201d exemption requires {field}, and nothing else"
     ),
     "validation.password_requirements": "The password must contain: {missing}",
     "validation.password_uppercase": "an uppercase letter",
@@ -511,6 +526,9 @@ MESSAGES: dict[str, str] = {
     "attendance.status.absent": "Absent",
     "attendance.status.not_expected": "Not expected",
     "attendance.status.exempt": "Exempt",
+    "attendance.exemption.scope.staff": "Staff",
+    "attendance.exemption.scope.child": "Child",
+    "attendance.exemption.scope.section": "Section",
     "attendance.person.child": "Child",
     "attendance.person.staff": "Staff",
     "attendance.export.title": "Attendance export",

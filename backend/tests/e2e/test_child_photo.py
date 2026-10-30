@@ -4,11 +4,17 @@ Demandée par un établissement : reconnaître un enfant d'un coup d'œil dans l
 listes, les présences et le trombinoscope d'une section, au lieu de lire un nom.
 
 ⚠️ Le cœur du fichier est la règle d'ACCÈS, qui ne ressemble à aucune autre du
-projet. Trois acteurs peuvent déposer la photo — l'admin, un parent de l'enfant
-depuis son compte, et l'éducatrice qui mène son groupe — ce qui est à la fois
-plus large que `children:write` (les parents n'ont aucune permission RBAC) et
-plus étroit (un staff porteur du droit mais étranger au groupe n'a rien à faire
-sur la photo d'un enfant qu'il n'encadre pas).
+projet : l'admin, un parent de l'enfant depuis son compte, l'éducatrice qui
+mène son groupe, et tout staff porteur de `children:write`. C'est plus large
+que la seule permission — un parent n'a aucune permission RBAC — sans être
+plus étroit qu'elle.
+
+⚠️ Ce dernier acteur MANQUAIT, et le test ne pouvait pas le voir : il
+n'exerçait que l'éducatrice hors de son groupe, qui ne porte aucune
+permission sur les enfants. Il concluait « le lien à l'enfant fait foi, pas la
+permission » — vrai pour les cas qu'il montait, faux pour celui qu'un
+établissement a signalé : une assistante de direction à qui les fiches avaient
+été confiées voyait le bouton et récoltait un 403.
 """
 import io
 
@@ -45,6 +51,20 @@ def _monde(c):
                     "educatrice_id": educ.json()["id"], "child_ids": [a["id"]]}, headers=adm)
     ck("groupe créé avec Awa seule", groupe.status_code, 201)
 
+    # Une ASSISTANTE DE DIRECTION : les fiches enfants lui sont confiées, elle
+    # ne mène aucun groupe. C'est le cas signalé.
+    assist = c.post("/staff", json={
+        "first_name": "Ada", "last_name": "D", "nickname": "Tata Ada",
+        "email": "assist.phot@a.fr", "password": "Staff#2026",
+        "staff_type": "administrateur", "phone": "90000003"}, headers=adm)
+    ck("assistante créée", assist.status_code, 201)
+    role = c.post("/rbac/roles", json={
+        "name": "Assistante de direction",
+        "permissions": ["children:read", "children:write"]}, headers=adm).json()
+    ck("rôle attribué", c.post(
+        f"/rbac/staff/{assist.json()['id']}/roles/{role['id']}",
+        headers=adm).status_code, 200)
+
     parent = c.post("/parents", json={
         "first_name": "Ama", "last_name": "Kodjo", "nickname": "Maman Ama",
         "phone": "90000002", "email": "parent.phot@a.fr", "password": "Parent#2026",
@@ -54,6 +74,7 @@ def _monde(c):
     return {
         "adm": adm,
         "educ": login(c, "educ.phot@a.fr", "Staff#2026"),
+        "assist": login(c, "assist.phot@a.fr", "Staff#2026"),
         "parent": login(c, "parent.phot@a.fr", "Parent#2026"),
         "awa": a["id"], "bruno": b["id"],
     }
@@ -73,8 +94,29 @@ def test_the_three_actors_can_set_the_photo(client):
         ck(f"{qui} — la fiche l'annonce", r.json()["has_photo"], True)
 
 
+def test_a_children_write_holder_can_without_leading_any_group(client):
+    """Le cas signalé : une assistante de direction, sans aucun groupe.
+
+    Elle modifie déjà le nom de l'enfant, sa date de naissance, son adresse et
+    ses NOTES MÉDICALES avec `children:write`. Lui refuser la photo ne
+    protégeait rien — ça rendait seulement inutilisable une permission dont le
+    libellé dit « créer et modifier les fiches enfants ».
+
+    Prouvé par sabotage : la branche `children:write` retirée, le 403 d'origine
+    reparaît sur les deux enfants.
+    """
+    c = client
+    m = _monde(c)
+    for enfant in ("awa", "bruno"):
+        r = _pose(c, m[enfant], m["assist"])
+        ck(f"assistante dépose la photo de {enfant}", r.status_code, 200)
+        ck(f"  la fiche de {enfant} l'annonce", r.json()["has_photo"], True)
+    ck("et elle peut la retirer",
+       c.delete(f"/children/{m['awa']}/photo", headers=m["assist"]).status_code, 204)
+
+
 def test_nobody_else_can(client):
-    """Le lien à l'enfant fait foi, pas la permission."""
+    """Ni permission sur les enfants, ni lien avec lui : rien."""
     c = client
     m = _monde(c)
 

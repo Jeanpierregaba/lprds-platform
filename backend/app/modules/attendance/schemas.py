@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.modules.attendance.models import EventType, PersonType
+from app.modules.attendance.models import EventType, ExemptionScope, ExemptionState, PersonType
 from app.core.i18n import t
 
 
@@ -133,6 +133,10 @@ class DailyStatus(BaseModel):
     arrival_time: datetime | None
     departure_time: datetime | None
     late_minutes: int | None   # None = pas de retard calculable (pas d'horaire configuré)
+    #: ⚠️ Porté par la classe de BASE : les enfants sont exemptables depuis
+    #: l'arrivée des périodes, et le champ n'existait que côté personnel. Deux
+    #: déclarations jumelles seraient deux occasions de n'en corriger qu'une.
+    exempt:       bool = False
 
 
 class ChildDailyStatus(DailyStatus):
@@ -142,7 +146,6 @@ class ChildDailyStatus(DailyStatus):
 class StaffDailyStatus(DailyStatus):
     staff:      PersonBrief
     meal_taken: bool
-    exempt:     bool
 
 
 class ChildDailyStatusListResponse(BaseModel):
@@ -277,11 +280,95 @@ class AbsenceInquiryResponse(BaseModel):
     already_notified: list[str]
 
 
-# ── Exemptions staff ─────────────────────────────────────────────
-class StaffExemptionRequest(BaseModel):
-    exempt: bool
+# ── Exemptions (personnel, enfant, section) ─────────────────────
+class ExemptionPeriod(BaseModel):
+    """Bornes INCLUSES. `None` à gauche = depuis toujours, `None` à droite =
+    sans fin — c'est ce qu'exprimait l'ancien booléen de personnel, et il faut
+    pouvoir continuer à le dire."""
+
+    starts_on: date_ | None = None
+    ends_on:   date_ | None = None
+    reason:    str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def check_period(self) -> "ExemptionPeriod":
+        if (
+            self.starts_on is not None
+            and self.ends_on is not None
+            and self.ends_on < self.starts_on
+        ):
+            raise ValueError(t("validation.end_before_start"))
+        return self
 
 
-class StaffExemptionResponse(BaseModel):
-    staff_id: uuid.UUID
-    exempt:   bool
+class ExemptionCreateRequest(ExemptionPeriod):
+    """⚠️ `scope` décide lequel des trois identifiants est exigé — un seul, et
+    celui-là. Laisser les trois facultatifs côté type puis trancher ici évite
+    trois schémas jumeaux, donc trois occasions de n'en corriger que deux."""
+
+    scope:      ExemptionScope
+    staff_id:   uuid.UUID | None = None
+    child_id:   uuid.UUID | None = None
+    section_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def check_target(self) -> "ExemptionCreateRequest":
+        attendu = {
+            ExemptionScope.STAFF:   "staff_id",
+            ExemptionScope.CHILD:   "child_id",
+            ExemptionScope.SECTION: "section_id",
+        }[self.scope]
+        fournis = [
+            nom
+            for nom in ("staff_id", "child_id", "section_id")
+            if getattr(self, nom) is not None
+        ]
+        if fournis != [attendu]:
+            raise ValueError(
+                t("validation.exemption_target", scope=str(self.scope), field=attendu)
+            )
+        return self
+
+
+class ExemptionUpdateRequest(ExemptionPeriod):
+    """⚠️ La période est REMPLACÉE en entier, jamais fusionnée — même contrat
+    que `PATCH /menus/{week_start}`.
+
+    Une fusion partielle demanderait de distinguer « champ absent » de « champ
+    mis à None », et `None` est ici une valeur pleine de sens (sans fin). Le
+    sentinelle que ça imposerait coûterait plus cher en surprises qu'un corps
+    complet n'en coûte à écrire.
+
+    La PORTÉE, elle, ne se modifie pas : déplacer une exemption d'un enfant à
+    un autre, c'est en annuler une et en créer une autre.
+    """
+
+
+class ExemptionResponse(BaseModel):
+    id:         uuid.UUID
+    scope:      ExemptionScope
+    staff_id:   uuid.UUID | None
+    child_id:   uuid.UUID | None
+    section_id: uuid.UUID | None
+
+    #: Ce que l'écran affiche. Résolu côté serveur : la règle du surnom
+    #: (« Tata Victoire ») vit dans `app.core.people`, pas dans chaque liste.
+    target_name:  str
+    #: Section de l'enfant — contexte utile pour distinguer deux homonymes, et
+    #: pour comprendre pourquoi un enfant est couvert sans l'être nommément.
+    section_name: str | None = None
+
+    starts_on: date_ | None
+    ends_on:   date_ | None
+    reason:    str | None
+    is_active: bool
+
+    #: ⚠️ DÉRIVÉ des dates, jamais lu en base — rien n'est éteint à l'échéance
+    #: (cf. la docstring du modèle). C'est ce champ qui fait lire « Expirée »
+    #: dans la liste sans que l'historique de l'export bouge.
+    state: ExemptionState
+
+
+class ExemptionListResponse(BaseModel):
+    total: int
+    items: list[ExemptionResponse]

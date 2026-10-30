@@ -46,6 +46,7 @@ const makeInfoSchema = (t: T) => z.object({
   last_name: z.string().min(1, t('validation.lastName')).max(100),
   first_names: z.string().min(1, t('validation.firstNames')).max(200),
   birth_date: z.string().min(1, t('validation.birthDate')),
+  birth_place: z.string().max(200).optional().or(z.literal('')),
   admission_date: z.string().min(1, t('validation.admissionDate')),
   residence_address: z.string().min(1, t('validation.address')).max(500),
   department_id: z.string(),
@@ -219,6 +220,7 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
       last_name: child.last_name,
       first_names: child.first_names,
       birth_date: child.birth_date,
+      birth_place: child.birth_place ?? '',
       admission_date: child.admission_date,
       residence_address: child.residence_address,
       department_id: child.department?.id ?? '',
@@ -236,6 +238,9 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
         last_name: values.last_name,
         first_names: values.first_names,
         birth_date: values.birth_date,
+        // Vidé à l'écran = EFFACÉ en base : `null`, jamais une chaîne vide,
+        // qu'on ne saurait plus distinguer d'un lieu réellement saisi.
+        birth_place: values.birth_place || null,
         admission_date: values.admission_date,
         residence_address: values.residence_address,
         department_id: values.department_id || null,
@@ -275,6 +280,11 @@ function InfoTab({ childId, child, onSaved, canWrite }: TabProps) {
               <Input id="admission_date" type="date" {...register('admission_date')} aria-invalid={!!errors.admission_date} />
               {errors.admission_date && <p className="text-sm text-destructive">{errors.admission_date.message}</p>}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="birth_place">{t('fields.birthPlace')}</Label>
+            <Input id="birth_place" {...register('birth_place')} aria-invalid={!!errors.birth_place} />
+            {errors.birth_place && <p className="text-sm text-destructive">{errors.birth_place.message}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="residence_address">{t('fields.address')}</Label>

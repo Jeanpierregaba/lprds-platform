@@ -58,6 +58,8 @@ class ChildCreateRequest(BaseModel):
     last_name:         str = Field(min_length=1, max_length=100)
     first_names:       str = Field(min_length=1, max_length=200)
     birth_date:        date
+    # Facultatif : pas toujours connu à l'inscription (cf. le modèle).
+    birth_place:       str | None = Field(default=None, max_length=200)
     admission_date:    date
     residence_address: str = Field(min_length=1, max_length=500)
     department_id:     uuid.UUID | None = None
@@ -90,6 +92,7 @@ class ChildUpdateRequest(BaseModel):
     last_name:         str | None = Field(default=None, min_length=1, max_length=100)
     first_names:       str | None = Field(default=None, min_length=1, max_length=200)
     birth_date:        date | None = None
+    birth_place:       str | None = Field(default=None, max_length=200)
     admission_date:    date | None = None
     residence_address: str | None = Field(default=None, min_length=1, max_length=500)
     department_id:     uuid.UUID | None = None
@@ -130,6 +133,7 @@ class ChildResponse(BaseModel):
     last_name:         str
     first_names:       str
     birth_date:        date
+    birth_place:       str | None
     admission_date:    date
     residence_address: str
     department:        UnitBrief | None

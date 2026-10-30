@@ -40,6 +40,9 @@ export interface DailyStatus {
   arrival_time:    string | null
   departure_time:  string | null
   late_minutes:    number | null
+  /** Dispensé de pointage ce jour-là — enfants comme personnel depuis que les
+   *  exemptions portent une période et peuvent viser une section entière. */
+  exempt:          boolean
 }
 
 export interface ChildDailyStatus extends DailyStatus {
@@ -49,7 +52,6 @@ export interface ChildDailyStatus extends DailyStatus {
 export interface StaffDailyStatus extends DailyStatus {
   staff:      PersonBrief
   meal_taken: boolean
-  exempt:     boolean
 }
 
 export interface ChildDailyStatusListResponse {
@@ -124,10 +126,46 @@ export interface AttendanceGeneralSettings {
   late_grace_minutes:              number
 }
 
-export interface StaffExemption {
-  staff_id: string
-  exempt:   boolean
+export type ExemptionScope = 'staff' | 'child' | 'section'
+
+/** État DÉRIVÉ des dates côté serveur — jamais stocké. Rien n'est éteint en
+ *  base à l'échéance : l'export recalcule le passé, et un drapeau basculé par
+ *  une tâche de fond y réécrirait l'historique. */
+export type ExemptionState = 'upcoming' | 'active' | 'expired' | 'revoked'
+
+export interface Exemption {
+  id:           string
+  scope:        ExemptionScope
+  staff_id:     string | null
+  child_id:     string | null
+  section_id:   string | null
+  target_name:  string
+  section_name: string | null
+  starts_on:    string | null
+  ends_on:      string | null
+  reason:       string | null
+  is_active:    boolean
+  state:        ExemptionState
 }
+
+export interface ExemptionListResponse {
+  total: number
+  items: Exemption[]
+}
+
+export interface ExemptionCreatePayload {
+  scope:       ExemptionScope
+  staff_id?:   string
+  child_id?:   string
+  section_id?: string
+  starts_on:   string | null
+  ends_on:     string | null
+  reason:      string | null
+}
+
+/** ⚠️ La période est REMPLACÉE en entier, jamais fusionnée — même contrat que
+ *  `PATCH /menus/{week_start}`. La portée, elle, ne se modifie pas. */
+export type ExemptionUpdatePayload = Omit<ExemptionCreatePayload, 'scope' | 'staff_id' | 'child_id' | 'section_id'>
 
 export interface StaffSchedule {
   staff_id:                 string

@@ -3,6 +3,9 @@
 import { useTranslations } from 'next-intl'
 
 import { useState } from 'react'
+// ⚠️ `useSearchParams` seulement : `useRouter` et `Link` viennent de
+// `@/i18n/navigation`, sinon les liens perdent le préfixe /en en silence.
+import { useSearchParams } from 'next/navigation'
 import { FileDown, LayoutDashboard, QrCode, ScanLine, ScrollText, Settings } from 'lucide-react'
 
 import { Tabs, TabsTrigger } from '@/components/ui/tabs'
@@ -36,7 +39,13 @@ export default function AttendancePage() {
   const showSettings = can('attendance:write')
   const showScan = can('attendance:scan')
   const fallbackTab = showRead ? 'dashboard' : showScan ? 'scan' : showQrcode ? 'qrcodes' : 'dashboard'
-  const [tab, setTab] = useState<string | null>(null)
+  // L'onglet peut être DÉSIGNÉ par l'URL : la notification d'échéance
+  // d'exemption mène aux réglages, et sans ça elle tomberait sur le premier
+  // onglet permis — le tableau de bord, c'est-à-dire juste à côté de ce
+  // qu'elle annonce. Même raison que les deux écrans de messagerie, qui
+  // ouvrent par défaut l'onglet des diffusions.
+  const requestedTab = useSearchParams().get('tab')
+  const [tab, setTab] = useState<string | null>(requestedTab)
   // Onglet contrôlé : recalculé quand les permissions arrivent (async) —
   // plus de page vide pour les rôles restreints (ex. scan seul).
   const active = (tab && isTabVisible(tab) ? tab : null) ?? fallbackTab

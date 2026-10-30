@@ -14,6 +14,7 @@ from app.core.database import Base
 from app.core.translation_models import TranslationMemory
 from app.modules.attendance.models import (
     AttendanceEvent,
+    AttendanceExemption,
     AttendanceSettings,
     DepartmentAttendanceSettings,
     StaffAttendanceSchedule,
@@ -72,6 +73,7 @@ __all__ = [
     "AttendanceEvent",
     "DepartmentAttendanceSettings",
     "AttendanceSettings",
+    "AttendanceExemption",
     "StaffAttendanceSchedule",
     "Announcement",
     "AnnouncementRead",

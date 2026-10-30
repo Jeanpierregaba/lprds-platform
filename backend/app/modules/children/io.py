@@ -10,7 +10,8 @@ sanitaires validées sur l'export réel (emails invalides → None + averti,
 tél > 20 car. → 1er segment, fusions de doublons).
 
 Colonnes canoniques (en-têtes stables, casse/espaces ignorés à la lecture) :
-    matricule, nom, prenoms, nom_usuel, date_naissance, date_admission,
+    matricule, nom, prenoms, nom_usuel, date_naissance, lieu_naissance,
+    date_admission,
     adresse, statut, section,
     notes_comportement, preferences, notes_medicales,
     restrictions_alimentaires, medicaments, medecin_nom, medecin_tel,
@@ -47,7 +48,8 @@ MAX_IMPORT_ROWS = 1000
 
 IMPORT_COLUMNS = [
     "matricule", "nom", "prenoms", "nom_usuel",
-    "date_naissance", "date_admission", "adresse", "statut", "section",
+    "date_naissance", "lieu_naissance", "date_admission", "adresse",
+    "statut", "section",
     "notes_comportement", "preferences", "notes_medicales",
     "restrictions_alimentaires", "medicaments", "medecin_nom", "medecin_tel",
     "tuteur_1_nom", "tuteur_1_prenoms", "tuteur_1_tel", "tuteur_1_email",
@@ -238,6 +240,12 @@ def flat_row_to_fields(
         "last_name": clean(row.get("nom", "")),
         "first_names": first_names_value,
         "birth_date": parse_date_value(row.get("date_naissance", ""), "date_naissance"),
+        # ⚠️ La colonne DOIT exister dans le format : sans elle, un
+        # aller-retour export → import effacerait le lieu de naissance de
+        # toutes les fiches, en silence. Les lignes sont lues par NOM de
+        # colonne, donc un fichier antérieur à cet ajout reste importable —
+        # il laisse simplement le champ vide.
+        "birth_place": real_text(row.get("lieu_naissance", "")),
         "admission_date": parse_date_value(row.get("date_admission", ""), "date_admission"),
         "residence_address": residence_address,
         "department_id": department_id,

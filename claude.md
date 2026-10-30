@@ -1281,13 +1281,26 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 ### Structure des informations
 | Groupe | Champs |
 |---|---|
-| Base | `last_name`, `first_names`, `birth_date`, `admission_date`, `residence_address`, `department_id`, `section_id` |
+| Base | `last_name`, `first_names`, `birth_date`, `birth_place` (facultatif), `admission_date`, `residence_address`, `department_id`, `section_id` |
 | Comportement | `behavioral_notes`, `preferences` |
 | Médical | `medical_notes`, `dietary_restrictions`, `medications`, `doctor_name`, `doctor_phone` |
 | Tuteurs (1-N) | `guardians[]` : `last_name`, `first_names`, `phone`, `email` (optionnel) |
 | Personnes autorisées (0-N) | `authorized_persons[]` : `last_name`, `first_names`, `phone` |
 
 ### Règles métier (invariants)
+- **Le lieu de naissance est FACULTATIF**, et la colonne est nullable. Les
+  fiches déjà saisies n'en portent pas : une colonne NOT NULL aurait exigé une
+  valeur inventée pour chacune, qu'on ne saurait plus distinguer d'une vraie
+  saisie. Il n'est d'ailleurs pas toujours connu à l'inscription (état civil en
+  cours, enfant né à l'étranger), et un champ obligatoire qu'on ne peut pas
+  remplir fait saisir n'importe quoi. Vidé à l'écran = `null`, jamais `""`.
+  ⚠️ **Il a dû entrer dans le FORMAT D'ÉCHANGE** (`lieu_naissance`, après
+  `date_naissance`) : une colonne ajoutée au modèle mais oubliée de
+  `IMPORT_COLUMNS` s'efface en silence au premier aller-retour — l'export rend
+  une cellule vide, et le réimport écrase la vraie valeur. Les lignes étant
+  lues par NOM de colonne, un fichier antérieur reste importable ; il laisse
+  simplement le champ vide. Sous test, et prouvé par sabotage des deux côtés
+  (non lu à l'import / non écrit à l'export).
 - **Tuteur non obligatoire** : une fiche peut être créée/importée sans tuteur
   (`guardians=[]` accepté — règle assouplie sur demande : les lignes d'import
   sans tuteur créent la fiche au lieu d'être rejetées)

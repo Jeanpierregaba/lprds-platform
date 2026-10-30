@@ -45,6 +45,12 @@ class Child(Base):
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     first_names: Mapped[str] = mapped_column(String(200), nullable=False)
     birth_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # ⚠️ FACULTATIF, et nullable en base. Les fiches existantes n'en portent
+    # pas : une colonne NOT NULL exigerait une valeur inventée pour chacune.
+    # Le lieu de naissance n'est d'ailleurs pas toujours connu à l'inscription
+    # (dossier d'état civil en cours, enfant né à l'étranger), et un champ
+    # obligatoire qu'on ne peut pas remplir fait saisir n'importe quoi.
+    birth_place: Mapped[str | None] = mapped_column(String(200), nullable=True)
     admission_date: Mapped[date] = mapped_column(Date, nullable=False)
     residence_address: Mapped[str] = mapped_column(String(500), nullable=False)
 

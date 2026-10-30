@@ -49,6 +49,7 @@ export interface Child {
   last_name:         string
   first_names:       string
   birth_date:        string
+  birth_place:       string | null
   admission_date:    string
   residence_address: string
   department:        UnitBrief | null
@@ -97,6 +98,7 @@ export interface ChildCreatePayload {
   last_name:         string
   first_names:       string
   birth_date:        string
+  birth_place?:      string
   admission_date:    string
   residence_address: string
   department_id?:    string
@@ -119,6 +121,7 @@ export interface ChildUpdatePayload {
   last_name?:         string
   first_names?:       string
   birth_date?:        string
+  birth_place?:       string | null
   admission_date?:    string
   residence_address?: string
   department_id?:     string | null

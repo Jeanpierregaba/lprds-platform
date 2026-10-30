@@ -2533,9 +2533,14 @@ qu'une diffusion, qui est purement informative.
   rien n'a été délivré, et laisser la clé priverait le destinataire de toute
   notification pour la demi-heure suivante — soit précisément au moment où le
   SMTP revient.
-- **Lecture dans la requête, envoi en fond**, comme la diffusion et le push :
-  `fastapi-mail` ouvre une connexion SMTP par message, et c'est ici le chemin
-  le plus fréquent de la plateforme, dans une interface qui se veut temps réel.
+- **Lecture dans la requête, envoi en fond** (`app/core/background.py`), comme
+  la diffusion et le push : `fastapi-mail` ouvre une connexion SMTP par
+  message, et c'est ici le chemin le plus fréquent de la plateforme, dans une
+  interface qui se veut temps réel. ⚠️ Les deux envois du module passent par
+  `background.spawn` — `messaging/service.py` gardait sa PROPRE collection de
+  tâches, écrite avant que le helper n'existe. Deux copies de la référence
+  forte sur une tâche, c'est deux occasions d'en oublier une, et la tâche
+  oubliée est emportée par le ramasse-miettes en plein vol, sans trace.
 - **Le lien mène à LA conversation**, et ce n'est pas le même écran des deux
   côtés : `links.parent_conversation_query()` (le parent n'en a qu'une, mais
   l'onglet reste à nommer — cet écran ouvre les diffusions par défaut) et

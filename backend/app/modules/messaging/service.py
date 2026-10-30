@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -8,7 +7,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import links, media, rate_limit, storage
+from app.core import background, links, media, rate_limit, storage
 from app.core.config import settings
 from app.core.i18n import DEFAULT_LOCALE, Locale, coerce_locale, current_locale, t
 from app.core.translation import TranslationUnavailable, translate_texts
@@ -186,13 +185,6 @@ async def create_announcement(
     return response
 
 
-#: Tâches d'envoi en cours — gardées le temps de leur exécution.
-#: ⚠️ `asyncio` ne retient qu'une référence FAIBLE sur une tâche : sans cet
-#: ensemble, le ramasse-miettes peut l'emporter en plein vol, et des parents
-#: ne reçoivent rien sans la moindre trace.
-_taches_email: set[asyncio.Task] = set()
-
-
 async def _notify_audience_by_email(
     announcement: Announcement,
     audience: set[uuid.UUID],
@@ -239,16 +231,15 @@ async def _notify_audience_by_email(
     if not destinataires:
         return
 
-    tache = asyncio.create_task(
+    background.spawn(
         _envoyer_emails_diffusion(
             destinataires,
             announcement_id=announcement.id,
             establishment_name=establishment_name,
             requires_signature=announcement.requires_signature,
-        )
+        ),
+        label=f"emails de diffusion {announcement.id}",
     )
-    _taches_email.add(tache)
-    tache.add_done_callback(_taches_email.discard)
 
 
 async def _envoyer_emails_diffusion(
@@ -1000,9 +991,10 @@ async def _notify_recipient_by_email(
     if not envois:
         return
 
-    tache = asyncio.create_task(_envoyer_emails_message(envois, destination))
-    _taches_email.add(tache)
-    tache.add_done_callback(_taches_email.discard)
+    background.spawn(
+        _envoyer_emails_message(envois, destination),
+        label=f"emails de message, conversation {conversation.id}",
+    )
 
 
 def _cle_email_message(conversation_id: uuid.UUID, destinataire_id: uuid.UUID) -> str:

@@ -1337,14 +1337,43 @@ GET    /api/v1/children/{id}/photo?thumb=   # authentifié, jamais en statique
 DELETE /api/v1/children/{id}/photo          # idempotent
 ```
 
-⚠️ **Ces trois routes n'utilisent PAS `require_permission`.** Le droit dépend du
-LIEN à l'enfant, pas d'une permission RBAC — décision explicite de
-l'utilisateur. Peuvent déposer la photo : l'**admin** de l'établissement, un
-**parent** de l'enfant depuis son compte, et l'**éducatrice** qui mène son
-groupe. C'est à la fois plus large que `children:write` (un parent n'a aucune
-permission RBAC) et plus étroit (un staff porteur du droit mais étranger au
-groupe n'a rien à faire sur la photo d'un enfant qu'il n'encadre pas). La règle
-vit dans `_child_for_photo`, au même endroit pour les trois routes.
+⚠️ **Ces trois routes n'utilisent PAS `require_permission`**, parce que le
+droit ne dépend pas que d'une permission RBAC. Peuvent déposer la photo :
+l'**admin**, un **parent** de l'enfant depuis son compte, l'**éducatrice** qui
+mène son groupe, et tout **staff porteur de `children:write`**. C'est plus
+large que la seule permission (un parent n'en a aucune) sans être plus étroit
+qu'elle. La règle vit dans `_child_for_photo`, au même endroit pour les trois
+routes.
+
+#### ⚠️ Le porteur de `children:write` en était EXCLU — corrigé le 30/10/2026
+
+Signalé par un établissement : une **assistante de direction**, à qui les
+fiches enfants avaient été confiées, voyait « Ajouter une photo » et récoltait
+un 403. Ne menant aucun groupe, elle n'aurait JAMAIS pu en déposer une.
+
+L'exclusion était motivée ainsi : « un staff porteur du droit mais étranger au
+groupe n'a rien à faire sur la photo d'un enfant qu'il n'encadre pas ». Elle
+ne tient pas, et **l'argument qui la défait était déjà écrit deux paragraphes
+plus bas, pour la LECTURE** : avec `children:write`, cette assistante modifie
+déjà le nom de l'enfant, sa date de naissance, son adresse ET ses notes
+médicales (l'onglet Médical est gardé par la même permission). Protéger la
+photo pendant que le dossier médical reste ouvert ne protège personne — ça
+rend seulement inutilisable une permission dont le libellé dit « créer et
+modifier les fiches enfants », la photo étant une donnée de la fiche.
+
+⚠️ **L'écran et le serveur ne disaient pas la même chose** : la fiche affiche
+le bouton dès `children:write`, et son commentaire annonce même qu'il « évite
+l'impasse d'un bouton voué à un 403 ». C'est le défaut « bouton visible qui
+échoue » que le projet s'interdit ailleurs (carte des médias d'un rapport,
+onglet des paramètres de bibliothèque) — il était ici, à l'envers : c'est la
+GARDE qui avait tort, pas l'écran.
+
+⚠️ **Pourquoi le test ne l'a pas vu** : il n'exerçait que l'éducatrice hors de
+son groupe, qui ne porte aucune permission sur les enfants, et concluait « le
+lien à l'enfant fait foi, pas la permission ». Vrai pour les cas qu'il
+montait, faux pour celui-ci. Le monde de test porte désormais une assistante
+de direction sans groupe ; prouvé par sabotage — la branche retirée, le 403
+signalé reparaît à l'identique.
 
 ⚠️ **La LECTURE est plus large que l'écriture**, et ce n'est pas un oubli : un
 staff qui a déjà `children:read` voit le nom, la date de naissance et les notes

@@ -639,12 +639,26 @@ async def _child_for_photo(
 ) -> Child:
     """La fiche, si cet utilisateur a le droit de toucher à sa photo.
 
-    ⚠️ Trois acteurs peuvent la DÉPOSER, sur décision explicite : l'admin de
-    l'établissement, un parent de l'enfant depuis son compte, et l'éducatrice
-    qui mène son groupe. C'est volontairement plus large que `children:write`
-    (qui exclut les parents) et plus étroit (un staff porteur du droit mais
+    ⚠️ Peuvent la DÉPOSER : l'admin, un parent de l'enfant depuis son compte,
+    l'éducatrice qui mène son groupe, et tout staff porteur de
+    `children:write`. C'est plus large que la seule permission (un parent n'a
+    aucune permission RBAC) sans être plus étroit qu'elle.
+
+    ⚠️ **Le porteur de `children:write` en était exclu, et c'était un
+    défaut** — signalé par un établissement : une assistante de direction, à
+    qui les fiches enfants avaient été confiées, voyait le bouton « Ajouter
+    une photo » et récoltait un 403. Elle ne menait aucun groupe, donc elle
+    n'aurait JAMAIS pu en déposer une.
+
+    L'exclusion était motivée ainsi : « un staff porteur du droit mais
     étranger au groupe n'a rien à faire sur la photo d'un enfant qu'il
-    n'encadre pas).
+    n'encadre pas ». Elle ne tient pas, et c'est le même raisonnement que
+    celui déjà écrit juste en dessous pour la LECTURE : avec
+    `children:write`, cette assistante modifie déjà le nom de l'enfant, sa
+    date de naissance, son adresse ET ses notes médicales. Protéger la photo
+    pendant que le dossier médical reste ouvert ne protège rien — ça rend
+    seulement inutilisable une permission dont le libellé dit « créer et
+    modifier les fiches enfants », la photo étant une donnée de la fiche.
 
     ⚠️ La LECTURE est plus large que l'écriture, et ce n'est pas un oubli : un
     staff qui a déjà `children:read` voit le nom, la date de naissance et les
@@ -680,7 +694,10 @@ async def _child_for_photo(
             group = await db.get(Group, child.group_id)
             if group and group.educatrice_id == user.id:
                 return child
-        if not writing and str(PermissionCode.CHILDREN_READ) in user_permission_codes(user):
+        codes = user_permission_codes(user)
+        if str(PermissionCode.CHILDREN_WRITE) in codes:
+            return child
+        if not writing and str(PermissionCode.CHILDREN_READ) in codes:
             return child
 
     raise HTTPException(

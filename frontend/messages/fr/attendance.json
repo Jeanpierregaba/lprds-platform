@@ -8,7 +8,7 @@
     "late": "Arrivé après l’horaire attendu",
     "absent": "Jour ouvré sans arrivée scannée",
     "not_expected": "Week-end : aucune présence attendue",
-    "exempt": "Personnel exempté de pointage"
+    "exempt": "Dispensé de pointage"
   },
   "eventTypes": {
     "arrival": "Arrivée",
@@ -199,7 +199,7 @@
       "absent": "Jour ouvré sans arrivée",
       "late": "Arrivés après l’horaire attendu",
       "not_expected": "Week-end : aucune présence attendue",
-      "exempt": "Personnel exempté de pointage"
+      "exempt": "Dispensé de pointage"
     },
     "modalTitles": {
       "total": "Liste complète",
@@ -268,7 +268,6 @@
   },
   "graceHint": "Une arrivée dans ce délai après l'horaire attendu compte « présent ». 0 = aucun pardon. S'applique aux enfants comme au personnel.",
   "staffScheduleHint": "Par défaut, tout le personnel suit l'horaire général (cf. Général). Posez un horaire personnalisé ici pour un membre — il surcharge l'horaire général pour le calcul des retards.",
-  "exemptHint": "Un membre du personnel exempté n'est jamais compté « absent » lorsqu'il ne scanne pas.",
   "generateCard": "Générer la carte scolaire",
   "correctionHint": "Seules les heures modifiées sont enregistrées. Une heure sans scan crée la ligne correspondante.",
   "noAccess": "Droits insuffisants — aucun accès au module présences.",
@@ -279,5 +278,69 @@
     "qrcodes": "QR codes",
     "scan": "Scanner",
     "export": "Export"
+  },
+  "exemptions": {
+    "hint": "Une personne dispensée de pointage n'est jamais comptée « absente » lorsqu'elle ne scanne pas.",
+    "hintSection": "Pour les enfants, dispensez de préférence la SECTION entière — une sortie, une fermeture, une semaine de stage concernent la classe. L'exemption nominative reste là pour le cas particulier.",
+    "new": "Nouvelle exemption",
+    "newTitle": "Nouvelle exemption de pointage",
+    "newDescription": "Choisissez qui est dispensé, et sur quelle période. Hors de cette période, le pointage redevient attendu — automatiquement, et vous en serez prévenu.",
+    "editTitle": "Modifier l'exemption",
+    "editDescription": "La période et le motif se modifient ; la personne concernée, non. Raccourcir la date de fin met fin à la dispense sans toucher aux jours déjà couverts.",
+    "filterAll": "Toutes",
+    "showRevoked": "Afficher les annulées",
+    "empty": "Aucune exemption pour l'instant.",
+    "scopeLabel": "Portée",
+    "targetLabel": "Concerne",
+    "targetRequired": "Choisissez qui est dispensé",
+    "reasonTooLong": "Le motif ne peut pas dépasser 500 caractères",
+    "endBeforeStart": "La date de fin ne peut pas précéder la date de début",
+    "startsOn": "Début",
+    "endsOn": "Fin",
+    "openStart": "Vide = depuis toujours",
+    "openEnd": "Vide = sans fin",
+    "reason": "Motif",
+    "reasonPlaceholder": "ex. convalescence, stage, sortie scolaire",
+    "pickSection": "Choisir une section",
+    "change": "Changer",
+    "searchStaff": "Rechercher un membre du personnel…",
+    "searchChild": "Rechercher un enfant…",
+    "searching": "Recherche…",
+    "noResult": "Aucun résultat",
+    "searchPrompt": "Saisissez au moins deux caractères.",
+    "always": "Sans limite de date",
+    "fromDate": "À partir du {date}",
+    "untilDate": "Jusqu'au {date}",
+    "range": "Du {from} au {to}",
+    "edit": "Modifier",
+    "revoke": "Annuler l'exemption",
+    "revokeTitle": "Annuler cette exemption ?",
+    "revokeBody": "L'exemption de {name} ne comptera plus, y compris pour les jours déjà écoulés. Pour simplement y mettre fin en conservant les jours couverts, raccourcissez plutôt sa date de fin.",
+    "created": "Exemption créée.",
+    "updated": "Exemption mise à jour.",
+    "revoked": "Exemption annulée.",
+    "scope": {
+      "staff": "Personnel",
+      "child": "Enfant",
+      "section": "Section"
+    },
+    "scopeHelp": {
+      "staff": "Un membre du personnel.",
+      "child": "Un enfant précis — le cas particulier au sein d'une section qui fonctionne normalement.",
+      "section": "Tous les enfants de la section, le chemin à privilégier."
+    },
+    "state": {
+      "active": "En cours",
+      "upcoming": "À venir",
+      "expired": "Expirée",
+      "revoked": "Annulée"
+    },
+    "columns": {
+      "who": "Concerne",
+      "period": "Période",
+      "reason": "Motif",
+      "state": "État",
+      "actions": "Actions"
+    }
   }
 }

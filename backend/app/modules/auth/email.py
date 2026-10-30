@@ -46,6 +46,11 @@ _mail_config = ConnectionConfig(
     MAIL_STARTTLS=settings.mail_starttls,
     MAIL_SSL_TLS=settings.mail_ssl_tls,
     USE_CREDENTIALS=True,
+    # ⚠️ Sans ce plafond, `aiosmtplib` applique son défaut de 60 s. C'est
+    # l'attente la plus longue de toute la plateforme, et elle se paie PAR
+    # message : elle a fait dépasser le délai du navigateur sur la validation
+    # d'un rapport, qui envoie un email par parent.
+    TIMEOUT=settings.mail_timeout_seconds,
 )
 
 _mailer = FastMail(_mail_config)

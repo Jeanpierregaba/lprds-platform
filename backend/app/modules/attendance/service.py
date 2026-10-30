@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import links
 from app.core.redis import redis_client
 from app.core.i18n import (
     DEFAULT_LOCALE,
@@ -21,9 +22,11 @@ from app.core.people import display_name as display_name_of
 from app.modules.attendance import email as attendance_email
 from app.modules.attendance.models import (
     AttendanceEvent,
+    AttendanceExemption,
     AttendanceSettings,
     DepartmentAttendanceSettings,
     EventType,
+    ExemptionScope,
     PersonType,
     StaffAttendanceSchedule,
 )
@@ -51,9 +54,12 @@ from app.modules.attendance.schemas import (
     QRCodeResponse,
     ScanRequest,
     ScannerBrief,
+    ExemptionCreateRequest,
+    ExemptionListResponse,
+    ExemptionResponse,
+    ExemptionUpdateRequest,
     StaffDailyStatus,
     StaffDailyStatusListResponse,
-    StaffExemptionResponse,
     StaffScheduleRequest,
     StaffScheduleResponse,
     UpdateEventRequest,
@@ -430,6 +436,83 @@ async def list_events(
     )
 
 
+# ── Exemptions : l'index, seule porte du calcul ──────────────────
+class _ExemptionIndex:
+    """Les exemptions d'un établissement, prêtes à répondre « ce jour-là ? ».
+
+    ⚠️ **Chargé une fois pour toute une PÉRIODE**, puis interrogé jour par
+    jour en mémoire. L'export parcourt jusqu'à 366 jours : une requête par
+    jour ferait 366 allers-retours là où un seul suffit, et le découpage
+    serait de toute façon le même.
+
+    ⚠️ Une seule implémentation pour les TROIS lieux qui décident d'un statut
+    — tableau de bord des enfants, tableau de bord du personnel, export. Les
+    écrire trois fois, c'était trois occasions d'oublier la section quelque
+    part, et le symptôme serait un enfant « absent » dans l'export et
+    « exempté » à l'écran le même jour.
+    """
+
+    def __init__(self, rows: list[AttendanceExemption]) -> None:
+        self._staff: dict[uuid.UUID, list[AttendanceExemption]] = {}
+        self._child: dict[uuid.UUID, list[AttendanceExemption]] = {}
+        self._section: dict[uuid.UUID, list[AttendanceExemption]] = {}
+        for row in rows:
+            if row.scope == str(ExemptionScope.STAFF) and row.staff_id:
+                self._staff.setdefault(row.staff_id, []).append(row)
+            elif row.scope == str(ExemptionScope.CHILD) and row.child_id:
+                self._child.setdefault(row.child_id, []).append(row)
+            elif row.scope == str(ExemptionScope.SECTION) and row.section_id:
+                self._section.setdefault(row.section_id, []).append(row)
+
+    def covers_staff(self, staff_id: uuid.UUID, day: date_) -> bool:
+        return any(e.covers(day) for e in self._staff.get(staff_id, ()))
+
+    def covers_child(
+        self, child_id: uuid.UUID, section_id: uuid.UUID | None, day: date_
+    ) -> bool:
+        """Un enfant est couvert par SA propre exemption OU par celle de sa
+        section — un OU, jamais une exclusion.
+
+        La section est le chemin principal (on dispense une classe entière) ;
+        l'exemption nominative reste là pour le cas particulier. Prévoir en
+        plus de RETIRER un enfant d'une section exemptée n'a pas été demandé,
+        et inventer une exception à l'exception rendrait la règle illisible.
+        """
+        if any(e.covers(day) for e in self._child.get(child_id, ())):
+            return True
+        if section_id is None:
+            return False
+        return any(e.covers(day) for e in self._section.get(section_id, ()))
+
+
+async def _load_exemptions(
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+    *,
+    date_from: date_,
+    date_to: date_,
+) -> _ExemptionIndex:
+    """Les exemptions qui CHEVAUCHENT la période — bornes NULL incluses.
+
+    ⚠️ `is_active` est filtré ici et retesté dans `covers()` : la requête
+    réduit le volume, le modèle reste la seule autorité. Si l'une des deux
+    disparaissait, l'autre tiendrait encore.
+    """
+    rows = (
+        await db.execute(
+            select(AttendanceExemption).where(
+                AttendanceExemption.establishment_id == establishment_id,
+                AttendanceExemption.is_active.is_(True),
+                (AttendanceExemption.starts_on.is_(None))
+                | (AttendanceExemption.starts_on <= date_to),
+                (AttendanceExemption.ends_on.is_(None))
+                | (AttendanceExemption.ends_on >= date_from),
+            )
+        )
+    ).scalars().all()
+    return _ExemptionIndex(list(rows))
+
+
 # ── Tableaux de bord journaliers ─────────────────────────────────
 async def get_children_daily_status(
     establishment_id: uuid.UUID,
@@ -462,6 +545,9 @@ async def get_children_daily_status(
         establishment_id, PersonType.CHILD, target_date, db, tz
     )
     settings_by_dept = await _department_settings_map(establishment_id, db)
+    exemptions = await _load_exemptions(
+        establishment_id, db, date_from=target_date, date_to=target_date
+    )
     weekday = _is_weekday(target_date)
 
     items = []
@@ -471,7 +557,14 @@ async def get_children_daily_status(
         departure = _latest(events, EventType.DEPARTURE)
         dept_settings = settings_by_dept.get(child.department_id) if child.department_id else None
         expected = dept_settings.expected_arrival_time if dept_settings else None
-        status_, late_minutes = _compute_status(arrival, weekday, expected, tz, grace)
+        exempt = exemptions.covers_child(child.id, child.section_id, target_date)
+        # Exempté ET venu quand même : on calcule normalement. Une exemption
+        # dispense de pointer, elle n'efface pas un pointage — le même choix
+        # que pour le personnel depuis l'origine.
+        if exempt and arrival is None:
+            status_, late_minutes = "exempt", None
+        else:
+            status_, late_minutes = _compute_status(arrival, weekday, expected, tz, grace)
         items.append(
             ChildDailyStatus(
                 child=_child_brief(child),
@@ -479,6 +572,7 @@ async def get_children_daily_status(
                 arrival_time=arrival,
                 departure_time=departure,
                 late_minutes=late_minutes,
+                exempt=exempt,
             )
         )
     return ChildDailyStatusListResponse(
@@ -528,6 +622,9 @@ async def get_staff_daily_status(
         establishment_id, PersonType.STAFF, target_date, db, tz
     )
     schedule_map = await _staff_schedule_map(establishment_id, db)
+    exemptions = await _load_exemptions(
+        establishment_id, db, date_from=target_date, date_to=target_date
+    )
     weekday = _is_weekday(target_date)
 
     items = []
@@ -545,7 +642,8 @@ async def get_staff_daily_status(
             else (general_settings.staff_expected_arrival_time if general_settings else None)
         )
 
-        if member.attendance_exempt and arrival is None:
+        exempt = exemptions.covers_staff(member.id, target_date)
+        if exempt and arrival is None:
             status_, late_minutes = "exempt", None
         else:
             status_, late_minutes = _compute_status(arrival, weekday, expected, tz, grace)
@@ -558,7 +656,7 @@ async def get_staff_daily_status(
                 departure_time=departure,
                 late_minutes=late_minutes,
                 meal_taken=meal_taken,
-                exempt=member.attendance_exempt,
+                exempt=exempt,
             )
         )
     return StaffDailyStatusListResponse(
@@ -943,6 +1041,12 @@ async def _build_export_rows(
                 )).scalars().all()
             )
 
+    # Une seule requête pour toute la période (jusqu'à 366 jours) — cf.
+    # _ExemptionIndex.
+    exemptions = await _load_exemptions(
+        establishment_id, db, date_from=date_from, date_to=date_to
+    )
+
     rows: list[AttendanceExportRow] = []
     current = date_from
     while current <= date_to:
@@ -955,7 +1059,12 @@ async def _build_export_rows(
                 day_events = by_person_day.get((child.id, current), [])
                 arrival = _earliest(day_events, EventType.ARRIVAL)
                 departure = _latest(day_events, EventType.DEPARTURE)
-                status_, late = _compute_status(arrival, weekday, expected, tz, grace)
+                if arrival is None and exemptions.covers_child(
+                    child.id, child.section_id, current
+                ):
+                    status_, late = "exempt", None
+                else:
+                    status_, late = _compute_status(arrival, weekday, expected, tz, grace)
                 rows.append(AttendanceExportRow(
                     person_type="child",
                     name=f"{child.first_names} {child.last_name}".strip(),
@@ -980,7 +1089,7 @@ async def _build_export_rows(
                 arrival = _earliest(day_events, EventType.ARRIVAL)
                 departure = _latest(day_events, EventType.DEPARTURE)
                 meal_taken = any(e.event_type == str(EventType.MEAL) for e in day_events)
-                if member.attendance_exempt and arrival is None:
+                if arrival is None and exemptions.covers_staff(member.id, current):
                     status_, late = "exempt", None
                 else:
                     status_, late = _compute_status(arrival, weekday, expected, tz, grace)
@@ -1079,6 +1188,24 @@ async def send_absence_inquiries(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=t("errors.attendance.child_not_absent"),
+            )
+        # ⚠️ La relance individuelle ne passe PAS par le statut du jour : elle
+        # fabrique « absent » à la main. Il faut donc y refuser l'exemption
+        # explicitement — l'envoi en masse, lui, est protégé par construction
+        # (un enfant exempté a le statut `exempt`, jamais `absent`). La garde
+        # n'existait que dans l'une des deux voies, et c'est la voie ciblée,
+        # celle qu'on emprunte justement pour UN enfant précis.
+        #
+        # Demander « pourquoi votre enfant était-il absent ? » quand c'est
+        # l'établissement lui-même qui l'a dispensé est le pire message
+        # possible pour un parent.
+        exemptions = await _load_exemptions(
+            establishment_id, db, date_from=target_date, date_to=target_date
+        )
+        if exemptions.covers_child(child.id, child.section_id, target_date):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=t("errors.attendance.child_exempt"),
             )
         absent_items = [ChildDailyStatus(
             child=_child_brief(child),
@@ -1216,39 +1343,176 @@ async def send_absence_inquiries(
     )
 
 
-# ── Exemptions ──────────────────────────────────────────────────
-async def list_staff_exemptions(
+# ── Exemptions : CRUD ───────────────────────────────────────────
+async def _exemption_response(
+    row: AttendanceExemption, today: date_
+) -> ExemptionResponse:
+    """⚠️ `target_name` est résolu CÔTÉ SERVEUR : la règle du surnom
+    (« Tata Victoire ») vit dans `app.core.people`, et la rejouer dans chaque
+    écran est exactement ce que le module Annuaire a dû refermer ailleurs."""
+    if row.scope == str(ExemptionScope.STAFF):
+        target_name = display_name_of(row.staff) if row.staff else "—"
+        section_name = None
+    elif row.scope == str(ExemptionScope.CHILD):
+        child = row.child
+        # Pas de surnom sur une fiche enfant — et `first_names` est au pluriel.
+        target_name = (
+            f"{child.first_names} {child.last_name}".strip() if child else "—"
+        )
+        section_name = child.section.name if child and child.section else None
+    else:
+        target_name = row.section.name if row.section else "—"
+        section_name = None
+    return ExemptionResponse(
+        id=row.id,
+        scope=ExemptionScope(row.scope),
+        staff_id=row.staff_id,
+        child_id=row.child_id,
+        section_id=row.section_id,
+        target_name=target_name,
+        section_name=section_name,
+        starts_on=row.starts_on,
+        ends_on=row.ends_on,
+        reason=row.reason,
+        is_active=row.is_active,
+        state=row.state(today),
+    )
+
+
+#: Ordre d'affichage : ce qui demande une décision d'abord. « Expirée » passe
+#: avant « annulée » — la première peut être prolongée, la seconde est classée.
+_STATE_ORDER = {"active": 0, "upcoming": 1, "expired": 2, "revoked": 3}
+
+
+async def list_exemptions(
     establishment_id: uuid.UUID,
     db: AsyncSession,
     *,
-    exempt_only: bool = False,
-) -> list[StaffExemptionResponse]:
-    filters = [
-        User.establishment_id == establishment_id,
-        User.role == UserRole.STAFF,
-        User.is_active.is_(True),
-    ]
-    if exempt_only:
-        filters.append(User.attendance_exempt.is_(True))
-    members = (await db.execute(select(User).where(*filters))).scalars().all()
-    return [
-        StaffExemptionResponse(staff_id=m.id, exempt=m.attendance_exempt)
-        for m in members
-    ]
+    scope: ExemptionScope | None = None,
+    include_revoked: bool = False,
+    skip: int = 0,
+    limit: int = 50,
+) -> ExemptionListResponse:
+    filters = [AttendanceExemption.establishment_id == establishment_id]
+    if scope is not None:
+        filters.append(AttendanceExemption.scope == str(scope))
+    if not include_revoked:
+        filters.append(AttendanceExemption.is_active.is_(True))
+    rows = (
+        await db.execute(select(AttendanceExemption).where(*filters))
+    ).scalars().all()
+
+    today = await _local_today(establishment_id, db)
+    items = [await _exemption_response(r, today) for r in rows]
+    # Tri côté application : l'état est DÉRIVÉ des dates, SQL ne sait pas
+    # l'ordonner sans le réimplémenter — et une seconde implémentation de la
+    # règle divergerait.
+    items.sort(key=lambda i: (_STATE_ORDER[str(i.state)], i.target_name.lower()))
+    return ExemptionListResponse(total=len(items), items=items[skip : skip + limit])
 
 
-async def set_staff_exemption(
-    staff_id: uuid.UUID,
-    exempt: bool,
+async def create_exemption(
+    payload: ExemptionCreateRequest,
+    establishment_id: uuid.UUID,
+    author: User,
+    db: AsyncSession,
+) -> ExemptionResponse:
+    # La cible doit vivre dans CET établissement — 404 sinon, jamais 403 : on
+    # ne révèle pas l'existence d'un enfant ni d'une section d'ailleurs.
+    if payload.scope == ExemptionScope.STAFF:
+        await _get_active_staff_or_404(payload.staff_id, establishment_id, db)
+    elif payload.scope == ExemptionScope.CHILD:
+        await _get_active_child_or_404(payload.child_id, establishment_id, db)
+    else:
+        await org_service.get_or_404(Section, payload.section_id, establishment_id, db)
+
+    row = AttendanceExemption(
+        establishment_id=establishment_id,
+        scope=str(payload.scope),
+        staff_id=payload.staff_id,
+        child_id=payload.child_id,
+        section_id=payload.section_id,
+        starts_on=payload.starts_on,
+        ends_on=payload.ends_on,
+        reason=payload.reason,
+        created_by_id=author.id,
+    )
+    db.add(row)
+    await db.flush()
+    # Les relations sont renseignées par leur FK : `selectin` ne joue qu'au
+    # chargement par requête, pas sur un objet fraîchement ajouté.
+    await db.refresh(row)
+    return await _exemption_response(row, await _local_today(establishment_id, db))
+
+
+async def update_exemption(
+    exemption_id: uuid.UUID,
+    payload: ExemptionUpdateRequest,
     establishment_id: uuid.UUID,
     db: AsyncSession,
-) -> StaffExemptionResponse:
-    # Compte actif exigé : un flag posé sur un inactif serait sans effet et
-    # invisible (la liste ne montre que les actifs).
-    staff = await _get_active_staff_or_404(staff_id, establishment_id, db)
-    staff.attendance_exempt = exempt
+) -> ExemptionResponse:
+    """La période est remplacée en entier (cf. ExemptionUpdateRequest).
+
+    Raccourcir `ends_on` est la **fin anticipée** : les jours déjà couverts le
+    restent. C'est ce qui la distingue de l'annulation.
+    """
+    row = await _get_exemption_or_404(exemption_id, establishment_id, db)
+    row.starts_on = payload.starts_on
+    row.ends_on = payload.ends_on
+    row.reason = payload.reason
+    # Une période qu'on rouvre doit pouvoir être notifiée à nouveau le jour où
+    # elle s'achèvera vraiment — sans ça, prolonger une exemption expirée la
+    # ferait finir en silence.
+    row.expired_notified_at = None
     await db.flush()
-    return StaffExemptionResponse(staff_id=staff.id, exempt=staff.attendance_exempt)
+    return await _exemption_response(row, await _local_today(establishment_id, db))
+
+
+async def revoke_exemption(
+    exemption_id: uuid.UUID,
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    """Annulation : la ligne est conservée mais ne compte plus, **y compris
+    dans l'historique**.
+
+    ⚠️ C'est volontairement différent d'une fin anticipée. « Cette exemption
+    est une erreur » et « finalement il revient lundi » ne disent pas la même
+    chose, et confondre les deux ferait soit réécrire le passé sans le vouloir,
+    soit laisser une saisie fautive marquer un mois d'export. Idempotent.
+    """
+    row = await _get_exemption_or_404(exemption_id, establishment_id, db)
+    row.is_active = False
+    await db.flush()
+
+
+async def _get_exemption_or_404(
+    exemption_id: uuid.UUID, establishment_id: uuid.UUID, db: AsyncSession
+) -> AttendanceExemption:
+    row = await db.scalar(
+        select(AttendanceExemption).where(
+            AttendanceExemption.id == exemption_id,
+            AttendanceExemption.establishment_id == establishment_id,
+        )
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=t("errors.attendance.exemption_not_found"),
+        )
+    return row
+
+
+async def _local_today(establishment_id: uuid.UUID, db: AsyncSession) -> date_:
+    """Aujourd'hui dans le fuseau de l'établissement, jamais en UTC.
+
+    Une exemption qui finit le 15 s'achève quand le 16 commence SUR PLACE.
+    Avec `date.today()` en UTC, un établissement à UTC+1 verrait l'exemption
+    expirer une heure trop tôt ou trop tard selon le sens du décalage — et
+    c'est le genre d'écart qu'on ne remarque qu'un jour sur trente.
+    """
+    tz = await _get_timezone(establishment_id, db)
+    return datetime.now(tz).date()
 
 
 # ── Helpers privés ──────────────────────────────────────────────
@@ -1494,3 +1758,118 @@ def _compute_status(
     if delta_minutes > grace_minutes:
         return "late", delta_minutes
     return "present", 0
+
+
+# ── Échéance des exemptions : la notification à l'admin ─────────
+async def notify_expired_exemptions(
+    establishment_id: uuid.UUID,
+    db: AsyncSession,
+) -> int:
+    """Prévient les admins des exemptions dont la période vient de s'achever.
+
+    ⚠️ **Cette fonction ne DÉSACTIVE rien** — elle constate. L'exemption a
+    cessé de s'appliquer d'elle-même, à la seconde où le jour a changé sur
+    place (cf. la docstring de `AttendanceExemption`) : il n'y a aucun drapeau
+    à basculer, et en basculer un réécrirait l'historique de l'export.
+
+    `expired_notified_at` est l'anti-doublon : un admin ne doit pas relire
+    chaque matin que l'exemption de mardi dernier est terminée. Il est remis à
+    NULL quand la période est prolongée (cf. `update_exemption`), sinon une
+    exemption rouverte finirait en silence.
+
+    Renvoie le nombre d'exemptions annoncées. Best-effort de bout en bout :
+    l'échec d'un canal n'empêche ni l'autre canal ni les lignes suivantes —
+    c'est une information, pas un mot de passe temporaire.
+    """
+    today = await _local_today(establishment_id, db)
+    rows = (
+        await db.execute(
+            select(AttendanceExemption).where(
+                AttendanceExemption.establishment_id == establishment_id,
+                AttendanceExemption.is_active.is_(True),
+                AttendanceExemption.ends_on.is_not(None),
+                AttendanceExemption.ends_on < today,
+                AttendanceExemption.expired_notified_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    if not rows:
+        return 0
+
+    establishment = await db.scalar(
+        select(Establishment).where(Establishment.id == establishment_id)
+    )
+    establishment_name = establishment.name if establishment else "Établissement"
+
+    admins = (
+        await db.execute(
+            select(User).where(
+                User.establishment_id == establishment_id,
+                User.role == UserRole.ADMIN,
+                User.is_active.is_(True),
+            )
+        )
+    ).scalars().all()
+
+    # Les libellés de portée et les noms sont résolus UNE fois, pas une fois
+    # par admin : seul le rendu dépend de la langue du destinataire.
+    resolved = [(r, await _exemption_response(r, today)) for r in rows]
+
+    for admin in admins:
+        if not admin.email:
+            continue
+        locale = coerce_locale(admin.locale)
+        lignes = [
+            t(
+                "emails.exemption_expired.line",
+                locale,
+                scope=t(f"attendance.exemption.scope.{item.scope}", locale),
+                name=item.target_name,
+                end=format_long_date(item.ends_on, locale) if item.ends_on else "",
+            )
+            for _, item in resolved
+        ]
+        try:
+            await attendance_email.send_exemption_expired_email(
+                to=admin.email,
+                admin_first_name=admin.first_name,
+                lines=lignes,
+                count=len(lignes),
+                establishment_name=establishment_name,
+                locale=locale,
+            )
+        except Exception:
+            logger.exception(
+                "Échec d'envoi du mail d'échéance d'exemption vers %s", admin.email
+            )
+
+    # Push : second canal, pour l'admin qui ne relève pas ses mails. Rendu par
+    # destinataire (chacun dans SA langue) par le module notifications.
+    try:
+        from app.modules.notifications import service as notifications_service
+
+        await notifications_service.send_push_to_establishment_admins(
+            establishment_id,
+            "push.exemption_expired.title",
+            None,
+            db,
+            data={"url": links.url_path(links.ADMIN_ATTENDANCE, tab=links.TAB_SETTINGS)},
+            # Deux clés plutôt qu'un pluriel ICU : c'est la convention du
+            # backend (cf. conversations.library_reminder.overdue_one|many).
+            # La règle de pluriel appartient à la langue, jamais à l'appelant
+            # — pas de « + s » en Python.
+            body_key=(
+                "push.exemption_expired.body_one"
+                if len(resolved) == 1
+                else "push.exemption_expired.body_many"
+            ),
+            body_params={"count": len(resolved)},
+        )
+    except Exception:
+        logger.exception("Échec du push d'échéance d'exemption")
+
+    marked = datetime.now(timezone.utc)
+    for row, _ in resolved:
+        row.expired_notified_at = marked
+    await db.flush()
+    return len(resolved)

@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     vapid_public_key: str = ""
     vapid_subject: str = "mailto:hello@lespetitsrayonsdesoleil.net"
+    # Plafond d'un envoi push, en secondes — cf. le commentaire du point
+    # d'envoi : la bibliothèque n'en pose aucun d'utile.
+    push_timeout_seconds: int = 10
 
     # Premier superadmin, créé par `python -m app.core.seed` au démarrage.
     #
@@ -160,6 +163,12 @@ class Settings(BaseSettings):
     # Dev/test : n'établit aucune connexion SMTP, les emails sont ignorés.
     # À laisser à False en production.
     mail_suppress_send: bool = False
+    # Plafond d'une session SMTP, en secondes. ⚠️ Le défaut d'`aiosmtplib` est
+    # de 60 s, et il n'était pas surchargé : un serveur de mail qui traîne
+    # tenait la requête une minute PAR destinataire. Les envois partent
+    # désormais en fond (cf. app/core/background.py), mais une tâche de fond
+    # qui attend une minute par message reste une tâche qui n'avance pas.
+    mail_timeout_seconds: int = 20
 
     # Stockage fichiers
     storage_backend: str = "local"

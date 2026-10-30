@@ -17,7 +17,8 @@ from tests.helpers import SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ck, login, onbo
 
 HEADERS = [
     "matricule", "nom", "prenoms", "nom_usuel",
-    "date_naissance", "date_admission", "adresse", "statut", "section",
+    "date_naissance", "lieu_naissance", "date_admission", "adresse",
+    "statut", "section",
     "notes_comportement", "preferences", "notes_medicales",
     "restrictions_alimentaires", "medicaments", "medecin_nom", "medecin_tel",
     "tuteur_1_nom", "tuteur_1_prenoms", "tuteur_1_tel", "tuteur_1_email",
@@ -28,7 +29,7 @@ HEADERS = [
 ]
 
 TWO_ROWS = [
-    ["", "Kossou", "Anaïs", "", "2022-03-14", "2024-09-02",
+    ["", "Kossou", "Anaïs", "", "2022-03-14", "Lomé", "2024-09-02",
      "12 rue des Palmiers", "actif", "PS",
      "", "", "", "", "", "", "",
      "KOSSOU", "Papa", "+228 90 00 00 00", "papa@ex.tg",
@@ -36,7 +37,7 @@ TWO_ROWS = [
      "", "", "", "",
      "KOSSOU", "Tonton", "+228 91 00 00 00",
      "", "", ""],
-    ["", "Dupont", "Ibrahim", "Ibo", "2021-06-01", "2023-10-01",
+    ["", "Dupont", "Ibrahim", "Ibo", "2021-06-01", "", "2023-10-01",
      "3 av. de la Plage", "inactif", "PS",
      "Observations", "verts", "aucune", "", "x", "Dr A", "+228 1",
      "DUPONT", "Maman", "+228 92 00 00 00", "",
@@ -119,6 +120,7 @@ def test_import_create_and_template(client):
     ck("autorisé rattaché", ana["authorized_persons"][0]["last_name"], "KOSSOU")
     ck("aucune adresse par défaut (adresse fournie)", ana["residence_address"],
        "12 rue des Palmiers")
+    ck("lieu de naissance importé", ana["birth_place"], "Lomé")
     ibo = c.get(f"/children/{by_name['Dupont']['id']}", headers=adm).json()
     ck("statut inactif", ibo["is_active"], False)
     ck("nom usuel préfixé aux notes", ibo["behavioral_notes"].startswith("Nom usuel : Ibo"),
@@ -131,6 +133,13 @@ def test_import_create_and_template(client):
     rows, fields = _parse_csv(exp.content)
     ck("Colonnes export == colonnes import", fields, HEADERS)
     ck("Export contient les 2 enfants", len(rows), 2)
+    # ⚠️ Le champ doit SURVIVRE à l'aller-retour. Une colonne ajoutée au
+    # modèle mais oubliée du format s'efface en silence au réimport : l'export
+    # rend une cellule vide, et le second passage écrase la vraie valeur. C'est
+    # le contrôle qui manque quand on ne regarde que « 0 rejet ».
+    par_nom = {r["nom"]: r for r in rows}
+    ck("lieu de naissance exporté", par_nom["Kossou"]["lieu_naissance"], "Lomé")
+    ck("  et vide quand il l'était", par_nom["Dupont"]["lieu_naissance"], "")
 
     r2 = c.post("/children/import",
                 files={"file": ("roundtrip.csv", exp.content, "text/csv")},
@@ -139,6 +148,9 @@ def test_import_create_and_template(client):
     ck("Round-trip : 0 création", body2["crees"], 0)
     ck("Round-trip : 2 mises à jour", body2["mis_a_jour"], 2)
     ck("Round-trip : 0 rejet", body2["rejetees"], 0)
+    apres = c.get(f"/children/{by_name['Kossou']['id']}", headers=adm).json()
+    ck("Round-trip : le lieu de naissance n'a pas été effacé",
+       apres["birth_place"], "Lomé")
 
 
 def test_import_rejections_and_isolation(client):
@@ -149,18 +161,19 @@ def test_import_rejections_and_isolation(client):
 
     rows = [
         # matricule inconnu → rejet
-        ["LPRDS-X0001", "Inconnu", "Z", "", "2020-01-01", "2021-01-01", "adr",
+        ["LPRDS-X0001", "Inconnu", "Z", "", "2020-01-01", "", "2021-01-01",
+         "adr",
          "actif", "PS", "", "", "", "", "", "", "", "G", "P", "+228", "",
          "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
         # aucun tuteur → CRÉÉ (règle assouplie : tuteur non obligatoire)
-        ["", "Sans", "Tuteur", "", "2020-01-01", "2021-01-01", "adr",
-         "actif", "PS"] + [""] * (len(HEADERS) - 9),
+        ["", "Sans", "Tuteur", "", "2020-01-01", "", "2021-01-01", "adr",
+         "actif", "PS"] + [""] * (len(HEADERS) - 10),
         # dates incohérentes (admission < naissance) → rejet
-        ["", "Bizarre", "Dates", "", "2021-01-01", "2020-01-01", "adr",
+        ["", "Bizarre", "Dates", "", "2021-01-01", "", "2020-01-01", "adr",
          "actif", "PS", "", "", "", "", "", "", "", "G", "P", "+228", "",
          "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
         # statut inconnu → rejet
-        ["", "Genre", "Fatou", "", "2020-01-01", "2021-01-01", "adr",
+        ["", "Genre", "Fatou", "", "2020-01-01", "", "2021-01-01", "adr",
          "peut-etre", "PS", "", "", "", "", "", "", "", "G", "P", "+228", "",
          "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
     ]

@@ -119,10 +119,47 @@ export default function ReportDetailPage() {
     : report?.report_type === 'annuel' ? annualForm
     : null
 
+  /* ⚠️ Enregistrer ne QUITTE PAS l'écran, et ne l'a jamais dû : on enregistre
+   * au milieu d'une relecture, pour ne pas perdre son travail, pas pour en
+   * sortir. L'écran éjectait vers la liste — il fallait donc rouvrir le
+   * rapport pour continuer, à chaque sauvegarde intermédiaire. « Soumettre »,
+   * juste à côté, restait déjà en place : c'est « Enregistrer » qui était
+   * l'exception.
+   *
+   * `reset(valeurs)` repose le formulaire sur ce qui vient d'être écrit :
+   * sans lui, `isDirty` resterait vrai et la validation croirait avoir
+   * encore quelque chose à enregistrer. */
+  /* ⚠️ `formState` de React Hook Form est un PROXY : il ne suit un champ que
+   * s'il a été LU PENDANT LE RENDU. Lu uniquement dans un gestionnaire de
+   * clic, `isDirty` garde la valeur du dernier rendu — faux — et la
+   * validation concluait qu'il n'y avait rien à enregistrer. Vérifié dans un
+   * vrai navigateur : aucun `PATCH` n'était émis et la correction se reperdait
+   * exactement comme avant le correctif. Ni le type-check ni le build ne
+   * voient ce défaut. */
+  const isDirty = report?.report_type === 'quotidien' ? dailyForm.formState.isDirty
+    : report?.report_type === 'bi_mensuel' ? bimensuelForm.formState.isDirty
+    : report?.report_type === 'annuel' ? annualForm.formState.isDirty
+    : false
+
+  /* Repose chaque formulaire sur ses propres valeurs — `activeForm` est une
+   * UNION de trois types, que `reset(getValues())` ne sait pas satisfaire :
+   * il faut nommer le formulaire pour que ses valeurs et son schéma
+   * correspondent. C'est la raison pour laquelle tout ce fichier branche par
+   * type plutôt que de passer par l'union. */
+  const markFormSaved = () => {
+    if (report?.report_type === 'quotidien') dailyForm.reset(dailyForm.getValues())
+    else if (report?.report_type === 'bi_mensuel') bimensuelForm.reset(bimensuelForm.getValues())
+    else if (report?.report_type === 'annuel') annualForm.reset(annualForm.getValues())
+  }
+
   const saveMutation = useMutation({
     mutationFn: (content: Record<string, unknown>) =>
       reportsApi.update(id, { content }),
-    onSuccess: () => { toast.success(t('detail.saved')); invalidate(); router.push(backHref) },
+    onSuccess: () => {
+      toast.success(t('detail.saved'))
+      invalidate()
+      markFormSaved()
+    },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
 
@@ -164,11 +201,50 @@ export default function ReportDetailPage() {
     }
   }
 
+  /* ⚠️ Valider ENREGISTRE d'abord ce qui a changé, puis valide.
+   *
+   * L'admin retouche un rapport pendant sa relecture — c'est le but même de
+   * l'écran — puis clique « Valider et publier ». La mutation n'envoyait que
+   * l'identifiant : ses corrections étaient donc perdues, le rapport partait
+   * au parent avec l'ancien texte, et le toast annonçait un succès. Signalé
+   * par un établissement, reproduit, et mesuré en base.
+   *
+   * Le bon enchaînement existait déjà juste au-dessus : `submitMutation` fait
+   * `update` puis `submit` depuis toujours. La validation était le seul des
+   * trois gestes à ne pas le suivre.
+   *
+   * ⚠️ On n'enregistre QUE si le formulaire a changé. Un `PATCH` systématique
+   * relancerait la traduction automatique du contenu (elle se déclenche sur
+   * toute écriture dont le texte diffère) et surtout il réécrirait un rapport
+   * que l'admin n'a pas touché — valider la relecture de quelqu'un d'autre ne
+   * doit rien modifier. */
   const validateMutation = useMutation({
-    mutationFn: () => reportsApi.validate(id),
+    mutationFn: async (content: Record<string, unknown> | null) => {
+      if (content) await reportsApi.update(id, { content })
+      return reportsApi.validate(id)
+    },
     onSuccess: () => { toast.success(t('detail.validated')); invalidate(); router.push(backHref) },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   })
+
+  /* Rien de changé → on valide tel quel, sans validation stricte : le contenu
+   * est celui que l'éducatrice a déjà fait passer par la porte de la
+   * soumission, et un rapport ancien n'a pas à buter sur un schéma durci
+   * depuis. Quelque chose a changé → on exige la même complétude que
+   * « Soumettre », puisque valider publie au parent de la même façon. */
+  const onValidate = () => {
+    if (!isDirty) {
+      validateMutation.mutate(null)
+      return
+    }
+    if (report?.report_type === 'quotidien') {
+      dailyForm.handleSubmit((c) => validateMutation.mutate(toDailyContent(c) as unknown as Record<string, unknown>))()
+    } else if (report?.report_type === 'bi_mensuel') {
+      bimensuelForm.handleSubmit((c) => validateMutation.mutate(c as unknown as Record<string, unknown>))()
+    } else if (report?.report_type === 'annuel') {
+      annualForm.handleSubmit((c) => validateMutation.mutate(c as unknown as Record<string, unknown>))()
+    }
+  }
 
   const { register: registerReject, handleSubmit: handleRejectSubmit, reset: resetReject, formState: { errors: rejectErrors, isSubmitting: isRejecting } } =
     useForm<RejectForm>({ resolver: zodResolver(makeRejectSchema(t)) })
@@ -390,7 +466,7 @@ export default function ReportDetailPage() {
         <Card>
           <CardContent className="flex flex-wrap items-center gap-2">
             <p className="mr-auto text-sm text-muted-foreground">{t('awaitingValidation')}</p>
-            <Button type="button" onClick={() => validateMutation.mutate()} disabled={validateMutation.isPending}>
+            <Button type="button" onClick={onValidate} disabled={validateMutation.isPending}>
               {validateMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
               {t('detail.validateAndPublish')}
             </Button>

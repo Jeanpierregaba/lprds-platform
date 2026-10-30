@@ -1,5 +1,5 @@
 import { BLOB_REQUEST, UPLOAD_REQUEST } from '@/lib/api/file-transfer'
-import { apiClient } from './client'
+import { WRITE_REQUEST, apiClient } from './client'
 import type {
   DepartmentReportTypeSetting, MissingReportResponse, ParentReportDetail, ParentReportListResponse, Report,
   ReportCreatePayload, ReportListResponse,
@@ -41,15 +41,23 @@ export const reportsApi = {
 
   get: (id: string) => apiClient.get<Report>(`/api/v1/reports/${id}`),
 
-  create: (data: ReportCreatePayload) => apiClient.post<Report>('/api/v1/reports', data),
+  create: (data: ReportCreatePayload) =>
+    apiClient.post<Report>('/api/v1/reports', data, WRITE_REQUEST),
 
-  update: (id: string, data: ReportUpdatePayload) => apiClient.patch<Report>(`/api/v1/reports/${id}`, data),
+  // ⚠️ `WRITE_REQUEST` : ces quatre écritures attendent la traduction
+  // automatique du contenu côté serveur (cf. client.ts). Au plafond
+  // ordinaire, un rapport chargé en texte libre — le bi-mensuel en porte
+  // sept champs, tous obligatoires — se faisait couper en pleine réussite.
+  update: (id: string, data: ReportUpdatePayload) =>
+    apiClient.patch<Report>(`/api/v1/reports/${id}`, data, WRITE_REQUEST),
 
   remove: (id: string) => apiClient.delete<void>(`/api/v1/reports/${id}`),
 
-  submit: (id: string) => apiClient.post<Report>(`/api/v1/reports/${id}/submit`),
+  submit: (id: string) =>
+    apiClient.post<Report>(`/api/v1/reports/${id}/submit`, undefined, WRITE_REQUEST),
 
-  validate: (id: string) => apiClient.post<Report>(`/api/v1/reports/${id}/validate`),
+  validate: (id: string) =>
+    apiClient.post<Report>(`/api/v1/reports/${id}/validate`, undefined, WRITE_REQUEST),
 
   reject: (id: string, reason: string) => apiClient.post<Report>(`/api/v1/reports/${id}/reject`, { reason }),
 

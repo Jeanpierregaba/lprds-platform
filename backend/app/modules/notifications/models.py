@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -14,6 +15,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+# Les relations se déclarent PAR NOM (cf. le registre central
+# `app/core/models.py`) : ces imports ne servent qu'au typage et à rendre les
+# annotations de chaîne vérifiables. Sans eux, `ruff --select F821` signale à
+# juste titre deux noms indéfinis — c'est la forme employée par tous les
+# autres modules porteurs de relations.
+if TYPE_CHECKING:
+    from app.modules.auth.models import User
+    from app.modules.establishments.models import Establishment
 
 
 class PushSubscription(Base):

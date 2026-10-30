@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.i18n import coerce_locale, t
 from app.modules.attendance import service
-from app.modules.attendance.models import PersonType
+from app.modules.attendance.models import ExemptionScope, PersonType
 from app.modules.attendance.schemas import (
     AbsenceInquiryResponse,
     AttendanceEventListResponse,
@@ -17,14 +17,16 @@ from app.modules.attendance.schemas import (
     AttendanceSettingsRequest,
     ChildDailyStatusListResponse,
     DepartmentAttendanceSettingsResponse,
+    ExemptionCreateRequest,
+    ExemptionListResponse,
+    ExemptionResponse,
+    ExemptionUpdateRequest,
     ExportFileFormat,
     ExportPersonType,
     ManualEventRequest,
     QRCodeResponse,
     ScanRequest,
     StaffDailyStatusListResponse,
-    StaffExemptionRequest,
-    StaffExemptionResponse,
     StaffScheduleRequest,
     StaffScheduleResponse,
     UpdateEventRequest,
@@ -332,29 +334,77 @@ async def export_attendance(
     )
 
 
-# ── Exemptions ──────────────────────────────────────────────────
-@router.get("/settings/exempt-staff", response_model=list[StaffExemptionResponse])
-async def list_staff_exemptions(
+# ── Exemptions (personnel, enfant, section) ─────────────────────
+#
+# ⚠️ **Rupture volontaire** : `GET /settings/exempt-staff` et
+# `PATCH /settings/exempt-staff/{staff_id}` ont disparu. Elles ne savaient dire
+# qu'« exempté pour toujours », et les garder à côté des périodes aurait fait
+# deux sources de vérité pour la même question — exactement ce que le registre
+# central des modèles et `app/core/links.py` existent pour éviter. Le seul
+# consommateur était l'écran des réglages, qui est refait avec elles.
+@router.get("/settings/exemptions", response_model=ExemptionListResponse)
+async def list_exemptions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
-    exempt_only: bool = Query(default=False),
-) -> list[StaffExemptionResponse]:
-    return await service.list_staff_exemptions(
-        user.establishment_id, db, exempt_only=exempt_only
+    scope: ExemptionScope | None = Query(default=None),
+    include_revoked: bool = Query(default=False),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> ExemptionListResponse:
+    """Les exemptions de l'établissement, celles qui demandent une décision
+    d'abord (en cours, puis à venir, puis expirées).
+
+    Les exemptions ANNULÉES sont masquées par défaut : elles ne valent plus
+    rien, nulle part, pas même dans l'historique.
+    """
+    return await service.list_exemptions(
+        user.establishment_id,
+        db,
+        scope=scope,
+        include_revoked=include_revoked,
+        skip=skip,
+        limit=limit,
     )
 
 
-@router.patch(
-    "/settings/exempt-staff/{staff_id}",
-    response_model=StaffExemptionResponse,
+@router.post(
+    "/settings/exemptions",
+    response_model=ExemptionResponse,
+    status_code=status.HTTP_201_CREATED,
 )
-async def set_staff_exemption(
-    staff_id: uuid.UUID,
-    payload: StaffExemptionRequest,
+async def create_exemption(
+    payload: ExemptionCreateRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(_write),
-) -> StaffExemptionResponse:
-    """Exempte (ou réintègre) un membre du personnel du contrôle de présence."""
-    return await service.set_staff_exemption(
-        staff_id, payload.exempt, user.establishment_id, db
+) -> ExemptionResponse:
+    """Dispense de pointage un membre du personnel, un enfant, ou une SECTION
+    entière, sur une période (bornes incluses, facultatives des deux côtés)."""
+    return await service.create_exemption(payload, user.establishment_id, user, db)
+
+
+@router.patch("/settings/exemptions/{exemption_id}", response_model=ExemptionResponse)
+async def update_exemption(
+    exemption_id: uuid.UUID,
+    payload: ExemptionUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> ExemptionResponse:
+    """Change la période ou le motif — la PORTÉE, jamais (cf. le schéma).
+
+    Raccourcir `ends_on` est une **fin anticipée** : les jours déjà couverts le
+    restent. Pour effacer une saisie fautive, c'est `DELETE` qu'il faut.
+    """
+    return await service.update_exemption(
+        exemption_id, payload, user.establishment_id, db
     )
+
+
+@router.delete("/settings/exemptions/{exemption_id}", status_code=204)
+async def revoke_exemption(
+    exemption_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_write),
+) -> None:
+    """Annule l'exemption — elle ne compte plus, **y compris dans
+    l'historique**. Idempotent."""
+    await service.revoke_exemption(exemption_id, user.establishment_id, db)

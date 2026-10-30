@@ -507,6 +507,7 @@ postgresql+asyncpg://adminlprds:lprds@localhost:5432/lprds_database
 - `attendance_events` — journal append-only des scans QR (présence)
 - `department_attendance_settings` / `attendance_settings` — horaires + fuseau
 - `staff_attendance_schedules` — horaires personnalisés par membre du personnel (surcharge l'horaire général)
+- `attendance_exemptions` — dispenses de pointage SUR UNE PÉRIODE (personnel, enfant, ou section entière)
 - `announcements` / `announcement_reads` — diffusions admin → parents + accusés de lecture
 - `announcement_signatures` — attestations de lecture signées par les parents
 - `conversations` / `messages` — messagerie privée admin ↔ parent (1 conv/parent)
@@ -1280,13 +1281,26 @@ Format : **`<CODE ÉTABLISSEMENT>-<5 caractères alphanumériques>`** — ex. `L
 ### Structure des informations
 | Groupe | Champs |
 |---|---|
-| Base | `last_name`, `first_names`, `birth_date`, `admission_date`, `residence_address`, `department_id`, `section_id` |
+| Base | `last_name`, `first_names`, `birth_date`, `birth_place` (facultatif), `admission_date`, `residence_address`, `department_id`, `section_id` |
 | Comportement | `behavioral_notes`, `preferences` |
 | Médical | `medical_notes`, `dietary_restrictions`, `medications`, `doctor_name`, `doctor_phone` |
 | Tuteurs (1-N) | `guardians[]` : `last_name`, `first_names`, `phone`, `email` (optionnel) |
 | Personnes autorisées (0-N) | `authorized_persons[]` : `last_name`, `first_names`, `phone` |
 
 ### Règles métier (invariants)
+- **Le lieu de naissance est FACULTATIF**, et la colonne est nullable. Les
+  fiches déjà saisies n'en portent pas : une colonne NOT NULL aurait exigé une
+  valeur inventée pour chacune, qu'on ne saurait plus distinguer d'une vraie
+  saisie. Il n'est d'ailleurs pas toujours connu à l'inscription (état civil en
+  cours, enfant né à l'étranger), et un champ obligatoire qu'on ne peut pas
+  remplir fait saisir n'importe quoi. Vidé à l'écran = `null`, jamais `""`.
+  ⚠️ **Il a dû entrer dans le FORMAT D'ÉCHANGE** (`lieu_naissance`, après
+  `date_naissance`) : une colonne ajoutée au modèle mais oubliée de
+  `IMPORT_COLUMNS` s'efface en silence au premier aller-retour — l'export rend
+  une cellule vide, et le réimport écrase la vraie valeur. Les lignes étant
+  lues par NOM de colonne, un fichier antérieur reste importable ; il laisse
+  simplement le champ vide. Sous test, et prouvé par sabotage des deux côtés
+  (non lu à l'import / non écrit à l'export).
 - **Tuteur non obligatoire** : une fiche peut être créée/importée sans tuteur
   (`guardians=[]` accepté — règle assouplie sur demande : les lignes d'import
   sans tuteur créent la fiche au lieu d'être rejetées)
@@ -1323,14 +1337,43 @@ GET    /api/v1/children/{id}/photo?thumb=   # authentifié, jamais en statique
 DELETE /api/v1/children/{id}/photo          # idempotent
 ```
 
-⚠️ **Ces trois routes n'utilisent PAS `require_permission`.** Le droit dépend du
-LIEN à l'enfant, pas d'une permission RBAC — décision explicite de
-l'utilisateur. Peuvent déposer la photo : l'**admin** de l'établissement, un
-**parent** de l'enfant depuis son compte, et l'**éducatrice** qui mène son
-groupe. C'est à la fois plus large que `children:write` (un parent n'a aucune
-permission RBAC) et plus étroit (un staff porteur du droit mais étranger au
-groupe n'a rien à faire sur la photo d'un enfant qu'il n'encadre pas). La règle
-vit dans `_child_for_photo`, au même endroit pour les trois routes.
+⚠️ **Ces trois routes n'utilisent PAS `require_permission`**, parce que le
+droit ne dépend pas que d'une permission RBAC. Peuvent déposer la photo :
+l'**admin**, un **parent** de l'enfant depuis son compte, l'**éducatrice** qui
+mène son groupe, et tout **staff porteur de `children:write`**. C'est plus
+large que la seule permission (un parent n'en a aucune) sans être plus étroit
+qu'elle. La règle vit dans `_child_for_photo`, au même endroit pour les trois
+routes.
+
+#### ⚠️ Le porteur de `children:write` en était EXCLU — corrigé le 30/10/2026
+
+Signalé par un établissement : une **assistante de direction**, à qui les
+fiches enfants avaient été confiées, voyait « Ajouter une photo » et récoltait
+un 403. Ne menant aucun groupe, elle n'aurait JAMAIS pu en déposer une.
+
+L'exclusion était motivée ainsi : « un staff porteur du droit mais étranger au
+groupe n'a rien à faire sur la photo d'un enfant qu'il n'encadre pas ». Elle
+ne tient pas, et **l'argument qui la défait était déjà écrit deux paragraphes
+plus bas, pour la LECTURE** : avec `children:write`, cette assistante modifie
+déjà le nom de l'enfant, sa date de naissance, son adresse ET ses notes
+médicales (l'onglet Médical est gardé par la même permission). Protéger la
+photo pendant que le dossier médical reste ouvert ne protège personne — ça
+rend seulement inutilisable une permission dont le libellé dit « créer et
+modifier les fiches enfants », la photo étant une donnée de la fiche.
+
+⚠️ **L'écran et le serveur ne disaient pas la même chose** : la fiche affiche
+le bouton dès `children:write`, et son commentaire annonce même qu'il « évite
+l'impasse d'un bouton voué à un 403 ». C'est le défaut « bouton visible qui
+échoue » que le projet s'interdit ailleurs (carte des médias d'un rapport,
+onglet des paramètres de bibliothèque) — il était ici, à l'envers : c'est la
+GARDE qui avait tort, pas l'écran.
+
+⚠️ **Pourquoi le test ne l'a pas vu** : il n'exerçait que l'éducatrice hors de
+son groupe, qui ne porte aucune permission sur les enfants, et concluait « le
+lien à l'enfant fait foi, pas la permission ». Vrai pour les cas qu'il
+montait, faux pour celui-ci. Le monde de test porte désormais une assistante
+de direction sans groupe ; prouvé par sabotage — la branche retirée, le 403
+signalé reparaît à l'identique.
 
 ⚠️ **La LECTURE est plus large que l'écriture**, et ce n'est pas un oubli : un
 staff qui a déjà `children:read` voit le nom, la date de naissance et les notes
@@ -1730,8 +1773,8 @@ GET  /api/v1/attendance/daily/children            # ?date= &department_id= &sect
 GET  /api/v1/attendance/daily/staff                # ?date=
 GET  /PUT /api/v1/attendance/settings/departments/{department_id}   # attendance:write
 GET  /PUT /api/v1/attendance/settings/general                        # fuseau + horaires staff
-GET  /api/v1/attendance/settings/exempt-staff                        # ?exempt_only=
-PATCH /api/v1/attendance/settings/exempt-staff/{staff_id}
+GET  /POST /api/v1/attendance/settings/exemptions                    # ?scope=&include_revoked= — attendance:write
+PATCH /DELETE /api/v1/attendance/settings/exemptions/{exemption_id}  # période/motif ; DELETE = annulation
 GET  /PUT /DELETE /api/v1/attendance/settings/staff/{staff_id}       # horaire personnalisé staff
 GET  /api/v1/attendance/export                      # ?format=&person_type=&date_from=&date_to=
                                                     #  &department_id=&section_id=&child_id=&staff_id=
@@ -1810,7 +1853,7 @@ configuration de l'établissement) :
 | `attendance:read` | Journal, dashboards journaliers, export |
 | `attendance:qrcode` | `GET /qrcode/child/{id}`, `GET /qrcode/staff/{id}` |
 | `attendance:correct` | `POST /events/manual`, `PATCH /events/{id}`, `POST /absent-notifications` |
-| `attendance:write` | `GET`/`PUT`/`DELETE /settings/*` (horaires, exemptions, fuseau) |
+| `attendance:write` | `GET`/`POST`/`PUT`/`PATCH`/`DELETE /settings/*` (horaires, exemptions, fuseau) |
 
 ⚠️ **`attendance:write` ne désignait pas ce que son libellé annonce**, et
 l'établissement l'a signalé sur un cas concret : une **assistante de
@@ -1859,8 +1902,8 @@ séparé pour chacun) :
 | Arrivée, aucun horaire configuré | `present` | `null` (indéterminable) |
 | Arrivée après l'horaire attendu + tolérance | `late` | écart en minutes |
 | Arrivée dans les temps (+ tolérance) | `present` | `0` |
-| **Staff exempté**, pas d'arrivée | `exempt` | `null` |
-| **Staff exempté**, arrivée quand même | calculé normalement | idem |
+| **Exempté** (staff, enfant, ou section de l'enfant), pas d'arrivée | `exempt` | `null` |
+| **Exempté**, arrivée quand même | calculé normalement | idem |
 
 `arrival_time` = **premier** événement `arrival` du jour ; `departure_time` =
 **dernier** événement `departure` du jour (en cas de scans multiples/erreurs).
@@ -1906,11 +1949,124 @@ par département).
 > si on voulait un jour des horaires staff par département, il faudrait d'abord
 > ajouter ce lien — non fait ici, hors périmètre de la demande actuelle.
 
-**Exemption** (`users.attendance_exempt`, colonne sur `User`, défaut `False`) :
-un staff exempté n'est jamais compté `absent` par défaut, géré via
-`/attendance/settings/exempt-staff` — qui exige un compte **actif** (409
-sinon : un flag sur un inactif serait invisible, la liste ne montrant que les
-actifs).
+### Exemptions — une PÉRIODE, et les enfants par leur SECTION
+
+Une exemption ne pouvait concerner qu'un membre du personnel, et seulement
+« pour toujours » : un booléen `users.attendance_exempt`. Elle porte désormais
+une **période** et peut viser un **enfant** ou une **section entière** — table
+`attendance_exemptions` (migration `b4c82e07f1a9`), et le booléen a disparu.
+
+⚠️ **La migration REPREND les exemptions existantes** en périodes sans bornes,
+ce qui est exactement ce que le booléen voulait dire. Sans cette reprise, tout
+personnel exempté se serait découvert compté « absent » au lendemain du
+déploiement, sans qu'aucun écran ne l'annonce — le même défaut silencieux que
+le redécoupage de `attendance:write`, qui avait dû réattribuer ses permissions
+aux rôles existants. Aller-retour `upgrade`/`downgrade` vérifié sur une base
+réelle, avec une exemption en place.
+
+**La SECTION est le chemin principal pour les enfants**, décision explicite de
+l'utilisateur : une sortie, une fermeture, une semaine de stage concernent la
+classe, pas vingt enfants nommés un par un. L'exemption nominative reste là
+pour le cas particulier — un enfant en convalescence dans une section qui,
+elle, fonctionne normalement. Un enfant est couvert par SA propre exemption
+**OU** par celle de sa section : un OU, jamais une exclusion. Retirer un enfant
+d'une section exemptée n'a pas été demandé, et une exception à l'exception
+rendrait la règle illisible.
+
+#### ⚠️ Rien n'est éteint en base à l'échéance — et c'est tout le sujet
+
+« L'exemption est désactivée automatiquement quand la période est passée » se
+tient **sans écrire une ligne** : le statut de présence est calculé à la volée
+(comme tout le module), donc il suffit que la date du jour sorte de
+`[starts_on, ends_on]`. Basculer un `is_active=False` à l'échéance aurait fait
+deux dégâts, et le second est bien pire :
+
+1. l'exemption resterait **en force jusqu'au prochain passage du beat** — une
+   journée entière dans le pire des cas, et indéfiniment si le worker est à
+   terre : un enfant compté « exempté » un jour où il était attendu ;
+2. surtout, **l'export recalcule le passé.** Une exemption du 1<sup>er</sup> au
+   15 octobre, éteinte le 16, ferait réapparaître ces quinze jours en
+   « absent » : une tâche de fond réécrirait l'historique, des mois plus tard,
+   sans que personne n'ait rien demandé.
+
+Prouvé par sabotage : en faisant basculer `is_active` par la tâche,
+`test_expiry_never_rewrites_the_past` tombe exactement là — un jour couvert
+repasse à « absent ».
+
+L'écran doit pourtant **lire** « Expirée », sinon la fonctionnalité paraît ne
+pas marcher. D'où `state` (`upcoming` / `active` / `expired` / `revoked`),
+champ **DÉRIVÉ** des dates, jamais stocké ni lu en base.
+
+Les trois gestes ont donc trois sens distincts, et il faut les trois :
+
+| Geste | Effet | Pour quoi |
+|---|---|---|
+| échéance | ne couvre plus les jours suivants | fin normale |
+| `ends_on` raccourci (`PATCH`) | **fin anticipée** — le passé reste couvert | « finalement il revient lundi » |
+| `DELETE` (`is_active=False`) | **annulation**, y compris dans l'historique | « cette ligne est une erreur » |
+
+⚠️ `is_active` est filtré **deux fois** — par la requête de `_load_exemptions`
+et par `AttendanceExemption.covers()`, la seule autorité. Redondance assumée,
+mais elle rend le contrôle par HTTP **aveugle** : prouvé par sabotage, retirer
+la garde du modèle laisse le test de l'annulation passer, le filtre SQL
+suffisant à lui seul. D'où un contrôle **au ras du modèle** sur `covers()` et
+`state()` (bornes incluses des deux côtés, annulation, bornes ouvertes) — un
+test qui réussit sur du code cassé ne prouve rien.
+
+#### La notification d'échéance
+
+`attendance/tasks.py`, 06:00 UTC — **avant** les rappels de bibliothèque de
+07:00 : l'admin doit lire qu'une dispense est terminée au début de sa journée,
+pas après avoir découvert l'absence au tableau de bord. La tâche **constate**,
+elle ne décide de rien.
+
+- **Deux canaux, best-effort** : email aux admins actifs (`exemption_expired`,
+  dans la langue de chacun) **et** push. L'email est le canal qui n'exige RIEN
+  du destinataire — le push suppose un abonnement **par appareil**, accordé à
+  la main, donc un admin qui n'a jamais ouvert cet écran ne serait prévenu de
+  rien.
+- Le push mène à `/dashboard/admin/attendance?tab=settings`. L'écran des
+  présences choisissait sinon son premier onglet permis : la notification
+  tombait sur le tableau de bord, **juste à côté** de ce qu'elle annonce —
+  exactement le défaut déjà corrigé sur les deux écrans de messagerie.
+- **`expired_notified_at` est l'anti-doublon** : un admin ne doit pas relire
+  chaque matin que l'exemption de mardi dernier est finie. Il est remis à NULL
+  quand la période est **prolongée**, sans quoi une exemption rouverte
+  finirait en silence. Les deux comportements sont sous test, et prouvés par
+  sabotage.
+- ⚠️ **La tâche COMMITE explicitement.** Hors d'une requête HTTP il n'y a pas
+  de `get_db` pour le faire en sortie : sans ce commit, `expired_notified_at`
+  ne survit pas à la session et l'anti-doublon existe sans rien protéger.
+  Trouvé par le test, pas par relecture.
+
+#### Les parents d'un enfant dispensé ne sont jamais interrogés sur son absence
+
+Conséquence que la demande ne nommait pas, mais qui en découle : demander
+« pourquoi votre enfant était-il absent ? » quand c'est l'établissement
+lui-même qui l'a dispensé est le pire message possible.
+
+**Deux voies, deux gardes**, et c'est la seconde qui manquait :
+`POST /absent-notifications` en masse est protégé **par construction** (un
+enfant exempté a le statut `exempt`, jamais `absent`), mais la **relance
+individuelle** fabrique « absent » à la main, sans passer par le statut du
+jour. Elle refuse donc explicitement, en 422 — et c'est justement la voie
+ciblée, celle qu'on emprunte pour UN enfant précis.
+
+#### Permission et périmètre
+
+`attendance:write`, comme les autres réglages du module — une dispense est un
+paramètre de l'établissement, pas un geste quotidien. Admin d'office,
+superadmin exclu (403), cible hors établissement en **404 jamais 403**.
+
+⚠️ Les sélecteurs de personne passent par l'**annuaire**, jamais par
+`/children` ni `/staff` : poser une exemption n'exige pas d'ouvrir un dossier.
+C'est le couplage que le module Annuaire a dû refermer ailleurs.
+
+⚠️ **Rupture volontaire** : `GET /settings/exempt-staff` et
+`PATCH /settings/exempt-staff/{staff_id}` ont disparu. Elles ne savaient dire
+qu'« exempté pour toujours », et les garder à côté des périodes aurait fait
+deux sources de vérité pour la même question. Le seul consommateur était
+l'écran des réglages, refait avec les nouvelles.
 
 ### Horaires personnalisés par membre du personnel (table dédiée)
 
@@ -3079,6 +3235,117 @@ sinon on retombe exactement sur ce défaut : un bouton visible qui échoue.
   consultable sur le portail indépendamment de la délivrance de l'email
   (contrairement au mot de passe temporaire, qui EST le seul canal de
   délivrance et bloque donc la création si l'email échoue, cf. module Parents).
+
+### ⚠️ Valider ne doit pas attendre le facteur — « Impossible de joindre le serveur »
+
+Un établissement a signalé des erreurs « Impossible de joindre le serveur » à
+la soumission et à la validation, surtout sur les **bi-mensuels**. Ce n'était
+pas le réseau : ce message est celui que `getApiErrorMessage` affiche quand il
+n'y a **aucune réponse**, ce qui inclut le délai d'attente d'`apiClient` —
+**10 s** pour tout appel JSON.
+
+En face, la requête attendait du travail que rien ne bornait utilement :
+
+| Travail tenu par la requête | Plafond réel AVANT |
+|---|---|
+| Un email **par parent**, séquentiel | **60 s chacun** — défaut d'`aiosmtplib`, jamais surchargé |
+| Un push **par appareil** | **10 000 s** — défaut de `pywebpush` |
+| La traduction du contenu sur `PATCH` | 20 s (`TRANSLATION_TIMEOUT_SECONDS`) |
+
+⚠️ **Le défaut n'est pas l'erreur affichée, c'est ce qu'elle cache.** Mesuré
+sur l'installation réelle, avec un envoi ralenti à 12 s : côté navigateur
+`net::ERR_ABORTED` et le toast d'échec ; côté serveur, au même instant,
+`statut = validated` — **le rapport était publié et le parent prévenu**.
+L'admin lit donc un échec sur une action réussie et irréversible, et son
+second clic récolte un **409 « Seul un rapport soumis peut être validé »**, qui
+n'a aucun sens pour lui.
+
+**Pourquoi le bi-mensuel d'abord** : ses **sept** champs de texte libre sont
+tous **obligatoires**, c'est donc toujours la charge de traduction maximale. Un
+quotidien n'en a que trois, courts et facultatifs.
+
+Quatre corrections, et il les faut toutes :
+
+1. **L'email et le push partent EN FOND** (`app/core/background.py`). Ce qui
+   exige la base est lu pendant la requête ; le réseau se déroule après la
+   réponse. Même patron que les diffusions, pour la même raison.
+2. **Le push passe par la porte du module Notifications**
+   (`send_push_to_establishment_parents`) au lieu de la boucle recopiée dans
+   `reports/service.py`, qui faisait une requête d'abonnements par parent et
+   n'avait ni envoi en fond ni retrait des abonnements morts.
+   ⚠️ Le corps est rendu **langue par langue** (`body_by_locale`) : le libellé
+   de période en dépend, donc `body_params` mettrait « 1–15 octobre 2026 »
+   dans un push anglais.
+3. **Les plafonds des bibliothèques sont posés** : `MAIL_TIMEOUT_SECONDS`
+   (20 s) et `PUSH_TIMEOUT_SECONDS` (10 s). Une tâche de fond qui attend une
+   minute par message reste une tâche qui n'avance pas.
+4. **Les écritures de rapport ont leur propre plafond client**
+   (`WRITE_REQUEST`, 30 s, `lib/api/client.ts`) : elles attendent encore la
+   traduction, qui reste dans la requête. Dix secondes conviennent à une
+   lecture, pas à une écriture qui appelle un service tiers.
+
+`tests/e2e/test_reports_validation_flow.py` verrouille les quatre, et les
+quatre sabotages tombent : envoi remis dans la requête (latence), `try/except`
+par destinataire retiré (le second parent n'est plus servi), retouche d'un
+soumis refusée, plafond SMTP retiré (60 s réapparaît).
+
+⚠️ **Conséquence assumée** : la requête ne connaît plus l'issue de ce qu'elle
+n'attend pas. Elle ne rapporte que des envois PROGRAMMÉS — c'est le prix de ne
+plus la faire attendre, et c'est acceptable parce que ce canal est
+best-effort. Un mot de passe temporaire, lui, continue de bloquer : il n'existe
+que dans son email.
+
+### ⚠️ Valider ENREGISTRE d'abord — une correction de relecture ne se perd pas
+
+Second signalement, même écran. L'admin retouche un rapport pendant sa
+relecture — c'est le but de l'écran, le `submitted` ayant été ouvert pour ça —
+puis clique « Valider et publier ». La mutation n'envoyait que l'identifiant :
+**la correction était perdue, le rapport partait au parent avec l'ancien
+texte, et le toast annonçait un succès.** Reproduit dans un vrai navigateur,
+puis lu en base.
+
+Le bon enchaînement existait déjà juste au-dessus : `submitMutation` fait
+`update` puis `submit` **depuis toujours**. La validation était le seul des
+trois gestes à ne pas le suivre.
+
+- **On n'enregistre que si le formulaire a CHANGÉ.** Un `PATCH` systématique
+  relancerait la traduction (elle se déclenche sur toute écriture dont le
+  texte diffère) et réécrirait un rapport que l'admin n'a pas touché.
+- **Rien de changé → on valide tel quel, sans validation stricte** : le
+  contenu est déjà passé par la porte de la soumission, et un rapport ancien
+  n'a pas à buter sur un schéma durci depuis. **Quelque chose a changé → même
+  exigence de complétude que « Soumettre »**, puisque valider publie de la
+  même façon.
+- ⚠️ **`formState` de React Hook Form est un PROXY : `isDirty` doit être lu
+  PENDANT LE RENDU.** Lu seulement dans le gestionnaire de clic, il garde la
+  valeur du rendu précédent — faux — et la validation conclut qu'il n'y a rien
+  à enregistrer. Première version du correctif écrite ainsi : vérifiée dans un
+  vrai navigateur, **aucun `PATCH` n'était émis et la correction se reperdait
+  à l'identique**. Ni `tsc` ni le build ne voient ce défaut.
+- ⚠️ **« Enregistrer » ne quitte plus l'écran.** On enregistre au milieu d'une
+  relecture pour ne pas perdre son travail, pas pour en sortir ; l'écran
+  éjectait vers la liste, qu'il fallait rouvrir à chaque sauvegarde
+  intermédiaire. « Soumettre », juste à côté, restait déjà en place : c'est
+  « Enregistrer » qui était l'exception. Le formulaire est **reposé sur les
+  valeurs écrites** (`reset`), sinon `isDirty` resterait vrai et la validation
+  croirait avoir encore quelque chose à enregistrer.
+
+### ⚠️ Le renouvellement de jeton pendant une longue relecture
+
+Deux faiblesses de `lib/api/client.ts`, du même signalement (« après un long
+moment passé sur le rapport ») :
+
+- **`_retry` ne se posait pas sur le chemin de la FILE D'ATTENTE.** Une requête
+  rejouée avec le jeton frais qui reçoit malgré tout un 401 repassait dans
+  l'intercepteur, ne voyait plus de renouvellement en cours et en déclenchait
+  un **second**, avec un jeton de rafraîchissement déjà rotaté donc révoqué :
+  session vidée, retour à l'écran de connexion, **saisie perdue**. C'est
+  exactement le scénario de l'admin qui reste longtemps sur un rapport —
+  plusieurs requêtes expirent alors ensemble et une seule renouvelle.
+- **L'appel de renouvellement n'avait aucun plafond** (`axios.post` nu, qui
+  n'hérite ni des intercepteurs ni du délai). Un réseau muet laissait
+  `isRefreshing` à vrai indéfiniment : toutes les requêtes suivantes
+  s'empilaient dans la file et plus rien n'aboutissait ni n'échouait.
 
 ### Endpoints
 ```
@@ -4300,6 +4567,10 @@ MAIL_STARTTLS=true
 MAIL_SSL_TLS=false
 # Dev/test : n'établit aucune connexion SMTP, les emails sont ignorés (défaut false)
 MAIL_SUPPRESS_SEND=false
+# Plafond d'une session SMTP. ⚠️ Le défaut d'aiosmtplib est de 60 s et n'était
+# pas surchargé : c'était l'attente la plus longue de la plateforme, et elle se
+# paie PAR message (cf. « Valider ne doit pas attendre le facteur »).
+MAIL_TIMEOUT_SECONDS=20
 STORAGE_BACKEND=local
 STORAGE_LOCAL_PATH=./media
 # Pièces jointes — le TYPE est lu dans le contenu du fichier, jamais dans ce
@@ -4320,6 +4591,9 @@ LIBRARY_MAX_COVER_MB=10
 VAPID_PRIVATE_KEY=<vapid privée>
 VAPID_PUBLIC_KEY=<vapid publique>
 VAPID_SUBJECT=mailto:hello@lespetitsrayonsdesoleil.net
+# Plafond d'un envoi push. ⚠️ pywebpush passe 10 000 s à requests par défaut —
+# près de trois heures, c'est-à-dire aucune borne en pratique.
+PUSH_TIMEOUT_SECONDS=10
 # Traduction automatique du contenu saisi (blog, menus) — cf. section
 # « Internationalisation ». Best-effort strict : un échec ne bloque jamais une
 # publication, le site vitrine retombe sur le français.
@@ -4604,6 +4878,13 @@ tests/
     ├── test_core_modules_smoke.py       # golden path : auth, RBAC, organisation,
     │                                     #   enfants, parents, staff, présences, messagerie
     ├── test_attendance_correction.py      # correction manuelle (PATCH ligne + saisie manuelle, 403 sans write)
+    ├── test_attendance_exemptions.py     # exemptions : la SECTION couvre ses
+    │                                     #   enfants, la période décide seule, et
+    │                                     #   l'échéance ne réécrit PAS l'historique ;
+    │                                     #   annuler ≠ raccourcir ; parents d'un
+    │                                     #   dispensé jamais interrogés (deux voies) ;
+    │                                     #   notification une seule fois ; `covers()`
+    │                                     #   prouvé au ras du modèle
     ├── test_reports_workflow.py         # cycle de vie complet (soumission/validation/rejet)
     ├── test_reports_daily_content.py    # contenu structuré quotidien + pièces jointes
     ├── test_reports_bimensuel_content.py
@@ -4614,6 +4895,11 @@ tests/
     │                                     #   au lieu d'un 409 sur un rapport fantôme
     ├── test_reports_attachment_rules.py # qui pose une photo et quand ; `submit`
     │                                    #   par un admin renvoie bien « validated »
+    ├── test_reports_validation_flow.py  # valider n'attend ni l'email ni le push,
+    │                                    #   un envoi refusé ne prive pas les AUTRES
+    │                                    #   parents, retoucher un SOUMIS puis valider
+    │                                    #   publie la RETOUCHE, et les plafonds des
+    │                                    #   bibliothèques sont réellement posés
     ├── test_nicknames.py                # le surnom est le nom affiché : exigé pour
     │                                    #   un admin, posable après coup, renvoyé par
     │                                    #   /auth/me, et l'email de bienvenue le dit
@@ -4643,7 +4929,9 @@ tests/
     │                                    #   correction de menu propagée à la semaine suivante,
     │                                    #   reprise planifiée (tâches Celery appelées directement)
     ├── test_library.py                  # catalogue, prêts/retours, rappels + granularité read/write/lend,
-    │                                     #   borne de pagination alignée sur le reste de l'API
+    │                                     #   borne de pagination alignée sur le reste de l'API,
+    │                                     #   et l'anti-doublon des rappels PERSISTÉ quand c'est le
+    │                                     #   beat qui déclenche (la tâche commite elle-même)
     ├── test_library_cover.py            # couverture d'un livre : QUI la voit — gestion,
     │                                    #   parent et éducatrice par trois portes, et
     │                                    #   personne d'autre ; vignette, remplacement qui
@@ -4760,6 +5048,7 @@ explicitement, sinon trois conteneurs migreraient la base en même temps.
 
 | Tâche | Quand |
 |---|---|
+| `attendance.notify_expired_exemptions_all` | 06:00 UTC |
 | `library.send_due_reminders_all` | 07:00 UTC |
 | `blog.retry_missing_translations` | toutes les heures à :05 |
 | `menus.retry_missing_translations` | :20 |
@@ -4786,6 +5075,10 @@ Réglages du worker, et ce qu'ils supposent :
   toutes les tâches sont idempotentes par construction (anti-doublon journalier
   `last_reminded_on`, mémoire de traduction, balayages qui ne sélectionnent que
   ce qui manque). Une future tâche non idempotente devra le reconsidérer.
+  ⚠️ Et une idempotence **non commitée n'existe pas** : `last_reminded_on` était
+  posé puis annulé à la fermeture de la session de la tâche — cf. « Et elle
+  COMMITE elle-même » ci-dessous. L'hypothèse de ces deux réglages reposait
+  donc sur une garde qui ne tenait pas sur le chemin du beat.
 - `task_soft_time_limit` 10 min / `task_time_limit` 12 min — un balayage parti
   en vrille ne doit pas occuper le worker ni retarder les rappels du matin.
 - `broker_connection_retry_on_startup` — en conteneur, le worker démarre souvent
@@ -4795,7 +5088,8 @@ Réglages du worker, et ce qu'ils supposent :
 - L'état du beat vit dans le volume `lprds_celery_beat` : sans lui, chaque
   redémarrage repart d'une ardoise vierge et refait tomber les échéances passées
   — inoffensif grâce à l'idempotence, mais un parent recevrait un second rappel
-  à chaque déploiement.
+  à chaque déploiement. ⚠️ Cette idempotence n'était pas persistée jusqu'au
+  26/10/2026 : le second rappel partait pour de bon.
 - `worker` et `beat` attendent `backend: service_healthy` (healthcheck sur
   `/health/ready`), pas `service_started` : l'entrypoint du backend est le seul à
   migrer, et une tâche partie avant aurait un schéma d'avance sur elle.
@@ -4899,9 +5193,85 @@ fermée. Le premier passage marcherait, les suivants non — le pire profil de
 panne qui soit, invisible en test comme au premier lancement.
 
 Toute tâche passe donc par **`task_sessions()`** (`app/core/database.py`) :
-moteur jetable, `NullPool`, refermé en sortie. Même raisonnement que le moteur
-jetable de `tests/conftest.py`. Les cinq tâches (`library` ×2, `blog`, `menus`,
+moteur jetable, `NullPool`, refermé en sortie — **et un pool Redis propre à la
+tâche** (cf. ci-dessous). Même raisonnement que le moteur jetable de
+`tests/conftest.py`. Les cinq tâches (`library` ×2, `blog`, `menus`,
 `reports`) l'utilisent.
+
+### ⚠️ Et elle COMMITE elle-même — `task_sessions()` ne le fait pas
+
+`task_sessions()` fabrique des sessions, rien de plus : **il ne commite pas en
+sortie**, contrairement à `get_db`, qui commite en fin de requête HTTP. Toute
+session de tâche qui ÉCRIT doit donc appeler `await db.commit()` elle-même ;
+sans lui, la fermeture annule tout.
+
+Le piège est qu'un service appelé depuis les deux côtés n'a aucune raison de
+commiter lui-même — `send_due_reminders` se contente d'un `flush`, comme tout
+le reste du projet. Le même code se comportait donc **différemment selon
+l'appelant** : correct depuis `POST /library/reminders/run`, perdu depuis le
+beat. Et ce qui se perdait était précisément **l'anti-doublon journalier**
+(`last_reminded_on`) qui protège les deux chemins — plus le message injecté
+dans la conversation du parent, qui partait avec le rollback. Le parent
+recevait l'email (envoyé hors transaction, best-effort) sans la trace côté
+messagerie, et un **second rappel à chaque passage**.
+
+⚠️ C'est exactement le scénario que le volume `lprds_celery_beat` est censé
+rendre inoffensif — « un redémarrage refait tomber les échéances passées,
+inoffensif grâce à l'idempotence ». L'idempotence invoquée était justement
+celle qui ne tenait pas. Une garde dont on documente qu'elle couvre un risque
+mérite d'être vérifiée SUR LE CHEMIN qu'elle couvre.
+
+Rien ne pouvait le signaler : la tâche renvoie son compte depuis l'objet
+retourné par le service (valeurs déjà calculées), donc elle annonçait
+fidèlement « 1 prêt rappelé » en n'en persistant aucun.
+
+`tests/e2e/test_library.py::test_scheduled_reminders_persist_the_daily_guard`
+appelle la tâche **deux fois de suite** et exige 0 au second passage — le
+contrôle par HTTP (dans `test_library`) ne pouvait pas voir le défaut, puisque
+c'est `get_db` qui le masquait. Prouvé par sabotage : commit retiré, le second
+passage renvoie 1 et le message n'est plus en base.
+
+⚠️ Les sessions **en lecture seule** d'une tâche (celles qui ne collectent que
+des identifiants avant la boucle) n'ont, elles, rien à commiter — c'est la
+forme des quatre autres tâches, et c'est pourquoi `grep -n "db.commit"` sur un
+fichier de tâche ne suffit pas à juger : il faut regarder **chaque** session
+qui écrit.
+
+### ⚠️ Le client REDIS global avait le même mal, et personne ne l'avait vu
+
+Tout ce qui précède vaut mot pour mot pour Redis : une connexion
+`redis.asyncio` appartient elle aussi à la boucle qui l'a ouverte. Le moteur
+SQLAlchemy avait été traité, le client Redis — un **singleton de module** —
+était resté en arrière. Les rappels de bibliothèque injectent un message dans
+la conversation du parent, donc **publient sur Redis** : dès le SECOND passage
+dans la vie d'un worker, la publication piochait une connexion rattachée à une
+boucle fermée (« got Future attached to a different loop »).
+
+Le temps réel étant best-effort, `ws_manager` attrapait et journalisait : le
+rappel partait quand même, mais un parent connecté ne voyait plus rien arriver
+en direct, **et plus jamais**. Aucun écran ne montre ça.
+
+`task_pool()` (`app/core/redis.py`) prête au client un pool valable pour la
+boucle de la tâche, et `task_sessions()` l'ouvre pour elle — **une seule
+porte** pour les deux, sinon la prochaine tâche écrite n'en franchira qu'une.
+
+⚠️ **Il faut borner les DEUX côtés**, et le second n'est apparu qu'après avoir
+corrigé le premier : un pool neuf à l'entrée ne suffit pas, car en sortie la
+tâche rendrait au pool PARTAGÉ les connexions ouvertes dans sa boucle — que le
+prochain venu paierait (« unable to perform operation on … the handler is
+closed », levé côté HTTP dans la vérification de révocation de jeton, donc sur
+un chemin qui n'a rien à voir). La tâche referme donc son pool **dans sa
+propre boucle**, le seul endroit où ces connexions peuvent encore se fermer
+proprement, puis repose celui qu'elle avait trouvé.
+
+⚠️ On remplace le **pool**, jamais le client : les six consommateurs font
+`from app.core.redis import redis_client`, donc importent l'objet par valeur —
+réassigner le module ne les atteindrait pas.
+
+Trouvé par le test ci-dessus, pas par relecture : c'est le seul test qui
+appelle une tâche **deux fois de suite**, et la seconde exécution est
+exactement ce qui réveille ce défaut. Les deux gardes sont prouvées par
+sabotage.
 
 ---
 
@@ -5467,9 +5837,12 @@ aucune trace.
   un seul `DELETE` pour tout le lot.
 - ⚠️ **`POST /notifications/test` reste synchrone**, et c'est tout son intérêt :
   le bouton « essai » existe pour dire si l'envoi marche.
-- **Le rapport validé reste synchrone** lui aussi : il pousse aux parents d'UN
-  enfant, soit deux comptes, pas cent cinquante. Le coût est borné ; le
-  déplacer n'achèterait rien.
+- ⚠️ **Le rapport validé était resté synchrone — c'était une ERREUR, corrigée
+  le 28/10/2026.** Le raisonnement tenait en une phrase (« il pousse aux
+  parents d'UN enfant, deux comptes, pas cent cinquante : le coût est borné »)
+  et il regardait la mauvaise grandeur. Ce qui décide n'est pas le NOMBRE de
+  destinataires mais le PLAFOND PAR ENVOI : un seul suffit à dépasser ce que
+  le navigateur attend. Cf. « Valider ne doit pas attendre le facteur ».
 - Au passage, une requête d'abonnements au lieu d'une par destinataire — la
   version précédente faisait 150 allers-retours vers la base avant le premier
   push.

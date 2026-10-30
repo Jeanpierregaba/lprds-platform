@@ -8,7 +8,7 @@
     "late": "Arrived after the expected time",
     "absent": "Working day with no arrival scanned",
     "not_expected": "Weekend — no attendance expected",
-    "exempt": "Staff member exempt from clocking in"
+    "exempt": "Exempt from attendance"
   },
   "eventTypes": {
     "arrival": "Arrival",
@@ -199,7 +199,7 @@
       "absent": "Working day with no arrival",
       "late": "Arrived after the expected time",
       "not_expected": "Weekend — no attendance expected",
-      "exempt": "Staff exempt from clocking in"
+      "exempt": "Exempt from attendance"
     },
     "modalTitles": {
       "total": "Full list",
@@ -268,7 +268,6 @@
   },
   "graceHint": "An arrival within this window after the expected time still counts as “present”. 0 means no leeway. Applies to children and staff alike.",
   "staffScheduleHint": "By default every staff member follows the general schedule (see General). Set an individual schedule here to override it when calculating that person’s lateness.",
-  "exemptHint": "An exempt staff member is never counted as “absent” when they do not scan.",
   "generateCard": "Generate the school card",
   "correctionHint": "Only the times you change are saved. A time with no matching scan creates that entry.",
   "noAccess": "Insufficient rights — no access to the attendance module.",
@@ -279,5 +278,69 @@
     "qrcodes": "QR codes",
     "scan": "Scanner",
     "export": "Export"
+  },
+  "exemptions": {
+    "hint": "Someone who is exempt is never counted as “absent” when they do not check in.",
+    "hintSection": "For children, prefer exempting the whole SECTION — an outing, a closure, a placement week concern the class. A single-child exemption is there for the exception.",
+    "new": "New exemption",
+    "newTitle": "New attendance exemption",
+    "newDescription": "Choose who is exempt, and over which period. Outside that period attendance is expected again — automatically, and you will be told.",
+    "editTitle": "Edit exemption",
+    "editDescription": "The period and the reason can change; the person concerned cannot. Shortening the end date ends the exemption without touching the days already covered.",
+    "filterAll": "All",
+    "showRevoked": "Show cancelled",
+    "empty": "No exemption yet.",
+    "scopeLabel": "Scope",
+    "targetLabel": "Applies to",
+    "targetRequired": "Choose who is exempt",
+    "reasonTooLong": "The reason cannot exceed 500 characters",
+    "endBeforeStart": "The end date cannot be before the start date",
+    "startsOn": "Start",
+    "endsOn": "End",
+    "openStart": "Empty = from the start",
+    "openEnd": "Empty = no end date",
+    "reason": "Reason",
+    "reasonPlaceholder": "e.g. recovery, placement, school trip",
+    "pickSection": "Choose a section",
+    "change": "Change",
+    "searchStaff": "Search for a staff member…",
+    "searchChild": "Search for a child…",
+    "searching": "Searching…",
+    "noResult": "No result",
+    "searchPrompt": "Type at least two characters.",
+    "always": "No date limit",
+    "fromDate": "From {date}",
+    "untilDate": "Until {date}",
+    "range": "From {from} to {to}",
+    "edit": "Edit",
+    "revoke": "Cancel exemption",
+    "revokeTitle": "Cancel this exemption?",
+    "revokeBody": "The exemption for {name} will no longer count, including for days already past. To simply end it while keeping the days it covered, shorten its end date instead.",
+    "created": "Exemption created.",
+    "updated": "Exemption updated.",
+    "revoked": "Exemption cancelled.",
+    "scope": {
+      "staff": "Staff",
+      "child": "Child",
+      "section": "Section"
+    },
+    "scopeHelp": {
+      "staff": "A staff member.",
+      "child": "One specific child — the exception within a section that runs normally.",
+      "section": "Every child in the section, the path to prefer."
+    },
+    "state": {
+      "active": "Active",
+      "upcoming": "Upcoming",
+      "expired": "Expired",
+      "revoked": "Cancelled"
+    },
+    "columns": {
+      "who": "Applies to",
+      "period": "Period",
+      "reason": "Reason",
+      "state": "Status",
+      "actions": "Actions"
+    }
   }
 }

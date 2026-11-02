@@ -13,7 +13,7 @@
  * pré-cachés, sinon les clients gardent l'ancienne version de ce worker.
  */
 
-const CACHE_VERSION = '2026.15'
+const CACHE_VERSION = '2026.16'
 const SHELL = 'lprds-shell@' + CACHE_VERSION
 
 /* ⚠️ L'ESPACE CONNECTÉ N'EST JAMAIS MIS EN CACHE.
@@ -190,35 +190,60 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
+/* Réponse de DERNIER recours.
+ *
+ * ⚠️ `respondWith()` qui reçoit `undefined` fait échouer la requête, et Safari
+ * l'affiche à l'utilisateur comme une page qui ne s'ouvre pas. Trois chemins
+ * pouvaient y aboutir : un repli de navigation qui ne trouve rien en cache,
+ * un `cacheFirst` dont le réseau tombe, et un `staleWhileRevalidate` hors
+ * ligne sur une ressource jamais vue. Chrome rend alors une erreur réseau
+ * ordinaire pour cette seule ressource ; Safari casse la navigation entière.
+ */
+function unavailable() {
+  return new Response('', { status: 503, statusText: 'Offline' })
+}
+
 function cacheFirst(event, cacheName = SHELL) {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached
-      return fetch(event.request).then((response) => {
-        if (response && response.ok) {
-          const clone = response.clone()
-          caches.open(cacheName).then((cache) => cache.put(event.request, clone))
-        }
-        return response
-      })
+      return fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone()
+            // ⚠️ `waitUntil`, jamais une promesse flottante : sans lui, Safari
+            // ferme le worker dès la réponse rendue et l'écriture en cours
+            // s'exécute dans un contexte mort.
+            event.waitUntil(caches.open(cacheName).then((cache) => cache.put(event.request, clone)))
+          }
+          return response
+        })
+        .catch(() => unavailable())
     }),
   )
 }
 
 function staleWhileRevalidate(event, cacheName = SHELL) {
+  const request = event.request
+  const network = fetch(request)
+    .then(async (response) => {
+      if (response && response.ok) {
+        const cache = await caches.open(cacheName)
+        await cache.put(request, response.clone())
+      }
+      return response
+    })
+    .catch(() => undefined)
+
+  // ⚠️ SYNCHRONE, pendant que l'événement est encore actif. Posé plus tard —
+  // dans le `.then` de la revalidation, qui peut tourner après que la réponse
+  // en cache a déjà été rendue — `waitUntil` lève `InvalidStateError` :
+  // l'événement n'est plus actif. C'est le piège inverse de celui du
+  // `cacheFirst` ci-dessus, où l'appel reste dans la chaîne de `respondWith`.
+  event.waitUntil(network)
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((response) => {
-          if (response && response.ok) {
-            const clone = response.clone()
-            caches.open(cacheName).then((cache) => cache.put(event.request, clone))
-          }
-          return response
-        })
-        .catch(() => cached)
-      return cached || network
-    }),
+    caches.match(request).then((cached) => cached || network.then((r) => r || unavailable())),
   )
 }
 
@@ -242,9 +267,9 @@ async function navigationFallback(request, pathname) {
   // `/` tombe ici avec le reste : son absence du cache ci-dessus EST le signal
   // que cet appareil est servi en anglais à la racine.
   if (pathname === '/' || pathname === '/en' || pathname.startsWith('/en/')) {
-    return (await caches.match('/en')) || (await caches.match('/en/offline'))
+    return (await caches.match('/en')) || (await caches.match('/en/offline')) || unavailable()
   }
-  return (await caches.match('/')) || (await caches.match('/offline'))
+  return (await caches.match('/')) || (await caches.match('/offline')) || unavailable()
 }
 
 /* Fin de session — purge des PAGES mises en cache.
@@ -344,7 +369,9 @@ self.addEventListener('fetch', (event) => {
   if (isPrivate(url.pathname)) {
     if (request.mode === 'navigate') {
       const offlinePage = url.pathname.startsWith('/en/') ? '/en/offline' : '/offline'
-      event.respondWith(fetch(request).catch(() => caches.match(offlinePage)))
+      event.respondWith(
+        fetch(request).catch(async () => (await caches.match(offlinePage)) || unavailable()),
+      )
     }
     return
   }
@@ -363,7 +390,7 @@ self.addEventListener('fetch', (event) => {
           // qui n'est pas la sienne — `/en` a la sienne.
           if (response && response.ok && !response.redirected) {
             const clone = response.clone()
-            caches.open(SHELL).then((cache) => cache.put(request, clone))
+            event.waitUntil(caches.open(SHELL).then((cache) => cache.put(request, clone)))
           }
           return response
         })

@@ -16,9 +16,18 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+/* ⚠️ `'standalone' in navigator` TESTE L'EXISTENCE DE LA PROPRIÉTÉ, pas sa
+ * valeur — et Safari l'expose en permanence : sur iOS depuis toujours, sur
+ * macOS depuis Safari 17 (« Ajouter au Dock »), où elle vaut `false` dans un
+ * onglet ordinaire. L'application se croyait donc DÉJÀ INSTALLÉE chez tout
+ * utilisateur Safari, et le bouton d'installation n'était jamais proposé.
+ *
+ * Signalé par un établissement, et l'ironie est entière : le mode guidé écrit
+ * précisément POUR Safari (`detectInstallFallback` ci-dessous) était rendu
+ * inatteignable par la ligne censée détecter l'état installé de Safari. Le
+ * test juste en dessous, lui, était correct depuis le début. */
 const isStandalone = (): boolean =>
   window.matchMedia('(display-mode: standalone)').matches ||
-  'standalone' in window.navigator ||
   (window.navigator as { standalone?: boolean }).standalone === true
 
 type InstallFallback = 'ios' | 'mac' | null

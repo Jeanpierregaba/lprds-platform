@@ -38,10 +38,15 @@ function mkResponse({ body, type = 'text/html', redirected = false, url, ok = tr
   }
 }
 
-function mkCaches() {
+function mkCaches({ lent = false } = {}) {
   const stores = new Map()
   const keyOf = (r) => (typeof r === 'string' ? new URL(r, ORIGIN).href : r.url)
   const open = async (name) => {
+    // Une écriture en cache est une vraie E/S : en mode `lent`, elle coûte un
+    // tour de boucle d'événements. Une écriture SUIVIE par `waitUntil` est
+    // attendue malgré ça ; une écriture flottante, non — exactement ce que
+    // fait Safari en fermant le worker dès la réponse rendue.
+    if (lent) await new Promise((r) => setTimeout(r, 0))
     if (!stores.has(name)) stores.set(name, new Map())
     const m = stores.get(name)
     return {
@@ -65,9 +70,9 @@ function mkCaches() {
 }
 
 /* Appareil : 'fr' sert le francais a la racine, 'en' redirige / -> /en. */
-function load(device, cookie = null) {
+function load(device, cookie = null, { lent = false } = {}) {
   const listeners = new Map()
-  const caches = mkCaches()
+  const caches = mkCaches({ lent })
   const fetchImpl = async (input) => {
     const href = typeof input === 'string' ? new URL(input, ORIGIN).href : input.url
     const path = new URL(href).pathname
@@ -99,6 +104,9 @@ function load(device, cookie = null) {
       registration: { showNotification: async () => {} },
     },
     caches, fetch: fetchImpl, clients: { matchAll: async () => [] },
+    // Le worker fabrique une réponse de dernier recours : sans ce global, il
+    // lèverait ReferenceError au lieu d'être jugé sur son comportement.
+    Response,
     URL, Promise, console,
   }
   vm.createContext(ctx)
@@ -106,9 +114,30 @@ function load(device, cookie = null) {
   const waits = []
   const fire = async (ev, data) => {
     const fn = listeners.get(ev)
-    const event = { ...data, waitUntil: (p) => waits.push(p), respondWith: (p) => { event._res = p } }
+    // `_active` reproduit la règle du navigateur : `waitUntil` n'est permis
+    // que tant que l'événement l'est. Posé trop tard, il lève
+    // `InvalidStateError` — un défaut que seul un vrai navigateur montrait.
+    let enCours = 0
+    const event = {
+      ...data,
+      _active: true,
+      _tardif: false,
+      waitUntil: (p) => {
+        // Règle du navigateur : l'événement reste actif tant que `respondWith`
+        // n'a pas abouti OU qu'une promesse de `waitUntil` est en cours. Passé
+        // ce point, l'appel lève `InvalidStateError` — et le travail de fond
+        // n'est plus garanti de s'achever.
+        if (!event._active) { event._tardif = true; return }
+        enCours += 1
+        waits.push(Promise.resolve(p).finally(() => { enCours -= 1 }))
+      },
+      respondWith: (p) => { event._res = p },
+    }
     fn(event)
-    await Promise.all(waits.splice(0))
+    // La réponse d'abord : les écritures en cache sont posées DANS sa chaîne.
+    if (event._res) { try { await event._res } catch { /* jugé par l'appelant */ } }
+    while (waits.length) await Promise.all(waits.splice(0))
+    if (enCours === 0) event._active = false
     return event
   }
   return { ctx, caches, fire, listeners }
@@ -227,6 +256,86 @@ async function navigate(env, path) {
   env.ctx.fetch = async (...a) => { calls += 1; return real(...a) }
   await env.fire('message', { data: { type: 'locale-changed', locale: 'fr' } })
   ck('fr deja aligne : aucun appel reseau', calls, 0)
+}
+
+// ---- 7. Safari : `respondWith` ne doit JAMAIS recevoir autre chose qu'une Response
+//
+// Signalé par un établissement, sur un MacBook : « Safari ne parvient pas à
+// ouvrir la page — Service Worker context closed ». Quatre chemins pouvaient
+// résoudre `respondWith` sur `undefined`, tous quand le cache est VIDE et le
+// réseau absent — c'est-à-dire exactement un worker installé de frais dont le
+// précache a été interrompu, ce que Safari fait volontiers en tuant le worker.
+// Chrome rend alors une erreur réseau sur la seule ressource ; Safari casse la
+// navigation entière, et c'est ce que l'utilisateur lit.
+{
+  const estUneReponse = (r) => !!r && typeof r === 'object' && typeof r.status === 'number'
+
+  const sansRien = (chemin, mode, accept) => {
+    // Aucun `install` : le cache est vide. Et le réseau est coupé.
+    const env = load('fr')
+    env.ctx.fetch = async () => { throw new Error('offline') }
+    return env.fire('fetch', {
+      request: {
+        url: new URL(chemin, ORIGIN).href,
+        method: 'GET',
+        mode,
+        headers: { get: () => accept },
+      },
+    })
+  }
+
+  for (const [libelle, chemin, mode, accept] of [
+    ['navigation publique', '/a-propos', 'navigate', 'text/html'],
+    ['navigation de l\'espace connecté', '/dashboard/admin', 'navigate', 'text/html'],
+    ['icône (cache-first)', '/icons/icon-192.png', 'no-cors', 'image/png'],
+    ['chunk (stale-while-revalidate)', '/_next/static/chunk.js', 'no-cors', '*/*'],
+  ]) {
+    const ev = await sansRien(chemin, mode, accept)
+    let rendu
+    try { rendu = await ev._res } catch { rendu = undefined }
+    ck(`cache vide + hors ligne : ${libelle} rend une Response`, estUneReponse(rendu), true)
+  }
+}
+
+// ---- 8. Les écritures en cache sont SUIVIES par waitUntil
+//
+// Une promesse flottante survit à la réponse ; Safari ferme le worker dès
+// celle-ci rendue, et l'écriture s'exécute dans un contexte mort — le message
+// « Service Worker context closed ». Le cache est ici LENT (un vrai tour de
+// boucle, comme une E/S) : seule une écriture attendue par l'événement a le
+// temps d'atterrir.
+{
+  const env = load('fr', null, { lent: true })
+  await env.fire('install', {})
+  const req = {
+    url: new URL('/nos-sections', ORIGIN).href,
+    method: 'GET', mode: 'navigate', headers: { get: () => 'text/html' },
+  }
+  await env.fire('fetch', { request: req })   // aucun tour de boucle offert en plus
+  const shell = [...env.caches._stores.values()][0]
+  ck('navigation : l\'écriture en cache est attendue par l\'événement',
+     [...shell.keys()].some((k) => k.includes('/nos-sections')), true)
+}
+
+// ---- 9. …et posées pendant que l'événement est encore ACTIF
+//
+// `waitUntil` appelé après la résolution de `respondWith` lève
+// `InvalidStateError` : le travail de fond n'est alors plus garanti. Le piège
+// vise `staleWhileRevalidate` sur un SUCCÈS DE CACHE — le cas courant : la
+// réponse part aussitôt, la revalidation se termine bien plus tard. C'est
+// pourquoi son `waitUntil` est posé SYNCHRONEMENT, avant `respondWith`.
+{
+  const env = load('fr', null, { lent: true })
+  await env.fire('install', {})
+  const url = new URL('/_next/static/chunk.js', ORIGIN).href
+  const req = { url, method: 'GET', mode: 'no-cors', headers: { get: () => '*/*' } }
+  await env.fire('fetch', { request: req })          // 1er passage : met en cache
+  const ev = await env.fire('fetch', { request: req })  // 2e : succès de cache + revalidation
+  // ⚠️ La revalidation se termine APRÈS la réponse — c'est tout le sujet. Lire
+  // le drapeau tout de suite laisserait passer le défaut : il faut laisser le
+  // second temps se produire, comme le navigateur le ferait.
+  await new Promise((r) => setTimeout(r, 20))
+  ck('revalidation : waitUntil posé pendant que l\'événement est actif', ev._tardif, false)
 }
 
 const failed = results.filter((r) => !r).length

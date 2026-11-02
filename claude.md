@@ -429,6 +429,43 @@ au-delà d'une douzaine de caractères.
   cet appareil. Vérifié en vrai navigateur, sur un appareil anglophone : `/`
   absent du cache, puis français sous `/` après passage au français, puis de
   nouveau absent après retour à l'anglais.
+  #### ⚠️ « Service Worker context closed » — Safari casse là où Chrome tolère
+
+  Second signalement du même établissement : **« Safari ne parvient pas à
+  ouvrir la page. Erreur : Service Worker context closed »**. Quatre chemins
+  du worker pouvaient résoudre `respondWith()` sur **`undefined`**, et deux
+  laissaient des écritures de cache **flottantes**.
+
+  | Défaut | Chrome | Safari |
+  |---|---|---|
+  | `respondWith(undefined)` | erreur réseau sur CETTE ressource | **la navigation entière échoue** |
+  | Écriture de cache non suivie par `waitUntil` | le worker survit assez longtemps | **worker fermé dès la réponse → contexte mort** |
+
+  Les quatre chemins rendaient `undefined` **quand le cache est vide et le
+  réseau absent** : exactement un worker fraîchement installé dont le précache
+  a été interrompu — ce que Safari fait volontiers, en tuant le worker.
+  `unavailable()` (503) est désormais le dernier recours de chacun : une
+  réponse, toujours.
+
+  ⚠️ **`waitUntil` a une durée de vie, et elle se referme.** L'événement reste
+  actif tant que `respondWith` n'a pas abouti ou qu'un `waitUntil` est en
+  cours ; au-delà, l'appel lève `InvalidStateError`. D'où **deux formes
+  différentes** dans le même fichier, et c'est voulu :
+  - `cacheFirst` et la navigation posent leur `waitUntil` **dans la chaîne de
+    `respondWith`** — l'événement y est encore actif ;
+  - `staleWhileRevalidate` le pose **SYNCHRONEMENT, avant `respondWith`** :
+    sur un succès de cache — le cas courant — la réponse part aussitôt et la
+    revalidation se termine bien plus tard, donc hors événement actif.
+
+  `check-sw-cache.mjs` modélise désormais les deux choses que seul un vrai
+  navigateur montrait : un cache dont l'écriture **coûte un tour de boucle**
+  (une écriture flottante n'a alors pas le temps d'atterrir) et la **durée de
+  vie de l'événement** (un `waitUntil` tardif est enregistré comme tel).
+  ⚠️ Les deux premières versions de ces gardes passaient sur du code saboté —
+  l'une parce que le harnais offrait un tour de boucle gratuit, l'autre parce
+  qu'elle lisait son drapeau avant que la revalidation n'ait eu lieu. Trois
+  sabotages les prouvent maintenant.
+
 - **Tapotement sur une notification** (`notificationclick`) : deux défauts
   cumulés, et aucun ne se voyait.
   1. La **destination était ignorée** — on ouvrait toujours `/`. Un parent qui
@@ -455,6 +492,32 @@ au-delà d'une douzaine de caractères.
   (masqué une fois installé / standalone), affiche un bandeau « hors ligne »
   sur `offline`/`online`, et applique les **mises à jour automatiquement**
   (cf. ci-dessous).
+
+  #### ⚠️ Le bouton d'installation n'apparaissait JAMAIS sur Safari
+
+  Signalé par un établissement, sur un MacBook. `beforeinstallprompt` n'existe
+  que sur Chromium, d'où un **mode guidé** (`detectInstallFallback` : « Partage
+  → Sur l'écran d'accueil » sur iOS, « Fichier → Ajouter au Dock » sur macOS).
+  Il était inatteignable, et l'ironie est entière : c'est la ligne censée
+  détecter l'état installé **de Safari** qui le rendait inaccessible.
+
+  ```js
+  'standalone' in window.navigator ||     // ← vrai dès que la PROPRIÉTÉ existe
+  ```
+
+  `in` teste l'**existence**, pas la valeur. Safari expose `navigator.standalone`
+  en permanence — sur iOS depuis toujours, sur **macOS depuis Safari 17**
+  (« Ajouter au Dock ») — et elle vaut `false` dans un onglet ordinaire.
+  `isStandalone()` répondait donc **toujours vrai** sur Safari :
+  `setInstalled(true)`, et ni le bouton ni le mode guidé n'étaient affichés.
+  Le test de la ligne suivante (`.standalone === true`) était juste depuis le
+  début ; la clause fautive ne faisait que le court-circuiter.
+
+  ⚠️ Conséquence : sur **iOS, 100 % des navigateurs** sont concernés (tous sont
+  WebKit). Un parent iPhone ne s'est donc jamais vu proposer l'installation —
+  alors que le push, lui, **exige** l'application installée depuis l'écran
+  d'accueil. Toute la Phase 2 reposait sur un geste que personne ne pouvait
+  faire.
 - **Auto-update sans geste manuel** : `scripts/stamp-version.mjs` (hook
   `prebuild`) écrit `public/version.json` au build ; le bundle embarque la
   même version via `NEXT_PUBLIC_APP_VERSION`. Le provider sonde

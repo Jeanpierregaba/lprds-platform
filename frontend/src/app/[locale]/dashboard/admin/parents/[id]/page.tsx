@@ -145,7 +145,7 @@ export default function ParentDetailPage() {
       resetResetForm()
       setResetOpen(false)
       if (parent) {
-        setAcces({ name: parent.first_name, email: parent.email, password: values.new_password })
+        setAcces({ name: displayName(parent), email: parent.email, password: values.new_password })
       }
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -165,7 +165,7 @@ export default function ParentDetailPage() {
       // Sans mot de passe saisi, il n'y a RIEN à copier : celui que le serveur
       // a généré n'existe que dans l'email parti.
       if (password && parent) {
-        setAcces({ name: parent.first_name, email: parent.email, password })
+        setAcces({ name: displayName(parent), email: parent.email, password })
       }
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),

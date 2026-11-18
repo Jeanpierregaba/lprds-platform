@@ -134,7 +134,7 @@ export default function StaffDetailPage() {
       resetResetForm()
       setResetOpen(false)
       if (staff) {
-        setAcces({ name: staff.first_name, email: staff.email, password: values.new_password })
+        setAcces({ name: displayName(staff), email: staff.email, password: values.new_password })
       }
     } catch (err) {
       toast.error(getApiErrorMessage(err))
@@ -154,7 +154,7 @@ export default function StaffDetailPage() {
       // Sans mot de passe saisi, il n'y a RIEN à copier : celui que le serveur
       // a généré n'existe que dans l'email parti.
       if (password && staff) {
-        setAcces({ name: staff.first_name, email: staff.email, password })
+        setAcces({ name: displayName(staff), email: staff.email, password })
       }
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),

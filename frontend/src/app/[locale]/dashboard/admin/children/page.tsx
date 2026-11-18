@@ -467,12 +467,16 @@ function ChildCard({
       <CardContent className="space-y-1.5 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
+            {/* `lg` (64 px) et non `md` : une carte sert à RECONNAÎTRE un
+                enfant d'un coup d'œil — c'est la raison même de la photo — et
+                40 px n'y suffisent pas. La vignette servie fait 480 px de côté
+                long, donc elle reste nette jusqu'à 3× de densité. */}
             <ChildAvatar
               childId={child.id}
               firstNames={child.first_names}
               lastName={child.last_name}
               hasPhoto={child.has_photo}
-              size="md"
+              size="lg"
             />
             <p className="min-w-0 break-words font-display text-xl font-semibold leading-tight">
               {child.first_names} {child.last_name}

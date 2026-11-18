@@ -1452,6 +1452,13 @@ section. Le superadmin reste exclu, comme partout.
   le PDF, pas l'avatar — rien ne saurait le dessiner dans un rond.
 - La vignette (`?thumb=true`) est ce que demandent les listes : l'original est
   une photo de téléphone.
+- **La CARTE d'une liste porte la photo en 64 px** (`ChildAvatar size="lg"`),
+  la LIGNE d'un tableau en 32 px. Demandé par l'établissement, et c'est la
+  raison d'être de la photo : une carte sert à reconnaître un enfant d'un coup
+  d'œil, ce que 40 px ne permettent pas. La vignette servie faisant 480 px de
+  côté long, elle reste nette jusqu'à 3× de densité — aucun octet de plus à
+  télécharger. Vérifié à 1440 px et à 375 px : le nom se replie à côté du rond
+  sans déborder, y compris sur un nom composé de trente-six caractères.
 
 ### Trombinoscope — une grille de photos par SECTION, imprimable
 
@@ -1606,6 +1613,45 @@ Le lien porte le **préfixe de langue** de l'interface (`/en/auth/login` en
 anglais) : un destinataire envoyé sur un écran dans la mauvaise langue est
 exactement ce que tout le chantier i18n cherche à éviter. Le nom de la
 plateforme vient de `lib/brand.ts`, source unique (cf. § PWA).
+
+⚠️ **Le message salue par le SURNOM**, pas par l'état civil. Les **six** points
+d'appel passaient `first_name`, si bien qu'un parent que tout l'établissement
+nomme « Papa Anaïs » lisait « Bonjour Anaïs » dans le seul message qui lui soit
+ADRESSÉ — signalé par l'établissement. Septième foyer du même oubli, et la
+source unique existait depuis le chantier du surnom : `displayName()`
+(`lib/utils/display-name.ts`). La prop est désormais documentée au composant,
+faute de quoi le prochain appelant repassera l'état civil sans que rien ne le
+signale — un nom s'affiche, il est juste le mauvais.
+
+⚠️ **La dernière ligne invite à activer les NOTIFICATIONS**, et non plus à
+changer son mot de passe. Plus aucun changement n'est imposé au premier login
+(cf. § Authentification), donc cette phrase ne demandait plus rien ; le push,
+lui, exige un abonnement **par appareil** que personne ne pense à accorder —
+c'est le trou que la notification par email a dû combler côté diffusions et
+conversations. Autant le demander dans le message que le destinataire lit
+forcément.
+
+⚠️ **La boîte de texte s'ajuste à son CONTENU.** Un `rows` fixe est un pari sur
+le nombre de lignes RENDUES, et ce nombre dépend du nom de la plateforme, de la
+longueur du lien et du repli de chaque ligne : mesuré à l'écran, 239 px de texte
+dans 200 px de boîte — la **dernière ligne était coupée**, c'est-à-dire
+précisément celle qui demande quelque chose au destinataire. Trois détails, tous
+invisibles au type-check :
+- l'ajustement vit dans la **ref de rappel**, jamais dans un effet de montage :
+  `DialogContent` monte son contenu dans un SECOND commit, donc l'effet du
+  parent passe quand la ref est encore nulle, et ses dépendances ne rebougeant
+  plus, il ne repasse jamais (première version écrite ainsi — l'attribut `style`
+  restait absent) ;
+- `scrollHeight` ignore la **bordure**, que `height` inclut en `border-box` :
+  239 px posés laissaient 237 px utiles, soit deux pixels rognés ;
+- **on ne remesure PAS** après coup. Un auditeur de redimensionnement a été
+  essayé, puis retiré : sa mesure tombait sur une disposition que le navigateur
+  n'avait pas encore recalculée et ramenait la boîte à sa hauteur de repli
+  (202 px pour 239 px de texte) — donc pire que rien, et différer d'une image
+  n'y changeait rien. Une fenêtre redimensionnée pendant que le dialogue est
+  ouvert laisse simplement la boîte défiler.
+Vérifié dans un vrai navigateur à 1280 px et à 375 px : rien de coupé, aucun
+débordement horizontal.
 
 ### Relance d'invitation — et pourquoi « le même mot de passe » est impossible
 
@@ -1902,6 +1948,48 @@ décision explicite (alternative « nouvel event manuel avec flag » écartée) 
   `attendance:read` seul), dialogue arrivée/départ pré-rempli (1re arrivée /
   dernier départ, même règle que le backend), PATCH si la ligne existe sinon
   création manuelle, vide = inchangé.
+
+### La modale d'un statut porte le PÉRIMÈTRE, pas sa propre copie
+
+Les six cartes du tableau de bord (présents, absents, en retard…) ouvrent la
+liste des personnes de ce statut. Demandé par l'établissement : pouvoir y
+filtrer par département et par section, et une modale plus grande.
+
+⚠️ **Les sélecteurs de la modale pilotent le MÊME état que la barre de filtres
+de l'onglet** (`ScopeSelects`, rendu aux deux endroits). Un jeu de filtres
+propre à la modale serait une seconde source de vérité pour la même question :
+les compteurs des cartes sont calculés sur le périmètre CHARGÉ, donc on lirait
+« 28 absents » sur la carte au-dessus d'une liste de quatre. En partageant
+l'état, restreindre depuis la modale restreint tout l'écran — carte, liste et
+tableau disent la même chose, et on referme le dialogue sur le périmètre qu'on
+vient de choisir.
+
+⚠️ **Un changement de périmètre ne referme plus la modale.** Un seul effet
+remettait à zéro la pagination ET fermait la modale sur `[date, département,
+section, recherche]` : le premier clic sur un département l'aurait fait
+disparaître, c'est-à-dire que la fonctionnalité demandée se serait annulée
+elle-même. Seul le changement de JOUR la referme désormais — son contenu
+parlerait d'une autre journée.
+
+- **Enfants seulement** : le personnel n'est rattaché à aucun département (cf.
+  § Paramètres), donc sa modale n'a pas de filtres.
+- Les listes viennent de l'**ANNUAIRE**, comme la barre de filtres :
+  `/departments` exige `organization:read`, que la plupart des porteurs de
+  `attendance:read` n'ont pas.
+- La boîte passe de `max-w-lg` à **`max-w-3xl`** (448 → 768 px mesurés) : on y
+  lit un nom, deux heures et un statut sur une seule ligne, et un nom composé y
+  était tronqué. La pagination interne suit (8 → 12 lignes) — une boîte deux
+  fois plus large qu'on pagine toutes les huit lignes perd ce qu'on vient de
+  lui donner. Hauteur en `dvh` et non `vh` : sur mobile la barre d'adresse qui
+  se rétracte change la hauteur utile.
+- ⚠️ `min-w-0` sur la zone défilante : `DialogContent` est une GRILLE, dont la
+  piste se dimensionne sur le plus grand `min-content` de ses enfants — le
+  piège déjà vécu sur le registre d'une diffusion.
+
+Vérifié dans un vrai navigateur : 768 px à 1280, filtrage « Maternelle » puis
+« Moyenne Section » qui fait passer la modale de 4 à 3 puis 1 enfant **sans la
+refermer**, et à 375 px aucun débordement horizontal
+(`scrollWidth === clientWidth`).
 
 ### Permissions — CINQ, et c'est un découpage voulu
 
@@ -3172,6 +3260,57 @@ désormais s'ils venaient à déborder.
 Vérifié à 375 px : aucun élément coupé, aucun débordement horizontal. Le
 `min-h-5` a été prouvé par sabotage — remis à `h-5`, la pastille n'affiche plus
 que 18 px sur les 27 nécessaires.
+
+### ⚠️ Les RETOURS À LA LIGNE d'une éducatrice, et le titre d'un domaine
+
+Deux signalements du même écran — la lecture d'un rapport par le **parent**,
+qui est le seul à voir `ContentView` pour le quotidien et le bi-mensuel (un
+admin peut corriger à tout statut, donc son écran affiche le FORMULAIRE).
+
+**1. Les retours à la ligne étaient avalés.** Les éducatrices rédigent en
+paragraphes ; un navigateur rend un `\n` comme une espace, donc trois
+paragraphes arrivaient au parent en un bloc, les phrases recollées bout à bout.
+Le texte était bien là, entier, simplement illisible — aucun écran, aucun test
+et aucun type ne pouvait le signaler.
+
+La convention existait depuis toujours partout où la plateforme affiche de la
+prose saisie : diffusions, messages, et jusqu'au `summary` d'un rapport, deux
+cartes au-dessus. **Le contenu STRUCTURÉ des rapports était le seul endroit qui
+ne la suivait pas** — parce qu'il a été écrit comme une liste de CHAMPS (une
+étiquette, une valeur) et qu'un champ se pense court. `Prose`
+(`content-view.tsx`) porte la règle pour les notes de santé, le fait marquant,
+les six domaines du bi-mensuel, les observations de l'enseignante et
+l'observation d'un domaine du bulletin annuel ; `Field` et les puces d'activité
+la portent aussi, inoffensive sur une valeur d'une ligne.
+
+`pre-wrap` et non `pre-line`, comme les quatre autres foyers : une éducatrice
+qui indente une liste à la main a voulu cette indentation.
+
+⚠️ **Le PDF du bulletin annuel avait le MÊME défaut**, et un second avec lui.
+reportlab lit du mini-HTML : un saut de ligne y vaut une espace, exactement
+comme dans un navigateur. `_prose()` (`reports/pdf.py`) pose donc des `<br/>`
+— et **échappe**, ce que ce document ne faisait nulle part, pas même pour le
+nom de l'enfant, alors que l'export des présences échappe depuis toujours. Un
+« & » dans une observation partait tel quel dans le balisage. L'ordre compte :
+échapper d'abord, poser les `<br/>` ensuite.
+
+**2. Le titre d'un domaine se confondait avec son contenu** (bi-mensuel). Les
+six domaines étaient annoncés par un libellé de douze pixels en gris posé
+juste au-dessus du texte : on ne voyait plus où un domaine s'arrêtait. C'est
+le pire cas possible de cette forme — les libellés sont des PHRASES
+(« Développement et structuration du langage oral et écrit »), donc eux-mêmes
+longs de plusieurs mots, et le corps en dessous est du texte libre de plusieurs
+paragraphes. Le quotidien, lui, avait ses sections bordurées à bandeau de titre
+depuis le chantier précédent.
+
+Le bi-mensuel les reprend telles quelles : un `<Section>` par domaine, et un
+aussi pour les trois groupes de pastilles et les observations. **Le bandeau
+BORNE le domaine au lieu de le précéder** — c'est tout ce qu'une étiquette ne
+pouvait pas faire.
+
+Vérifié dans un vrai navigateur, sur le portail du parent, à 1050 px et à
+375 px : `white-space: pre-wrap` effectif, paragraphes séparés, titres repliés
+sur deux lignes sans débordement horizontal (`scrollWidth === clientWidth`).
 
 ### Trois types, affectés par département (pas globalement)
 

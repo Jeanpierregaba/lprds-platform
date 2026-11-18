@@ -137,7 +137,7 @@
   "credentials": {
     "title": "Credentials to pass on",
     "description": "Copy this message and send it however you like. It contains the account password.",
-    "message": "Hello {name},\n\nHere are your credentials for the {platform} platform:\n\nLink: {link}\nEmail: {email}\nPassword: {password}\n\nRemember to change your password from your settings after signing in for the first time.",
+    "message": "Hello {name},\n\nHere are your credentials for the {platform} platform:\n\nLink: {link}\nEmail: {email}\nPassword: {password}\n\nRemember to turn on notifications in the platform settings.",
     "copy": "Copy message",
     "copied": "Message copied",
     "copyFailed": "The browser refused to copy automatically. The text is selected: copy it by hand.",

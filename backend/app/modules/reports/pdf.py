@@ -6,6 +6,7 @@ depuis le service pour ne pas bloquer la boucle événementielle.
 """
 
 from io import BytesIO
+from xml.sax.saxutils import escape as xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -20,6 +21,27 @@ from reportlab.platypus import (
 )
 
 from app.core.i18n import DEFAULT_LOCALE, Locale, t
+
+
+def _prose(text: str) -> str:
+    """Texte libre d'une éducatrice, pour un `Paragraph` reportlab.
+
+    ⚠️ Deux choses, et aucune n'est optionnelle :
+
+    - **les RETOURS À LA LIGNE** — reportlab lit du mini-HTML, donc un « \n »
+      brut y vaut une espace, exactement comme dans un navigateur. Une
+      observation rédigée en paragraphes arrivait au parent en un seul bloc,
+      ici comme à l'écran (cf. `Prose` côté frontend) ;
+    - **l'ÉCHAPPEMENT** — un « & » ou un « < » dans une observation était
+      interpolé tel quel dans le balisage. L'export des présences échappe
+      depuis toujours (`xml_escape`) ; ce document-ci ne le faisait nulle part,
+      pas même pour le nom de l'enfant.
+
+    L'ordre compte : échapper d'abord, poser les `<br/>` ensuite — l'inverse
+    transformerait les balises qu'on vient d'écrire en texte visible.
+    """
+    return xml_escape(text or "").replace("\n", "<br/>")
+
 
 # Les 6 domaines du bulletin, dans l'ordre d'impression. Seuls les CODES sont
 # ici : les libellés viennent du catalogue, comme le vocabulaire des rapports.
@@ -65,10 +87,10 @@ def render_annual_report_pdf(
     )
 
     story = [
-        Paragraph(establishment_name, subtitle_style),
+        Paragraph(xml_escape(establishment_name), subtitle_style),
         Paragraph(t("reports.pdf.title", locale), title_style),
-        Paragraph(child_full_name, subtitle_style),
-        Paragraph(period_label, subtitle_style),
+        Paragraph(xml_escape(child_full_name), subtitle_style),
+        Paragraph(xml_escape(period_label), subtitle_style),
         Spacer(1, 0.8 * cm),
     ]
 
@@ -85,7 +107,7 @@ def render_annual_report_pdf(
         rows.append([
             Paragraph(t(f"reports.domains.{field}", locale), cell_style),
             Paragraph(rating_label, cell_style),
-            Paragraph(assessment["observation"], cell_style),
+            Paragraph(_prose(assessment["observation"]), cell_style),
         ])
 
     table = Table(rows, colWidths=[5.5 * cm, 3 * cm, 8 * cm], repeatRows=1)

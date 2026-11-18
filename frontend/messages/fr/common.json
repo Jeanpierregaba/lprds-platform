@@ -137,7 +137,7 @@
   "credentials": {
     "title": "Accès à transmettre",
     "description": "Copiez ce message et envoyez-le par le canal de votre choix. Il contient le mot de passe du compte.",
-    "message": "Bonjour {name},\n\nVoici vos accès à la plateforme {platform} :\n\nLien : {link}\nEmail : {email}\nMot de passe : {password}\n\nPensez à changer votre mot de passe depuis vos paramètres après votre première connexion.",
+    "message": "Bonjour {name},\n\nVoici vos accès à la plateforme {platform} :\n\nLien : {link}\nEmail : {email}\nMot de passe : {password}\n\nPensez à activer les notifications dans les paramètres de la plateforme.",
     "copy": "Copier le message",
     "copied": "Message copié",
     "copyFailed": "Copie automatique refusée par le navigateur. Le texte est sélectionné : copiez-le à la main.",

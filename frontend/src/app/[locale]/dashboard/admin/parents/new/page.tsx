@@ -23,6 +23,7 @@ import { ChildMultiSelect } from '../child-multiselect'
 import type { ParentChildBrief } from '@/types/parents'
 import { useRouter } from '@/i18n/navigation'
 import { passwordField } from '@/lib/validation/password'
+import { displayName } from '@/lib/utils/display-name'
 
 type T = (key: string) => string
 
@@ -76,7 +77,7 @@ export default function NewParentPage() {
       })
       toast.success(t('form.created'))
       setCreeId(data.id)
-      setAcces({ name: values.first_name, email: values.email, password: values.password })
+      setAcces({ name: displayName(values), email: values.email, password: values.password })
     } catch (err) {
       toast.error(getApiErrorMessage(err))
     }

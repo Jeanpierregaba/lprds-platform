@@ -41,6 +41,13 @@ export function CredentialsDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * ⚠️ Le nom **AFFICHÉ** — `displayName()`, jamais `first_name`. Les six
+   * points d'appel passaient l'état civil, si bien que le message saluait
+   * « Bonjour Anaïs » un parent que tout l'établissement appelle
+   * « Papa Anaïs ». Le message est lu par le destinataire, pas par
+   * l'administration : c'est l'écran du projet où le surnom compte le plus.
+   */
   name: string
   email: string
   password: string
@@ -58,6 +65,11 @@ export function CredentialsDialog({
       ? ''
       : `${window.location.origin}${localePath('/auth/login', locale)}`
 
+  // La dernière ligne du message invite à activer les NOTIFICATIONS, et non
+  // plus à changer son mot de passe : plus aucun changement n'est imposé au
+  // premier login (cf. § Authentification), alors que le push exige un
+  // abonnement par appareil que personne ne pense à accorder — c'est donc le
+  // seul geste qui reste utile à demander dans ce message.
   const message = t('message', { name, platform: APP_NAME, link, email, password })
 
   // « Copié » retombe tout seul : un état figé laisse croire que le second
@@ -72,6 +84,43 @@ export function CredentialsDialog({
     if (!open) { setCopied(false); setFailed(false) }
   }, [open])
 
+  // ⚠️ La hauteur s'ajuste au CONTENU. Un `rows` fixe est un pari sur le
+  // nombre de lignes RENDUES, et ce nombre dépend du nom de la plateforme, de
+  // la longueur du lien et du repli de chaque ligne — le pari était perdu :
+  // mesuré à l'écran, 239 px de texte dans 200 px de boîte, donc la dernière
+  // ligne (celle qui demande quelque chose au destinataire) était coupée. Un
+  // texte affiché pour être relu et sélectionné à la main ne doit pas exiger
+  // qu'on devine qu'il défile.
+  //
+  // ⚠️ L'ajustement se fait dans la **ref de rappel**, jamais dans un effet de
+  // montage : `DialogContent` monte son contenu dans un SECOND commit (ouverture
+  // animée), si bien que l'effet du parent passe quand `champ.current` est
+  // encore nul — et ses dépendances ne rebougeant plus, il ne repasse jamais.
+  // Première version écrite ainsi : vérifiée dans un vrai navigateur, l'attribut
+  // `style` restait absent et la ligne restait coupée à l'identique.
+  //
+  // ⚠️ On mesure à l'OUVERTURE, et plus jamais ensuite. Un auditeur de
+  // redimensionnement a été essayé puis retiré : à chaque fois, la mesure
+  // tombait sur une disposition que le navigateur n'avait pas encore
+  // recalculée pour la nouvelle largeur, et ramenait la boîte à sa hauteur de
+  // repli (202 px pour 239 px de texte) — donc PIRE que de ne rien faire.
+  // Différer d'une image n'y change rien. Une fenêtre redimensionnée pendant
+  // que le dialogue est ouvert laisse donc simplement la boîte DÉFILER
+  // (`overflow-y-auto`), ce qui est le comportement d'origine.
+  const ajuste = (el: HTMLTextAreaElement | null) => {
+    champ.current = el
+    if (!el) return
+    el.style.height = 'auto'
+    // ⚠️ `scrollHeight` ignore la BORDURE, que `height` inclut en `border-box` :
+    // poser `scrollHeight` tel quel laissait 237 px utiles pour 239 px de texte,
+    // soit la dernière ligne rognée de deux pixels — mesuré à l'écran.
+    const bordure = el.offsetHeight - el.clientHeight
+    el.style.height = `${el.scrollHeight + bordure}px`
+  }
+
+  // Le repli des lignes dépend de la LARGEUR : une mesure prise en grand ne
+  // vaut plus après une rotation de téléphone (mesuré : 239 px retenus pour
+  // 258 px de texte, dernière ligne coupée de nouveau).
   const copier = async () => {
     try {
       await navigator.clipboard.writeText(message)
@@ -107,13 +156,13 @@ export function CredentialsDialog({
         </DialogHeader>
 
         <textarea
-          ref={champ}
+          ref={ajuste}
           readOnly
           value={message}
-          rows={9}
+          rows={9}  /* plancher avant mesure — la hauteur réelle vient de `ajuste` */
           aria-label={t('title')}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full resize-none rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed"
+          className="max-h-[40dvh] w-full resize-none overflow-y-auto rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed"
         />
 
         <p className="flex items-start gap-2 text-xs text-muted-foreground">

@@ -9,11 +9,32 @@ import type {
   AnnualReportContent, BiMensuelReportContent, DailyReportContent, DomainAssessment,
 } from '@/types/reports'
 
+/**
+ * Texte libre d'une éducatrice — les RETOURS À LA LIGNE comptent.
+ *
+ * ⚠️ Sans `whitespace-pre-wrap`, le navigateur rend un `\n` comme une espace :
+ * une observation rédigée en trois paragraphes arrivait au parent en un seul
+ * bloc, les phrases recollées bout à bout. Signé par l'établissement, et le
+ * défaut est silencieux — le texte est bien là, entièrement, simplement
+ * illisible. La convention existait déjà partout où la plateforme affiche de la
+ * prose saisie (diffusions, messages, `summary` d'un rapport) : le contenu
+ * STRUCTURÉ des rapports était le seul endroit qui ne la suivait pas.
+ *
+ * `pre-wrap` et non `pre-line`, comme les quatre autres foyers : une éducatrice
+ * qui indente une liste à la main a voulu cette indentation.
+ */
+function Prose({ value }: { value?: string | null }) {
+  if (!value) return <p className="text-sm text-muted-foreground">—</p>
+  return (
+    <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{value}</p>
+  )
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0 space-y-0.5">
       <p className="text-xs font-medium text-secondary/70">{label}</p>
-      <p className="break-words text-sm [overflow-wrap:anywhere]">{value || '—'}</p>
+      <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">{value || '—'}</p>
     </div>
   )
 }
@@ -48,7 +69,7 @@ function BulletList({
       )}
     >
       {items.map((item, i) => (
-        <li key={`${item}-${i}`} className="break-words [overflow-wrap:anywhere]">
+        <li key={`${item}-${i}`} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {item}
         </li>
       ))}
@@ -146,7 +167,7 @@ export function ContentView({
         </Section>
         {c.highlight && (
           <Section title={t('content.highlight')}>
-            <p className="text-sm">{c.highlight}</p>
+            <Prose value={c.highlight} />
           </Section>
         )}
       </div>
@@ -155,24 +176,38 @@ export function ContentView({
 
   if (reportType === 'bi_mensuel') {
     const c = content as unknown as BiMensuelReportContent
+    /*
+     * Les mêmes sections bordurées que le quotidien, et pour la même raison —
+     * signé par l'établissement : un domaine était annoncé par un libellé de
+     * douze pixels en gris, posé juste au-dessus de son texte, si bien que le
+     * titre se confondait avec le contenu et qu'on ne voyait plus où un domaine
+     * s'arrêtait. C'est le pire cas possible de cette forme : les six libellés
+     * sont des PHRASES (« Développement et structuration du langage oral et
+     * écrit »), donc eux-mêmes longs de plusieurs mots, et le corps en dessous
+     * est du texte libre de plusieurs paragraphes.
+     *
+     * Le bandeau de titre fait le travail qu'une étiquette ne pouvait pas faire :
+     * il BORNE le domaine au lieu de le précéder.
+     */
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {DOMAIN_KEYS.map((key) => (
-          <Field key={key} label={reportDomainsLabel(key)} value={c[key]} />
+          <Section key={key} title={reportDomainsLabel(key)}>
+            <Prose value={c[key]} />
+          </Section>
         ))}
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">{t('content.classBehaviors')}</p>
-          <Tags codes={c.class_behaviors} vocabulary={vocabulary.class_behavior} />
-        </div>
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">{t('content.peerRelations')}</p>
-          <Tags codes={c.peer_relations} vocabulary={vocabulary.peer_relation} />
-        </div>
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">{t('content.emotionManagement')}</p>
-          <Tags codes={c.emotion_management} vocabulary={vocabulary.emotion_management} />
-        </div>
-        <Field label={t('content.teacherObservations')} value={c.teacher_observations} />
+        <Section title={t('content.classBehaviors')}>
+          <Tags codes={c.class_behaviors} vocabulary={vocabulary.class_behavior} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
+        </Section>
+        <Section title={t('content.peerRelations')}>
+          <Tags codes={c.peer_relations} vocabulary={vocabulary.peer_relation} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
+        </Section>
+        <Section title={t('content.emotionManagement')}>
+          <Tags codes={c.emotion_management} vocabulary={vocabulary.emotion_management} badgeClassName="border-secondary/30 bg-secondary/[0.04]" />
+        </Section>
+        <Section title={t('content.teacherObservations')}>
+          <Prose value={c.teacher_observations} />
+        </Section>
       </div>
     )
   }
@@ -191,7 +226,7 @@ export function ContentView({
               <Badge variant="outline" className="font-normal">
                 {domain ? vocabulary.acquisition_level[domain.rating] : '—'}
               </Badge>
-              <p className="text-sm">{domain?.observation || '—'}</p>
+              <Prose value={domain?.observation} />
             </CardContent>
           </Card>
         )

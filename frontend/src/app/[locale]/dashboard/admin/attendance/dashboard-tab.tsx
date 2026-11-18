@@ -38,7 +38,10 @@ import { displayName } from '@/lib/utils/display-name'
 
 const ALL = '__all__'
 const PAGE_SIZE = 15
-const MODAL_PAGE_SIZE = 8
+// 12 et non 8 : la modale est passée de `max-w-lg` à `max-w-3xl`, et une boîte
+// deux fois plus large qu'on pagine toutes les huit lignes perd justement ce
+// qu'on vient de lui donner.
+const MODAL_PAGE_SIZE = 12
 
 type StatKey = 'total' | 'present' | 'absent' | 'late' | 'not_expected' | 'exempt'
 
@@ -385,23 +388,94 @@ function StatCards({
   )
 }
 
+/**
+ * Périmètre département / section — et c'est le MÊME état que la barre de
+ * filtres de l'onglet, rendu une seconde fois dans la modale.
+ *
+ * ⚠️ Pas de jeu de filtres propre à la modale, délibérément : ce serait une
+ * seconde source de vérité pour la même question, et les compteurs des cartes
+ * — qui sont calculés sur le périmètre chargé — ne diraient plus ce que la
+ * liste montre. On lirait « 28 absents » sur la carte au-dessus d'une liste de
+ * quatre. En partageant l'état, restreindre depuis la modale restreint tout
+ * l'écran : la carte annonce 4, la liste en montre 4, et on referme le
+ * dialogue sur le périmètre qu'on vient de choisir.
+ *
+ * Les listes viennent de l'ANNUAIRE : `/departments` exige `organization:read`,
+ * que la plupart des porteurs de `attendance:read` n'ont pas.
+ */
+function ScopeSelects({
+  departmentId, sectionId, onDepartmentChange, onSectionChange, className,
+}: {
+  departmentId: string
+  sectionId: string
+  onDepartmentChange: (value: string) => void
+  onSectionChange: (value: string) => void
+  className?: string
+}) {
+  const t = useTranslations('attendance')
+  const { departments, sectionsOf } = useDirectoryUnits()
+  const sections = sectionsOf(departmentId === ALL ? null : departmentId)
+  return (
+    <>
+      <Select
+        items={{ [ALL]: t('dashboard.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
+        value={departmentId}
+        onValueChange={(v) => { onDepartmentChange(v ?? ALL); onSectionChange(ALL) }}
+      >
+        <SelectTrigger className={cn('w-full sm:w-52', className)}>
+          <SelectValue placeholder={t('dashboard.allDepartments')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t('dashboard.allDepartments')}</SelectItem>
+          {departments?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select
+        items={{ [ALL]: t('dashboard.allSections'), ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
+        value={sectionId}
+        onValueChange={(v) => onSectionChange(v ?? ALL)}
+      >
+        <SelectTrigger className={cn('w-full sm:w-52', className)}>
+          <SelectValue placeholder={t('dashboard.allSections')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t('dashboard.allSections')}</SelectItem>
+          {sections?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </>
+  )
+}
+
 function StatusModal({
-  open, onClose, title, subtitle, children,
+  open, onClose, title, subtitle, filters, children,
 }: {
   open: boolean
   onClose: () => void
   title: string
   subtitle: string
+  /** Périmètre, posé sous l'en-tête — enfants seulement (cf. ScopeSelects). */
+  filters?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="flex max-h-[80vh] flex-col sm:max-w-lg">
+      {/* `max-w-3xl` : on y lit un nom, deux heures et un statut sur la même
+          ligne, et à `max-w-lg` le nom était tronqué dès qu'il était composé.
+          `dvh` et non `vh` — sur mobile la barre d'adresse qui se rétracte
+          change la hauteur utile, et `vh` l'ignore (bas de boîte coupé). */}
+      <DialogContent className="flex max-h-[85dvh] flex-col gap-4 sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{subtitle}</DialogDescription>
         </DialogHeader>
-        <div className="-mx-1 overflow-y-auto px-1">{children}</div>
+        {filters && (
+          <div className="flex flex-wrap items-center gap-3">{filters}</div>
+        )}
+        {/* ⚠️ `min-w-0` : `DialogContent` est une GRILLE, dont la piste se
+            dimensionne sur le plus grand `min-content` de ses enfants. Sans
+            lui, une ligne insécable fait déborder TOUT le dialogue. */}
+        <div className="-mx-1 min-w-0 overflow-y-auto px-1">{children}</div>
       </DialogContent>
     </Dialog>
   )
@@ -460,12 +534,6 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
   const [departmentId, setDepartmentId] = useState<string>(ALL)
   const [sectionId, setSectionId] = useState<string>(ALL)
 
-  // Sélecteurs de périmètre : l'ANNUAIRE. `/departments` et `/sections`
-  // exigent `organization:read`, que la plupart des porteurs de
-  // `attendance:read` n'ont pas — le filtre restait vide.
-  const { departments, sectionsOf } = useDirectoryUnits()
-  const sections = sectionsOf(departmentId === ALL ? null : departmentId)
-
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'daily', 'children', { date, departmentId, sectionId }],
     queryFn: () =>
@@ -498,7 +566,12 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
   const [correcting, setCorrecting] = useState<CorrectionTarget | null>(null)
   const [confirmNotify, setConfirmNotify] = useState(false)
   const [relaunchTarget, setRelaunchTarget] = useState<{ id: string; name: string } | null>(null)
-  useEffect(() => { setPage(1); setModal(null); setModalPage(1) }, [date, departmentId, sectionId, search])
+  // Changer de JOUR referme la modale : son contenu parlait d'une autre journée.
+  useEffect(() => { setModal(null) }, [date])
+  // ⚠️ Le périmètre, lui, ne la referme PAS — il se règle maintenant DEPUIS
+  // elle, et la refermer au premier clic sur un département rendrait ses
+  // propres filtres inutilisables. Il ne reste que la pagination à reposer.
+  useEffect(() => { setPage(1); setModalPage(1) }, [date, departmentId, sectionId, search])
 
   const notifyMutation = useMutation({
     mutationFn: () => attendanceApi.sendAbsenceInquiries({
@@ -579,32 +652,12 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
             className="pl-9"
           />
         </div>
-        <Select
-          items={{ [ALL]: t('dashboard.allDepartments'), ...Object.fromEntries((departments ?? []).map((d) => [d.id, d.name])) }}
-          value={departmentId}
-          onValueChange={(v) => { setDepartmentId(v ?? ALL); setSectionId(ALL) }}
-        >
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder={t('dashboard.allDepartments')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('dashboard.allDepartments')}</SelectItem>
-            {departments?.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select
-          items={{ [ALL]: t('dashboard.allSections'), ...Object.fromEntries((sections ?? []).map((s) => [s.id, s.name])) }}
-          value={sectionId}
-          onValueChange={(v) => setSectionId(v ?? ALL)}
-        >
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder={t('dashboard.allSections')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('dashboard.allSections')}</SelectItem>
-            {sections?.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <ScopeSelects
+          departmentId={departmentId}
+          sectionId={sectionId}
+          onDepartmentChange={setDepartmentId}
+          onSectionChange={setSectionId}
+        />
         {/* ⚠️ Gardé par `canCorrect`, comme la relance individuelle juste
             en dessous : l'enquête d'absence ÉCRIT aux parents. Ce bouton-ci
             n'avait aucune garde — il s'affichait dès `attendance:read` et
@@ -739,6 +792,15 @@ function ChildrenDaily({ date, canCorrect }: { date: string; canCorrect: boolean
         onClose={() => setModal(null)}
         title={modal ? t('dashboard.modalChildren', { title: t(`dashboard.modalTitles.${modal}`) }) : ''}
         subtitle={modal ? t('dashboard.childCount', { count: modalItems.length }) : ''}
+        filters={(
+          <ScopeSelects
+            departmentId={departmentId}
+            sectionId={sectionId}
+            onDepartmentChange={setDepartmentId}
+            onSectionChange={setSectionId}
+            className="sm:w-56"
+          />
+        )}
       >
         {modalItems.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{t('dashboard.noChildInCategory')}</p>
